@@ -138,6 +138,7 @@
 	<string name="export_reason_sketch_part_not_runtime_content">下絵（スケッチ）パーツはランタイムの内容ではないため、除外しました。</string>
 	<string name="export_reason_hidden_part_omitted_by_option">非表示のパーツを書き出さない設定のため、このパーツの内容を除外しました。</string>
 	<string name="export_reason_hidden_drawable_omitted_by_option">非表示のアートメッシュを書き出さない設定のため、このアートメッシュを除外しました。</string>
+	<string name="export_reason_vertex_count_exceeds_index_width">メッシュの頂点数 %1$d が 16 ビットの三角形インデックスで扱える上限 %2$d を超えるため、このアートメッシュを除外しました。</string>
 	<string name="export_reason_no_atlas_page_bound">この描画オブジェクトにはアトラスページが割り当てられていないため、ページ 0 を指す状態で書き出しました。</string>
 	<string name="export_reason_clipping_mask_not_in_export">クリッピングマスク %1$s はこの書き出しに含まれないため、メッシュはそのマスクなしで書き出しました。</string>
 	<string name="export_reason_offscreen_mask_not_in_export">クリッピングマスクが書き出せなかった描画オブジェクトを指しているため、オフスクリーンから除外しました。</string>
@@ -570,6 +571,7 @@
 	<string name="history_mesh_merge">頂点をマージ</string>
 	<string name="history_mesh_rip">リップ</string>
 	<string name="history_mesh_connect">頂点を連結</string>
+	<string name="history_mesh_generate_from_art">アートからメッシュを生成</string>
 	<string name="history_drawable_duplicate">描画オブジェクトを複製</string>
 	<string name="notice_merge_needs_vertices">マージには2つ以上の選択頂点が必要です（頂点モード）。</string>
 	<string name="notice_connect_needs_two_vertices">連結にはちょうど2つの選択頂点が必要です（頂点モード）。</string>

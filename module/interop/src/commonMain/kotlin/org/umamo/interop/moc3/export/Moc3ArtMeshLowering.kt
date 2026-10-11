@@ -51,6 +51,8 @@ internal fun lowerArtMeshes(
 		noticeSink.reportDemotions(ExportEntityCategory.Drawable, drawable.id.raw, keyforms)
 		val bundle = keyforms?.bundle
 		val cellCount = maxOf(bundle?.cells?.size ?: 0, 1)
+		// MOC3 §5.7 s79 ARTMESH_INDEX_DATA: each index is a u16, written as its 16-bit pattern; the
+		// eligibility pass drops any mesh whose indices would not fit.
 		val triangleIndices =
 			ShortArray(mesh.indices.size) { index -> mesh.indices[index].toShort() }
 		// -1 is the "no atlas page bound" sentinel and a moc has no way to spell it, so the write

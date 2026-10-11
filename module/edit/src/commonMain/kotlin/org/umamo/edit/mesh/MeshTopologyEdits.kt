@@ -29,6 +29,8 @@ import org.umamo.runtime.model.meshOf
  *   - [FromOld] copies one old vertex's deltas verbatim (a kept or duplicated vertex).
  *   - [AverageOf] averages several old vertices' deltas (a merge's surviving vertex).
  *   - [LerpOf] interpolates two old vertices' deltas by t (a split point on an old edge).
+ *   - [Weighted] blends any old vertices' deltas by weights summing to one (a regenerated mesh's
+ *     vertex, placed by where it falls in the old mesh).
  *
  * トポロジ編集後の各頂点が、旧頂点からどのようにキーフォームのデルタを引き継ぐかの指定。
  */
@@ -55,12 +57,28 @@ sealed interface VertexSource {
 	 * @property Float t The split parameter (0 = at oldA, 1 = at oldB).
 	 */
 	data class LerpOf(val oldA: Int, val oldB: Int, val t: Float) : VertexSource
+
+	/**
+	 * The new vertex blends old vertices by weights summing to one: its deltas are the same weighted
+	 * sum.  It claims no old identity, so no glue pair follows it - only a vertex that IS an old one
+	 * carries that vertex's glue.  A plain class, since it holds arrays.
+	 *
+	 * @property IntArray   oldIndices The old vertices blended, at least one.
+	 * @property FloatArray weights    One weight per old vertex, in the same order.
+	 */
+	class Weighted(val oldIndices: IntArray, val weights: FloatArray) : VertexSource {
+		init {
+			require(oldIndices.isNotEmpty()) { "a weighted source needs at least one old vertex" }
+			require(weights.size == oldIndices.size) { "${weights.size} weights for ${oldIndices.size} old vertices" }
+		}
+	}
 }
 
 /**
  * One topology edit of one drawable's mesh, ready to commit: the complete replacement mesh (canvas
  * positions, keyform-space base, uvs, and indices all sized to the new vertex count; the base already
- * carried through the sources by [editedMesh]) plus one [VertexSource] per NEW vertex, from which
+ * carried over by [editedMesh] or by the mesh regeneration builder) plus one [VertexSource] per NEW
+ * vertex, from which
  * [withMeshTopologyEdit] rebuilds every keyform cell's deltas and remaps the glue pairs.  The op
  * builders in MeshTopologyOps produce these; they never touch the model themselves.
  *
@@ -150,8 +168,8 @@ fun PuppetModel.withMeshTopologyEdit(id: DrawableId, edit: MeshTopologyEdit): Pu
 					}
 				}
 
-			// A split point is a brand-new vertex; it claims no old identity.
-			is VertexSource.LerpOf -> {}
+			// A split point and an interpolated vertex are brand-new vertices; they claim no old identity.
+			is VertexSource.LerpOf, is VertexSource.Weighted -> {}
 		}
 	}
 
@@ -186,6 +204,30 @@ fun PuppetModel.withMeshTopologyEdit(id: DrawableId, edit: MeshTopologyEdit): Pu
 }
 
 /**
+ * Applies topology edits to several drawables at once, in the map's order.  Each pass maps only its own
+ * drawable's side of a glue pair through its own old mesh, so the passes compose in any order - a glue
+ * between two edited drawables ends up remapped on both sides.
+ *
+ * @param Map<DrawableId, MeshTopologyEdit> edits The edit for each drawable.
+ * @return PuppetModel? The edited model, or null when any edit does not apply (so no caller ever keeps a partial result).
+ */
+fun PuppetModel.withMeshTopologyEdits(edits: Map<DrawableId, MeshTopologyEdit>): PuppetModel? {
+	var edited = this
+
+	for ((drawableId, edit) in edits) {
+		val next = edited.withMeshTopologyEdit(drawableId, edit)
+
+		if (next === edited) {
+			return null
+		}
+
+		edited = next
+	}
+
+	return edited
+}
+
+/**
  * Rebuilds one keyform cell's [MeshDeltaForm] at the new vertex count: its deltas through [remapPerVertex],
  * one (x, y) pair per new vertex.
  *
@@ -198,10 +240,12 @@ private fun remapMeshDeltas(form: MeshDeltaForm, vertexSources: List<VertexSourc
 	MeshDeltaForm(remapPerVertex(form.positionDeltas, vertexSources, oldVertexCount))
 
 /**
- * Rebuilds a per-vertex (x, y) array at the new vertex count: each new vertex's pair copies, averages, or
- * lerps from the old array per its [VertexSource] - the one recipe a topology edit applies to every
- * per-vertex array it carries over (keyform deltas, blend-shape deltas, the keyform-space base).  An old
- * index beyond the old array (a malformed grid) contributes zero, keeping the rebuild total.
+ * Rebuilds a per-vertex (x, y) array at the new vertex count: each new vertex's pair copies, averages,
+ * lerps, or blends from the old array per its [VertexSource] - the one recipe a topology edit applies to
+ * every per-vertex array it carries over (keyform deltas, blend-shape deltas, the keyform-space base).  An
+ * old index beyond the old array (a malformed grid) contributes zero, keeping the rebuild total.  A
+ * weighted sum starts from its first term, so a single weight of one copies the old value exactly,
+ * negative zero included.
  *
  * @param FloatArray values The old interleaved (x, y) values.
  * @param List<VertexSource> vertexSources One source per new vertex.
@@ -236,6 +280,19 @@ internal fun remapPerVertex(values: FloatArray, vertexSources: List<VertexSource
 			is VertexSource.LerpOf -> {
 				newValues[newIndex * 2] = oldX(source.oldA) + (oldX(source.oldB) - oldX(source.oldA)) * source.t
 				newValues[newIndex * 2 + 1] = oldY(source.oldA) + (oldY(source.oldB) - oldY(source.oldA)) * source.t
+			}
+
+			is VertexSource.Weighted -> {
+				var sumX = source.weights[0] * oldX(source.oldIndices[0])
+				var sumY = source.weights[0] * oldY(source.oldIndices[0])
+
+				for (term in 1 until source.oldIndices.size) {
+					sumX += source.weights[term] * oldX(source.oldIndices[term])
+					sumY += source.weights[term] * oldY(source.oldIndices[term])
+				}
+
+				newValues[newIndex * 2] = sumX
+				newValues[newIndex * 2 + 1] = sumY
 			}
 		}
 	}

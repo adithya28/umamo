@@ -13,6 +13,7 @@ Umamo is early alpha.
 * UI: The 2D Viewport's mode DropdownChip is now pinned instead of collapsing into the more chip.
 
 ### Fixed
+* Format: MOC3 export now refuses to export an art mesh with more than 65,536 vertices instead of writing wrapped triangle indices.
 
 ## 0.4.0 - 2026-10-02
 

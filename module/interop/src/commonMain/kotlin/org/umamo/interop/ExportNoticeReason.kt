@@ -50,6 +50,18 @@ sealed interface ExportNoticeReason {
 	/** A hidden art mesh was left out because the export options omit hidden drawables. */
 	data object HiddenDrawableOmittedByExportOption : ExportNoticeReason
 
+	/**
+	 * An art mesh with more vertices than a moc's 16-bit triangle indices can address, left out rather
+	 * than written with wrapped indices.
+	 *
+	 * @property Int vertexCount        The mesh's vertex count.
+	 * @property Int maximumVertexCount The most vertices one mesh can have.
+	 */
+	data class VertexCountExceedsIndexWidth(
+		val vertexCount: Int,
+		val maximumVertexCount: Int,
+	) : ExportNoticeReason
+
 	/** No atlas page is bound to the drawable, so its texture index fell back to page 0. */
 	data object NoAtlasPageBound : ExportNoticeReason
 

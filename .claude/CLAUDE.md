@@ -205,7 +205,9 @@ This is where Live2D's own reimport is lossy; doing it well is a competitive fea
                             `property/`, `atlas/`), each holding its pure PuppetModel transforms and
                             the EditorSession extensions that record them; `seed/` holds the catalogs
                             a new model starts from.  A domain imports the root, never the reverse.
-                            → :runtime (api), kotlinx-coroutines (api)
+                            `mesh/` also carries rig work onto a mesh generated from art (the
+                            transfer behind Generate Mesh from Art), hence :geometry.
+                            → :runtime (api), :geometry (api), kotlinx-coroutines (api)
 :render       commonMain  — deformation eval (CPU) + the puppet renderer + morph-blend shaders,
                   + GL impl   over a `RenderDevice` backend seam.  → :runtime (api), :format (api).
                             The renderer also draws the mesh overlay (`MeshOverlay`: edges, dots, face

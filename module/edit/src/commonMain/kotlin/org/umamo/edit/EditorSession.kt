@@ -78,7 +78,8 @@ class EditorSession private constructor(
 	// and the notice channel handed in.  The latches, settings, and bus are reached through the three delegated interfaces
 	// in the header; what stays below is everything that writes a snapshotted flow, so every flow-write
 	// ordering stays in this facade.  The latches and the element memory are internal, not private, for
-	// the session's own extension files (ToolArming, SelectionEdits) - no other file may touch them.
+	// the session's own extension files in :edit and its domain subpackages - nothing outside the module
+	// may touch them.
 	private val history = HistoryCore(openingSnapshot, initialHistoryLimit)
 	internal val elementMemory = MeshElementMemory()
 	internal val latches: ToolLatches = collaborators.latches

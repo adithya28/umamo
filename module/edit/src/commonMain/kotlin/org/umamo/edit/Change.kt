@@ -943,6 +943,18 @@ sealed interface MeshChange : Change {
 	}
 
 	/**
+	 * Generates one or more drawables' meshes from their art in one step: every listed mesh is replaced
+	 * by a generated one, its keyform deltas, blend shapes, and glue pairs carried over from the mesh it
+	 * replaced.
+	 *
+	 * @property List<DrawableId> drawableIds The drawables whose meshes were replaced.
+	 */
+	data class GenerateFromArt(val drawableIds: List<DrawableId>) : MeshChange {
+		override val undoability: Undoability = Undoability.Undoable
+		override val labelKey: String = "change.mesh.generateFromArt"
+	}
+
+	/**
 	 * Transforms every vertex of one or more whole drawables to new rest positions - an Object-mode Grab /
 	 * Scale / Rotate of the selected drawables, or the Properties panel's typed Position / Size rows.
 	 * Recorded as one undo step for the whole gesture even though several drawables move.  The pose is
