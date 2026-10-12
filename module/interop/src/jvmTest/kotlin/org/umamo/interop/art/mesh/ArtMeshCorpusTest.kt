@@ -6,17 +6,16 @@ import org.umamo.format.art.SourceLayerKind
 import org.umamo.geometry.mesh.measureQuality
 import java.io.File
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
  * The art mesher over every raster layer of every real layered file in the local corpus (PSD, CLIP,
- * KRA), at every preset and once more at Standard with holes filled, each mesh checked by the
- * synthetic tests' independent oracles: every art pixel covered, every boundary edge clear of the
- * art, the vertex budget kept, and with holes filled one disc per outline ring.  Real art is where
- * the shapes the synthetic tests never imagined live - ragged antialiasing, hair tips, lace, specks
- * of eraser residue - and it reports counts, quality, and timing per sample.
+ * KRA), at every preset and once more at Standard with holes filled, each mesh checked by the same
+ * independent oracle the synthetic tests use: orientation, manifold edges, every art pixel covered,
+ * every boundary edge clear of the art, and with holes filled one disc per outline ring.  Real
+ * art is where the shapes the synthetic tests never imagined live - ragged antialiasing, hair tips,
+ * lace, specks of eraser residue - and it reports counts, quality, and timing per sample.
  *
  * Corpus-gated the way the readers' own tests are: every sample under `test/corpus/{psd,clip,krita}`
  * found by walking up from the working directory, self-skipping with a printed line when none exist.
@@ -88,13 +87,7 @@ class ArtMeshCorpusTest {
 				}
 
 				try {
-					assertArtCovered(layer.raster, mesh, settings.alphaThreshold)
-					assertBoundaryClearsArt(layer.raster, mesh, settings.alphaThreshold, settings.minimumMargin)
-					assertTrue(mesh.vertexCount <= settings.vertexBudget, "over the vertex budget")
-
-					if (settings.fillHoles) {
-						assertEquals(result.statistics!!.outlineRingCount, eulerCharacteristic(mesh), "a mesh with its holes filled is one disc per outline ring")
-					}
+					assertValidArtMesh(layer.raster, settings, result)
 				} catch (failure: AssertionError) {
 					throw AssertionError("$context: ${failure.message}", failure)
 				}

@@ -31,8 +31,6 @@ import org.umamo.runtime.model.meshOf
  *   - [LerpOf] interpolates two old vertices' deltas by t (a split point on an old edge).
  *   - [Weighted] blends any old vertices' deltas by weights summing to one (a regenerated mesh's
  *     vertex, placed by where it falls in the old mesh).
- *
- * トポロジ編集後の各頂点が、旧頂点からどのようにキーフォームのデルタを引き継ぐかの指定。
  */
 sealed interface VertexSource {
 	/**
@@ -81,8 +79,6 @@ sealed interface VertexSource {
  * vertex, from which [withMeshTopologyEdit] rebuilds every keyform cell's deltas and remaps the glue
  * pairs.  The op builders in MeshTopologyOps produce these; they never touch the model themselves.
  *
- * 1つの描画メッシュのトポロジ編集。置き換えメッシュと、新頂点ごとのデルタ導出指定を持つ。
- *
  * @property DrawableMesh newMesh The replacement mesh (a freshly built instance).
  * @property List<VertexSource> vertexSources One source per new vertex, in vertex order.
  */
@@ -99,9 +95,6 @@ class MeshTopologyEdit(
  * Everything else structurally shares with the receiver (the copy-on-write discipline).  Returns the
  * same instance when the drawable is missing, carries no mesh, or the edit's source list does not match
  * its new mesh (a malformed edit must not corrupt the model).
- *
- * トポロジ編集の適用。メッシュ全体を差し替え、全キーフォームセルのデルタを新頂点数に再構築し、
- * グルー対も旧→新の対応で再マップする（消えた頂点の対は破棄）。
  *
  * @param DrawableId id The drawable whose mesh the edit replaces.
  * @param MeshTopologyEdit edit The edit to apply.

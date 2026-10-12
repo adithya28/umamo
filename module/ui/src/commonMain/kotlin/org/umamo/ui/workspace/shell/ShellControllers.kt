@@ -180,21 +180,19 @@ internal class ShellControllers(
 	val areaOverlays = AreaOverlayHub()
 
 	/**
-	 * The repack's session memory, which lives as long as the window, across documents - which is why it does
-	 * not key on the session.
+	 * The repack's session memory who's lifetime is the open document.
 	 */
 	val repackOptions = AtlasRepackSessionOptions()
 
 	/**
-	 * Generate Mesh from Art's session memory, which lives as long as the window, across documents - every
-	 * value is in art pixels, so it means the same thing for any document.
+	 * Generate Mesh from Art's session memory who's lifetime is the open document.
 	 */
 	val meshGenerationOptions = MeshGenerationSessionOptions()
 
 	/** Whether a Generate Mesh from Art run is in flight, held here so a rebuilt command table still sees it. */
 	val meshGenerationRun = MeshGenerationRunState()
 
-	/** The operation settings strip's disclosure state, which lives as long as the window for the same reason. */
+	/** The operation settings strip's disclosure state who's lifetime is the open document. */
 	val operationStrip = OperationStripState()
 
 	/**
