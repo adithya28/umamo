@@ -11,6 +11,12 @@ import org.umamo.runtime.model.PuppetModel
 import org.umamo.runtime.model.partByDrawable
 
 /**
+ * The most vertices one art mesh can have: MOC3 §5.7 s79 ARTMESH_INDEX_DATA holds every triangle index
+ * as a u16, so the highest addressable vertex is 65535.
+ */
+internal const val MOC3_MAXIMUM_VERTEX_COUNT: Int = 65536
+
+/**
  * Which of a rig's objects an export actually writes, and why the rest were left out.
  *
  * @property List<Drawable>          drawables       The drawables that survive, in model order.
@@ -39,8 +45,9 @@ internal class Moc3ExportEligibility(
  * predicates below, so passing the un-stripped rig would be invisible today - which is exactly why the
  * order is stated rather than left to be rediscovered.
  *
- * Structural drops (sketch subtree, no mesh) are decided before the option-driven hidden drops, so the
- * mask exemption below can never resurrect a drawable the file has no way to write.
+ * Structural drops (sketch subtree, no mesh, a mesh past the 16-bit index range) are decided before the
+ * option-driven hidden drops, so the mask exemption below can never resurrect a drawable the file has no
+ * way to write.
  *
  * @param PuppetModel puppet The rig to export, already stripped to the target version.
  * @param Moc3ExportOptions options What the rigger chose to include; the default is the
@@ -85,10 +92,14 @@ internal fun resolveExportEligibility(
 	}
 	val dropped = LinkedHashMap<DrawableId, ExportNoticeReason>()
 	for (drawable in puppet.drawables) {
+		val vertexCount = drawable.mesh?.vertexCount ?: 0
+
 		if (partByDrawable[drawable.id] in sketchParts) {
 			dropped[drawable.id] = ExportNoticeReason.SketchPartIsNotRuntimeContent
 		} else if (drawable.mesh == null) {
 			dropped[drawable.id] = ExportNoticeReason.DrawableHasNoMesh
+		} else if (vertexCount > MOC3_MAXIMUM_VERTEX_COUNT) {
+			dropped[drawable.id] = ExportNoticeReason.VertexCountExceedsIndexWidth(vertexCount, MOC3_MAXIMUM_VERTEX_COUNT)
 		} else if (partByDrawable[drawable.id] in hiddenParts) {
 			dropped[drawable.id] = ExportNoticeReason.HiddenPartOmittedByExportOption
 		} else if (!options.exportHiddenDrawables && !drawable.isVisible) {

@@ -171,4 +171,7 @@ umamoTestCorpus {
 	sampleWithCorpusDefault("psd.sample", "psd/EricaTamamo.psd")
 	// The Edit-mode perf probe's rig (EditGrabPerfProbeTest): print-only, and it self-skips without it.
 	sample("moc3.perfSample")
+	// The mesh regeneration probe's extra rigs, comma-separated and explicit-only: by default it reads
+	// cmo3.sample alone, so a plain jvmTest never meshes the whole corpus.
+	sample("meshTransfer.samples")
 }

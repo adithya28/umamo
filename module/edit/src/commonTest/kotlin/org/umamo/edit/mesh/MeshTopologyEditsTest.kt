@@ -121,6 +121,27 @@ class MeshTopologyEditsTest {
 		assertSame(model().let { it to it.withMeshTopologyEdit(DrawableId("d"), malformed) }.let { (before, after) -> before === after }, true)
 	}
 
+	/** A weighted source sums old deltas from its first term (a lone weight of one copies, negative zero included) and claims no glue. */
+	@Test
+	fun weightedSourceSumsOldDeltasAndClaimsNothing() {
+		val values = floatArrayOf(-0f, 2f, 4f, 6f, 8f, 10f)
+		val remapped =
+			remapPerVertex(
+				values,
+				listOf(VertexSource.Weighted(intArrayOf(0), floatArrayOf(1f)), VertexSource.Weighted(intArrayOf(1, 2), floatArrayOf(0.25f, 0.75f))),
+				3,
+			)
+		assertEquals((-0f).toRawBits(), remapped[0].toRawBits(), "a lone weight of one keeps negative zero")
+		assertEquals(2f, remapped[1])
+		assertEquals(7f, remapped[2])
+		assertEquals(9f, remapped[3])
+
+		val newMesh = DrawableMesh.withLocalEqualToCanvas(floatArrayOf(0f, 0f, 2f, 0f, 0f, 2f, 2f, 2f), FloatArray(8), intArrayOf(0, 1, 2, 1, 3, 2))
+		val sources = List(4) { vertex -> VertexSource.Weighted(intArrayOf(vertex), floatArrayOf(1f)) }
+		val edited = model().withMeshTopologyEdit(DrawableId("d"), MeshTopologyEdit(newMesh, sources))
+		assertTrue(edited.glues.single().pairs.isEmpty(), "an interpolated vertex carries no glue, even at weight one")
+	}
+
 	/** duplicateElements appends copies of the covered vertices plus every fully-covered face. */
 	@Test
 	fun duplicateAppendsCopiesAndFaces() {

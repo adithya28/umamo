@@ -8,11 +8,14 @@ Umamo is early alpha.
 
 ### Added
 * UI: Viewport Overlays has a new Show Overlays toggle and dropdown at the end of the 2D Viewport and UV Editor headers to toggle viewport overlays.  The choices are saved per document.
+* Mesh: Generate Mesh from Art(Shift+M) builds a new mesh from the art's opaque pixels for the selected drawables.
 
 ### Changed
 * UI: The 2D Viewport's mode DropdownChip is now pinned instead of collapsing into the more chip.
 
 ### Fixed
+* Format: MOC3 export now refuses to export an art mesh with more than 65,536 vertices instead of writing wrapped triangle indices.
+* Format: CMO3 export no longer warns that a glue could not be exported when the meshes on both sides of it were remeshed.
 
 ## 0.4.0 - 2026-10-02
 

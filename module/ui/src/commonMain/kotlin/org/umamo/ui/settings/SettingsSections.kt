@@ -193,6 +193,9 @@ internal const val IMPORT_DELETE_ART_IGNORES_LAYER_KEY = "import.deleteArtIgnore
 /** The settings key for whether the Sources layer rows measure positions from the world axes instead of the art file's top-left corner. */
 internal const val IMPORT_LAYER_POSITIONS_FROM_WORLD_AXES_KEY = "import.layerPositionsFromWorldAxes"
 
+/** The settings key for the preset Generate Mesh from Art starts from before any run; the values are ArtMeshPreset keys. */
+internal const val MESH_GENERATION_PRESET_KEY = "meshGeneration.preset"
+
 /**
  * The Import section: what an artwork import seeds a new model with, where a later file is anchored
  * on the rig's canvas, what a document does when a watched artwork file changes, whether Delete Art

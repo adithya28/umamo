@@ -18,6 +18,8 @@ import org.umamo.ui.kit.textentry.KeyCaptureController
 import org.umamo.ui.kit.textentry.LocalInlineEditController
 import org.umamo.ui.kit.textentry.LocalKeyCapture
 import org.umamo.ui.model.SelectionHandle
+import org.umamo.ui.model.mesh.MeshGenerationRunState
+import org.umamo.ui.model.mesh.MeshGenerationSessionOptions
 import org.umamo.ui.model.repack.AtlasRepackSessionOptions
 import org.umamo.ui.settings.LocalQuickSetup
 import org.umamo.ui.settings.QuickSetupState
@@ -178,12 +180,19 @@ internal class ShellControllers(
 	val areaOverlays = AreaOverlayHub()
 
 	/**
-	 * The repack's session memory, which lives as long as the window, across documents - which is why it does
-	 * not key on the session.
+	 * The repack's session memory who's lifetime is the open document.
 	 */
 	val repackOptions = AtlasRepackSessionOptions()
 
-	/** The operation settings strip's disclosure state, which lives as long as the window for the same reason. */
+	/**
+	 * Generate Mesh from Art's session memory who's lifetime is the open document.
+	 */
+	val meshGenerationOptions = MeshGenerationSessionOptions()
+
+	/** Whether a Generate Mesh from Art run is in flight, held here so a rebuilt command table still sees it. */
+	val meshGenerationRun = MeshGenerationRunState()
+
+	/** The operation settings strip's disclosure state who's lifetime is the open document. */
 	val operationStrip = OperationStripState()
 
 	/**
