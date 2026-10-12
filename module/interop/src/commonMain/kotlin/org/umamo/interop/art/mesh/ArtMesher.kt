@@ -1,7 +1,9 @@
 package org.umamo.interop.art.mesh
 
+import org.umamo.format.art.AlphaChannel
 import org.umamo.format.art.AlphaField
 import org.umamo.format.art.LayerRaster
+import org.umamo.format.art.alphaChannel
 import org.umamo.format.art.alphaField
 import org.umamo.geometry.polyline.outermostRings
 import kotlin.math.ceil
@@ -10,18 +12,18 @@ import kotlin.math.sqrt
 
 /*
  * The art mesher: a deformation-ready triangle mesh over a layer's art, built from its signed distance
- * field (docs/plan/auto-mesh.md, the SDF band mesher).
+ * field - the outline and the inner ring are contours of the field, and a lattice fills between them.
  *
  * The OUTLINE is the field's contour a little outside the art - at least the minimum margin plus two
  * working cells.  A traced chord provably clears the art by the minimum margin plus a little over half
  * a cell at that level (the field's sampling and interpolation cost up to 1.42 cells), and thinning the
  * traced ring's near-duplicate vertices costs at most a quarter cell more, so every chord kept from
  * the thinned ring still clears the margin and every art pixel stays enclosed.  It is simplified to
- * the outline spacing with keypoints
- * at sharp turns, and any simplified chord that comes too close to the art, or cuts off a piece of it,
- * is split again from the traced contour.  An INNER RING follows the art's edge a margin inside it, a
- * hexagonal LATTICE fills the interior, PINS become vertices at their exact positions, and the
- * constrained triangulation of all of it, clipped to the outline, is the mesh.
+ * the outline spacing with keypoints at sharp turns, and any simplified chord that comes too close to
+ * the art, or cuts off a piece of it, is split again from the traced contour.  An INNER RING follows
+ * the art's edge a margin inside it, a hexagonal LATTICE fills the interior, PINS become vertices at
+ * their exact positions, and the constrained triangulation of all of it, clipped to the outline, is
+ * the mesh.
  *
  * Filling holes meshes the art's silhouette instead.  The outline keeps only the rings nothing else
  * encloses, so no hole ring (and no ring of art inside a hole) ever reaches the triangulation and the
@@ -31,21 +33,31 @@ import kotlin.math.sqrt
  *
  * Everything is in the layer raster's own pixels, y down, rounded to Float before it is triangulated,
  * so the triangles' orientation (orient2d > 0, the birth quad's winding) holds as stored.  The output
- * is a function of the raster, the settings, and the pins alone.
+ * is a function of the alpha channel, the settings, and the pins alone.
  */
 
 /** Rounds of widening the spacings to meet the vertex budget before giving up. */
 private const val BUDGET_ROUNDS: Int = 5
 
 /**
- * Meshes one layer raster.
+ * Meshes one layer raster; see [generateArtMesh] over an [AlphaChannel], which is all it reads.
  *
  * @param LayerRaster     raster   The layer's pixels.
+ * @param ArtMeshSettings settings How to space and place vertices.
+ * @param DoubleArray     pins     Points that must become vertices, x0, y0, ..., raster px.
+ * @return ArtMeshResult The mesh, or why there is none, with what was adjusted.
+ */
+public fun generateArtMesh(raster: LayerRaster, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0)): ArtMeshResult = generateArtMesh(raster.alphaChannel(), settings, pins)
+
+/**
+ * Meshes one layer's alpha channel.
+ *
+ * @param AlphaChannel    alpha    The layer's alpha, the only channel the mesh depends on.
  * @param ArtMeshSettings settings How to space and place vertices.
  * @param DoubleArray     pins     Points that must become vertices, x0, y0, ..., raster px (glued vertices kept through a regeneration).
  * @return ArtMeshResult The mesh, or why there is none, with what was adjusted.
  */
-public fun generateArtMesh(raster: LayerRaster, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0)): ArtMeshResult {
+public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0)): ArtMeshResult {
 	require(pins.size % 2 == 0) { "pins must hold x, y pairs, but has ${pins.size} components" }
 
 	for (component in pins.indices) {
@@ -58,7 +70,7 @@ public fun generateArtMesh(raster: LayerRaster, settings: ArtMeshSettings, pins:
 	// Enough padding for the outline level at ANY cell size the grid cap may force: the level is at most
 	// outerMargin + minimumMargin + 2 cells, and the contour must stay clear of the border.
 	val paddingCells = ceil(settings.outerMargin / requestedCellSize).toInt() + ceil(settings.minimumMargin / requestedCellSize).toInt() + 4
-	val field = raster.alphaField(settings.alphaThreshold, requestedCellSize, paddingCells, pins) ?: return ArtMeshResult(null, listOf(ArtMeshNotice.NothingOpaque), null)
+	val field = alpha.alphaField(settings.alphaThreshold, requestedCellSize, paddingCells, pins) ?: return ArtMeshResult(null, listOf(ArtMeshNotice.NothingOpaque), null)
 	val notices = ArrayList<ArtMeshNotice>()
 
 	if (field.cellSize > requestedCellSize) {
@@ -108,9 +120,9 @@ public fun generateArtMesh(raster: LayerRaster, settings: ArtMeshSettings, pins:
 			return ArtMeshResult(null, notices, null)
 		}
 
-		// Only the vertices above the floor (every outline ring's minimum) shrink as the spacing widens:
-		// the outline with the spacing and the interior with its square, so the square root of the
-		// reducible overshoot (plus a little) usually lands under the budget in a round or two.
+		// Only the vertices above the floor (every outline ring's minimum, plus the pins) shrink as the
+		// spacing widens: the outline with the spacing and the interior with its square, so the square
+		// root of the reducible overshoot (plus a little) usually lands under the budget in a round or two.
 		val reducible = (points.vertexCount - vertexFloor).toDouble()
 		val reducibleBudget = (settings.vertexBudget - vertexFloor).toDouble()
 		val widening = sqrt(reducible / reducibleBudget) * 1.05

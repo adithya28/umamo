@@ -78,7 +78,8 @@ class EditorSession private constructor(
 	// and the notice channel handed in.  The latches, settings, and bus are reached through the three delegated interfaces
 	// in the header; what stays below is everything that writes a snapshotted flow, so every flow-write
 	// ordering stays in this facade.  The latches and the element memory are internal, not private, for
-	// the session's own extension files (ToolArming, SelectionEdits) - no other file may touch them.
+	// the session's own extension files in :edit and its domain subpackages - nothing outside the module
+	// may touch them.
 	private val history = HistoryCore(openingSnapshot, initialHistoryLimit)
 	internal val elementMemory = MeshElementMemory()
 	internal val latches: ToolLatches = collaborators.latches
@@ -367,6 +368,29 @@ class EditorSession private constructor(
 		val updated = current.withParameters(parameters)
 		mutableAdjustableOperation.value = updated
 		updated.rerun(updated)
+	}
+
+	/**
+	 * Rewrites the live adjustable operation's settings WITHOUT running it again - for an operation
+	 * whose rerun decides that one setting re-seeds others (a preset choice filling in its numbers): the
+	 * rows then show what the rerun is about to use.  The record keeps its identity, so a rerun given the
+	 * revised record still lands through [amendLastCommit].
+	 *
+	 * @param AdjustableOperation operation  The record the rerun was given.
+	 * @param List                parameters The settings to show, in the record's order.
+	 * @return AdjustableOperation? The revised record, or null when [operation] is no longer the live one.
+	 */
+	fun reviseAdjustableParameters(operation: AdjustableOperation, parameters: List<OperatorParameter>): AdjustableOperation? {
+		val current = mutableAdjustableOperation.value
+
+		if (current == null || current.identity !== operation.identity) {
+			return null
+		}
+
+		val revised = current.withParameters(parameters)
+		mutableAdjustableOperation.value = revised
+
+		return revised
 	}
 
 	/**

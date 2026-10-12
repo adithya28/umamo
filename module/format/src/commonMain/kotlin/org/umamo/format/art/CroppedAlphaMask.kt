@@ -61,31 +61,28 @@ internal class CroppedAlphaMask(
 
 	companion object {
 		/**
-		 * Builds the mask of a raster's pixels at or above a threshold over a rectangle, plus seed
-		 * pixels marked opaque wherever they fall in it.
+		 * Builds the mask of an alpha channel's pixels at or above a threshold over a rectangle, plus
+		 * seed pixels marked opaque wherever they fall in it.
 		 *
-		 * @param LayerRaster raster         The source raster.
-		 * @param Int         alphaThreshold The minimum alpha byte counted as opaque (1..255).
-		 * @param Int         left           The rectangle's left edge, raster px.
-		 * @param Int         top            The rectangle's top edge, raster px.
-		 * @param Int         width          The rectangle's width.
-		 * @param Int         height         The rectangle's height.
-		 * @param IntArray    seedPixels     Seed pixels as column, row pairs, raster px.
+		 * @param AlphaChannel alpha          The source channel.
+		 * @param Int          alphaThreshold The minimum alpha byte counted as opaque (1..255).
+		 * @param Int          left           The rectangle's left edge, raster px.
+		 * @param Int          top            The rectangle's top edge, raster px.
+		 * @param Int          width          The rectangle's width.
+		 * @param Int          height         The rectangle's height.
+		 * @param IntArray     seedPixels     Seed pixels as column, row pairs, raster px.
 		 * @return CroppedAlphaMask The mask.
 		 */
-		fun build(raster: LayerRaster, alphaThreshold: Int, left: Int, top: Int, width: Int, height: Int, seedPixels: IntArray): CroppedAlphaMask {
+		fun build(alpha: AlphaChannel, alphaThreshold: Int, left: Int, top: Int, width: Int, height: Int, seedPixels: IntArray): CroppedAlphaMask {
 			val words = LongArray(((width.toLong() * height + 63) ushr 6).toInt())
 			val firstColumn = maxOf(left, 0)
-			val lastColumn = minOf(left + width, raster.width) - 1
+			val lastColumn = minOf(left + width, alpha.width) - 1
 			val firstRow = maxOf(top, 0)
-			val lastRow = minOf(top + height, raster.height) - 1
+			val lastRow = minOf(top + height, alpha.height) - 1
 
 			for (row in firstRow..lastRow) {
 				for (column in firstColumn..lastColumn) {
-					// The `and 0xFF` is load-bearing: Kotlin Byte is signed.
-					val alpha = raster.rgba[(row * raster.width + column) * 4 + 3].toInt() and 0xFF
-
-					if (alpha >= alphaThreshold) {
+					if (alpha.alphaAt(column, row) >= alphaThreshold) {
 						setBit(words, width, column - left, row - top)
 					}
 				}

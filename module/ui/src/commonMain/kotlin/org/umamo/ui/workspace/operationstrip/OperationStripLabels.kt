@@ -11,8 +11,10 @@ import org.umamo.edit.mesh.parameterKey
 import org.umamo.edit.transform.TransformParameterKeys
 import org.umamo.edit.transform.choiceKey
 import org.umamo.interop.art.ArtworkAnchor
+import org.umamo.interop.art.mesh.ArtMeshPreset
 import org.umamo.ui.model.artwork.ImportParameterKeys
 import org.umamo.ui.model.artwork.MatchParameterKeys
+import org.umamo.ui.model.mesh.MeshGenerationParameterKeys
 import org.umamo.ui.model.repack.RepackParameterKeys
 import org.umamo.ui.resources.*
 import org.umamo.ui.viewport.falloffLabel
@@ -65,6 +67,16 @@ internal fun operatorParameterLabel(labelKey: String): String =
 		TransformParameterKeys.CONNECTED_ONLY -> stringResource(Res.string.transform_options_connected)
 		TransformParameterKeys.SLIDE_FACTOR -> stringResource(Res.string.transform_options_slide_factor)
 		MergeParameterKeys.TARGET -> stringResource(Res.string.merge_options_target)
+		MeshGenerationParameterKeys.PRESET -> stringResource(Res.string.mesh_options_preset)
+		MeshGenerationParameterKeys.ALPHA_THRESHOLD -> stringResource(Res.string.mesh_options_alpha_threshold)
+		MeshGenerationParameterKeys.OUTLINE_SPACING -> stringResource(Res.string.mesh_options_outline_spacing)
+		MeshGenerationParameterKeys.INTERIOR_SPACING -> stringResource(Res.string.mesh_options_interior_spacing)
+		MeshGenerationParameterKeys.OUTER_MARGIN -> stringResource(Res.string.mesh_options_outer_margin)
+		MeshGenerationParameterKeys.INNER_MARGIN -> stringResource(Res.string.mesh_options_inner_margin)
+		MeshGenerationParameterKeys.MINIMUM_MARGIN -> stringResource(Res.string.mesh_options_minimum_margin)
+		MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS -> stringResource(Res.string.mesh_options_minimum_outline_points)
+		MeshGenerationParameterKeys.VERTEX_BUDGET -> stringResource(Res.string.mesh_options_vertex_budget)
+		MeshGenerationParameterKeys.FILL_HOLES -> stringResource(Res.string.mesh_options_fill_holes)
 		else -> choiceLabel(labelKey) ?: labelKey
 	}
 
@@ -115,6 +127,16 @@ internal fun operatorParameterDescriptionRes(labelKey: String): StringResource? 
 		TransformParameterKeys.CONNECTED_ONLY -> Res.string.transform_options_connected_description
 		TransformParameterKeys.SLIDE_FACTOR -> Res.string.transform_options_slide_factor_description
 		MergeParameterKeys.TARGET -> Res.string.merge_options_target_description
+		MeshGenerationParameterKeys.PRESET -> Res.string.mesh_options_preset_description
+		MeshGenerationParameterKeys.ALPHA_THRESHOLD -> Res.string.mesh_options_alpha_threshold_description
+		MeshGenerationParameterKeys.OUTLINE_SPACING -> Res.string.mesh_options_outline_spacing_description
+		MeshGenerationParameterKeys.INTERIOR_SPACING -> Res.string.mesh_options_interior_spacing_description
+		MeshGenerationParameterKeys.OUTER_MARGIN -> Res.string.mesh_options_outer_margin_description
+		MeshGenerationParameterKeys.INNER_MARGIN -> Res.string.mesh_options_inner_margin_description
+		MeshGenerationParameterKeys.MINIMUM_MARGIN -> Res.string.mesh_options_minimum_margin_description
+		MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS -> Res.string.mesh_options_minimum_outline_points_description
+		MeshGenerationParameterKeys.VERTEX_BUDGET -> Res.string.mesh_options_vertex_budget_description
+		MeshGenerationParameterKeys.FILL_HOLES -> Res.string.mesh_options_fill_holes_description
 		else -> null
 	}
 
@@ -128,8 +150,8 @@ internal fun operatorParameterDescriptionRes(labelKey: String): StringResource? 
 internal fun operatorParameterDescription(labelKey: String): String = operatorParameterDescriptionRes(labelKey)?.let { resource -> stringResource(resource) } ?: ""
 
 /**
- * The localized label of a choice entry's prefixed key: a falloff curve's, a merge target's, or an
- * import anchor's.
+ * The localized label of a choice entry's prefixed key: a falloff curve's, a merge target's, an
+ * import anchor's, or a mesh preset's.
  *
  * @param String labelKey The entry's label key.
  * @return String? The label, or null when the key carries none of the prefixes.
@@ -150,6 +172,15 @@ private fun choiceLabel(labelKey: String): String? {
 			MergeTarget.AtCenter -> stringResource(Res.string.merge_target_center)
 			MergeTarget.AtFirst -> stringResource(Res.string.merge_target_first)
 			MergeTarget.AtLast -> stringResource(Res.string.merge_target_last)
+			null -> null
+		}
+	}
+	if (labelKey.startsWith(MeshGenerationParameterKeys.PRESET_CHOICE_PREFIX)) {
+		val key = labelKey.removePrefix(MeshGenerationParameterKeys.PRESET_CHOICE_PREFIX)
+		return when (ArtMeshPreset.entries.firstOrNull { preset -> preset.key == key }) {
+			ArtMeshPreset.Standard -> stringResource(Res.string.mesh_preset_standard)
+			ArtMeshPreset.Fine -> stringResource(Res.string.mesh_preset_fine)
+			ArtMeshPreset.Coarse -> stringResource(Res.string.mesh_preset_coarse)
 			null -> null
 		}
 	}

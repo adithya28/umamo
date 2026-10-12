@@ -5,11 +5,13 @@ package org.umamo.interop.art.mesh
  * the default alpha threshold and vertex budget; the numbers are starting points, tuned against the
  * test corpus's artwork.
  *
+ * @property String          key      The stable name settings and the strip store the preset by.
  * @property ArtMeshSettings settings The settings the preset stands for.
  */
-public enum class ArtMeshPreset(public val settings: ArtMeshSettings) {
+public enum class ArtMeshPreset(public val key: String, public val settings: ArtMeshSettings) {
 	/** The everyday density: parts that bend a moderate amount. */
 	Standard(
+		"standard",
 		ArtMeshSettings(
 			alphaThreshold = DEFAULT_ART_MESH_ALPHA_THRESHOLD,
 			outlineSpacing = 32.0,
@@ -23,6 +25,7 @@ public enum class ArtMeshPreset(public val settings: ArtMeshSettings) {
 
 	/** Denser: parts that bend a lot (hair, mouths, cloth). */
 	Fine(
+		"fine",
 		ArtMeshSettings(
 			alphaThreshold = DEFAULT_ART_MESH_ALPHA_THRESHOLD,
 			outlineSpacing = 20.0,
@@ -36,6 +39,7 @@ public enum class ArtMeshPreset(public val settings: ArtMeshSettings) {
 
 	/** Sparser: parts that barely bend (accessories, rigid props). */
 	Coarse(
+		"coarse",
 		ArtMeshSettings(
 			alphaThreshold = DEFAULT_ART_MESH_ALPHA_THRESHOLD,
 			outlineSpacing = 48.0,
@@ -46,4 +50,18 @@ public enum class ArtMeshPreset(public val settings: ArtMeshSettings) {
 			minimumOutlinePoints = 4,
 		),
 	),
+	;
+
+	public companion object {
+		/** The preset a first run starts from when nothing else says otherwise. */
+		public val Default: ArtMeshPreset = Standard
+
+		/**
+		 * The preset stored under a key, or the default for an unknown or missing key.
+		 *
+		 * @param String? key The stored key.
+		 * @return ArtMeshPreset The preset.
+		 */
+		public fun fromKey(key: String?): ArtMeshPreset = entries.firstOrNull { preset -> preset.key == key } ?: Default
+	}
 }

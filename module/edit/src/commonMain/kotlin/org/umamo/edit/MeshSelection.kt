@@ -311,6 +311,20 @@ object MeshSelectionOps {
 		selection.copy(elementsByDrawable = emptyMap(), activeElement = null)
 
 	/**
+	 * Clears the elements of some meshes only, keeping the session meshes, the active drawable, the
+	 * select mode, and every other mesh's elements.  The active element goes when it lies on one of them.
+	 *
+	 * @param MeshSelection    selection   The selection to clear from.
+	 * @param Set<DrawableId>  drawableIds The meshes whose elements to clear.
+	 * @return MeshSelection The selection without those meshes' elements.
+	 */
+	fun clearElementsOf(selection: MeshSelection, drawableIds: Set<DrawableId>): MeshSelection {
+		val activeElement = selection.activeElement?.takeIf { active -> active.drawableId !in drawableIds }
+
+		return selection.copy(elementsByDrawable = selection.elementsByDrawable - drawableIds, activeElement = activeElement)
+	}
+
+	/**
 	 * Switches the select mode, converting every session mesh's stored elements into the new domain with
 	 * Blender's flush-down / derive-up rules.  Flushing down (to vertex) expands every element to the
 	 * vertices it covers, so selection is never lost.  Deriving up is strict per Blender: an edge

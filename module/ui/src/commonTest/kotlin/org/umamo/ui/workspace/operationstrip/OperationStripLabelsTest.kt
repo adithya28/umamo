@@ -12,8 +12,11 @@ import org.umamo.edit.transform.slideParameters
 import org.umamo.edit.transform.transformParameters
 import org.umamo.format.atlas.AtlasPackOptions
 import org.umamo.interop.art.SourceArtImportOptions
+import org.umamo.interop.art.mesh.ArtMeshPreset
 import org.umamo.ui.model.artwork.addArtworkParameters
 import org.umamo.ui.model.artwork.matchArtworkParameters
+import org.umamo.ui.model.mesh.MeshGenerationOptions
+import org.umamo.ui.model.mesh.meshGenerationParameters
 import org.umamo.ui.model.repack.repackParameters
 import org.umamo.ui.viewport.uv.PlacementDragStatus
 import org.umamo.ui.viewport.uv.placementParameters
@@ -34,7 +37,7 @@ class OperationStripLabelsTest {
 	/**
 	 * Every row every adjustable operation registers: the repack, the three placement gestures, adding and
 	 * matching artwork, each modal transform in both of its spaces with the proportional rows on, the
-	 * vertex slide, and the merge.
+	 * vertex slide, the merge, and Generate Mesh from Art.
 	 */
 	private val everyRow: List<OperatorParameter> =
 		buildList {
@@ -49,6 +52,7 @@ class OperationStripLabelsTest {
 			addAll(matchArtworkParameters(0.8f, SourceArtImportOptions()))
 			addAll(slideParameters(0.5f))
 			addAll(mergeParameters(MergeTarget.AtCenter))
+			addAll(meshGenerationParameters(MeshGenerationOptions.of(ArtMeshPreset.Standard), minimumAlphaThreshold = 1))
 		}
 
 	/** The distinct label keys of [everyRow], the unit a description is looked up by. */

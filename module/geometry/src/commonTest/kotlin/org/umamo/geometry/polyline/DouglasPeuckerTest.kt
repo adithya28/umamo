@@ -9,8 +9,9 @@ import kotlin.test.assertTrue
 
 /**
  * Douglas-Peucker keypoints: ends kept on an open polyline, collinear vertices dropped at zero
- * tolerance, corners kept, the deviation bound on random polylines and rings, ascending output, and
- * the closed ring's anchor.
+ * tolerance, corners kept, the deviation bound on random polylines and rings, ascending output, the
+ * closed ring's anchor (its default and a chosen one), and the integer overload's exact tie and its
+ * agreement with the Double one.
  */
 class DouglasPeuckerTest {
 	@Test
@@ -71,9 +72,53 @@ class DouglasPeuckerTest {
 	}
 
 	@Test
+	fun aChosenRingAnchorIsKeptWithTheVertexFarthestFromIt() {
+		// At an infinite tolerance only the two anchors survive: vertex 2 (10, 5) and the farthest from
+		// it, (0, 10) - tied with (0, 0), and the lower index wins.
+		val square = doubleArrayOf(5.0, 0.0, 10.0, 0.0, 10.0, 5.0, 10.0, 10.0, 5.0, 10.0, 0.0, 10.0, 0.0, 5.0, 0.0, 0.0)
+		assertContentEquals(intArrayOf(2, 5), douglasPeuckerKeypoints(square, Double.POSITIVE_INFINITY, closed = true, ringAnchor = 2))
+		// Left to itself the ring anchors at its lowest vertex, (0, 0), and the corner opposite.
+		assertContentEquals(intArrayOf(3, 7), douglasPeuckerKeypoints(square, Double.POSITIVE_INFINITY, closed = true))
+	}
+
+	@Test
+	fun theIntegerOverloadDropsAVertexExactlyAtTheTolerance() {
+		// (4, 7) lies exactly 1 px from the segment (0, 0) - (6, 8): |4 * 8 - 7 * 6| / 10.  Measured
+		// through a Double projection it comes out a few ulps over 1 and would be kept.
+		val polyline = intArrayOf(0, 0, 4, 7, 6, 8)
+		assertContentEquals(intArrayOf(0, 2), douglasPeuckerKeypoints(polyline, 1.0, closed = false))
+		assertContentEquals(intArrayOf(0, 1, 2), douglasPeuckerKeypoints(polyline, 0.999, closed = false))
+	}
+
+	@Test
+	fun theIntegerAndDoubleOverloadsAgreeAwayFromTies() {
+		val random = Random(1012)
+
+		repeat(300) {
+			val vertexCount = random.nextInt(3, 80)
+			val closed = random.nextBoolean()
+			val points = IntArray(2 * vertexCount) { random.nextInt(-400, 400) }
+			// A tolerance no lattice distance can equal, so rounding cannot decide a comparison.
+			val tolerance = random.nextDouble(0.0, 30.0) + 0.000123
+			val anchor = if (closed && random.nextBoolean()) random.nextInt(vertexCount) else null
+			val fromIntegers = douglasPeuckerKeypoints(points, tolerance, closed, anchor)
+			val fromDoubles = douglasPeuckerKeypoints(DoubleArray(points.size) { component -> points[component].toDouble() }, tolerance, closed, anchor)
+			assertContentEquals(fromDoubles, fromIntegers, "$vertexCount vertices at $tolerance, anchor $anchor")
+
+			if (anchor != null) {
+				assertTrue(anchor in fromIntegers, "the chosen anchor is kept")
+			}
+		}
+	}
+
+	@Test
 	fun malformedRequestsAreRejected() {
 		assertFailsWith<IllegalArgumentException> { douglasPeuckerKeypoints(doubleArrayOf(0.0, 0.0, 1.0), 1.0, closed = false) }
 		assertFailsWith<IllegalArgumentException> { douglasPeuckerKeypoints(doubleArrayOf(0.0, 0.0, 1.0, 1.0), -1.0, closed = false) }
+		assertFailsWith<IllegalArgumentException> { douglasPeuckerKeypoints(doubleArrayOf(0.0, 0.0, 1.0, 1.0), Double.NaN, closed = false) }
+		assertFailsWith<IllegalArgumentException> { douglasPeuckerKeypoints(doubleArrayOf(0.0, 0.0, 1.0, 1.0, 2.0, 0.0), 1.0, closed = false, ringAnchor = 0) }
+		assertFailsWith<IllegalArgumentException> { douglasPeuckerKeypoints(doubleArrayOf(0.0, 0.0, 1.0, 1.0, 2.0, 0.0), 1.0, closed = true, ringAnchor = 3) }
+		assertFailsWith<IllegalArgumentException> { douglasPeuckerKeypoints(intArrayOf(0, 0, 1 shl 30, 0), 1.0, closed = false) }
 	}
 
 	/**

@@ -16,7 +16,8 @@ import kotlin.test.assertTrue
 class SegmentClearanceTest {
 	@Test
 	fun squaredDistanceToSquareCases() {
-		// A segment through the square, one passing beside it, one ending short of a corner.
+		// A segment through the square, one passing beside it, one ending short of a corner, and one lying
+		// inside it.
 		assertEquals(0.0, squaredDistanceToSquare(-1.0, 0.5, 2.0, 0.5, 0.0, 0.0))
 		assertEquals(0.25, squaredDistanceToSquare(-1.0, 1.5, 2.0, 1.5, 0.0, 0.0), 1e-12)
 		assertEquals(2.0, squaredDistanceToSquare(2.0, 2.0, 3.0, 3.0, 0.0, 0.0), 1e-12)

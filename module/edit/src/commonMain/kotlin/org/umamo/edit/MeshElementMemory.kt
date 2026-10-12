@@ -49,6 +49,21 @@ internal class MeshElementMemory {
 	}
 
 	/**
+	 * Forgets the remembered elements of meshes whose vertices were all replaced.  A restore checks only
+	 * that the remembered indices exist, so after a regenerated mesh a stale memory would select
+	 * different vertices under the same numbers.  The remembered select mode and the last active
+	 * drawable stay.
+	 *
+	 * @param Collection<DrawableId> drawableIds The drawables to forget.
+	 */
+	fun forget(drawableIds: Collection<DrawableId>) {
+		for (drawableId in drawableIds) {
+			rememberedElementsByDrawable.remove(drawableId)
+			rememberedActiveElementByDrawable.remove(drawableId)
+		}
+	}
+
+	/**
 	 * Restores the per-mesh remembered elements into [seeded]: each seeded drawable whose stored
 	 * elements still fit its current mesh gets them back (validated per drawable, so one stale mesh
 	 * never discards the others' memory); the remembered select mode returns when anything restored.

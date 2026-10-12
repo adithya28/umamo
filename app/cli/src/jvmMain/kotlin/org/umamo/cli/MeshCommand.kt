@@ -18,7 +18,8 @@ import java.util.Locale
 /*
  * The mesh subcommand: run the art mesher over a source artwork document's layers and show what it
  * made - per-layer counts, triangle quality, and timing on stdout and in mesh.txt, and with --preview
- * a wireframe picture of each mesh over its art.  The mesher's eyes, before any editor surface exists.
+ * a wireframe picture of each mesh over its art.  The mesher's standalone inspection surface, beside
+ * the editor's own Generate Mesh from Art command (mesh.generateFromArt).
  */
 
 /** The options that override one setting each, by name. */
@@ -143,8 +144,8 @@ internal fun runMesh(arguments: List<String>): Int {
 private fun settingsFrom(parsed: CliArguments): ArtMeshSettings {
 	val presetName = parsed.options["--preset"] ?: "standard"
 	val preset =
-		ArtMeshPreset.entries.firstOrNull { entry -> entry.name.equals(presetName, ignoreCase = true) }
-			?: throw CliUsageException("--preset must be one of ${ArtMeshPreset.entries.joinToString { it.name.lowercase() }}, got '$presetName'")
+		ArtMeshPreset.entries.firstOrNull { entry -> entry.key == presetName.lowercase() }
+			?: throw CliUsageException("--preset must be one of ${ArtMeshPreset.entries.joinToString { it.key }}, got '$presetName'")
 	val base = preset.settings
 
 	return try {

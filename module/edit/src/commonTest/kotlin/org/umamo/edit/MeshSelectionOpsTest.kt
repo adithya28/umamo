@@ -192,6 +192,21 @@ class MeshSelectionOpsTest {
 		assertEquals(MeshSelectMode.Edge, result.selectMode)
 	}
 
+	/** clearElementsOf empties only the named meshes, dropping the active element only when it lies on one. */
+	@Test
+	fun clearElementsOfKeepsTheSessionAndOtherMeshes() {
+		val selected = MeshSelectionOps.add(MeshSelectionOps.add(dual, drawableE, MeshElement.Vertex(2)), drawableD, MeshElement.Vertex(1))
+		val cleared = MeshSelectionOps.clearElementsOf(selected, setOf(drawableD))
+		assertTrue(cleared.elementsOf(drawableD).isEmpty())
+		assertEquals(vertices(2), cleared.elementsOf(drawableE))
+		assertNull(cleared.activeElement, "the active element lay on the cleared mesh")
+		assertEquals(selected.drawableIds, cleared.drawableIds)
+		assertEquals(selected.activeDrawableId, cleared.activeDrawableId)
+		assertEquals(selected.selectMode, cleared.selectMode)
+		val keptActive = MeshSelectionOps.clearElementsOf(selected, setOf(drawableE))
+		assertEquals(ActiveMeshElement(drawableD, MeshElement.Vertex(1)), keptActive.activeElement)
+	}
+
 	/** The gestures work identically over edge and face elements, and Edge.of canonicalizes endpoint order. */
 	@Test
 	fun gesturesAreDomainAgnosticAndEdgesCanonicalize() {

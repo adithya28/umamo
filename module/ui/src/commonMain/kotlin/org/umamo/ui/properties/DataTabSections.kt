@@ -50,10 +50,12 @@ import org.umamo.runtime.model.displayScreenColor
 import org.umamo.runtime.model.multiplyColor
 import org.umamo.runtime.model.opacity
 import org.umamo.runtime.model.screenColor
+import org.umamo.ui.action.LocalCommands
 import org.umamo.ui.graphics.formatHexColor
 import org.umamo.ui.graphics.parseHexColor
 import org.umamo.ui.graphics.toColorRgb
 import org.umamo.ui.graphics.toComposeColor
+import org.umamo.ui.kit.button.Button
 import org.umamo.ui.kit.field.HexColorField
 import org.umamo.ui.kit.field.NumberField
 import org.umamo.ui.kit.field.PropertyCheckboxRow
@@ -71,24 +73,46 @@ import kotlin.math.roundToInt
  * deformer, and a part each get their own face of this tab.
  */
 
-/** Data (drawable): mesh vertex / triangle counts. */
+/** Data (drawable): mesh vertex / triangle counts, and Generate Mesh from Art for a drawable with a mesh. */
 internal val MeshSection =
 	PropertySection(
 		id = "data.mesh",
 		title = Res.string.properties_section_mesh,
 		rows = { context ->
 			val mesh = context.activeDrawable()?.mesh
-			listOf(
-				PropertyRow(terms = listOf(Res.string.properties_mesh)) { _ ->
-					if (mesh != null) {
-						PropertyLine(stringResource(Res.string.properties_mesh, mesh.vertexCount, mesh.triangleCount))
-					} else {
-						PropertyLine(stringResource(Res.string.properties_no_mesh))
-					}
-				},
-			)
+			buildList {
+				add(
+					PropertyRow(terms = listOf(Res.string.properties_mesh)) { _ ->
+						if (mesh != null) {
+							PropertyLine(stringResource(Res.string.properties_mesh, mesh.vertexCount, mesh.triangleCount))
+						} else {
+							PropertyLine(stringResource(Res.string.properties_no_mesh))
+						}
+					},
+				)
+
+				if (mesh != null) {
+					add(PropertyRow(terms = listOf(Res.string.cmd_mesh_generate_from_art)) { _ -> GenerateMeshFromArtButton() })
+				}
+			}
 		},
 	)
+
+/**
+ * The Generate Mesh from Art button: it dispatches the command (so the chord, the palette, and this
+ * button run the same thing over the same selection) and is enabled exactly when the command is.
+ */
+@Composable
+private fun GenerateMeshFromArtButton() {
+	val commands = LocalCommands.current
+	val available = commands["mesh.generateFromArt"]?.availability?.isAvailable() == true
+	Button(
+		label = stringResource(Res.string.cmd_mesh_generate_from_art),
+		onClick = { commands.invoke("mesh.generateFromArt") },
+		primary = false,
+		enabled = available,
+	)
+}
 
 /**
  * Data (drawable): the atlas texture binding, and the pin on the tile's placement when the drawable's
