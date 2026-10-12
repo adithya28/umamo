@@ -1,5 +1,7 @@
 package org.umamo.geometry.triangulation
 
+import org.umamo.geometry.IntStack
+
 /*
  * Incremental Delaunay triangulation (Lawson's insertion): locate each point, split the triangle or
  * edge it lands in, then flip edges until every edge is locally Delaunay again.  The ghost triangles

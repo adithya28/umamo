@@ -1,5 +1,6 @@
 package org.umamo.geometry.triangulation
 
+import org.umamo.geometry.IntStack
 import org.umamo.geometry.predicate.PredicateScratch
 import org.umamo.geometry.predicate.incircle
 import org.umamo.geometry.predicate.orient2d

@@ -636,7 +636,7 @@
 	<string name="notice_mesh_pinned_without_room">Generated %1$d mesh(es); %2$d skipped because pinned art has no room to grow.  Unpin the art or lower the Outer Margin.</string>
 	<string name="notice_mesh_over_budget">Generated %1$d mesh(es); %2$d skipped because they need more vertices than the budget.  Raise the Vertex Budget or turn on Fill Holes.</string>
 	<string name="notice_mesh_none_generated">No mesh was generated (see the log).</string>
-	<string name="notice_mesh_pack_refused">Nothing was generated: the atlas has no room for the larger meshes.</string>
+	<string name="notice_mesh_pack_refused">Nothing was generated: The atlas has no room for the larger meshes.</string>
 	<string name="notice_mesh_superseded">The document changed while the meshes were being generated; nothing was applied.</string>
 	<string name="notice_mesh_no_targets">Select a drawable with a mesh to generate one from its art.</string>
 	<string name="history_drawable_duplicate">Duplicate Drawable</string>
