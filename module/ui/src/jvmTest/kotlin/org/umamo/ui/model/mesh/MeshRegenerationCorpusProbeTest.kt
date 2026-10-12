@@ -121,8 +121,8 @@ class MeshRegenerationCorpusProbeTest {
 				continue
 			}
 
-			// A tile several drawables sample is meshed whole for each of them - one policy the command
-			// may take, and the one that reaches Erica's glued tail strips.
+			// A tile several drawables sample is meshed whole for each of them - not the command's policy (it
+			// keeps each sharer to the art its old mesh covers), but the one that reaches Erica's glued tail strips.
 			if ((drawablesByTile[tileId]?.size ?: 0) > 1) {
 				sharedTileCount++
 			}

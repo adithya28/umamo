@@ -632,11 +632,11 @@
 	<string name="history_mesh_generate_from_art">Generate Mesh from Art</string>
 	<!-- Generate Mesh from Art notices.  %1$d is the number of meshes generated, %2$d the number skipped. -->
 	<string name="notice_mesh_generated">Generated %1$d mesh(es) from art.</string>
-	<string name="notice_mesh_generated_with_skips">Generated %1$d mesh(es) from art; %2$d skipped (see the log).</string>
-	<string name="notice_mesh_generated_coarser">Generated %1$d mesh(es) from art; %2$d built coarser than asked to stay within the Vertex Budget (see the log).</string>
+	<string name="notice_mesh_generated_with_skips">Generated %1$d mesh(es) from art; %2$d skipped.  See the log.</string>
+	<string name="notice_mesh_generated_coarser">Generated %1$d mesh(es) from art; %2$d built coarser than asked to stay within the Vertex Budget.  See the log.</string>
 	<string name="notice_mesh_pinned_without_room">Generated %1$d mesh(es); %2$d skipped because pinned art has no room to grow.  Unpin the art or lower the Outer Margin.</string>
 	<string name="notice_mesh_over_budget">Generated %1$d mesh(es); %2$d skipped because they need more vertices than the budget.  Raise the Vertex Budget or turn on Fill Holes.</string>
-	<string name="notice_mesh_none_generated">No mesh was generated (see the log).</string>
+	<string name="notice_mesh_none_generated">No mesh was generated.  See the log.</string>
 	<string name="notice_mesh_pack_refused">Nothing was generated: The atlas has no room for the larger meshes.</string>
 	<string name="notice_mesh_superseded">The document changed while the meshes were being generated; nothing was applied.</string>
 	<string name="notice_mesh_no_targets">Select a drawable with a mesh to generate one from its art.</string>

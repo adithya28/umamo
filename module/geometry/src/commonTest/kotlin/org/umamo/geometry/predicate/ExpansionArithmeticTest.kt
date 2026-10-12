@@ -76,7 +76,7 @@ class ExpansionArithmeticTest {
 
 	@Test
 	fun crossProductIsExactOnLargeIntegers() {
-		// a*d - c*b with 2^26-sized integers: each product needs 52 bits plus a sign, and the
+		// a*d - c*b with 2^29-sized integers: each product needs 58 bits plus a sign, and the
 		// difference cancels most of them.
 		val random = Random(29)
 		val out = DoubleArray(4)

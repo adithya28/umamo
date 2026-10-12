@@ -36,8 +36,8 @@ internal sealed interface LoadedInput {
 
 	/**
 	 * Layered or flat source artwork: PSD, CLIP, KRA, or any of the flat raster formats read as a
-	 * single-layer document.  It carries no rig - there is no source-art to PuppetModel bridge yet
-	 * (pipeline Phase E) - so only artwork-side commands accept it.
+	 * single-layer document.  It carries no rig, and the CLI never runs the source-art to PuppetModel
+	 * bridge over it, so only the artwork-side commands (atlas, mesh) accept it.
 	 */
 	class SourceArtInput(val art: SourceArt, val file: File) : LoadedInput
 }
@@ -160,8 +160,7 @@ internal fun importPuppet(loaded: LoadedInput): PuppetModel =
 		is LoadedInput.Moc3Input -> restMeshesToCanvasSpace(Moc3Import.fromMocDocument(loaded.document, loaded.family.displayInfo))
 		is LoadedInput.SourceArtInput ->
 			throw CliUsageException(
-				"${loaded.file.name} is source artwork, which carries no rig; try `atlas` (a source-art to " +
-					"PuppetModel bridge is pipeline Phase E and does not exist yet)",
+				"${loaded.file.name} is source artwork, which carries no rig; try `atlas` or `mesh`",
 			)
 	}
 
