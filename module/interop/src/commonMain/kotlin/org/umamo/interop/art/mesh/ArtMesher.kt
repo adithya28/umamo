@@ -19,11 +19,11 @@ import kotlin.math.sqrt
  * a cell at that level (the field's sampling and interpolation cost up to 1.42 cells), and thinning the
  * traced ring's near-duplicate vertices costs at most a quarter cell more, so every chord kept from
  * the thinned ring still clears the margin and every art pixel stays enclosed.  It is simplified to
- * the outline spacing with keypoints
- * at sharp turns, and any simplified chord that comes too close to the art, or cuts off a piece of it,
- * is split again from the traced contour.  An INNER RING follows the art's edge a margin inside it, a
- * hexagonal LATTICE fills the interior, PINS become vertices at their exact positions, and the
- * constrained triangulation of all of it, clipped to the outline, is the mesh.
+ * the outline spacing with keypoints at sharp turns, and any simplified chord that comes too close to
+ * the art, or cuts off a piece of it, is split again from the traced contour.  An INNER RING follows
+ * the art's edge a margin inside it, a hexagonal LATTICE fills the interior, PINS become vertices at
+ * their exact positions, and the constrained triangulation of all of it, clipped to the outline, is
+ * the mesh.
  *
  * Filling holes meshes the art's silhouette instead.  The outline keeps only the rings nothing else
  * encloses, so no hole ring (and no ring of art inside a hole) ever reaches the triangulation and the
@@ -33,7 +33,7 @@ import kotlin.math.sqrt
  *
  * Everything is in the layer raster's own pixels, y down, rounded to Float before it is triangulated,
  * so the triangles' orientation (orient2d > 0, the birth quad's winding) holds as stored.  The output
- * is a function of the raster, the settings, and the pins alone.
+ * is a function of the alpha channel, the settings, and the pins alone.
  */
 
 /** Rounds of widening the spacings to meet the vertex budget before giving up. */
@@ -120,9 +120,9 @@ public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins:
 			return ArtMeshResult(null, notices, null)
 		}
 
-		// Only the vertices above the floor (every outline ring's minimum) shrink as the spacing widens:
-		// the outline with the spacing and the interior with its square, so the square root of the
-		// reducible overshoot (plus a little) usually lands under the budget in a round or two.
+		// Only the vertices above the floor (every outline ring's minimum, plus the pins) shrink as the
+		// spacing widens: the outline with the spacing and the interior with its square, so the square
+		// root of the reducible overshoot (plus a little) usually lands under the budget in a round or two.
 		val reducible = (points.vertexCount - vertexFloor).toDouble()
 		val reducibleBudget = (settings.vertexBudget - vertexFloor).toDouble()
 		val widening = sqrt(reducible / reducibleBudget) * 1.05

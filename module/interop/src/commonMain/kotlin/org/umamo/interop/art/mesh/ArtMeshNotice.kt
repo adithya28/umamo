@@ -37,7 +37,7 @@ public sealed interface ArtMeshNotice {
 	/**
 	 * Two or more pins sit at the same position, so they share one vertex.
 	 *
-	 * @property Int pinCount The number of pins that coincide with another.
+	 * @property Int pinCount The number of pins beyond the first on each shared vertex.
 	 */
 	public data class PinsShareVertex(val pinCount: Int) : ArtMeshNotice
 

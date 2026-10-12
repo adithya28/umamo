@@ -18,7 +18,8 @@ import java.util.Locale
 /*
  * The mesh subcommand: run the art mesher over a source artwork document's layers and show what it
  * made - per-layer counts, triangle quality, and timing on stdout and in mesh.txt, and with --preview
- * a wireframe picture of each mesh over its art.  The mesher's eyes, before any editor surface exists.
+ * a wireframe picture of each mesh over its art.  The mesher's standalone inspection surface, beside
+ * the editor's own Generate Mesh from Art command (mesh.generateFromArt).
  */
 
 /** The options that override one setting each, by name. */
