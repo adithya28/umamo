@@ -30,6 +30,7 @@ class PaletteCommandsTest {
 	private fun tables(session: EditorSession): List<Command> {
 		val routing = CommandRouting { null }
 		val availability = SessionAvailability(session)
+
 		return transformCommands(session, routing, availability) + uvCommands(session, routing, availability)
 	}
 

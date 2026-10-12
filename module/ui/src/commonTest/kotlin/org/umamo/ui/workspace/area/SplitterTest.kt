@@ -39,7 +39,10 @@ class SplitterTest {
 	 */
 	private fun leafExtentPx(node: AreaNode, leafId: String, axisPx: Float, splitterPx: Float): Float? =
 		when (node) {
-			is LeafArea -> if (node.id == leafId) axisPx else null
+			is LeafArea -> {
+				if (node.id == leafId) axisPx else null
+			}
+
 			is SplitNode -> {
 				val clampedRatio = node.ratio.coerceIn(MIN_RATIO, 1f - MIN_RATIO)
 				val usablePx = axisPx - splitterPx

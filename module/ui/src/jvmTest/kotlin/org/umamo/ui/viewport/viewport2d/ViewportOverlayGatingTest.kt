@@ -33,6 +33,7 @@ class ViewportOverlayGatingTest {
 			setContent {
 				UmamoTheme {
 					ViewportHudOverlay(areaId = "bare", session = session, liveCamera = ViewportCamera(0f, 0f, 1f))
+
 					for (state in listOf(shown, infoOff, masterOff)) {
 						CompositionLocalProvider(LocalAreaOverlays provides state) {
 							ViewportHudOverlay(areaId = "area", session = session, liveCamera = ViewportCamera(0f, 0f, 1f))
@@ -61,6 +62,7 @@ class ViewportOverlayGatingTest {
 			setContent {
 				UmamoTheme {
 					Cursor2dOverlay(session = session, camera = ViewportCamera(0f, 0f, 1f), widthPx = 200, heightPx = 200)
+
 					for (state in listOf(shown, cursorOff, masterOff)) {
 						CompositionLocalProvider(LocalAreaOverlays provides state) {
 							Cursor2dOverlay(session = session, camera = ViewportCamera(0f, 0f, 1f), widthPx = 200, heightPx = 200)

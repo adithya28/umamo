@@ -63,15 +63,19 @@ private fun ChannelGrids.compactedTracks(axisSpansRange: (KeyformAxis) -> Boolea
 	if (isEmpty) {
 		return CompactedChannels(this, emptyMap())
 	}
+
 	val surviving = LinkedHashMap<FormChannel, KeyformGrid<ChannelValue>>(gridsByChannel.size)
 	val constants = LinkedHashMap<FormChannel, ChannelValue>()
+
 	for ((channel, grid) in gridsByChannel) {
 		when (val result = grid.compacted(ChannelValueInterpolator, channel.valueKind, axisSpansRange)) {
 			is CompactionResult.Constant -> constants[channel] = result.form
 			is CompactionResult.Reduced -> surviving[channel] = result.grid
 		}
 	}
+
 	val newGrids = if (surviving.isEmpty()) ChannelGrids.Empty else ChannelGrids(surviving)
+
 	return CompactedChannels(newGrids, constants)
 }
 
@@ -107,8 +111,10 @@ private fun liftedDrawOrder(
 ): LiftedDrawOrder {
 	if (constants.hasFractionalDrawOrder()) {
 		val restored = compactedGrids.gridsByChannel + (FormChannel.DRAW_ORDER to (originalGrids[FormChannel.DRAW_ORDER]!!))
+
 		return LiftedDrawOrder(staticDrawOrder = null, channelGrids = ChannelGrids(restored))
 	}
+
 	return LiftedDrawOrder(constants.integralDrawOrderOrNull(), compactedGrids)
 }
 
@@ -137,10 +143,12 @@ fun PuppetModel.withChannelsCompacted(): PuppetModel {
 			axis.keys.first() <= range.first + EPS_KEY &&
 			axis.keys.last() >= range.second - EPS_KEY
 	}
+
 	return copy(
 		drawables =
 			drawables.map { drawable ->
 				val compacted = drawable.channelGrids.compactedTracks(axisSpansRange)
+
 				if (compacted.constants.isEmpty() && compacted.channelGrids === drawable.channelGrids) {
 					drawable
 				} else {
@@ -158,6 +166,7 @@ fun PuppetModel.withChannelsCompacted(): PuppetModel {
 		glues =
 			glues.map { glue ->
 				val compacted = glue.channelGrids.compactedTracks(axisSpansRange)
+
 				if (compacted.constants.isEmpty() && compacted.channelGrids === glue.channelGrids) {
 					glue
 				} else {
@@ -174,19 +183,22 @@ fun PuppetModel.withChannelsCompacted(): PuppetModel {
 /** This deformer with its channel tracks compacted and any constants lifted into its statics. */
 private fun Deformer.withChannelsCompacted(axisSpansRange: (KeyformAxis) -> Boolean): Deformer {
 	val compacted = channelGrids.compactedTracks(axisSpansRange)
+
 	if (compacted.constants.isEmpty() && compacted.channelGrids === channelGrids) {
 		return this
 	}
+
 	return when (this) {
-		is Deformer.Warp ->
+		is Deformer.Warp -> {
 			copy(
 				channelGrids = compacted.channelGrids,
 				opacity = compacted.constants.scalarOr(FormChannel.OPACITY, opacity),
 				multiplyColor = compacted.constants.colorOr(FormChannel.MULTIPLY_COLOR, multiplyColor),
 				screenColor = compacted.constants.colorOr(FormChannel.SCREEN_COLOR, screenColor),
 			)
+		}
 
-		is Deformer.Rotation ->
+		is Deformer.Rotation -> {
 			copy(
 				channelGrids = compacted.channelGrids,
 				opacity = compacted.constants.scalarOr(FormChannel.OPACITY, opacity),
@@ -195,6 +207,7 @@ private fun Deformer.withChannelsCompacted(axisSpansRange: (KeyformAxis) -> Bool
 				flipX = compacted.constants.flagOr(FormChannel.FLIP_X, flipX),
 				flipY = compacted.constants.flagOr(FormChannel.FLIP_Y, flipY),
 			)
+		}
 	}
 }
 
@@ -207,10 +220,13 @@ private fun Deformer.withChannelsCompacted(axisSpansRange: (KeyformAxis) -> Bool
  */
 private fun Part.withChannelsCompacted(axisSpansRange: (KeyformAxis) -> Boolean): Part {
 	val compacted = channelGrids.compactedTracks(axisSpansRange)
+
 	if (compacted.constants.isEmpty() && compacted.channelGrids === channelGrids) {
 		return this
 	}
+
 	val lifted = liftedDrawOrder(compacted.constants, compacted.channelGrids, channelGrids)
+
 	return copy(
 		channelGrids = lifted.channelGrids,
 		drawOrder = lifted.staticDrawOrder ?: drawOrder,
@@ -233,6 +249,7 @@ private fun Part.withChannelsCompacted(axisSpansRange: (KeyformAxis) -> Boolean)
 private fun RenderGroup.withChannelsCompacted(axisSpansRange: (KeyformAxis) -> Boolean): RenderGroup {
 	val compacted = channelGrids.compactedTracks(axisSpansRange)
 	val lifted = liftedDrawOrder(compacted.constants, compacted.channelGrids, channelGrids)
+
 	return copy(
 		drawOrder = lifted.staticDrawOrder ?: drawOrder,
 		children = children.map { child -> if (child is RenderGroup) child.withChannelsCompacted(axisSpansRange) else child },

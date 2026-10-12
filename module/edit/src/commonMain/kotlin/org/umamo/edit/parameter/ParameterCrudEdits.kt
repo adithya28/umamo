@@ -47,13 +47,17 @@ import org.umamo.runtime.model.withDerivedRenderRoot
  */
 fun PuppetModel.freshParameterId(): ParameterId {
 	val existing = parameters.map { parameter -> parameter.id }.toSet()
+
 	if (ParameterId("Param") !in existing) {
 		return ParameterId("Param")
 	}
+
 	var suffix = 2
+
 	while (ParameterId("Param$suffix") in existing) {
 		suffix++
 	}
+
 	return ParameterId("Param$suffix")
 }
 
@@ -79,8 +83,10 @@ fun PuppetModel.withParameterCreated(
 	if (parameters.any { parameter -> parameter.id == newId }) {
 		return this
 	}
+
 	val newParameter = Parameter(newId, name, min = -1f, max = 1f, default = 0f, kind = kind)
 	val newLeaf = ParameterNode.Param(newId)
+
 	return copy(
 		parameters = parameters + newParameter,
 		parameterTree = listOf(newLeaf) + materializedParameterTree(),
@@ -98,9 +104,11 @@ fun PuppetModel.withParameterCreated(
  */
 fun PuppetModel.withParameterRenamed(id: ParameterId, newName: String): PuppetModel {
 	val trimmed = newName.trim()
+
 	if (trimmed.isEmpty()) {
 		return this
 	}
+
 	var changed = false
 	val newParameters =
 		parameters.map { parameter ->
@@ -111,6 +119,7 @@ fun PuppetModel.withParameterRenamed(id: ParameterId, newName: String): PuppetMo
 				parameter
 			}
 		}
+
 	return if (changed) {
 		copy(parameters = newParameters)
 	} else {
@@ -179,6 +188,7 @@ fun PuppetModel.parameterDeletionOf(id: ParameterId): ParameterDeletion? {
 				collapseMovesRest(drawable.channelGrids, id, keepValue)
 			val collapsed = drawable.geometryGrid?.withAxisCollapsedKeepingCell(id, keepValue)
 			val scrubbed = drawable.channelGrids.withAxisCollapsedLifting(id, keepValue)
+
 			if (collapsed === drawable.geometryGrid && scrubbed.channelGrids === drawable.channelGrids) {
 				drawable
 			} else {
@@ -199,10 +209,12 @@ fun PuppetModel.parameterDeletionOf(id: ParameterId): ParameterDeletion? {
 		deformers.mapIndexed { deformerIndex, deformer ->
 			val scrubbed = deformer.channelGrids.withAxisCollapsedLifting(id, keepValue)
 			deformerMoves[deformerIndex] = collapseMovesRest(deformer.channelGrids, id, keepValue)
+
 			when (deformer) {
 				is Deformer.Warp -> {
 					deformerMoves[deformerIndex] = deformerMoves[deformerIndex] || collapseMovesRest(deformer.geometryGrid, id, keepValue)
 					val collapsed = deformer.geometryGrid?.withAxisCollapsedKeepingCell(id, keepValue)
+
 					if (collapsed === deformer.geometryGrid && scrubbed.channelGrids === deformer.channelGrids) {
 						deformer
 					} else {
@@ -219,6 +231,7 @@ fun PuppetModel.parameterDeletionOf(id: ParameterId): ParameterDeletion? {
 				is Deformer.Rotation -> {
 					deformerMoves[deformerIndex] = deformerMoves[deformerIndex] || collapseMovesRest(deformer.geometryGrid, id, keepValue)
 					val collapsed = deformer.geometryGrid?.withAxisCollapsedKeepingCell(id, keepValue)
+
 					if (collapsed === deformer.geometryGrid && scrubbed.channelGrids === deformer.channelGrids) {
 						deformer
 					} else {
@@ -239,6 +252,7 @@ fun PuppetModel.parameterDeletionOf(id: ParameterId): ParameterDeletion? {
 		parts.mapIndexed { partIndex, part ->
 			partMoves[partIndex] = collapseMovesRest(part.channelGrids, id, keepValue)
 			val scrubbed = part.channelGrids.withAxisCollapsedLifting(id, keepValue)
+
 			if (scrubbed.channelGrids === part.channelGrids) {
 				part
 			} else {
@@ -260,6 +274,7 @@ fun PuppetModel.parameterDeletionOf(id: ParameterId): ParameterDeletion? {
 		glues.mapIndexed { glueIndex, glue ->
 			glueMoves[glueIndex] = collapseMovesRest(glue.channelGrids, id, keepValue)
 			val scrubbed = glue.channelGrids.withAxisCollapsedLifting(id, keepValue)
+
 			if (scrubbed.channelGrids === glue.channelGrids) {
 				glue
 			} else {
@@ -274,9 +289,11 @@ fun PuppetModel.parameterDeletionOf(id: ParameterId): ParameterDeletion? {
 	val scrubbedDrawables =
 		newDrawables.mapIndexed { drawableIndex, drawable ->
 			val scrub = drawable.blendShapes.scrubbedOf(deleted, defaultOf) { drawable.meshFormScaler(defaultOf) }
+
 			if (scrub.movesRest) {
 				drawableMoves[drawableIndex] = true
 			}
+
 			if (scrub.bindings === drawable.blendShapes) drawable else drawable.copy(blendShapes = scrub.bindings)
 		}
 	val scrubbedDeformers =
@@ -284,17 +301,21 @@ fun PuppetModel.parameterDeletionOf(id: ParameterId): ParameterDeletion? {
 			when (deformer) {
 				is Deformer.Warp -> {
 					val scrub = deformer.blendShapes.scrubbedOf(deleted, defaultOf) { deformer.warpFormScaler(defaultOf) }
+
 					if (scrub.movesRest) {
 						deformerMoves[deformerIndex] = true
 					}
+
 					if (scrub.bindings === deformer.blendShapes) deformer else deformer.copy(blendShapes = scrub.bindings)
 				}
 
 				is Deformer.Rotation -> {
 					val scrub = deformer.blendShapes.scrubbedOf(deleted, defaultOf) { deformer.rotationFormScaler(defaultOf) }
+
 					if (scrub.movesRest) {
 						deformerMoves[deformerIndex] = true
 					}
+
 					if (scrub.bindings === deformer.blendShapes) deformer else deformer.copy(blendShapes = scrub.bindings)
 				}
 			}
@@ -302,32 +323,39 @@ fun PuppetModel.parameterDeletionOf(id: ParameterId): ParameterDeletion? {
 	val scrubbedParts =
 		newParts.mapIndexed { partIndex, part ->
 			val scrub = part.blendShapes.scrubbedOf(deleted, defaultOf) { part.partFormScaler(defaultOf) }
+
 			if (scrub.movesRest) {
 				partMoves[partIndex] = true
 			}
+
 			if (scrub.bindings === part.blendShapes) part else part.copy(blendShapes = scrub.bindings)
 		}
 	val restChangedOwners = ArrayList<KeyformOwner>()
+
 	for ((drawableIndex, drawable) in drawables.withIndex()) {
 		if (drawableMoves[drawableIndex]) {
 			restChangedOwners.add(KeyformOwner.Drawable(drawable.id))
 		}
 	}
+
 	for ((deformerIndex, deformer) in deformers.withIndex()) {
 		if (deformerMoves[deformerIndex]) {
 			restChangedOwners.add(KeyformOwner.Deformer(deformer.id))
 		}
 	}
+
 	for ((partIndex, part) in parts.withIndex()) {
 		if (partMoves[partIndex]) {
 			restChangedOwners.add(KeyformOwner.Part(part.id))
 		}
 	}
+
 	for ((glueIndex, glue) in glues.withIndex()) {
 		if (glueMoves[glueIndex]) {
 			restChangedOwners.add(KeyformOwner.Glue(glue.meshA, glue.meshB))
 		}
 	}
+
 	val model =
 		copy(
 			parameters = parameters.filterNot { parameter -> parameter.id == id },
@@ -338,6 +366,7 @@ fun PuppetModel.parameterDeletionOf(id: ParameterId): ParameterDeletion? {
 			parts = scrubbedParts,
 			glues = newGlues,
 		).withDerivedRenderRoot()
+
 	return ParameterDeletion(model, restChangedOwners)
 }
 
@@ -355,7 +384,9 @@ private fun CollapsedChannels.withFractionalDrawOrderKept(): CollapsedChannels {
 	if (!lifted.hasFractionalDrawOrder()) {
 		return this
 	}
+
 	val constantTrack = KeyformGrid(emptyList(), listOf(KeyformCell(IntArray(0), lifted[FormChannel.DRAW_ORDER]!!)))
+
 	return CollapsedChannels(
 		ChannelGrids(channelGrids.gridsByChannel + (FormChannel.DRAW_ORDER to constantTrack)),
 		lifted,
@@ -382,6 +413,7 @@ private fun removeParameterLeaf(nodes: List<ParameterNode>, id: ParameterId): Li
 fun EditorSession.createParameter(name: String, kind: ParameterKind = ParameterKind.NORMAL): ParameterId {
 	val id = model.value.freshParameterId()
 	mutate(ParameterChange.Create(id)) { model -> model.withParameterCreated(id, name, kind) }
+
 	return id
 }
 
@@ -419,6 +451,7 @@ fun EditorSession.deleteParameter(id: ParameterId) {
 	// cannot restore the dangling id.
 	val prunedTarget = parameterSelection.value.prunedTo(newModel.parameters.mapTo(HashSet()) { parameter -> parameter.id })
 	commitStep(ParameterChange.Delete(id), model = newModel, pose = pose.value - id, parameterSelection = prunedTarget)
+
 	if (restChanged.isNotEmpty()) {
 		emitNotice("notice.parameter.deleteChangedRest", arguments = listOf(restChanged.size.toString()))
 	}

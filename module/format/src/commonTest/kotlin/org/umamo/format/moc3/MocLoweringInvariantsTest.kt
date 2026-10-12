@@ -38,6 +38,7 @@ class MocLoweringInvariantsTest {
 	private fun intsOf(sections: Map<Int, ByteArray>, section: Section, version: MocVersion): IntArray {
 		val bytes = sections.getValue(section.indexIn(version))
 		val reader = LittleEndianReader(bytes)
+
 		return IntArray(bytes.size / 4) { reader.readInt32() }
 	}
 
@@ -176,6 +177,7 @@ class MocLoweringInvariantsTest {
 				"derivedIndexes" to Section.PARAM_SNAP_TYPE,
 				"countInfo" to Section.COUNT_INFO,
 			)
+
 		for ((producerName, section) in ownedByProducer) {
 			assertTrue(
 				lowered.containsKey(section.indexIn(version)),

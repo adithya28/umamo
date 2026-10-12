@@ -48,13 +48,16 @@ class ViewportPieMenusLayoutTest {
 					}
 				}
 			}
+
 			for (pieKind in PieMenuKind.entries) {
 				kind = pieKind
 				waitForIdle()
 				val titleBounds = boundsOf(title)
 				val chipSpans = labels.mapIndexed { slotIndex, label -> spanning(boundsOf("${slotIndex + 1}"), boundsOf(label)) }
+
 				for ((slotIndex, chipSpan) in chipSpans.withIndex()) {
 					assertFalse(chipSpan.overlaps(titleBounds), "$pieKind: \"${labels[slotIndex]}\" covers the title")
+
 					for (otherSlot in slotIndex + 1 until chipSpans.size) {
 						assertFalse(chipSpan.overlaps(chipSpans[otherSlot]), "$pieKind: \"${labels[slotIndex]}\" overlaps \"${labels[otherSlot]}\"")
 					}
@@ -72,6 +75,7 @@ class ViewportPieMenusLayoutTest {
 	@OptIn(ExperimentalTestApi::class)
 	private fun ComposeUiTest.boundsOf(text: String): Rect {
 		val bounds = onNodeWithText(text, useUnmergedTree = true).getBoundsInRoot()
+
 		return Rect(bounds.left.value, bounds.top.value, bounds.right.value, bounds.bottom.value)
 	}
 

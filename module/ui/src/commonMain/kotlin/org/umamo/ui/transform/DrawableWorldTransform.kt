@@ -75,10 +75,13 @@ internal class DrawableWorldTransform(val bounds: MeshBounds, val editable: Bool
  */
 internal fun drawableWorldTransform(model: PuppetModel, pose: Pose, id: DrawableId): DrawableWorldTransform? {
 	val base = model.meshOf(id)?.localPositions ?: return null
+
 	if (base.size < 2) {
 		return null
 	}
+
 	val captured = captureDrawableWorld(model, pose, id)
+
 	if (captured == null) {
 		// No world mapping (a hidden ancestor).  The posed local shape is still worth showing, so resolve it
 		// directly rather than going through the capture, which requires a mapping.
@@ -91,11 +94,13 @@ internal fun drawableWorldTransform(model: PuppetModel, pose: Pose, id: Drawable
 		// space, which no origin conversion can make meaningful; the row is read-only there, so it is shown
 		// as it is.
 		val local = meshBounds(displayed)
+
 		return DrawableWorldTransform(
 			MeshBounds(local.centerX, -local.centerY, local.width, local.height),
 			editable = false,
 		)
 	}
+
 	return DrawableWorldTransform(meshBounds(captured.world), editable = isPoseNeutral(model, pose))
 }
 
@@ -135,11 +140,14 @@ private fun planWorldTransform(
 	if (!isPoseNeutral(model, pose)) {
 		return null
 	}
+
 	val captured = captureDrawableWorld(model, pose, id) ?: return null
 	val targetWorld = transformWorld(captured.world)
+
 	if (targetWorld === captured.world) {
 		return null
 	}
+
 	return WorldTransformPlan(captured, captured.worldToRest(targetWorld))
 }
 
@@ -161,6 +169,7 @@ private fun EditorSession.commitWorldTransform(
 ): DrawableWorldGeometry? {
 	val plan = planWorldTransform(model.value, shownPose, id, transformWorld) ?: return null
 	commitObjectPositions(change, mapOf(id to plan.rest))
+
 	return plan.geometry
 }
 
@@ -176,6 +185,7 @@ private fun EditorSession.commitWorldTransform(
 private fun EditorSession.previewWorldTransform(id: DrawableId, transformWorld: (FloatArray) -> FloatArray): PuppetModel? {
 	val currentModel = model.value
 	val plan = planWorldTransform(currentModel, shownPose, id, transformWorld) ?: return null
+
 	// The fold hands back the same instance when every array came out unchanged, which the commit records
 	// as nothing - so neither is there anything to preview.
 	return currentModel.withMeshPositions(id, plan.rest).takeIf { previewed -> previewed !== currentModel }

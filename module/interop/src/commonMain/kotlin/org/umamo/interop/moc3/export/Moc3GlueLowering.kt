@@ -30,17 +30,21 @@ internal fun lowerGlues(
 	noticeSink: Moc3ExportNotices,
 ): List<MocGlue> {
 	val plan = context.plan
+
 	return puppet.glues.mapIndexedNotNull { glueIndex, glue ->
 		val meshA = plan.drawableIndex(glue.meshA)
 		val meshB = plan.drawableIndex(glue.meshB)
+
 		if (meshA < 0 || meshB < 0) {
 			noticeSink.unsupported(
 				ExportEntityCategory.Glue,
 				glue.id ?: "Glue$glueIndex",
 				ExportNoticeReason.GlueNamesAnUnknownDrawable,
 			)
+
 			return@mapIndexedNotNull null
 		}
+
 		val keyforms =
 			lowerObjectKeyforms(
 				pool,

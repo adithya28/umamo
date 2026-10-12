@@ -44,6 +44,7 @@ class OutlinerHoverPreviewTest {
 			harness.outlinerSize = DpSize(windowWidth - SLIVER_WIDTH, PANEL_OUTLINER_HEIGHT)
 		}
 		test.waitForIdle()
+
 		return harness
 	}
 

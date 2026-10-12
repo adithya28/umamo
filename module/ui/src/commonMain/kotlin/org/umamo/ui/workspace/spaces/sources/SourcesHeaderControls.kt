@@ -99,6 +99,7 @@ private fun FilterDropdownButton(viewState: SourcesViewState) {
 		icon = if (viewState.isUnfiltered) LocalUmamoIcons.filterUnfiltered else LocalUmamoIcons.filterFiltered,
 	) {
 		FilterSectionLabel(stringResource(Res.string.common_filters))
+
 		for (filter in SourcesFilter.entries) {
 			Checkbox(
 				checked = filter in viewState.filters,

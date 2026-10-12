@@ -62,6 +62,7 @@ internal fun observeAreaSize(slot: AreaSlot, width: Int, height: Int, nowNanos: 
 		val firstObservation = slot.observedWidth == 0 && slot.observedHeight == 0
 		slot.observedWidth = width
 		slot.observedHeight = height
+
 		if (!firstObservation) {
 			slot.sizeChangedNanos = nowNanos
 		}
@@ -105,21 +106,23 @@ internal fun isRestFresh(
 	atlasRenderBump: Long,
 ): Boolean =
 	when (slot.scene) {
-		RenderScene.Puppet2D ->
+		RenderScene.Puppet2D -> {
 			slot.renderedParamsVersion == paramsVersion &&
 				slot.renderedCamera === camera &&
 				slot.puppetRenderBumpDone == puppetRenderBump &&
 				slot.renderedOverlays == slot.overlays
+		}
 
 		// Kind and payload are read as ONE value, so a switch can never be observed half
 		// applied.  Equality rather than identity: AtlasPage compares its index, SourceLayer's
 		// image compares by reference, and the overlay and placement preview either carries
 		// compare by identity, which is the freshness test either surface wants.
-		RenderScene.UvScene ->
+		RenderScene.UvScene -> {
 			slot.renderedUvContent == slot.uvContent &&
 				slot.renderedCamera === camera &&
 				slot.atlasRenderBumpDone == atlasRenderBump &&
 				slot.renderedOverlays == slot.overlays
+		}
 	}
 
 /**
@@ -134,6 +137,7 @@ internal fun isRestFresh(
 internal fun shouldDeferResizeRender(slot: AreaSlot, nowNanos: Long): Boolean {
 	val settled = nowNanos - slot.sizeChangedNanos >= RESIZE_SETTLE_NANOS
 	val throttleElapsed = nowNanos - slot.resizeRenderNanos >= RESIZE_THROTTLE_NANOS
+
 	return !settled && !throttleElapsed
 }
 
@@ -150,6 +154,7 @@ internal fun shouldDeferResizeRender(slot: AreaSlot, nowNanos: Long): Boolean {
  */
 internal fun renderScaleFor(slot: AreaSlot, nowNanos: Long, settleScale: Int, interactiveScale: Int): Int {
 	val sizeInMotion = nowNanos - slot.sizeChangedNanos < RESIZE_SETTLE_NANOS
+
 	return if (sizeInMotion) interactiveScale else settleScale
 }
 
@@ -182,11 +187,14 @@ internal fun decideAreaRender(
 ): AreaRenderDecision {
 	val sizeFresh = isSizeFresh(slot, width, height, tick.settleScale)
 	val restFresh = isRestFresh(slot, camera, tick.paramsVersion, puppetRenderBump, atlasRenderBump)
+
 	if (sizeFresh && restFresh) {
 		return AreaRenderDecision.Fresh
 	}
+
 	if (restFresh && shouldDeferResizeRender(slot, tick.nowNanos)) {
 		return AreaRenderDecision.Deferred
 	}
+
 	return AreaRenderDecision.Render(renderScaleFor(slot, tick.nowNanos, tick.settleScale, tick.interactiveScale))
 }

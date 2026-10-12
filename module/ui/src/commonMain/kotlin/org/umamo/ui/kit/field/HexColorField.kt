@@ -104,6 +104,7 @@ fun HexColorField(
 	// re-seeds nothing.  Half-typed text that does not parse is left alone for the same reason.
 	LaunchedEffect(value, focused) {
 		val typed = parseHexColor(text.text)
+
 		if (!focused || (typed != null && typed != parseHexColor(value))) {
 			text = TextFieldValue(value, TextRange(value.length))
 		}
@@ -135,6 +136,7 @@ fun HexColorField(
 						// be used to close.  Closing is the popup's own job (click-away or Escape).
 						.clickable { pickerOpen = true },
 			)
+
 			if (pickerOpen) {
 				Popup(
 					popupPositionProvider = BelowAnchorPositionProvider,
@@ -228,9 +230,11 @@ private fun commitHexEdit(
 	show: (TextFieldValue) -> Unit,
 ) {
 	show(edited)
+
 	if (edited.text == previous.text) {
 		return
 	}
+
 	parseHexColor(edited.text)?.let { parsed -> onValueChange(formatHexColor(parsed)) }
 }
 

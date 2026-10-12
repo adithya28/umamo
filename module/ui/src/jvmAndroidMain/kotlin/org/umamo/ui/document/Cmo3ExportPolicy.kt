@@ -93,6 +93,7 @@ fun prepareCmo3Export(
 				)
 			PreparedCmo3Export(workingCopy, report)
 		}
+
 		// An artwork-origin document has no retained graph either: the pages it packed at open, or the
 		// session's repack of them, are re-encoded and synthesized into a fresh graph the same way,
 		// with the document's own rasters handed over so every tile writes its real layer rather than
@@ -112,6 +113,7 @@ fun prepareCmo3Export(
 				)
 			PreparedCmo3Export(result.model, result.report)
 		}
+
 		// A UMA document has no retained graph either, since a `.uma` never carries one: a fresh graph is
 		// synthesized as for an artwork document, with the file's stored render pages as the image chain while
 		// the atlas is at the document's baseline (the same identity gate as the CMO3 branch), put into the
@@ -132,6 +134,7 @@ fun prepareCmo3Export(
 				)
 			PreparedCmo3Export(result.model, result.report)
 		}
+
 		// A MOC3-origin document has no retained graph: synthesize a fresh one from the blank skeleton
 		// + the retained atlas pages, then reconcile onto it.
 		is Moc3Document -> {
@@ -186,6 +189,7 @@ fun renderCmo3Export(
 	// writes - pure CPU, so the Android shell writes them too.
 	val modelThumbnail = DrawableThumbnailer(edited, effectiveTextures).modelRasterFor()
 	val prepared = prepareCmo3Export(document, edited, effectiveTextures, modelName, nowMillis, obfuscateKey, modelThumbnail)
+
 	return RenderedCmo3Export(Cmo3.write(prepared.model), prepared.report)
 }
 
@@ -240,9 +244,11 @@ internal fun conversionPagesFor(document: UmaDocument, edited: PuppetModel, effe
 		effectiveTextures.atlases.mapIndexed { pageIndex, page ->
 			Cmo3Conversion.AtlasPage(stored?.pageBytes?.get(pageIndex) ?: encodeAtlasPng(page), page.width, page.height, decoded = page.asRasterImage())
 		}
+
 	if (stored == null) {
 		return ConversionPages(renderPages, effectiveTextures.atlasIndexByDrawableId)
 	}
+
 	val derived by lazy { deriveAtlasTextures(edited, document.artRasters, effectiveTextures.premultipliedAlpha) }
 	val resolved =
 		modelOrderPages(edited, renderPages, effectiveTextures.atlasIndexByDrawableId) { modelPageIndex ->
@@ -254,6 +260,7 @@ internal fun conversionPagesFor(document: UmaDocument, edited: PuppetModel, effe
 					Cmo3Conversion.AtlasPage(PngCodec.write(blank), blank.width, blank.height, decoded = blank)
 				}
 		}
+
 	return ConversionPages(resolved.pages, resolved.pageIndexByDrawableId)
 }
 

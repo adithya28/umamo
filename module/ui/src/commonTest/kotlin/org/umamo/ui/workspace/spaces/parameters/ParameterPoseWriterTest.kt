@@ -65,6 +65,7 @@ private class CountingValues(private val backing: MutableMap<ParameterId, Float>
 	 */
 	override fun put(key: ParameterId, value: Float): Float? {
 		writes += 1
+
 		return backing.put(key, value)
 	}
 }

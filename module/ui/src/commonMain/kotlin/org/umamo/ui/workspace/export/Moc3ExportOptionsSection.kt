@@ -131,6 +131,7 @@ internal fun Moc3ExportOptionsPane(
  */
 private fun formatCanvasUnits(value: Float): String {
 	val rounded = round(value * 100f) / 100f
+
 	return if (rounded == floor(rounded)) {
 		rounded.toInt().toString()
 	} else {

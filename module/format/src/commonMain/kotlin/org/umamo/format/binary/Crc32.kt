@@ -28,6 +28,7 @@ private val CRC32_TABLE: IntArray =
 private val CRC32_SLICE_TABLES: IntArray =
 	IntArray(8 * 256).also { tables ->
 		CRC32_TABLE.copyInto(tables)
+
 		for (tableIndex in 1 until 8) {
 			for (byteValue in 0 until 256) {
 				val shorter = tables[(tableIndex - 1) * 256 + byteValue]
@@ -69,6 +70,7 @@ internal class Crc32 {
 		val end = offset + length
 		var running = remainder
 		var byteIndex = offset
+
 		while (end - byteIndex >= 8) {
 			// The reflected CRC consumes bytes least-significant first, so the first four fold into the
 			// running remainder as a little-endian word; the oldest byte takes the longest table.
@@ -89,10 +91,12 @@ internal class Crc32 {
 				tables[bytes[byteIndex + 7].toInt() and 0xFF]
 			byteIndex += 8
 		}
+
 		while (byteIndex < end) {
 			running = CRC32_TABLE[(running xor bytes[byteIndex].toInt()) and 0xFF] xor (running ushr 8)
 			byteIndex++
 		}
+
 		remainder = running
 	}
 

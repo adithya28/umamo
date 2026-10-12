@@ -305,6 +305,7 @@ internal class EngineRenderInputs(
 		if (model === modelBacking) {
 			return null
 		}
+
 		val kind =
 			if (model.differsOnlyInMeshPositions(modelBacking)) {
 				ModelUpdateKind.PositionsOnly
@@ -313,6 +314,7 @@ internal class EngineRenderInputs(
 			}
 		modelBacking = model
 		doPuppetRenderBump()
+
 		return kind
 	}
 

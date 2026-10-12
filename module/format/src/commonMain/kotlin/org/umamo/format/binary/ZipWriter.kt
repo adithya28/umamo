@@ -146,12 +146,15 @@ internal class ZipWriter(private val dosDateTime: Int) {
 		check(!finished) { "the archive has already been finished" }
 		finished = true
 		val directoryOffset = output.size
+
 		for (entry in writtenEntries) {
 			writeCentralHeader(entry)
 		}
+
 		val directorySize = output.size - directoryOffset
 		val entryCount = writtenEntries.size
 		val needsZip64 = entryCount >= ZipRecords.UINT16_SENTINEL
+
 		if (needsZip64) {
 			val zip64EndOffset = output.size
 			// ZIP: Zip64 end of central directory record (APPNOTE.TXT 4.3.14).
@@ -171,6 +174,7 @@ internal class ZipWriter(private val dosDateTime: Int) {
 			output.writeLongLe(zip64EndOffset)
 			output.writeIntLe(1)
 		}
+
 		val classicCount = if (needsZip64) ZipRecords.UINT16_SENTINEL else entryCount
 		// ZIP: end of central directory record (APPNOTE.TXT 4.3.16).
 		output.writeIntLe(ZipRecords.END_SIGNATURE)
@@ -182,6 +186,7 @@ internal class ZipWriter(private val dosDateTime: Int) {
 		output.writeIntLe(directoryOffset.toInt())
 		output.writeShortLe(0)
 		check(output.size <= MAXIMUM_ARCHIVE_SIZE) { "the archive exceeds what a byte array can hold: ${output.size} bytes" }
+
 		return output.readByteArray()
 	}
 
@@ -256,6 +261,7 @@ internal class ZipWriter(private val dosDateTime: Int) {
 		output.writeShortLe(0)
 		output.write(nameBytes)
 		output.write(payload, payloadOffset, payloadSize)
+
 		if (writesDescriptor) {
 			// ZIP: data descriptor (APPNOTE.TXT 4.3.9), with its optional signature.
 			output.writeIntLe(ZipRecords.DATA_DESCRIPTOR_SIGNATURE)
@@ -263,6 +269,7 @@ internal class ZipWriter(private val dosDateTime: Int) {
 			output.writeIntLe(entry.compressedSize)
 			output.writeIntLe(entry.uncompressedSize)
 		}
+
 		writtenEntries += entry
 	}
 

@@ -43,6 +43,7 @@ class Moc3ExportSessionOptions {
 			} else {
 				Moc3Export.mocPixelsPerUnitFor(puppet)
 			}
+
 		return remembered.copy(pixelsPerUnitOverride = seededScale)
 	}
 

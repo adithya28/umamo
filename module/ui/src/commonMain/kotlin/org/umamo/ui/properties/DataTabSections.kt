@@ -137,6 +137,7 @@ internal val TextureSection =
 						}
 					},
 				)
+
 				if (tile != null && tile.placement != null) {
 					add(
 						PropertyRow(terms = listOf(Res.string.properties_field_pinned)) { _ ->
@@ -160,6 +161,7 @@ internal val BlendSection =
 		title = Res.string.properties_section_blend,
 		rows = { context ->
 			val drawable = context.activeDrawable()
+
 			if (drawable != null) {
 				val session = context.session
 				val target = context.puppet.runtimeTarget
@@ -307,8 +309,9 @@ internal val DeformerSection =
 		rows = { context ->
 			val session = context.session
 			val target = context.puppet.runtimeTarget
+
 			when (val deformer = context.activeDeformer()) {
-				is Deformer.Warp ->
+				is Deformer.Warp -> {
 					deformerRenderChannelRows(deformer, session, target) +
 						listOfNotNull(
 							PropertyRow(terms = listOf(Res.string.properties_warp_grid)) { _ ->
@@ -329,8 +332,9 @@ internal val DeformerSection =
 								}
 							},
 						)
+				}
 
-				is Deformer.Rotation ->
+				is Deformer.Rotation -> {
 					deformerRenderChannelRows(deformer, session, target) +
 						listOf(
 							PropertyRow(terms = listOf(Res.string.properties_field_base_angle)) { _ ->
@@ -361,8 +365,11 @@ internal val DeformerSection =
 								)
 							},
 						)
+				}
 
-				null -> emptyList()
+				null -> {
+					emptyList()
+				}
 			}
 		},
 	)
@@ -374,6 +381,7 @@ internal val PartSection =
 		title = Res.string.properties_section_part,
 		rows = { context ->
 			val part = context.activePart()
+
 			if (part != null) {
 				val session = context.session
 				val target = context.puppet.runtimeTarget
@@ -452,6 +460,7 @@ internal val PartSection =
 					// stops being editable.  No inner gates - 5.3 support implies every lower tier (colors, alpha,
 					// reversed mask).
 					val composite = part.activeComposite
+
 					if (composite != null && target.supports(RuntimeFeature.PartComposite)) {
 						add(
 							PropertyRow(terms = listOf(Res.string.properties_field_opacity)) { _ ->
@@ -489,6 +498,7 @@ internal val PartSection =
 								}
 							},
 						)
+
 						if (!composite.blendMode.ignoresAlphaBlend) {
 							add(
 								PropertyRow(terms = listOf(Res.string.properties_field_alpha_mode)) { _ ->
@@ -508,6 +518,7 @@ internal val PartSection =
 								},
 							)
 						}
+
 						add(
 							PropertyRow(terms = listOf(Res.string.properties_field_multiply_color)) { _ ->
 								KeyableColorChannelRow(
@@ -587,15 +598,24 @@ internal fun dataTabSections(context: PropertyContext): List<PropertySection> =
  */
 internal fun dataTabIcon(context: PropertyContext): UmamoIcon =
 	when (val target = context.activeTarget) {
-		is SelectionTarget.Drawable -> LocalUmamoIcons.mesh
+		is SelectionTarget.Drawable -> {
+			LocalUmamoIcons.mesh
+		}
+
 		// Through the shared glyph so the tab icon and the Relations row can never disagree about a deformer.
-		is SelectionTarget.Deformer ->
+		is SelectionTarget.Deformer -> {
 			context.puppet.deformers.firstOrNull { it.id == target.id }
 				?.let { deformer -> deformerIcon(deformer) }
 				?: LocalUmamoIcons.warpDeformer
+		}
 
-		is SelectionTarget.Part -> LocalUmamoIcons.part
-		null -> LocalUmamoIcons.mesh
+		is SelectionTarget.Part -> {
+			LocalUmamoIcons.part
+		}
+
+		null -> {
+			LocalUmamoIcons.mesh
+		}
 	}
 
 /**
@@ -709,6 +729,7 @@ private fun deformerRenderChannelRows(
 	target: RuntimeTarget,
 ): List<PropertyRow> {
 	val owner = KeyformOwner.Deformer(deformer.id)
+
 	return listOfNotNull(
 		PropertyRow(terms = listOf(Res.string.properties_field_opacity)) { _ ->
 			KeyableScalarChannelRow(

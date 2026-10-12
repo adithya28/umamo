@@ -37,6 +37,7 @@ class Cmo3IconDifferentialTest {
 		var minY = Int.MAX_VALUE
 		var maxX = -1
 		var maxY = -1
+
 		for (y in 0 until image.height) {
 			for (x in 0 until image.width) {
 				if ((image.rgba[(y * image.width + x) * 4 + 3].toInt() and 0xFF) > 0) {
@@ -47,6 +48,7 @@ class Cmo3IconDifferentialTest {
 				}
 			}
 		}
+
 		return if (maxX < 0) null else intArrayOf(minX, minY, maxX - minX + 1, maxY - minY + 1)
 	}
 
@@ -54,21 +56,26 @@ class Cmo3IconDifferentialTest {
 	private fun meanDifference(ours: RasterImage, official: RasterImage): Double {
 		var total = 0.0
 		var count = 0
+
 		for (pixel in 0 until ours.width * ours.height) {
 			val offset = pixel * 4
 			val ourAlpha = ours.rgba[offset + 3].toInt() and 0xFF
 			val theirAlpha = official.rgba[offset + 3].toInt() and 0xFF
+
 			if (ourAlpha == 0 && theirAlpha == 0) {
 				continue
 			}
+
 			for (channel in 0 until 3) {
 				val ourPremultiplied = (ours.rgba[offset + channel].toInt() and 0xFF) * ourAlpha / 255.0
 				val theirPremultiplied = (official.rgba[offset + channel].toInt() and 0xFF) * theirAlpha / 255.0
 				total += abs(ourPremultiplied - theirPremultiplied)
 			}
+
 			total += abs(ourAlpha - theirAlpha)
 			count += 4
 		}
+
 		return if (count == 0) 0.0 else total / count
 	}
 
@@ -77,6 +84,7 @@ class Cmo3IconDifferentialTest {
 	/** The art trimmed to its non-transparent bounds, or the art itself when it has none or is already tight. */
 	private fun trimmed(art: RasterImage): RasterImage {
 		val box = alphaBox(art) ?: return art
+
 		return art.cropped(org.umamo.format.art.LayerBounds(box[0], box[1], box[2], box[3]))
 	}
 
@@ -90,10 +98,13 @@ class Cmo3IconDifferentialTest {
 	@Test
 	fun ourFitLandsOnTheOfficialIcons() {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.sample not present; skipping the icon differential")
+
 			return
 		}
+
 		val cmo3 = Cmo3.read(file.readBytes())
 		val root = cmo3.root as CModelSource
 		val textureManager = root.textureManager as CTextureManager
@@ -110,9 +121,11 @@ class Cmo3IconDifferentialTest {
 		fun compare(name: String, art: RasterImage, size: Int, iconSlot: Any?) {
 			val path = Cmo3Icons.archivePathOf(iconSlot) ?: return
 			val official = PngCodec.read(cmo3.archive.byPath(path)?.content ?: return)
+
 			if (official.width != size || official.height != size) {
 				return
 			}
+
 			val ours = art.fittedInto(size)
 			val oursTrimmed = trimmed(art).fittedInto(size)
 			val theirBox = alphaBox(official)
@@ -134,8 +147,10 @@ class Cmo3IconDifferentialTest {
 				),
 			)
 		}
+
 		for (wrapper in Cmo3Import.elementsOf(textureManager._rawImages).filterIsInstance<LayeredImageWrapper>()) {
 			val image = wrapper.image as? CLayeredImage ?: continue
+
 			for (walked in walkLayeredImage(image)) {
 				val resource = walked.layer.imageResource as? CImageResource ?: continue
 				val art = PngCodec.read(cmo3.extractLayerPng(resource) ?: continue)
@@ -143,6 +158,7 @@ class Cmo3IconDifferentialTest {
 				compare("layer ${walked.layer.name}", art, 16, walked.layer.icon16)
 			}
 		}
+
 		for (group in Cmo3Import.elementsOf(textureManager._modelImageGroups).filterIsInstance<CModelImageGroup>()) {
 			for (modelImage in Cmo3Import.elementsOf(group._modelImages).filterIsInstance<CModelImage>()) {
 				val resource = modelImage._filteredImage as? CImageResource ?: continue
@@ -150,17 +166,21 @@ class Cmo3IconDifferentialTest {
 				compare("model image ${modelImage.name}", art, 16, modelImage.icon16)
 			}
 		}
+
 		assertTrue(comparisons.isNotEmpty(), "the sample carries icons to compare")
 		println(
 			"icon differential: ${comparisons.size} icons; whole-art fit: box<=1 ${comparisons.count { comparison -> comparison.boxDelta <= 1 }}, mean avg ${"%.2f".format(comparisons.map { comparison -> comparison.meanDifference }.average())}; " +
 				"trimmed fit: box<=1 ${comparisons.count { comparison -> comparison.trimmedBoxDelta <= 1 }}, mean avg ${"%.2f".format(comparisons.map { comparison -> comparison.trimmedMeanDifference }.average())}",
 		)
+
 		for (comparison in comparisons.sortedByDescending { comparison -> comparison.boxDelta }.take(6)) {
 			println("  box outlier ${comparison.name}@${comparison.size} art ${comparison.artWidth}x${comparison.artHeight}: ours ${comparison.ourBox?.toList()} trimmed ${comparison.trimmedBox?.toList()} theirs ${comparison.theirBox?.toList()} mean ${"%.1f".format(comparison.meanDifference)} / trimmed ${"%.1f".format(comparison.trimmedMeanDifference)}")
 		}
+
 		for (comparison in comparisons.sortedByDescending { comparison -> comparison.meanDifference }.take(6)) {
 			println("  mean outlier ${comparison.name}@${comparison.size} art ${comparison.artWidth}x${comparison.artHeight}: ours ${comparison.ourBox?.toList()} trimmed ${comparison.trimmedBox?.toList()} theirs ${comparison.theirBox?.toList()} mean ${"%.1f".format(comparison.meanDifference)} / trimmed ${"%.1f".format(comparison.trimmedMeanDifference)}")
 		}
+
 		// The rule is pinned by the population, the per-icon bounds catch a gross error: nearly every
 		// icon's box lands within a pixel of the editor's (the rest are soft-alpha layers whose faint
 		// fringe the editor's filter drops), and the thin 16px icons carry the largest per-icon means

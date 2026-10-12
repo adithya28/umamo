@@ -73,6 +73,7 @@ internal class EditMeshGeometry(
  */
 internal fun editMeshGeometries(model: PuppetModel, drawableIds: List<DrawableId>): List<EditMeshGeometry> {
 	val drawableById = model.drawables.associateBy { drawable -> drawable.id }
+
 	// Edit mode is pinned to the neutral pose, so the geometry is captured at emptyMap().
 	return captureDrawableWorlds(model, emptyMap(), drawableIds).mapNotNull { worldGeometry ->
 		val mesh = drawableById[worldGeometry.drawableId]?.mesh ?: return@mapNotNull null

@@ -80,11 +80,13 @@ fun <TForm> KeyformGrid<TForm>.compacted(
 	if (!isDense) {
 		return CompactionResult.Reduced(this)
 	}
+
 	val allowsInteriorKeyDrop = valueKind != ChannelValueKind.FLAG
 	var working = this
 	// Axes first: dropping one shrinks every later pass, and it can expose a key that is now interpolable.
 	// The last axis is left for the constant check below, which has the form to hand back to the owner.
 	var axisIndex = 0
+
 	while (axisIndex < working.axes.size) {
 		if (working.axes.size > 1 && axisSpansRange(working.axes[axisIndex]) && working.isConstantAlong(axisIndex, interpolator)) {
 			working = working.withAxisDropped(axisIndex)
@@ -92,19 +94,25 @@ fun <TForm> KeyformGrid<TForm>.compacted(
 			axisIndex++
 		}
 	}
+
 	// A single remaining axis that the track does not vary along leaves one constant form for the owner -
 	// but only when the axis spans its range, else out-of-span poses must keep falling to the static.
 	if (working.axes.size == 1 && axisSpansRange(working.axes[0]) && working.isConstantAlong(0, interpolator)) {
 		val soleForm = working.cells.firstOrNull()?.form ?: return CompactionResult.Reduced(working)
+
 		return CompactionResult.Constant(soleForm)
 	}
+
 	if (working.axes.isEmpty()) {
 		val soleForm = working.cells.firstOrNull()?.form ?: return CompactionResult.Reduced(working)
+
 		return CompactionResult.Constant(soleForm)
 	}
+
 	if (!allowsInteriorKeyDrop) {
 		return CompactionResult.Reduced(working)
 	}
+
 	return CompactionResult.Reduced(working.withVerifiedInteriorKeyDrops(interpolator))
 }
 
@@ -125,17 +133,22 @@ fun <TForm> KeyformGrid<TForm>.compacted(
  */
 private fun <TForm> KeyformGrid<TForm>.withVerifiedInteriorKeyDrops(interpolator: FormInterpolator<TForm>): KeyformGrid<TForm> {
 	val mustKeep = HashMap<ParameterId, MutableSet<Float>>()
+
 	while (true) {
 		val reduced = withGreedyInteriorKeyDrops(interpolator, mustKeep)
+
 		if (reduced === this) {
 			return this
 		}
+
 		val unionKeysByParameter = axes.associate { axis -> axis.parameterId to axis.keys }
 		val restored = reduced.refinedToUnion(unionKeysByParameter, emptyMap(), interpolator)
 		val offending = mismatchedKeyValues(restored, interpolator)
+
 		if (offending.isEmpty()) {
 			return reduced
 		}
+
 		for ((parameterId, keyValues) in offending) {
 			mustKeep.getOrPut(parameterId) { HashSet() }.addAll(keyValues)
 		}
@@ -154,11 +167,14 @@ private fun <TForm> KeyformGrid<TForm>.withGreedyInteriorKeyDrops(
 	mustKeep: Map<ParameterId, Set<Float>>,
 ): KeyformGrid<TForm> {
 	var working = this
+
 	for (targetAxisIndex in working.axes.indices) {
 		var keyIndex = 1
+
 		while (keyIndex < working.axes[targetAxisIndex].keys.size - 1) {
 			val axis = working.axes[targetAxisIndex]
 			val keptExplicitly = mustKeep[axis.parameterId]?.contains(axis.keys[keyIndex]) == true
+
 			if (!keptExplicitly && working.isKeyInterpolable(targetAxisIndex, keyIndex, interpolator)) {
 				working = working.withKeyIndexDropped(targetAxisIndex, keyIndex)
 			} else {
@@ -166,6 +182,7 @@ private fun <TForm> KeyformGrid<TForm>.withGreedyInteriorKeyDrops(
 			}
 		}
 	}
+
 	return working
 }
 
@@ -187,16 +204,20 @@ private fun <TForm> KeyformGrid<TForm>.mismatchedKeyValues(
 ): Map<ParameterId, Set<Float>> {
 	val offending = HashMap<ParameterId, MutableSet<Float>>()
 	val restoredByIndex = restored.cells.associate { cell -> restored.linearIndexOf(cell.coordinate) to cell.form }
+
 	for (cell in cells) {
 		val counterpart = restoredByIndex[linearIndexOf(cell.coordinate)]
+
 		if (counterpart != null && interpolator.isExactlyEqual(counterpart, cell.form)) {
 			continue
 		}
+
 		for (axisIndex in axes.indices) {
 			val axis = axes[axisIndex]
 			offending.getOrPut(axis.parameterId) { HashSet() }.add(axis.keys[cell.coordinate[axisIndex]])
 		}
 	}
+
 	return offending
 }
 
@@ -209,20 +230,26 @@ private fun <TForm> KeyformGrid<TForm>.mismatchedKeyValues(
  */
 private fun <TForm> KeyformGrid<TForm>.isConstantAlong(axisIndex: Int, interpolator: FormInterpolator<TForm>): Boolean {
 	val keyCount = axes[axisIndex].keys.size
+
 	if (keyCount <= 1) {
 		return true
 	}
+
 	val formByIndex = cells.associate { cell -> linearIndexOf(cell.coordinate) to cell.form }
+
 	for (cell in cells) {
 		if (cell.coordinate[axisIndex] == 0) {
 			continue
 		}
+
 		val baseCoordinate = cell.coordinate.copyOf().also { it[axisIndex] = 0 }
 		val baseForm = formByIndex[linearIndexOf(baseCoordinate)] ?: return false
+
 		if (!interpolator.isExactlyEqual(baseForm, cell.form)) {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -242,23 +269,29 @@ private fun <TForm> KeyformGrid<TForm>.isKeyInterpolable(
 ): Boolean {
 	val keys = axes[axisIndex].keys
 	val span = keys[keyIndex + 1] - keys[keyIndex - 1]
+
 	if (span < EPS_SPAN) {
 		return false
 	}
+
 	val fraction = (keys[keyIndex] - keys[keyIndex - 1]) / span
 	val formByIndex = cells.associate { cell -> linearIndexOf(cell.coordinate) to cell.form }
+
 	for (cell in cells) {
 		if (cell.coordinate[axisIndex] != keyIndex) {
 			continue
 		}
+
 		val lowerCoordinate = cell.coordinate.copyOf().also { it[axisIndex] = keyIndex - 1 }
 		val upperCoordinate = cell.coordinate.copyOf().also { it[axisIndex] = keyIndex + 1 }
 		val lowerForm = formByIndex[linearIndexOf(lowerCoordinate)] ?: return false
 		val upperForm = formByIndex[linearIndexOf(upperCoordinate)] ?: return false
+
 		if (!interpolator.isExactlyEqual(interpolator.interpolate(lowerForm, upperForm, fraction), cell.form)) {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -279,14 +312,17 @@ private fun <TForm> KeyformGrid<TForm>.withAxisDropped(axisIndex: Int): KeyformG
 			.map { cell ->
 				val reduced = IntArray(cell.coordinate.size - 1)
 				var writeIndex = 0
+
 				for (readIndex in cell.coordinate.indices) {
 					if (readIndex != axisIndex) {
 						reduced[writeIndex] = cell.coordinate[readIndex]
 						writeIndex++
 					}
 				}
+
 				KeyformCell(reduced, cell.form)
 			}
+
 	return KeyformGrid(newAxes, newCells)
 }
 
@@ -310,11 +346,13 @@ private fun <TForm> KeyformGrid<TForm>.withKeyIndexDropped(axisIndex: Int, keyIn
 	val newCells =
 		cells.mapNotNull { cell ->
 			val keyOnAxis = cell.coordinate[axisIndex]
+
 			when {
 				keyOnAxis == keyIndex -> null
 				keyOnAxis > keyIndex -> KeyformCell(cell.coordinate.copyOf().also { it[axisIndex] = keyOnAxis - 1 }, cell.form)
 				else -> cell
 			}
 		}
+
 	return KeyformGrid(newAxes.toList(), newCells)
 }

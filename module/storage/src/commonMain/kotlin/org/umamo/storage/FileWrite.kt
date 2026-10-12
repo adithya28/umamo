@@ -30,6 +30,7 @@ import kotlin.random.Random
 internal fun writeReplacing(fileSystem: FileSystem, target: Path, bytes: ByteArray) {
 	val directory = target.parent ?: throw IOException("$target has no directory to write a temporary in")
 	val temporaryPrefix = ".${target.name}.tmp-"
+
 	for (sibling in fileSystem.listOrNull(directory).orEmpty()) {
 		if (sibling.name.startsWith(temporaryPrefix)) {
 			try {
@@ -39,12 +40,15 @@ internal fun writeReplacing(fileSystem: FileSystem, target: Path, bytes: ByteArr
 			}
 		}
 	}
+
 	val temporary = directory / "$temporaryPrefix${Random.nextLong().toULong().toString(16)}"
+
 	try {
 		fileSystem.write(temporary) { write(bytes) }
 		fileSystem.atomicMove(temporary, target)
 	} catch (failure: IOException) {
 		fileSystem.delete(temporary, mustExist = false)
+
 		throw failure
 	}
 }

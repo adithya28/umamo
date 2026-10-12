@@ -44,15 +44,21 @@ class DoubleClickTracker(private val windowMillis: Long = DOUBLE_CLICK_MILLIS) {
 	 */
 	fun registerPress(uptimeMillis: Long, modified: Boolean = false): Boolean {
 		val pending = pendingPressUptime
+
 		if (modified) {
 			pendingPressUptime = null
+
 			return false
 		}
+
 		if (pending != null && uptimeMillis - pending <= windowMillis) {
 			pendingPressUptime = null
+
 			return true
 		}
+
 		pendingPressUptime = uptimeMillis
+
 		return false
 	}
 
@@ -107,14 +113,17 @@ fun Modifier.singleOrDoubleClick(
 	// composition it started in; read the latest through these (matching the kit Slider).
 	val currentOnSingle by rememberUpdatedState(onSingle)
 	val currentOnDouble by rememberUpdatedState(onDouble)
+
 	if (!enabled) {
 		return this
 	}
+
 	return this.pointerInput(doubleClickMillis, consumePress) {
 		val tracker = DoubleClickTracker(doubleClickMillis)
 		awaitPointerEventScope {
 			while (true) {
 				val event = awaitPointerEvent()
+
 				if (
 					event.type != PointerEventType.Press ||
 					event.buttons.isSecondaryPressed ||
@@ -122,13 +131,16 @@ fun Modifier.singleOrDoubleClick(
 				) {
 					continue
 				}
+
 				val modifiers = event.keyboardModifiers
 				val modified = modifiers.isCtrlPressed || modifiers.isMetaPressed || modifiers.isShiftPressed
+
 				if (tracker.registerPress(event.changes.first().uptimeMillis, modified)) {
 					currentOnDouble()
 				} else {
 					currentOnSingle(modifiers)
 				}
+
 				if (consumePress) {
 					event.changes.forEach { change -> change.consume() }
 				}

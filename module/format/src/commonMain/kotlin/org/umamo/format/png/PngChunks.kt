@@ -49,11 +49,13 @@ internal fun matchesPngSignature(bytes: ByteArray): Boolean {
 	if (bytes.size < PNG_SIGNATURE.size) {
 		return false
 	}
+
 	for (signatureIndex in PNG_SIGNATURE.indices) {
 		if (bytes[signatureIndex] != PNG_SIGNATURE[signatureIndex]) {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -70,18 +72,24 @@ internal fun matchesPngSignature(bytes: ByteArray): Boolean {
  */
 internal fun pngDimensionsOf(bytes: ByteArray): Pair<Int, Int>? {
 	val headerEnd = PNG_SIGNATURE.size + 16
+
 	if (bytes.size < headerEnd || !matchesPngSignature(bytes)) {
 		return null
 	}
+
 	val chunkStart = PNG_SIGNATURE.size
+
 	if (readU32BE(bytes, chunkStart) != 13L || bytes.copyOfRange(chunkStart + 4, chunkStart + 8).decodeToString() != "IHDR") {
 		return null
 	}
+
 	val width = readU32BE(bytes, chunkStart + 8)
 	val height = readU32BE(bytes, chunkStart + 12)
+
 	if (width > Int.MAX_VALUE || height > Int.MAX_VALUE) {
 		return null
 	}
+
 	return width.toInt() to height.toInt()
 }
 
@@ -109,6 +117,7 @@ internal fun readChunks(bytes: ByteArray): List<PngChunk> {
 	require(matchesPngSignature(bytes)) { "not a PNG (bad signature)" }
 	val chunks = ArrayList<PngChunk>()
 	var cursor = PNG_SIGNATURE.size
+
 	// PNG spec §5.3 Chunk layout: length(4) | type(4) | data(length) | crc(4).
 	while (cursor + 8 <= bytes.size) {
 		val length = readU32BE(bytes, cursor).toInt()
@@ -128,10 +137,12 @@ internal fun readChunks(bytes: ByteArray): List<PngChunk> {
 
 		chunks += PngChunk(type, bytes, dataStart, length)
 		cursor = dataEnd + 4
+
 		if (type == "IEND") {
 			break
 		}
 	}
+
 	return chunks
 }
 
@@ -146,6 +157,7 @@ internal fun crc32Of(type: ByteArray, data: ByteArray): Long {
 	val crc = Crc32()
 	crc.update(type)
 	crc.update(data)
+
 	return crc.value
 }
 
@@ -196,13 +208,16 @@ internal class IdatSource(private val idatChunks: List<PngChunk>) : Source {
 			chunkIndex++
 			consumed = 0
 		}
+
 		if (chunkIndex == idatChunks.size) {
 			return -1L
 		}
+
 		val chunk = idatChunks[chunkIndex]
 		val count = minOf(byteCount, (chunk.dataLength - consumed).toLong()).toInt()
 		sink.write(chunk.fileBytes, chunk.dataOffset + consumed, count)
 		consumed += count
+
 		return count.toLong()
 	}
 

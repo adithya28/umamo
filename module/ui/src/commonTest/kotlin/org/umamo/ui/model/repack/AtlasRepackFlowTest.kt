@@ -41,6 +41,7 @@ class AtlasRepackFlowTest {
 				geometryGrid = null,
 				atlasTileId = boundId,
 			)
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = emptyList(),

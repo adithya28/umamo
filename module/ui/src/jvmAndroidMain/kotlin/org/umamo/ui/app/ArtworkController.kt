@@ -148,14 +148,17 @@ internal class ArtworkController(
 			runCatching { picked.readBytes() }.getOrElse { failure ->
 				UmamoLog.error("failed to read ${picked.name}", failure)
 				services.commandRegistry.invoke("document.openFailed", DocumentOpenFailure(DocumentOpenError.ReadFailed, picked.name))
+
 				return null
 			}
 		val read =
 			readArtwork(bytes, picked.name) ?: run {
 				services.commandRegistry.invoke("document.openFailed", DocumentOpenFailure(DocumentOpenError.Unrecognized, picked.name))
+
 				return null
 			}
 		val path = picked.absolutePath()
+
 		return PickedArtwork(read, ArtSourceDescriptor(picked.name, path, read.kind.extension, read.contentHash, path.let(::fileModifiedAtMillis)))
 	}
 
@@ -179,8 +182,10 @@ internal class ArtworkController(
 			if (request == null) {
 				val picked = pickArtwork() ?: return@launch
 				addArtwork(picked, areaId)
+
 				return@launch
 			}
+
 			for (path in request.paths) {
 				addArtwork(readArtworkForPath(path) ?: continue, areaId)
 			}
@@ -204,8 +209,10 @@ internal class ArtworkController(
 		val read =
 			readArtworkAt(path) ?: run {
 				services.commandRegistry.invoke("document.openFailed", DocumentOpenFailure(DocumentOpenError.Unrecognized, name))
+
 				return null
 			}
+
 		return PickedArtwork(read, ArtSourceDescriptor(name, path, read.kind.extension, read.contentHash, read.lastModified))
 	}
 
@@ -237,33 +244,45 @@ internal class ArtworkController(
 		services.scope.launch {
 			val entries = ArrayList<ReloadEntry>()
 			val covered = LinkedHashSet<ArtSourceId>()
+
 			for (source in puppet.session.model.value.sources) {
 				if (reloadScope != null && source.id !in reloadScope.sourceIds) {
 					continue
 				}
+
 				val path = source.path ?: continue
+
 				if (systemSourceFilePresence(path) != true) {
 					continue
 				}
+
 				covered.add(source.id)
 				val read = readListedArtworkAt(source, path)
+
 				if (read == null) {
 					UmamoLog.warn("reload artwork: '${source.name}' at $path could not be read; skipped")
+
 					continue
 				}
+
 				entries.add(ReloadEntry(source.id, read.art, read.contentHash, read.lastModified))
 			}
+
 			if (entries.isEmpty()) {
 				puppet.session.emitNotice("notice.reload.noFiles", NoticePlacement.StatusBar)
 				watch?.coordinator?.reloadFinished(covered, WatchedReloadResult.Abandoned)
+
 				return@launch
 			}
+
 			// A reload that lands publishes what its matcher left under the bar (scored before it minted);
 			// one that found nothing changed re-scores the files as they stand.
 			val result = runReloadArtwork(host, ReloadArtworkRequest(entries, artworkImportOptions(), InventoryLayerMatcher.DEFAULT_THRESHOLD), areaId) { scored -> publishSuggestions(covered, scored) }
+
 			if (result == ReloadArtworkResult.NothingChanged) {
 				publishSuggestions(covered, scoreSourceSuggestions(host, entries))
 			}
+
 			watch?.coordinator?.reloadFinished(
 				entries.mapTo(LinkedHashSet()) { entry -> entry.sourceId },
 				when (result) {
@@ -287,10 +306,13 @@ internal class ArtworkController(
 	 */
 	private fun relinkArtwork(request: RelinkRequest, areaId: String?) {
 		val ref = request.ref
+
 		if (ref == null) {
 			puppet.session.setTileSources(request.tileIds, null)
+
 			return
 		}
+
 		services.scope.launch {
 			val model = puppet.session.model.value
 			val source = model.sources.firstOrNull { candidate -> candidate.id == ref.sourceId }
@@ -322,14 +344,18 @@ internal class ArtworkController(
 		services.scope.launch {
 			val entries = ArrayList<ReloadEntry>()
 			val model = puppet.session.model.value
+
 			for (source in model.sources) {
 				val read = readSourceArt(puppet.document, model, source) ?: continue
 				entries.add(ReloadEntry(source.id, read.art, read.contentHash, read.lastModified, inventoryOverride = read.inventory))
 			}
+
 			if (entries.isEmpty()) {
 				puppet.session.emitNotice("notice.match.noFiles", NoticePlacement.StatusBar)
+
 				return@launch
 			}
+
 			val covered = entries.mapTo(HashSet()) { entry -> entry.sourceId }
 			runMatchArtwork(
 				host,

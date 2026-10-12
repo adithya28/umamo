@@ -94,10 +94,13 @@ fun SourcesSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 	val colors = LocalUmamoColors.current
 	val listState = rememberLazyListState()
 	val puppet = LocalPuppet.current
+
 	if (puppet == null) {
 		Box(modifier = modifier.fillMaxSize().zebraFill(listState, SOURCES_ROW_HEIGHT, colors.rowStripe))
+
 		return
 	}
+
 	val session = LocalEditorSession.current
 	val selection = LocalSelection.current?.selection ?: Selection()
 	val viewState = scope.spaceState(SOURCES_VIEW_STATE_KEY) { SourcesViewState() }
@@ -145,8 +148,10 @@ fun SourcesSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 
 	if (tree.isEmpty()) {
 		Box(modifier = modifier.fillMaxSize().zebraFill(listState, SOURCES_ROW_HEIGHT, colors.rowStripe))
+
 		return
 	}
+
 	// The list and the scrollbar over its right edge share one box.  The list is the first thing in it and
 	// takes no padding of its own: the zebra fill behind it counts its rows from the box's top.
 	Box(modifier = modifier.fillMaxSize().trackRowHoverPointer(hoverPreview, enabled = hoverPreviewsEnabled)) {
@@ -182,6 +187,7 @@ fun SourcesSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 				is SourcesPreviewSubject.Drawable -> drawableThumbnails?.thumbnailFor(subject.drawableId)
 			}
 		}
+
 	if (preview != null && previewBitmap != null) {
 		RowThumbnailPreview(
 			name = preview.name,
@@ -190,10 +196,12 @@ fun SourcesSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 			pointerInWindow = { hoverPreview.pointerInWindow },
 		)
 	}
+
 	// A name chip follows the cursor while dragging, so there is something clearly "in hand" beyond the
 	// faded row: the row being dragged (a layer or a tile).  The space reads which row is in hand, which a
 	// drag changes as it starts and as it ends; where the pointer is, the chip asks for itself.
 	val draggingLabel = dragController.draggingKey?.let { id -> nodeById[id]?.label }
+
 	if (draggingLabel != null) {
 		RowDragLabel(label = draggingLabel, pointerInWindow = { dragController.pointerInWindow })
 	}
@@ -246,6 +254,7 @@ private fun rememberSourcesTree(puppet: PuppetModel, viewState: SourcesViewState
 		{ sourceId, key -> listOfNotNull(published[sourceId to key], modelSuggestions[sourceId]?.get(key)) }
 	// Read live, so flipping the preference re-measures the layer rows at once.
 	val layerPositionsFromWorldAxes by rememberBooleanSetting(IMPORT_LAYER_POSITIONS_FROM_WORLD_AXES_KEY, false)
+
 	return remember(puppet, presenceBySource, unboundGroupLabel, published, layerPositionsFromWorldAxes) {
 		buildSourcesTree(
 			puppet,

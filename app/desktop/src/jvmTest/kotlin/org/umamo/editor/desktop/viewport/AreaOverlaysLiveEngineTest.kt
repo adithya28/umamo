@@ -50,6 +50,7 @@ class AreaOverlaysLiveEngineTest {
 		val textures = PuppetTextures(listOf(solidBlueImage()), mapOf(probeId.raw to 0), false)
 		val service = OffscreenPuppetService(model, textures, LiveParams(emptyMap()))
 		service.start()
+
 		try {
 			service.setShownDrawables(emptySet())
 			val leftFrames = service.register("left")
@@ -57,8 +58,10 @@ class AreaOverlaysLiveEngineTest {
 			service.setAreaOverlays("right", AreaOverlays(GridConfig(), FrameOverlays(gridLines = false, axes = false, meshOverlay = true)))
 			service.resize("left", 100, 100)
 			service.resize("right", 100, 100)
+
 			if (!awaitFrame(leftFrames) { pixels -> !isUniform(pixels) }) {
 				println("[area-overlays-live] no GL frame arrived; skipping (context unavailable)")
+
 				return
 			}
 
@@ -86,6 +89,7 @@ class AreaOverlaysLiveEngineTest {
 	 */
 	private fun isUniform(pixels: PixelMap): Boolean {
 		val first = pixels[0, 0]
+
 		for (y in 0 until pixels.height) {
 			for (x in 0 until pixels.width) {
 				if (pixels[x, y] != first) {
@@ -93,6 +97,7 @@ class AreaOverlaysLiveEngineTest {
 				}
 			}
 		}
+
 		return true
 	}
 
@@ -108,12 +113,15 @@ class AreaOverlaysLiveEngineTest {
 	private fun hasAxisRedNearTheCenterRow(pixels: PixelMap): Boolean {
 		val centerRow = pixels.height / 2
 		val column = pixels.width / 2 + 10
+
 		for (row in centerRow - 3..centerRow + 3) {
 			val sample = pixels[column, row]
+
 			if (sample.red - maxOf(sample.green, sample.blue) > 0.12f) {
 				return true
 			}
 		}
+
 		return false
 	}
 
@@ -139,13 +147,17 @@ class AreaOverlaysLiveEngineTest {
 	 */
 	private fun awaitFrame(frames: StateFlow<RenderedFrame?>, accept: (PixelMap) -> Boolean): Boolean {
 		val start = System.currentTimeMillis()
+
 		while (System.currentTimeMillis() - start < 5_000) {
 			val frame = frames.value
+
 			if (frame != null && accept(frame.bitmap.toPixelMap())) {
 				return true
 			}
+
 			Thread.sleep(20)
 		}
+
 		return false
 	}
 
@@ -157,10 +169,12 @@ class AreaOverlaysLiveEngineTest {
 	private fun solidBlueImage(): DecodedImage {
 		val size = 16
 		val rgba = ByteArray(size * size * 4)
+
 		for (pixel in rgba.indices step 4) {
 			rgba[pixel + 2] = 0xFF.toByte()
 			rgba[pixel + 3] = 0xFF.toByte()
 		}
+
 		return DecodedImage(rgba, size, size)
 	}
 
@@ -184,6 +198,7 @@ class AreaOverlaysLiveEngineTest {
 						listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(quadPositions.size)))),
 					),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),

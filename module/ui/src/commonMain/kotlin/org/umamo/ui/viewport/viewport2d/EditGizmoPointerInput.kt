@@ -46,6 +46,7 @@ internal suspend fun PointerInputScope.editGizmoPointerLoop(
 			gesture.lastPointer = change.position
 			val latchedOperator = session.activeMeshOperator.value
 			val latchedTool = session.activeSelectTool.value
+
 			// A gesture belongs to its initiating area: while another viewport's operator or tool is
 			// live - or a UV operator, which can never belong to a viewport area - this overlay is
 			// fully inert (no drive, no picks, no marquee).  Escape and Enter stay global through
@@ -55,23 +56,29 @@ internal suspend fun PointerInputScope.editGizmoPointerLoop(
 				session.activeUvOperator.value != null
 			) {
 				meshPick.cancel()
+
 				continue
 			}
+
 			val operator = latchedOperator
 			val selectTool = latchedTool
 			val activeCamera = liveCamera.value
 			val size = liveSize.value
+
 			// Zoom Region armed for this area: the region overlay above owns the next drag.  One armed
 			// mid-drag leaves this drag's events here (the hit path is fixed at the press), so the box
 			// in flight is abandoned rather than left to follow the pointer after Zoom Region disarms.
 			if (session.zoomRegionArmedArea.value == areaId) {
 				meshPick.cancel()
+
 				continue
 			}
+
 			// A transform or the circle tool armed mid-drag supersedes the box.
 			if (operator != null || selectTool is ActiveSelectTool.Circle) {
 				meshPick.cancel()
 			}
+
 			if (operator != null) {
 				// MODAL: the shared controller drives the transform over the captured shape and
 				// swallows every event (stale discard, virtual-pointer drive, cursor wrap,

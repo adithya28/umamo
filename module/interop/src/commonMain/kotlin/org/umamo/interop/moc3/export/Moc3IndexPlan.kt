@@ -67,6 +67,7 @@ class Moc3IndexPlan private constructor(
 			// or every part after it - and every drawable's owning-part reference - names the wrong one.
 			val orderedParts = partsParentFirst(puppet).filter { part -> part.id in exportableParts }
 			val orderedDeformers = deformersParentFirst(puppet.deformers)
+
 			return Moc3IndexPlan(
 				parts = orderedParts,
 				deformers = orderedDeformers,
@@ -109,21 +110,26 @@ class Moc3IndexPlan private constructor(
 					if (child !is OrgChild.Part) {
 						continue
 					}
+
 					val part = partById[child.id] ?: continue
+
 					// The guard also breaks a malformed cycle rather than recursing forever.
 					if (!visited.add(part.id)) {
 						continue
 					}
+
 					ordered.add(part)
 					walk(part.children)
 				}
 			}
 			walk(puppet.rootChildren)
+
 			for (part in puppet.parts) {
 				if (visited.add(part.id)) {
 					ordered.add(part)
 				}
 			}
+
 			return ordered
 		}
 
@@ -147,9 +153,11 @@ class Moc3IndexPlan private constructor(
 				if (!visited.add(deformer.id)) {
 					return
 				}
+
 				ordered.add(deformer)
 				childrenByParent[deformer.id]?.forEach(::walk)
 			}
+
 			// Roots are deformers with no parent, plus any whose parent id does not resolve - an
 			// unresolvable parent is treated as root exactly as the import treats it.
 			for (deformer in deformers) {
@@ -157,10 +165,12 @@ class Moc3IndexPlan private constructor(
 					walk(deformer)
 				}
 			}
+
 			// Anything still unvisited sits in a parent cycle; emit it so nothing is dropped.
 			for (deformer in deformers) {
 				walk(deformer)
 			}
+
 			return ordered
 		}
 	}

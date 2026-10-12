@@ -83,10 +83,17 @@ class ModalCaptureEntry internal constructor(
 	internal fun deriveInfluence(state: ProportionalEditState?, radius: Float) {
 		influence =
 			when {
-				state == null -> emptyMap()
-				state.connectedOnly ->
+				state == null -> {
+					emptyMap()
+				}
+
+				state.connectedOnly -> {
 					proportionalInfluencesConnected(positions, coveredIndices, radius, state.falloff, triangleIndices)
-				else -> proportionalInfluences(positions, coveredIndices, radius, state.falloff)
+				}
+
+				else -> {
+					proportionalInfluences(positions, coveredIndices, radius, state.falloff)
+				}
 			}
 		movedIndices =
 			if (influence.isEmpty()) {
@@ -167,15 +174,18 @@ fun buildModalTransformCapture(
 	cursorAnchor: Pair<Float, Float>?,
 ): ModalTransformCapture? {
 	val moving = sources.filter { source -> source.coveredIndices.isNotEmpty() }
+
 	if (moving.isEmpty()) {
 		return null
 	}
+
 	// The covered-vertex mean across every moving mesh - the shared median anchor, and the fallback for the
 	// Active-Element and Cursor modes.  Object mode covers every vertex, so this equals its combined
 	// centroid (MeshTransforms.combinedCentroid) up to summation order.
 	var coveredSumX = 0f
 	var coveredSumY = 0f
 	var coveredCount = 0
+
 	for (source in moving) {
 		for (vertexIndex in source.coveredIndices) {
 			coveredSumX += source.positions[vertexIndex * 2]
@@ -183,6 +193,7 @@ fun buildModalTransformCapture(
 			coveredCount++
 		}
 	}
+
 	val median = (coveredSumX / coveredCount) to (coveredSumY / coveredCount)
 	val anchor =
 		when (pivotMode) {
@@ -194,16 +205,22 @@ fun buildModalTransformCapture(
 		moving.map { source ->
 			val groups =
 				when {
-					pivotMode == TransformPivotMode.IndividualOrigins && individualOriginScope == IndividualOriginScope.ConnectivityIsland ->
+					pivotMode == TransformPivotMode.IndividualOrigins && individualOriginScope == IndividualOriginScope.ConnectivityIsland -> {
 						TransformPivots.islandGroups(source.positions, source.coveredIndices, source.triangleIndices)
+					}
+
 					pivotMode == TransformPivotMode.IndividualOrigins -> {
 						// WholeMesh: the drawable turns about its own centroid (the object-mode island).
 						val ownCentroid = MeshTransforms.medianPivot(source.positions, source.coveredIndices)
 						TransformPivots.sharedGroup(source.coveredIndices, ownCentroid.first, ownCentroid.second)
 					}
-					else -> TransformPivots.sharedGroup(source.coveredIndices, anchor.first, anchor.second)
+
+					else -> {
+						TransformPivots.sharedGroup(source.coveredIndices, anchor.first, anchor.second)
+					}
 				}
 			ModalCaptureEntry(source.drawableId, source.positions, source.coveredIndices, source.triangleIndices, groups)
 		}
+
 	return ModalTransformCapture(entries, anchor, operatorKind)
 }

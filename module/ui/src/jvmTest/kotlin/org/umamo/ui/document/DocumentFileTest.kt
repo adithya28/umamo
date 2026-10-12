@@ -90,6 +90,7 @@ class DocumentFileTest {
 	 */
 	private fun fileFrom(path: String): DocumentFile {
 		val blank = newBlankDocument()
+
 		return DocumentFile(ArtDocument(path, blank.puppet, blank.textures, blank.artRasters, blank.liveParams, emptyList()))
 	}
 

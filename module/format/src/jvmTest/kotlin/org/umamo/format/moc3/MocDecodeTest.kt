@@ -33,13 +33,17 @@ class MocDecodeTest {
 	@Test
 	fun keyPositionsUnionRegionFlagPinned() {
 		val files = samples()
+
 		if (files.isEmpty()) {
 			println("moc3.samples not present; skipping union-region flag test")
+
 			return
 		}
+
 		// The only corpus samples that append the union region; every other file (including all blend
 		// models) omits it.  Probed across the corpus - byte-identical section tables split both ways.
 		val carriesUnion = setOf("modelD.moc3", "miku_verycursed.moc3")
+
 		for (file in files) {
 			val doc = Moc3.decode(MocCodec.read(file.readBytes()))
 			assertEquals(
@@ -47,6 +51,7 @@ class MocDecodeTest {
 				doc.keyPositionsHasParameterUnion,
 				"${file.name}: keyPositionsHasParameterUnion",
 			)
+
 			if (doc.blendShapes.isNotEmpty()) {
 				assertTrue(!doc.keyPositionsHasParameterUnion, "${file.name}: flag stays false on a blend model")
 			}
@@ -56,10 +61,13 @@ class MocDecodeTest {
 	@Test
 	fun decodesSamplesConsistently() {
 		val files = samples()
+
 		if (files.isEmpty()) {
 			println("moc3.samples not present; skipping decode test")
+
 			return
 		}
+
 		for (file in files) {
 			val model = MocCodec.read(file.readBytes())
 			val doc = Moc3.decode(model)
@@ -109,6 +117,7 @@ class MocDecodeTest {
 					mesh.parentDeformerIndex == -1 || mesh.parentDeformerIndex in doc.deformers.indices,
 					"${file.name}: ${mesh.id} parent deformer",
 				)
+
 				for (keyform in mesh.keyforms) {
 					assertEquals(
 						mesh.vertexCount * 2,
@@ -128,11 +137,13 @@ class MocDecodeTest {
 			// from the per-type sections, so a head field is the place an index slip would show up.
 			val deformerIds = model.sections.idArray(Section.DEFORMER_ID)
 			val deformerParentParts = model.sections.intArray(Section.DEFORMER_PARENT_PART)
+
 			for ((deformerIndex, deformer) in doc.deformers.withIndex()) {
 				if (deformer is WarpDeformer) {
 					val cp = (deformer.rows + 1) * (deformer.columns + 1) * 2
 					deformer.keyforms.forEach { assertEquals(cp, it.controlPoints.size, "${file.name}: warp cp size") }
 				}
+
 				assertTrue(
 					deformer.parentDeformerIndex == -1 || deformer.parentDeformerIndex in doc.deformers.indices,
 					"${file.name}: deformer parent",
@@ -153,12 +164,14 @@ class MocDecodeTest {
 			for (glue in doc.glues) {
 				val meshA = doc.artMeshes[glue.meshAIndex]
 				val meshB = doc.artMeshes[glue.meshBIndex]
+
 				for (pair in glue.pairs) {
 					assertTrue(
 						pair.vertexA < meshA.vertexCount && pair.vertexB < meshB.vertexCount,
 						"${file.name}: glue pair in range",
 					)
 				}
+
 				// Every glue's binding resolves through the shared cache - the decoder registers glue
 				// bindings like every other object kind, so a glue-exclusive binding keeps its
 				// parameter-driven intensity downstream and its table rows in a re-bake.
@@ -206,6 +219,7 @@ class MocDecodeTest {
 						else -> bs.targetIndex in doc.deformers.indices
 					}
 				assertTrue(targetOk, "${file.name}: blendshape target ${bs.target} ${bs.targetIndex}")
+
 				for (limit in bs.limits) {
 					assertTrue(limit.parameterIndex in doc.parameters.indices, "${file.name}: limit parameter")
 					assertTrue(
@@ -228,6 +242,7 @@ class MocDecodeTest {
 						}
 					}
 				assertTrue(kindMatches, "${file.name}: blendshape keyform kinds match ${bs.target}")
+
 				when (val neutralKeyform = bs.keyforms[bs.neutralKeyIndex]) {
 					is BlendShapeKeyform.Mesh -> {
 						assertTrue(
@@ -251,6 +266,7 @@ class MocDecodeTest {
 							)
 						}
 					}
+
 					is BlendShapeKeyform.Warp -> {
 						assertTrue(
 							neutralKeyform.form.controlPoints.all { it == 0f },
@@ -258,6 +274,7 @@ class MocDecodeTest {
 						)
 						assertEquals(0f, neutralKeyform.form.opacity, "${file.name}: neutral warp opacity delta")
 					}
+
 					is BlendShapeKeyform.Rotation -> {
 						assertEquals(0f, neutralKeyform.form.originX, "${file.name}: neutral rotation origin-x delta")
 						assertEquals(0f, neutralKeyform.form.originY, "${file.name}: neutral rotation origin-y delta")
@@ -265,6 +282,7 @@ class MocDecodeTest {
 						assertEquals(0f, neutralKeyform.form.scale, "${file.name}: neutral rotation scale delta")
 						assertEquals(0f, neutralKeyform.form.opacity, "${file.name}: neutral rotation opacity delta")
 					}
+
 					is BlendShapeKeyform.Part -> {
 						assertEquals(0f, neutralKeyform.drawOrderDelta, "${file.name}: neutral part draw-order delta")
 					}
@@ -288,6 +306,7 @@ class MocDecodeTest {
 			 */
 			fun deltaKeyformsOf(target: org.umamo.format.moc3.model.BlendShapeTarget): Int =
 				doc.blendShapes.filter { it.target == target }.sumOf { it.keyforms.size }
+
 			if (file.name.startsWith("modelA")) {
 				assertEquals(60, doc.blendShapes.size, "Model A: blend-shape records")
 				assertEquals(0, limitAttachments, "Model A: no blend-weight limits")
@@ -296,12 +315,14 @@ class MocDecodeTest {
 				assertEquals(24, deltaKeyformsOf(org.umamo.format.moc3.model.BlendShapeTarget.ART_MESH), "Model A: mesh delta keyforms")
 				assertEquals(12, deltaKeyformsOf(org.umamo.format.moc3.model.BlendShapeTarget.ROTATION), "Model A: rotation delta keyforms")
 			}
+
 			if (file.name.startsWith("modelB")) {
 				assertEquals(45, doc.blendShapes.size, "Model B: blend-shape records")
 				assertEquals(44, limitAttachments, "Model B: limit attachments")
 				assertEquals(1, distinctLimits, "Model B: one deduplicated limit curve")
 				assertEquals(90, deltaKeyformTotal, "Model B: delta keyforms")
 			}
+
 			if (file.name.startsWith("Azxiana")) {
 				// A 4.2-era bake: blend shapes present, but the color tables carry NO blend delta
 				// region (its CountInfo 23/24 count base rows only), so every record keyform must
@@ -320,6 +341,7 @@ class MocDecodeTest {
 					}
 				assertEquals(false, hasDeltaColor, "Azxiana: V42 bake carries no color delta region")
 			}
+
 			if (file.name.startsWith("modelA")) {
 				// The delta region IS present on the 5.x bakes: keyform colors decode non-null
 				// (zeros where unauthored), the counterpart of the Azxiana absence anchor.
@@ -328,6 +350,7 @@ class MocDecodeTest {
 						.keyforms.filterIsInstance<BlendShapeKeyform.Mesh>().first()
 				assertEquals(true, meshKeyform.form.multiplyColor != null, "Model A: color delta region present")
 			}
+
 			if (file.name.startsWith("modelC")) {
 				assertEquals(124, doc.blendShapes.size, "Model C: blend-shape records (incl. 1 part-owned)")
 				assertEquals(1, doc.blendShapes.count { it.target == org.umamo.format.moc3.model.BlendShapeTarget.PART }, "Model C: part records")

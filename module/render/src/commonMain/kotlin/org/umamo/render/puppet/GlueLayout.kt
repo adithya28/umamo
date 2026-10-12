@@ -75,18 +75,22 @@ internal class GlueLayout(
  */
 internal fun planGlueLayout(model: PuppetModel): GlueLayout {
 	val glueMeshIds = HashSet<DrawableId>()
+
 	for (glue in model.glues) {
 		glueMeshIds.add(glue.meshA)
 		glueMeshIds.add(glue.meshB)
 	}
+
 	val vertexCountById = HashMap<DrawableId, Int>(glueMeshIds.size)
 	val baseOffsetById = HashMap<DrawableId, Int>(glueMeshIds.size)
 	var globalVertexCount = 0
+
 	// model.drawables order defines the offsets - see the docblock.
 	for (drawable in model.drawables) {
 		if (drawable.id !in glueMeshIds) {
 			continue
 		}
+
 		val vertexCount = (drawable.mesh?.positions?.size ?: 0) / 2
 		vertexCountById[drawable.id] = vertexCount
 		baseOffsetById[drawable.id] = globalVertexCount
@@ -95,6 +99,7 @@ internal fun planGlueLayout(model: PuppetModel): GlueLayout {
 
 	// Every vertex starts as an un-glued no-op weld: partner = self, no glue, zero weight.
 	val attributesById = HashMap<DrawableId, GlueVertexAttributes>(glueMeshIds.size)
+
 	for (id in glueMeshIds) {
 		val base = baseOffsetById[id] ?: continue // a glue naming a drawable the model does not carry
 		val vertexCount = vertexCountById[id] ?: continue
@@ -115,15 +120,18 @@ internal fun planGlueLayout(model: PuppetModel): GlueLayout {
 		if (glueIndex >= MAX_GLUES) {
 			continue
 		}
+
 		val baseA = baseOffsetById[glue.meshA] ?: continue
 		val baseB = baseOffsetById[glue.meshB] ?: continue
 		val attributesA = attributesById[glue.meshA] ?: continue
 		val attributesB = attributesById[glue.meshB] ?: continue
+
 		for (pair in glue.pairs) {
 			writeGlueVertex(attributesA, pair.indexA, baseB + pair.indexB, glueIndex, pair.weightA)
 			writeGlueVertex(attributesB, pair.indexB, baseA + pair.indexA, glueIndex, pair.weightB)
 		}
 	}
+
 	return GlueLayout(model.glues, glueMeshIds, baseOffsetById, globalVertexCount, attributesById)
 }
 
@@ -147,27 +155,35 @@ internal fun glueLayoutFits(layout: GlueLayout, next: PuppetModel): Boolean {
 		if (next.glues.size != layout.glues.size) {
 			return false
 		}
+
 		for ((glueIndex, glue) in next.glues.withIndex()) {
 			val planned = layout.glues[glueIndex]
+
 			if (glue !== planned && (glue.meshA != planned.meshA || glue.meshB != planned.meshB || glue.pairs !== planned.pairs)) {
 				return false
 			}
 		}
 	}
+
 	var regionStart = 0
 	var placedCount = 0
+
 	for (drawable in next.drawables) {
 		if (drawable.id !in layout.glueMeshIds) {
 			continue
 		}
+
 		val plannedStart = layout.baseOffsetById[drawable.id] ?: return false
 		val vertexCount = (drawable.mesh?.positions?.size ?: 0) / 2
+
 		if (plannedStart != regionStart || layout.attributesById[drawable.id]?.partnerIndex?.size != vertexCount) {
 			return false
 		}
+
 		regionStart += vertexCount
 		placedCount++
 	}
+
 	return placedCount == layout.baseOffsetById.size
 }
 
@@ -184,9 +200,11 @@ internal fun glueLayoutFits(layout: GlueLayout, next: PuppetModel): Boolean {
 internal fun glueEntryChanged(previous: GlueLayout, next: GlueLayout, id: DrawableId): Boolean {
 	val before = previous.attributesById[id]
 	val after = next.attributesById[id]
+
 	if (before == null || after == null) {
 		return (before == null) != (after == null)
 	}
+
 	return previous.baseOffsetById[id] != next.baseOffsetById[id] ||
 		!before.partnerIndex.contentEquals(after.partnerIndex) ||
 		!before.glueIndex.contentEquals(after.glueIndex) ||

@@ -118,6 +118,7 @@ private fun CreditsBody(text: String) {
 	val typography = LocalUmamoTypography.current
 	val monospace = typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
 	var insideFence = false
+
 	for (line in text.lines()) {
 		when {
 			line.trimStart().startsWith("```") -> {

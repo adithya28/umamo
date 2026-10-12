@@ -36,26 +36,33 @@ class PngDecodeParityTest {
 			return listOfNotNull(File(path).takeIf(File::isFile))
 		}
 		var directory: File? = File(System.getProperty("user.dir"))
+
 		while (directory != null) {
 			val corpus = File(directory, "test/corpus")
+
 			if (corpus.isDirectory) {
 				return corpus.walkTopDown()
 					.filter { candidate -> candidate.isFile && candidate.extension.equals("png", ignoreCase = true) }
 					.sortedBy { it.path }
 					.toList()
 			}
+
 			directory = directory.parentFile
 		}
+
 		return emptyList()
 	}
 
 	@Test
 	fun pngCodecMatchesImageIoPixelForPixel() {
 		val samples = locateSamples()
+
 		if (samples.isEmpty()) {
 			println("no png.sample and no test/corpus PNGs; skipping PNG parity test")
+
 			return
 		}
+
 		val failures = samples.mapNotNull(::checkSample)
 		assertTrue(failures.isEmpty(), "PngCodec decode must match javax.imageio:\n" + failures.joinToString("\n"))
 	}
@@ -74,10 +81,13 @@ class PngDecodeParityTest {
 		val bytes = sample.readBytes()
 		val decoded = PngCodec.read(bytes)
 		val reference = ImageIO.read(ByteArrayInputStream(bytes))
+
 		if (reference == null) {
 			println("${sample.name}: ImageIO could not decode; skipping parity test")
+
 			return null
 		}
+
 		if (reference.width != decoded.width || reference.height != decoded.height) {
 			return "${sample.path}: PngCodec decoded ${decoded.width}x${decoded.height}, javax.imageio ${reference.width}x${reference.height}"
 		}
@@ -88,18 +98,24 @@ class PngDecodeParityTest {
 		val argbRow = IntArray(width)
 		var mismatchedPixels = 0L
 		var firstMismatch: String? = null
+
 		for (rowIndex in 0 until decoded.height) {
 			referenceRow(reference, rowIndex, argbRow, expectedRow)
 			val rowStart = rowIndex * rowBytes
+
 			if (Arrays.equals(expectedRow, 0, rowBytes, decoded.rgba, rowStart, rowStart + rowBytes)) {
 				continue
 			}
+
 			for (columnIndex in 0 until width) {
 				val pixelOffset = columnIndex * 4
+
 				if (Arrays.equals(expectedRow, pixelOffset, pixelOffset + 4, decoded.rgba, rowStart + pixelOffset, rowStart + pixelOffset + 4)) {
 					continue
 				}
+
 				mismatchedPixels++
+
 				if (firstMismatch == null) {
 					val expectedPixel = rgbaHex(expectedRow, pixelOffset)
 					val decodedPixel = rgbaHex(decoded.rgba, rowStart + pixelOffset)
@@ -107,10 +123,13 @@ class PngDecodeParityTest {
 				}
 			}
 		}
+
 		if (firstMismatch != null) {
 			return "${sample.path}: $mismatchedPixels of ${width.toLong() * decoded.height} pixels differ, $firstMismatch"
 		}
+
 		println("parity ok ${sample.name}: ${width}x${decoded.height}, ${reference.sampleModel.getSampleSize(0)}-bit")
+
 		return null
 	}
 
@@ -126,6 +145,7 @@ class PngDecodeParityTest {
 	private fun referenceRow(reference: BufferedImage, rowIndex: Int, scratch: IntArray, expectedRow: ByteArray) {
 		val width = reference.width
 		reference.getRGB(0, rowIndex, width, 1, scratch, 0, width)
+
 		for (columnIndex in 0 until width) {
 			val packed = scratch[columnIndex]
 			val base = columnIndex * 4

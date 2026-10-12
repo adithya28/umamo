@@ -35,8 +35,10 @@ internal class FieldScrubPreview(private val renderSync: () -> PuppetRenderSync?
 	fun preview(model: PuppetModel?) {
 		if (model == null) {
 			end()
+
 			return
 		}
+
 		val sync = renderSync() ?: return
 		previewing = true
 		sync.previewModel(model)
@@ -59,6 +61,7 @@ internal class FieldScrubPreview(private val renderSync: () -> PuppetRenderSync?
 		if (!previewing) {
 			return
 		}
+
 		previewing = false
 		renderSync()?.resync()
 	}
@@ -89,5 +92,6 @@ internal fun rememberFieldScrubPreview(enabled: Boolean): FieldScrubPreview {
 			scrub.end()
 		}
 	}
+
 	return scrub
 }

@@ -55,6 +55,7 @@ class Moc3UnkeyedDrawableExportTest {
 			loaded.puppet.copy(
 				drawables = loaded.puppet.drawables.map { drawable -> if (drawable.id == target.id) unkeyed else drawable },
 			)
+
 		return rig to unkeyed
 	}
 
@@ -87,17 +88,20 @@ class Moc3UnkeyedDrawableExportTest {
 		assertEquals(original.size, roundTripped.size, "vertex count")
 		var worstIndex = 0
 		var worstError = 0f
+
 		for (coordinate in original.indices) {
 			// RELATIVE: a canvas coordinate is a model unit and runs into the thousands, so an absolute
 			// bound would be a precision test on the magnitude.  The canvas mesh is evaluated through the
 			// lattice at load, so this is a float bound, not an equality - and a base in the wrong SPACE
 			// would miss by the whole deformer transform, orders of magnitude past it.
 			val error = abs(original[coordinate] - roundTripped[coordinate]) / max(1f, abs(original[coordinate]))
+
 			if (error > worstError) {
 				worstError = error
 				worstIndex = coordinate
 			}
 		}
+
 		assertTrue(
 			worstError < 1e-4f,
 			"the rest mesh moved: worst relative error = $worstError at coordinate $worstIndex " +

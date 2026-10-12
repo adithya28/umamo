@@ -84,6 +84,7 @@ class ModalTransformCaptureTest {
 	fun sharedPivotModesMakeOneGroupAtTheAnchor() {
 		val capture = build(listOf(square(meshA), square(meshB, offsetX = 10f)), TransformPivotMode.MedianPoint)!!
 		assertEquals(2, capture.entries.size)
+
 		for (entry in capture.entries) {
 			assertEquals(1, entry.groups.size, "shared pivot is a single group")
 			assertEquals(capture.anchor.first, entry.groups.single().pivotX, 1e-4f)

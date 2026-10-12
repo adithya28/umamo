@@ -55,10 +55,14 @@ fun renderPlan(
 	fun emit(group: RenderGroup, into: ArrayList<RenderPlanNode>) {
 		for (child in group.children.sortedBy(::sortKey)) {
 			when (child) {
-				is RenderDrawable -> into.add(RenderPlanDrawable(child.id))
+				is RenderDrawable -> {
+					into.add(RenderPlanDrawable(child.id))
+				}
+
 				is RenderGroup -> {
 					val composite = child.composite
 					val partId = child.partId
+
 					if (composite != null && partId != null) {
 						val subtree = ArrayList<RenderPlanNode>()
 						emit(child, subtree)
@@ -73,6 +77,7 @@ fun renderPlan(
 
 	val nodes = ArrayList<RenderPlanNode>()
 	emit(root, nodes)
+
 	return nodes
 }
 
@@ -92,6 +97,7 @@ fun flattenRenderPlan(nodes: List<RenderPlanNode>): List<DrawableId> {
 		}
 	}
 	nodes.forEach(::walk)
+
 	return result
 }
 

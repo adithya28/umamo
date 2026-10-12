@@ -113,9 +113,11 @@ class ChannelPreviewEditsTest {
 	@Test
 	fun aScrubIsOneUndoStep() {
 		val session = EditorSession(model(keyed = false))
+
 		for (frame in 1..20) {
 			session.previewChannelEdit(target, ChannelValue.Scalar(frame / 20f))
 		}
+
 		session.editKeyedChannel(target, ChannelValue.Scalar(1f), opacityChange(1f)) {
 			session.setDrawableOpacity(drawableId, 0.5f)
 		}
@@ -168,9 +170,11 @@ class ChannelPreviewEditsTest {
 	@Test
 	fun aScrubOnAKeyedChannelIsAlsoOneUndoStep() {
 		val session = EditorSession(model(keyed = true))
+
 		for (frame in 1..20) {
 			session.previewChannelEdit(target, ChannelValue.Scalar(frame / 20f))
 		}
+
 		assertTrue(!session.canUndo.value, "twenty preview frames are not twenty steps")
 
 		session.editKeyedChannel(target, ChannelValue.Scalar(1f), opacityChange(1f)) {
@@ -248,6 +252,7 @@ class ChannelPreviewEditsTest {
 	@Test
 	fun aCancelledScrubRetiresItsPreview() {
 		val session = EditorSession(model(keyed = false))
+
 		for (frame in 1..5) {
 			session.previewChannelEdit(target, ChannelValue.Scalar(frame / 5f))
 		}

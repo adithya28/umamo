@@ -133,6 +133,7 @@ internal fun pieChipOffset(slotIndex: Int, chipWidth: Int, chipHeight: Int, ring
 			directionY > 0.99f -> ringY
 			else -> ringY - chipHeight / 2f
 		}
+
 	return Offset(left, top)
 }
 
@@ -205,22 +206,28 @@ fun PieMenuOverlay(
 	 */
 	fun slotAt(position: Offset): Int {
 		val delta = position - placedCenter.position
+
 		if (delta.getDistance() < PIE_DEAD_ZONE_PX) {
 			return -1
 		}
+
 		val pointerAngle = atan2(delta.y, delta.x)
 		var best = -1
 		var bestDifference = Float.MAX_VALUE
+
 		for (slotIndex in liveEntries.value.indices) {
 			var difference = abs(pointerAngle - PIE_SLOT_ANGLES[slotIndex])
+
 			if (difference > PI.toFloat()) {
 				difference = 2 * PI.toFloat() - difference
 			}
+
 			if (difference < bestDifference) {
 				bestDifference = difference
 				best = slotIndex
 			}
 		}
+
 		return best
 	}
 
@@ -236,10 +243,12 @@ fun PieMenuOverlay(
 						val discCenter = Offset(size.width / 2f, size.height / 2f)
 						val outerRadius = size.minDimension / 2f
 						val sortedSlots = entries.indices.sortedBy { slotIndex -> PIE_SLOT_ANGLES[slotIndex] }
+
 						for ((sortedPosition, slotIndex) in sortedSlots.withIndex()) {
 							val slotAngle = PIE_SLOT_ANGLES[slotIndex]
 							val startDeg: Float
 							val sweepDeg: Float
+
 							if (sortedSlots.size == 1) {
 								startDeg = 0f
 								sweepDeg = 360f
@@ -247,16 +256,21 @@ fun PieMenuOverlay(
 								val previousAngle = PIE_SLOT_ANGLES[sortedSlots[(sortedPosition - 1 + sortedSlots.size) % sortedSlots.size]]
 								val nextAngle = PIE_SLOT_ANGLES[sortedSlots[(sortedPosition + 1) % sortedSlots.size]]
 								var gapBefore = slotAngle - previousAngle
+
 								if (gapBefore <= 0f) {
 									gapBefore += 2f * PI.toFloat()
 								}
+
 								var gapAfter = nextAngle - slotAngle
+
 								if (gapAfter <= 0f) {
 									gapAfter += 2f * PI.toFloat()
 								}
+
 								startDeg = (slotAngle - gapBefore / 2f) * 180f / PI.toFloat()
 								sweepDeg = (gapBefore + gapAfter) / 2f * 180f / PI.toFloat()
 							}
+
 							val hovered = slotIndex == hoveredSlot && entries[slotIndex].enabled
 							drawArc(
 								color = if (hovered) colors.accent.copy(alpha = 0.25f) else colors.viewportBadgeBackground,
@@ -267,14 +281,17 @@ fun PieMenuOverlay(
 								size = size,
 							)
 						}
+
 						// Sector separators, then the dead-zone disc (the dismiss region reads as "no pick").
 						if (sortedSlots.size > 1) {
 							for ((sortedPosition, slotIndex) in sortedSlots.withIndex()) {
 								val nextAngle = PIE_SLOT_ANGLES[sortedSlots[(sortedPosition + 1) % sortedSlots.size]]
 								var gapAfter = nextAngle - PIE_SLOT_ANGLES[slotIndex]
+
 								if (gapAfter <= 0f) {
 									gapAfter += 2f * PI.toFloat()
 								}
+
 								val boundary = PIE_SLOT_ANGLES[slotIndex] + gapAfter / 2f
 								drawLine(
 									color = colors.panelBorder,
@@ -284,6 +301,7 @@ fun PieMenuOverlay(
 								)
 							}
 						}
+
 						drawCircle(color = colors.panelBackground, radius = PIE_DEAD_ZONE_PX * 1.6f, center = discCenter)
 					}
 				},
@@ -343,8 +361,11 @@ fun PieMenuOverlay(
 						while (true) {
 							val event = awaitPointerEvent()
 							val change = event.changes.firstOrNull() ?: continue
+
 							when (event.type) {
-								PointerEventType.Move -> hoveredSlot = slotAt(change.position)
+								PointerEventType.Move -> {
+									hoveredSlot = slotAt(change.position)
+								}
 
 								PointerEventType.Release -> {
 									// Only the release picks: a click and a press-drag-release both end in exactly
@@ -353,9 +374,11 @@ fun PieMenuOverlay(
 									// A dead-zone or disabled-direction release dismisses without invoking.
 									val slotIndex = slotAt(change.position)
 									val entry = liveEntries.value.getOrNull(slotIndex)
+
 									if (entry != null && entry.enabled) {
 										commands.invoke(entry.commandId, entry.argument)
 									}
+
 									onDismiss()
 								}
 
@@ -364,6 +387,7 @@ fun PieMenuOverlay(
 
 								else -> {}
 							}
+
 							change.consume()
 						}
 					}
@@ -386,6 +410,7 @@ fun PieMenuOverlay(
 		var extentRight = discRadius
 		var extentTop = -discRadius
 		var extentBottom = discRadius
+
 		for ((slotIndex, placeable) in chipPlaceables.withIndex()) {
 			val chipOffset = chipOffsets[slotIndex]
 			extentLeft = minOf(extentLeft, chipOffset.x)
@@ -393,6 +418,7 @@ fun PieMenuOverlay(
 			extentTop = minOf(extentTop, chipOffset.y)
 			extentBottom = maxOf(extentBottom, chipOffset.y + placeable.height)
 		}
+
 		val overlayWidth = constraints.maxWidth
 		val overlayHeight = constraints.maxHeight
 		val effectiveCenter =
@@ -404,12 +430,14 @@ fun PieMenuOverlay(
 		layout(overlayWidth, overlayHeight) {
 			placedCenter.position = effectiveCenter
 			discPlaceable.place((effectiveCenter.x - discRadius).roundToInt(), (effectiveCenter.y - discRadius).roundToInt())
+
 			if (titlePlaceable != null) {
 				titlePlaceable.place(
 					(effectiveCenter.x - titlePlaceable.width / 2f).roundToInt().coerceIn(0, (overlayWidth - titlePlaceable.width).coerceAtLeast(0)),
 					(effectiveCenter.y - titlePlaceable.height / 2f).roundToInt().coerceIn(0, (overlayHeight - titlePlaceable.height).coerceAtLeast(0)),
 				)
 			}
+
 			// The per-chip coercion is the safety net for a pie larger than the overlay itself.
 			for ((slotIndex, placeable) in chipPlaceables.withIndex()) {
 				val chipOffset = chipOffsets[slotIndex]

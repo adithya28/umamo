@@ -62,6 +62,7 @@ internal suspend fun collectUvEditGizmoRequests(
 				if (session.mode.value != EditorMode.Edit || request.areaId != areaId) {
 					return@collect
 				}
+
 				val editable = editableGeometryOrNotice(session, geometries.value, "notice.uv.noEditableGeometry") ?: return@collect
 				session.mirrorSelectedUvs(request.mirrorU, frame.value.asUvFrame(), editable.mapTo(HashSet()) { geometry -> geometry.drawableId })
 			}
@@ -73,6 +74,7 @@ internal suspend fun collectUvEditGizmoRequests(
 				if (session.mode.value != EditorMode.Edit || request.areaId != areaId) {
 					return@collect
 				}
+
 				val editable = editableGeometryOrNotice(session, geometries.value, "notice.uv.noEditableGeometry") ?: return@collect
 				handleSelectLinkedRequest(session, editable, request.fromSelection, areaPointer.value, camera.value, size.value)
 			}
@@ -84,6 +86,7 @@ internal suspend fun collectUvEditGizmoRequests(
 				if (session.mode.value != EditorMode.Edit || request.areaId != areaId) {
 					return@collect
 				}
+
 				val editable =
 					if (request.kind.readsShownMeshes()) {
 						editableGeometryOrNotice(session, geometries.value, "notice.uv.noEditableGeometry") ?: return@collect
@@ -105,6 +108,7 @@ internal suspend fun collectUvEditGizmoRequests(
 private fun UvSnapKind.readsShownMeshes(): Boolean =
 	when (this) {
 		UvSnapKind.CursorToPixels, UvSnapKind.CursorToGrid -> false
+
 		UvSnapKind.CursorToSelected,
 		UvSnapKind.SelectionToPixels,
 		UvSnapKind.SelectionToCursor,
@@ -128,16 +132,21 @@ internal fun dropUvEditLatchesWithNothingToEdit(areaId: String, session: EditorS
 	if (session.mode.value != EditorMode.Edit) {
 		return
 	}
+
 	val operatorHere = session.activeUvOperator.value?.areaId == areaId
 	val toolHere = session.activeSelectTool.value?.areaId == areaId
+
 	if (!operatorHere && !toolHere) {
 		return
 	}
+
 	if (operatorHere) {
 		session.clearUvOperator()
 	}
+
 	if (toolHere) {
 		session.clearSelectTool()
 	}
+
 	session.emitNotice("notice.uv.noEditableGeometry", NoticePlacement.NearCursor)
 }

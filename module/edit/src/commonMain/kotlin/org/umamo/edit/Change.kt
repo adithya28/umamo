@@ -687,7 +687,9 @@ sealed interface DocumentChange : Change {
 		override val labelKey: String =
 			when (kind) {
 				MeshOperatorKind.Rotate -> "change.document.atlasPlacement.rotate"
+
 				MeshOperatorKind.Scale -> "change.document.atlasPlacement.scale"
+
 				// A placement has no slide; one arriving under that kind can only have moved.
 				MeshOperatorKind.Grab, MeshOperatorKind.VertexSlide, null -> "change.document.atlasPlacement"
 			}
@@ -970,7 +972,9 @@ sealed interface MeshChange : Change {
 				// Object mode cannot latch a Vertex Slide (the command is Edit-mode gated), so it can only
 				// arrive here through a future caller - where reading as a plain move is the honest label.
 				MeshOperatorKind.Grab, MeshOperatorKind.VertexSlide -> "change.object.move"
+
 				MeshOperatorKind.Scale -> "change.object.scale"
+
 				MeshOperatorKind.Rotate -> "change.object.rotate"
 			}
 	}
@@ -995,7 +999,9 @@ sealed interface MeshChange : Change {
 				// The UV editor has no Vertex Slide yet (see TODO § UV Editor); until it does, a slide can
 				// only reach here as a move.
 				MeshOperatorKind.Grab, MeshOperatorKind.VertexSlide -> "change.uv.move"
+
 				MeshOperatorKind.Scale -> "change.uv.scale"
+
 				MeshOperatorKind.Rotate -> "change.uv.rotate"
 			}
 	}

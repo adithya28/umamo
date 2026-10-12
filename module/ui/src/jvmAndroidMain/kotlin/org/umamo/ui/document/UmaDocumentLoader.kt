@@ -85,15 +85,19 @@ internal fun buildUmaDocument(bytes: ByteArray, name: String, path: String): Doc
 			Uma.read(bytes)
 		} catch (failure: UmaFormatException) {
 			UmamoLog.error("failed to open $path: ${failure.message}", failure)
+
 			return DocumentLoad.Failed(DocumentOpenFailure(openErrorOf(failure.failure), name))
 		}
+
 	// A puppet entry newer than this version reads is a file from a newer Umamo, not a damaged one: the
 	// codec keeps it byte for byte and reads nothing from it, so there is no rig to open, and saying "the
 	// file may be damaged" about a healthy file sends the rigger looking for the wrong problem.
 	if (uma.holdsTooNewEntry(UmaEntryKind.Puppet)) {
 		UmamoLog.warn("cannot open $path: its puppet entry needs a newer version of Umamo")
+
 		return DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.NewerFormat, name))
 	}
+
 	// A puppet entry the file lacks fails here as a parse failure, through the caller's catch.
 	val puppet = UmaDocumentBridge.modelOf(uma)
 	val pages = UmaDocumentBridge.pagesOf(uma)
@@ -107,11 +111,14 @@ internal fun buildUmaDocument(bytes: ByteArray, name: String, path: String): Doc
 		stored?.let { pageSet -> buildPuppetTextures(pageSet.pageBytes, pageSet.atlasIndexByDrawableId, pageSet.premultipliedAlpha, UndecodablePagePolicy.Skip) }
 			?: deriveAtlasTextures(puppet, artRasters, premultipliedAlpha = false)
 			?: PuppetTextures(emptyList(), emptyMap(), premultipliedAlpha = false)
+
 	if (uma.isReadOnly) {
 		UmamoLog.warn("opened $path read-only: " + uma.readOnlyReasons.joinToString { reason -> "'${reason.path}' (${reason.kind}): ${reason.cause}" })
 	}
+
 	// The pose the document was saved with is editor state, read tolerantly and never an input to the model (UMA §7.4).
 	val savedPose = savedPoseOf(uma.editorState?.get(EDITOR_STATE_SESSION) as? JsonObject)
+
 	return DocumentLoad.Loaded(UmaDocument(path, uma, puppet, textures, artRasters, initialLiveParams(puppet, savedPose), stored))
 }
 
@@ -124,7 +131,9 @@ internal fun buildUmaDocument(bytes: ByteArray, name: String, path: String): Doc
 private fun openErrorOf(failure: UmaReadFailure): DocumentOpenError =
 	when (failure) {
 		is UmaReadFailure.NotUma -> DocumentOpenError.Unrecognized
+
 		is UmaReadFailure.UnsupportedContainerVersion -> DocumentOpenError.NewerFormat
+
 		is UmaReadFailure.CorruptContainer,
 		is UmaReadFailure.MalformedManifest,
 		is UmaReadFailure.MissingEntry,

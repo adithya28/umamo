@@ -51,6 +51,7 @@ class SourceArtRasters(
 		if (rasters.isEmpty()) {
 			return
 		}
+
 		added = added + rasters
 	}
 
@@ -73,13 +74,16 @@ class SourceArtRasters(
 	 */
 	fun rasterFor(tileId: AtlasTileId): DecodedImage? {
 		added[tileId]?.let { raster -> return raster }
+
 		if (decodedByTile.containsKey(tileId)) {
 			return decodedByTile[tileId]
 		}
+
 		// The cached twin decodes through the uncached one: the two must produce the same image for the
 		// same bytes, because callers compare a cached result against a freshly decoded one by identity.
 		val decoded = decodeRaster(tileId)
 		decodedByTile[tileId] = decoded
+
 		return decoded
 	}
 

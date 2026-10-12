@@ -75,13 +75,16 @@ internal fun importParts(
 	fun reachesRoot(startIndex: Int): Boolean {
 		var currentIndex = rangedParentIndices[startIndex]
 		var steps = 0
+
 		while (currentIndex != -1) {
 			if (steps > partCount) {
 				return false
 			}
+
 			steps++
 			currentIndex = rangedParentIndices[currentIndex]
 		}
+
 		return true
 	}
 
@@ -111,19 +114,25 @@ internal fun importParts(
 		}
 		partPanelIndexCache[partIndex] = Int.MAX_VALUE
 		var minimumIndex = Int.MAX_VALUE
+
 		for (drawableIndex in childDrawableIndices[partIndex].orEmpty()) {
 			val panelIndex = panelIndexByDrawable[drawableIdsByFileIndex[drawableIndex]] ?: Int.MAX_VALUE
+
 			if (panelIndex < minimumIndex) {
 				minimumIndex = panelIndex
 			}
 		}
+
 		for (childPartIndex in childPartIndices[partIndex].orEmpty()) {
 			val panelIndex = partPanelIndex(childPartIndex)
+
 			if (panelIndex < minimumIndex) {
 				minimumIndex = panelIndex
 			}
 		}
+
 		partPanelIndexCache[partIndex] = minimumIndex
+
 		return minimumIndex
 	}
 
@@ -131,9 +140,11 @@ internal fun importParts(
 		data class ChildEntry(val child: OrgChild, val panelIndex: Int)
 
 		val entries = ArrayList<ChildEntry>()
+
 		for (childPartIndex in childPartIndices[parentIndex].orEmpty()) {
 			entries.add(ChildEntry(OrgChild.Part(partIds[childPartIndex]), partPanelIndex(childPartIndex)))
 		}
+
 		for (drawableIndex in childDrawableIndices[parentIndex].orEmpty()) {
 			val drawableId = drawableIdsByFileIndex[drawableIndex]
 			entries.add(
@@ -143,6 +154,7 @@ internal fun importParts(
 				),
 			)
 		}
+
 		return entries.sortedBy { entry -> entry.panelIndex }.map { entry -> entry.child }
 	}
 
@@ -177,6 +189,7 @@ internal fun importParts(
 				blendShapes = partBlendShapesOfBound(context, source, partIndex, partChannels),
 			)
 		}
+
 	return Moc3ImportedParts(parts, childrenOf(-1))
 }
 
@@ -199,6 +212,7 @@ internal fun partStaticDrawOrder(
 		source.drawOrderKeyforms.getOrElse(defaultCell) {
 			source.drawOrderKeyforms.firstOrNull() ?: DEFAULT_DRAW_ORDER.toFloat()
 		}
+
 	return (drawOrder + 0.001f).toInt()
 }
 
@@ -223,6 +237,7 @@ internal fun partCompositeOf(
 	val offscreen = context.offscreenByPartIndex[partIndex] ?: return null
 	// The first keyform doubles as the static fallback (a static part stores exactly one row).
 	val staticKeyform = offscreen.keyforms.firstOrNull()
+
 	return PartComposite(
 		// MOC3 v6 §5.6 s157: packed colorMode | (alphaMode shl 8).
 		blendMode = colorBlendOfPacked(offscreen.blendMode),
@@ -257,6 +272,7 @@ internal fun partChannelsOf(
 	if (source.keyformBindingIndex <= 0) {
 		return ChannelGrids.Empty
 	}
+
 	val offscreenKeyforms = context.offscreenByPartIndex[partIndex]?.keyforms
 	val bundled =
 		gridOf(context, context.bindingOf(source.keyformBindingIndex)) { gridIndex ->
@@ -270,6 +286,7 @@ internal fun partChannelsOf(
 				)
 			}
 		} ?: return ChannelGrids.Empty
+
 	// Fan the one bundled grid out into per-channel tracks sharing its axes: a pure re-shape, so the
 	// blended values are bit-identical to what the bundled cell produced.
 	return channelGridsOf(
@@ -301,9 +318,11 @@ private fun partBlendShapesOfBound(
 	channelGrids: ChannelGrids,
 ): List<BlendShapeBinding<PartForm>> {
 	val records = context.blendRecordsByTarget[BlendShapeTarget.PART to partIndex].orEmpty()
+
 	if (records.isEmpty()) {
 		return emptyList()
 	}
+
 	return partBlendShapesOf(context, partStaticDrawOrder(context, source).toFloat(), channelGrids, records)
 }
 

@@ -35,12 +35,15 @@ internal fun contentBoundsOf(geometry: DeformedGeometry, shownIds: Set<DrawableI
 	var loY = Float.MAX_VALUE
 	var hiX = -Float.MAX_VALUE
 	var hiY = -Float.MAX_VALUE
+
 	for ((drawableId, world) in geometry.worldPositions) {
 		// A hidden full-canvas guide image / background must not stretch the framing it isn't drawn in.
 		if (drawableId !in shownIds) {
 			continue
 		}
+
 		var coordIndex = 0
+
 		while (coordIndex < world.size) {
 			loX = minOf(loX, world[coordIndex])
 			hiX = maxOf(hiX, world[coordIndex])
@@ -49,9 +52,11 @@ internal fun contentBoundsOf(geometry: DeformedGeometry, shownIds: Set<DrawableI
 			coordIndex += 2
 		}
 	}
+
 	if (loX > hiX || loY > hiY) {
 		return null
 	}
+
 	return ContentBounds(loX, loY, maxOf(hiX - loX, 1f), maxOf(hiY - loY, 1f))
 }
 

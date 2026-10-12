@@ -57,21 +57,27 @@ enum class RuntimeTarget(
 	 */
 	fun supports(feature: RuntimeFeature): Boolean {
 		val level = cubismLevel ?: return true
+
 		return when (feature) {
 			RuntimeFeature.WarpQuadTransform -> level >= 33
+
 			RuntimeFeature.ReversedMask -> level >= 40
+
 			RuntimeFeature.MeshWarpBlendShapes,
 			RuntimeFeature.BlendShapeParameters,
 			RuntimeFeature.MultiplyColor,
 			RuntimeFeature.ScreenColor,
 			-> level >= 42
+
 			RuntimeFeature.ExtendedBlendShapes,
 			RuntimeFeature.MotionSync,
 			-> level >= 50
+
 			RuntimeFeature.ExtendedBlendModes,
 			RuntimeFeature.PartComposite,
 			RuntimeFeature.ParameterRepeat,
 			-> level >= 53
+
 			RuntimeFeature.ArtPath -> false
 		}
 	}
@@ -84,6 +90,7 @@ enum class RuntimeTarget(
 	 */
 	fun cubismLevelText(): String? {
 		val level = cubismLevel ?: return null
+
 		return "${level / 10}.${level % 10}"
 	}
 

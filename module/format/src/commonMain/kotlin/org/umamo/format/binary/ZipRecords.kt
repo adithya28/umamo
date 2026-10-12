@@ -107,8 +107,10 @@ internal object ZipRecords {
 		if (year < DOS_EPOCH_YEAR || year > DOS_MAXIMUM_YEAR) {
 			return DOS_EPOCH_DATE_TIME
 		}
+
 		val date = ((year - DOS_EPOCH_YEAR) shl 9) or (month shl 5) or day
 		val time = (hour shl 11) or (minute shl 5) or (second / 2)
+
 		return (date shl 16) or time
 	}
 }

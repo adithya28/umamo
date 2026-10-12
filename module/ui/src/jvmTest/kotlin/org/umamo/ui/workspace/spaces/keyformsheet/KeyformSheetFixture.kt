@@ -109,6 +109,7 @@ internal fun sheetFixtureModel(): PuppetModel {
 			children = emptyList(),
 			channelGrids = ChannelGrids(mapOf(FormChannel.OPACITY to opacityGridOn(PanelIds.bodyX, -8f, 8f))),
 		)
+
 	return base.copy(parts = listOf(part), drawables = listOf(keyedDrawable, padDrawable))
 }
 
@@ -151,6 +152,7 @@ internal fun ComposeUiTest.mountSheet(targets: List<ParameterId>): ParametersPan
 	mountParametersPanel(harness)
 	runOnIdle { harness.session.setParameterSelection(ParameterSelection(targets.toSet(), targets.firstOrNull())) }
 	waitForIdle()
+
 	return harness
 }
 
@@ -171,6 +173,7 @@ internal fun ComposeUiTest.laneBox(harness: ParametersPanelHarness, rowKey: Stri
 	val body = onNodeWithTag(PANEL_BODY_TAG).getUnclippedBoundsInRoot()
 	val originX = with(density) { body.left.toPx() }
 	val originY = with(density) { body.top.toPx() }
+
 	return ControlBox(lane.left - originX, lane.top - originY, lane.right - originX, lane.bottom - originY)
 }
 
@@ -190,6 +193,7 @@ internal fun ComposeUiTest.lanePoint(harness: ParametersPanelHarness, rowKey: St
 	val (domainStart, domainEnd) = parameterDomain(parameter)
 	val axis = harness.sheetViewState.window.axisOver(TrackAxis(domainStart, domainEnd))
 	val markRadiusPx = with(density) { TRACK_MARK_RADIUS.toPx() }
+
 	return Offset(lane.left + laneMarkOffsetX(axis, value, lane.width, markRadiusPx), lane.center.y)
 }
 
@@ -206,6 +210,7 @@ internal fun ComposeUiTest.labelPoint(harness: ParametersPanelHarness, rowKey: S
 	val lane = laneBox(harness, rowKey)
 	val cellRight = lane.left - with(density) { 1.dp.toPx() }
 	val cellWidth = with(density) { harness.sheetViewState.labelColumnWidth.toPx() }
+
 	return Offset(cellRight - cellWidth / 2f, lane.center.y)
 }
 
@@ -221,6 +226,7 @@ internal fun ComposeUiTest.labelPoint(harness: ParametersPanelHarness, rowKey: S
 internal fun ComposeUiTest.chevronPoint(harness: ParametersPanelHarness, rowKey: String): Offset {
 	val lane = laneBox(harness, rowKey)
 	val cellLeft = lane.left - with(density) { 1.dp.toPx() + harness.sheetViewState.labelColumnWidth.toPx() }
+
 	return Offset(cellLeft + with(density) { 12.dp.toPx() }, lane.center.y)
 }
 

@@ -137,6 +137,7 @@ class KeyformBundleTest {
 		assertEquals(emptyList(), rejectBundle.demotedChannels, "nothing is demoted when nothing is out of span")
 		assertEquals(emptyList(), demoteBundle.demotedChannels, "nothing is demoted when nothing is out of span")
 		assertEquals(rejectBundle.cells.size, demoteBundle.cells.size, "the policies produce the same grid")
+
 		for (cellIndex in rejectBundle.cells.indices) {
 			assertEquals(
 				rejectBundle.cells[cellIndex].channels,

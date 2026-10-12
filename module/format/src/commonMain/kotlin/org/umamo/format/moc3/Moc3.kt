@@ -58,8 +58,10 @@ public object Moc3 : FormatCodec<MocDocument> {
 		if (!MocCodec.isMoc3(bytes)) {
 			return null
 		}
+
 		// MOC3.md §version gating: version byte @ +0x04.
 		val versionByte = bytes[4].toInt() and 0xFF
+
 		return MocVersion.entries.firstOrNull { it.byteValue == versionByte }
 	}
 

@@ -20,5 +20,6 @@ internal fun finiteInline(value: Float, entryPath: String, path: String): Float 
 		// UMA §4.1: JSON has no NaN or infinity.
 		throw UmaWriteException("$entryPath: $path", "$value cannot be written as JSON")
 	}
+
 	return value
 }

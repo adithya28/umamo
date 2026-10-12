@@ -40,10 +40,12 @@ class KeyformGrid<TForm>(
 	fun strides(): IntArray {
 		val strides = IntArray(axes.size)
 		var stride = 1
+
 		for (axisIndex in axes.indices) {
 			strides[axisIndex] = stride
 			stride *= axes[axisIndex].keys.size
 		}
+
 		return strides
 	}
 
@@ -60,9 +62,11 @@ class KeyformGrid<TForm>(
 		val strides = strides()
 		var linearIndex = 0
 		val axisCount = minOf(coordinate.size, strides.size)
+
 		for (axisIndex in 0 until axisCount) {
 			linearIndex += coordinate[axisIndex] * strides[axisIndex]
 		}
+
 		return linearIndex
 	}
 
@@ -77,9 +81,11 @@ class KeyformGrid<TForm>(
 	 */
 	val cellsByLinearIndex: Map<Int, KeyformCell<TForm>> by lazy(LazyThreadSafetyMode.PUBLICATION) {
 		val byIndex = HashMap<Int, KeyformCell<TForm>>(cells.size)
+
 		for (cell in cells) {
 			byIndex[linearIndexOf(cell.coordinate)] = cell
 		}
+
 		byIndex
 	}
 }

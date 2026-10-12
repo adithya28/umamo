@@ -199,6 +199,7 @@ class UvObjectSnapTest {
 	 */
 	private fun cursorDisplayOf(session: EditorSession): Pair<Float, Float> {
 		val cursor = assertNotNull(session.uvCursor.value, "the cursor is placed")
+
 		return uvRigPageFrame().displayAt(cursor.u, cursor.v)
 	}
 

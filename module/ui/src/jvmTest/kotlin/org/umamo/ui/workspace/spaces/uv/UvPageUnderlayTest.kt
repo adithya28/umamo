@@ -87,6 +87,7 @@ class UvPageUnderlayTest {
 		val image = onNodeWithTag("underlay").captureToImage()
 		val pixels = IntArray(image.width * image.height)
 		image.readPixels(pixels)
+
 		return pixels
 	}
 

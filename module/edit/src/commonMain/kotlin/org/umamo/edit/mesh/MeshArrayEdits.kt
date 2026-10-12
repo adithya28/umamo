@@ -44,15 +44,20 @@ fun PuppetModel.withMeshPositions(id: DrawableId, rest: MeshRestPositions): Pupp
  */
 fun PuppetModel.withMeshUvs(id: DrawableId, newUvs: FloatArray): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0) {
 		return this
 	}
+
 	val mesh = drawables[index].mesh
+
 	if (mesh == null || newUvs === mesh.uvs || newUvs.size != mesh.uvs.size) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(mesh = mesh.withUvs(newUvs))
+
 	return copy(drawables = updated)
 }
 
@@ -107,20 +112,27 @@ private inline fun <TEntry> PuppetModel.withMeshEntries(
 	if (entriesById.isEmpty()) {
 		return this
 	}
+
 	var updated: MutableList<Drawable>? = null
 	val visited = HashSet<DrawableId>(entriesById.size)
+
 	for ((drawableIndex, drawable) in drawables.withIndex()) {
 		val next = entriesById[drawable.id] ?: continue
+
 		if (!visited.add(drawable.id)) {
 			continue
 		}
+
 		val mesh = drawable.mesh
+
 		if (mesh == null || skips(mesh, next)) {
 			continue
 		}
+
 		val target = updated ?: drawables.toMutableList().also { copied -> updated = copied }
 		target[drawableIndex] = drawable.copy(mesh = rebuild(mesh, next))
 	}
+
 	return updated?.let { edited -> copy(drawables = edited) } ?: this
 }
 

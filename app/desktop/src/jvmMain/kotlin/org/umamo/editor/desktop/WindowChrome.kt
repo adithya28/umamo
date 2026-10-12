@@ -66,6 +66,7 @@ private fun Color.toColorRef(): Int {
 	val red = (argb shr 16) and 0xFF
 	val green = (argb shr 8) and 0xFF
 	val blue = argb and 0xFF
+
 	return (blue shl 16) or (green shl 8) or red
 }
 
@@ -83,9 +84,11 @@ private fun setWindowsCaptionColor(window: Window, color: Color) {
 	if (!System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
 		return
 	}
+
 	if (!window.isDisplayable) {
 		return
 	}
+
 	val windowHandle = Native.getWindowPointer(window) ?: return
 	// HRESULT is ignored: a non-zero result (e.g. Windows 10, which lacks this attribute) just means the
 	// caption keeps its system color.

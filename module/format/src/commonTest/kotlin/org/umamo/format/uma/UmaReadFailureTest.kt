@@ -132,6 +132,7 @@ class UmaReadFailureTest {
 		fun puppetNestedTo(depth: Int): ByteArray {
 			val arrays = depth - 1
 			val json = """{ "futureKey": ${"[".repeat(arrays)}${"]".repeat(arrays)} }"""
+
 			return umaArchiveOf(manifestJson(listOf(puppetRecord)), listOf(TestEntry("model/puppet.json", json.encodeToByteArray())))
 		}
 		Uma.read(puppetNestedTo(UMA_MAXIMUM_JSON_DEPTH))

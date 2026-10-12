@@ -27,6 +27,7 @@ class Cmo3ArchivePngTest {
 		val file =
 			sample ?: run {
 				println("cmo3.sample not present; skipping archive png test")
+
 				return
 			}
 		val model = Cmo3.read(file)
@@ -67,13 +68,17 @@ class Cmo3ArchivePngTest {
 			model.archive.entries
 				.mapNotNull { entry ->
 					when {
-						entry.path == "imageFileBuf.png" -> -1
-						else ->
+						entry.path == "imageFileBuf.png" -> {
+							-1
+						}
+
+						else -> {
 							entry.path
 								.removePrefix("imageFileBuf_")
 								.removeSuffix(".png")
 								.takeIf { middle -> "imageFileBuf_$middle.png" == entry.path }
 								?.toIntOrNull()
+						}
 					}
 				}.maxOrNull()
 

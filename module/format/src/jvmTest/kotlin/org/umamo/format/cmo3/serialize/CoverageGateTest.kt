@@ -21,6 +21,7 @@ class CoverageGateTest {
 		val file =
 			sample ?: run {
 				println("cmo3.sample not present; skipping coverage gate")
+
 				return
 			}
 		val mainXml = CaffCodec.read(file.readBytes()).firstByTag(CaffArchive.TAG_MAIN_XML)!!.content

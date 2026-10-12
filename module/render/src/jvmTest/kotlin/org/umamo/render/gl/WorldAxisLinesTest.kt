@@ -51,6 +51,7 @@ class WorldAxisLinesTest {
 				mesh = DrawableMesh.withLocalEqualToCanvas(positions, FloatArray(positions.size), intArrayOf(0, 1, 2, 1, 3, 2)),
 				geometryGrid = KeyformGrid(listOf(KeyformAxis(paramA, floatArrayOf(0f))), listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(positions.size))))),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),
@@ -100,30 +101,38 @@ class WorldAxisLinesTest {
 	/** Counts red-dominant pixels per row across the center band and returns the largest row count. */
 	private fun maxRedRunInCenterRows(frame: ByteBuffer): Int {
 		var best = 0
+
 		for (row in viewportSize / 2 - 3..viewportSize / 2 + 3) {
 			var count = 0
+
 			for (col in 0 until viewportSize) {
 				if (isRedDominant(frame, col, row)) {
 					count++
 				}
 			}
+
 			best = maxOf(best, count)
 		}
+
 		return best
 	}
 
 	/** Counts blue-dominant pixels per column across the center band and returns the largest column count. */
 	private fun maxBlueRunInCenterColumns(frame: ByteBuffer): Int {
 		var best = 0
+
 		for (col in viewportSize / 2 - 3..viewportSize / 2 + 3) {
 			var count = 0
+
 			for (row in 0 until viewportSize) {
 				if (isBlueDominant(frame, col, row)) {
 					count++
 				}
 			}
+
 			best = maxOf(best, count)
 		}
+
 		return best
 	}
 
@@ -133,6 +142,7 @@ class WorldAxisLinesTest {
 		val red = frame.get(pixel).toInt() and 0xFF
 		val green = frame.get(pixel + 1).toInt() and 0xFF
 		val blue = frame.get(pixel + 2).toInt() and 0xFF
+
 		return red > green + 40 && red > blue + 40
 	}
 
@@ -142,6 +152,7 @@ class WorldAxisLinesTest {
 		val red = frame.get(pixel).toInt() and 0xFF
 		val green = frame.get(pixel + 1).toInt() and 0xFF
 		val blue = frame.get(pixel + 2).toInt() and 0xFF
+
 		return blue > red + 40 && blue > green + 40
 	}
 
@@ -149,6 +160,7 @@ class WorldAxisLinesTest {
 	private fun readPixels(width: Int, height: Int): ByteBuffer {
 		val buffer = BufferUtils.createByteBuffer(width * height * 4)
 		GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer)
+
 		return buffer
 	}
 }

@@ -135,6 +135,7 @@ class Cmo3ExportIsolationTest {
 		val effectiveTextures = sessionAtlasPages.binding.value.textures
 		assertNotSame(document.textures, effectiveTextures, "the resolver published the reload's pages")
 		follower.cancel()
+
 		return ReloadedCmo3(document, exportedModelFor(document, session), effectiveTextures, originalTile.id, replacement.id, sourceId, opened)
 	}
 
@@ -185,6 +186,7 @@ class Cmo3ExportIsolationTest {
 	 */
 	private fun withGuidsNumbered(mainXml: ByteArray): String {
 		val ordinalByUuid = HashMap<String, Int>()
+
 		return uuidAttribute.replace(mainXml.decodeToString()) { match -> "uuid=\"#${ordinalByUuid.getOrPut(match.groupValues[1]) { ordinalByUuid.size }}\"" }
 	}
 
@@ -235,10 +237,12 @@ class Cmo3ExportIsolationTest {
 				SourceArtRasters { tileId ->
 					if (tileId == fixture.replacementTileId) {
 						replacementReads++
+
 						if (replacementReads > 1) {
 							throw IllegalStateException("the raster store failed mid-export")
 						}
 					}
+
 					document.artRasters.decodeRaster(tileId)
 				}
 			val failing = Cmo3Document(document.path, document.cmo3, document.puppet, document.textures, failingRasters, document.liveParams, document.pageSet, document.tilePng)

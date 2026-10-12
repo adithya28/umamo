@@ -52,6 +52,7 @@ internal fun PuppetModel.removingDrawables(ids: Set<DrawableId>): PuppetModel {
 	if (ids.isEmpty()) {
 		return this
 	}
+
 	val remaining =
 		drawables.filterNot { drawable -> drawable.id in ids }
 			.map { drawable ->
@@ -64,12 +65,14 @@ internal fun PuppetModel.removingDrawables(ids: Set<DrawableId>): PuppetModel {
 		parts.map { part ->
 			val kids = part.children.filterNot { child -> child is OrgChild.Drawable && child.id in ids }
 			val masks = part.composite.maskedBy.filterNot { maskId -> maskId in ids }
+
 			if (kids.size == part.children.size && masks.size == part.composite.maskedBy.size) {
 				part
 			} else {
 				part.copy(children = kids, composite = part.composite.copy(maskedBy = masks))
 			}
 		}
+
 	return copy(drawables = remaining, glues = cleanedGlues, rootChildren = cleanedRoot, parts = cleanedParts)
 }
 
@@ -99,6 +102,7 @@ private fun List<Part>.withPartMaskUngrouped(dissolved: Part): List<Part> =
 		if (dissolved.id !in part.composite.maskedByParts) {
 			return@map part
 		}
+
 		val childParts = dissolved.children.filterIsInstance<OrgChild.Part>().map { child -> child.id }.filter { childId -> childId != part.id }
 		val childDrawables = dissolved.children.filterIsInstance<OrgChild.Drawable>().map { child -> child.id }
 		val partMasks = (part.composite.maskedByParts.flatMap { maskId -> if (maskId == dissolved.id) childParts else listOf(maskId) }).distinct()
@@ -117,6 +121,7 @@ fun PuppetModel.withDrawableDeleted(id: DrawableId): PuppetModel {
 	if (drawables.none { it.id == id }) {
 		return this
 	}
+
 	return removingDrawables(setOf(id)).withDerivedRenderRoot()
 }
 
@@ -145,6 +150,7 @@ fun PuppetModel.withDeformerDeleted(id: DeformerId, localPositionsByDrawable: Ma
 		drawables.map { drawable ->
 			if (drawable.parentDeformerId == id) drawable.rebound(grandParent, localPositionsByDrawable[drawable.id]) else drawable
 		}
+
 	return copy(deformers = updatedDeformers, drawables = updatedDrawables)
 }
 
@@ -154,13 +160,17 @@ private fun PuppetModel.partSubtreeIds(id: PartId): Set<PartId> {
 	val subtree = LinkedHashSet<PartId>()
 	val stack = ArrayDeque<PartId>()
 	stack.add(id)
+
 	while (stack.isNotEmpty()) {
 		val next = stack.removeLast()
+
 		if (!subtree.add(next)) {
 			continue
 		}
+
 		partById[next]?.children?.forEach { child -> if (child is OrgChild.Part) stack.add(child.id) }
 	}
+
 	return subtree
 }
 
@@ -180,6 +190,7 @@ fun PuppetModel.withPartDeleted(id: PartId, cascade: Boolean): PuppetModel {
 	val partRef = OrgChild.Part(id)
 	// The deleted part's parent (where ungrouped contents land / dangling deformer bindings fall back to).
 	val grandParentId = parts.firstOrNull { partRef in it.children }?.id
+
 	return if (cascade) {
 		val subtree = partSubtreeIds(id)
 		val doomedDrawables =
@@ -237,9 +248,11 @@ fun EditorSession.deleteDrawable(id: DrawableId) {
 fun EditorSession.deleteDeformer(id: DeformerId, localPositionsByDrawable: (unwrapped: PuppetModel) -> Map<DrawableId, FloatArray>) {
 	mutate(DeformerChange.Delete(id)) { model ->
 		val unwrapped = model.withDeformerDeleted(id, emptyMap())
+
 		if (unwrapped === model) {
 			return@mutate model
 		}
+
 		unwrapped.withDrawableBases(localPositionsByDrawable(unwrapped))
 	}
 }
@@ -255,6 +268,7 @@ private fun PuppetModel.withDrawableBases(localPositionsByDrawable: Map<Drawable
 	if (localPositionsByDrawable.isEmpty()) {
 		return this
 	}
+
 	return copy(
 		drawables =
 			drawables.map { drawable ->

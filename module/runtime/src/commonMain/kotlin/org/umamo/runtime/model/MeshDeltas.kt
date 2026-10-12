@@ -22,17 +22,23 @@ package org.umamo.runtime.model
  */
 fun deltaReaching(reference: Float, absolute: Float): Float {
 	val delta = absolute - reference
+
 	if (!delta.isFinite() || reference + delta == absolute) {
 		return delta
 	}
+
 	val above = floatAbove(delta)
+
 	if (reference + above == absolute) {
 		return above
 	}
+
 	val below = floatBelow(delta)
+
 	if (reference + below == absolute) {
 		return below
 	}
+
 	return delta
 }
 
@@ -50,9 +56,11 @@ internal fun floatAbove(value: Float): Float {
 	if (value.isNaN() || value == Float.POSITIVE_INFINITY) {
 		return value
 	}
+
 	if (value == 0f) {
 		return Float.MIN_VALUE
 	}
+
 	return Float.fromBits(if (value > 0f) value.toRawBits() + 1 else value.toRawBits() - 1)
 }
 
@@ -88,6 +96,7 @@ fun deltasVsBase(reference: FloatArray?, absolutes: FloatArray): FloatArray {
 	if (reference == null || reference.size != absolutes.size) {
 		return absolutes.copyOf()
 	}
+
 	return deltasReaching(reference, absolutes)
 }
 
@@ -120,9 +129,11 @@ fun KeyformGrid<MeshDeltaForm>?.holdsOnlyTheRest(): Boolean {
 	if (this == null) {
 		return true
 	}
+
 	if (axes.isNotEmpty() || cells.size != 1) {
 		return false
 	}
+
 	return cells.single().form.positionDeltas.all { delta -> delta == 0f }
 }
 

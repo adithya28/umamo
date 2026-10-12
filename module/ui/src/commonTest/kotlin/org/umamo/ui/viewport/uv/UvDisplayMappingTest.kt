@@ -25,6 +25,7 @@ class UvDisplayMappingTest {
 		val uvs = floatArrayOf(0f, 0f, 1f, 1f, 0.25f, 0.75f, 0.6f, 0.1f)
 		val roundTripped = displayToUv(uvToDisplay(uvs, 2048, 1024), 2048, 1024)
 		assertEquals(uvs.size, roundTripped.size)
+
 		for (componentIndex in uvs.indices) {
 			assertEquals(uvs[componentIndex], roundTripped[componentIndex], 1e-5f, "component $componentIndex round-trips")
 		}

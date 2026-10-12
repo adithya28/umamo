@@ -57,6 +57,7 @@ internal fun SessionViewState.fittedTo(model: PuppetModel): SessionViewState {
 		}
 	val parameterIds = model.parameters.mapTo(HashSet()) { parameter -> parameter.id }
 	val targetedParameters = parameterSelection.ids.filterTo(LinkedHashSet()) { parameterId -> parameterId in parameterIds }
+
 	return copy(
 		selection = Selection(targets, selection.active?.takeIf { active -> active in targets } ?: targets.lastOrNull()),
 		parameterSelection =
@@ -105,9 +106,11 @@ internal fun editSeedOf(model: PuppetModel, selection: Selection, rememberedDraw
 			remembered != null -> listOf(remembered)
 			else -> listOfNotNull(model.firstEditableDrawableInPanelOrder())
 		}
+
 	if (seedDrawableIds.isEmpty()) {
 		return null
 	}
+
 	return EditSeed(seedDrawableIds, activeSelectedId ?: seedDrawableIds.first(), activeSelectedId != null)
 }
 
@@ -127,7 +130,9 @@ internal fun openingSnapshotOf(model: PuppetModel, pose: Pose, viewState: Sessio
 	if (viewState == null) {
 		return EditorSnapshot(model, Selection(), pose)
 	}
+
 	val editSeed = if (viewState.mode == EditorMode.Edit) editSeedOf(model, viewState.selection, rememberedDrawableId = null) else null
+
 	return EditorSnapshot(
 		model = model,
 		selection = viewState.selection,

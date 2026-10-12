@@ -71,18 +71,25 @@ fun <TForm> KeyformGrid<TForm>?.withAxisSeeded(parameter: Parameter, currentForm
 	if (this != null && axisIndexOf(parameter.id) >= 0) {
 		return this
 	}
+
 	if (this != null && !isDense) {
 		return null
 	}
+
 	val seedKeys = distinctSortedKeys(floatArrayOf(parameter.min, parameter.default, parameter.max))
+
 	if (seedKeys.size < 2) {
 		return null
 	}
+
 	val newAxis = KeyformAxis(parameter.id, seedKeys)
+
 	if (this == null) {
 		val cells = seedKeys.indices.map { keyIndex -> KeyformCell(intArrayOf(keyIndex), currentForm) }
+
 		return KeyformGrid(listOf(newAxis), cells)
 	}
+
 	// Appended, so every existing coordinate keeps its meaning and simply gains a trailing component.
 	val replicated =
 		buildList {
@@ -92,6 +99,7 @@ fun <TForm> KeyformGrid<TForm>?.withAxisSeeded(parameter: Parameter, currentForm
 				}
 			}
 		}
+
 	return KeyformGrid(axes + newAxis, replicated)
 }
 
@@ -120,27 +128,35 @@ fun <TForm> KeyformGrid<TForm>.withKeyInserted(
 	outOfSpan: OutOfSpanKeyPolicy = OutOfSpanKeyPolicy.Extend,
 ): KeyformGrid<TForm> {
 	val axisIndex = axisIndexOf(parameterId)
+
 	if (axisIndex < 0 || !isDense) {
 		return this
 	}
+
 	val oldKeys = axes[axisIndex].keys
+
 	if (oldKeys.isEmpty()) {
 		return this
 	}
+
 	// Through keyIndexAt, the one definition of the evaluator's on-a-key snap tolerance.
 	if (keyIndexAt(parameterId, keyValue) >= 0) {
 		return this
 	}
+
 	// The insert position in the NEW key array: the count of existing keys below the new value.
 	val insertPosition = oldKeys.count { existing -> existing < keyValue }
 	val isBelowSpan = insertPosition == 0
 	val isAboveSpan = insertPosition == oldKeys.size
+
 	if ((isBelowSpan || isAboveSpan) && outOfSpan == OutOfSpanKeyPolicy.Reject) {
 		return this
 	}
+
 	if (!spansStayResolvable(oldKeys, keyValue, insertPosition)) {
 		return this
 	}
+
 	val newKeys = FloatArray(oldKeys.size + 1)
 	oldKeys.copyInto(newKeys, destinationOffset = 0, startIndex = 0, endIndex = insertPosition)
 	newKeys[insertPosition] = keyValue
@@ -163,19 +179,24 @@ fun <TForm> KeyformGrid<TForm>.withKeyInserted(
 		}
 
 	val newCells = ArrayList<KeyformCell<TForm>>(cells.size + cells.size / maxOf(1, oldKeys.size) + 1)
+
 	// Existing cells keep their forms; those at or past the insert shift one key index up.
 	for (cell in cells) {
 		val shifted = cell.coordinate.copyOf()
+
 		if (shifted[axisIndex] >= insertPosition) {
 			shifted[axisIndex] = shifted[axisIndex] + 1
 		}
+
 		newCells.add(KeyformCell(shifted, cell.form))
 	}
+
 	// One new cell per combination of the OTHER axes, enumerated from any single existing slice.
 	for (cell in cells) {
 		if (cell.coordinate[axisIndex] != 0) {
 			continue
 		}
+
 		val lowerCoordinate = cell.coordinate.copyOf().also { it[axisIndex] = lowerSourceKeyIndex }
 		val upperCoordinate = cell.coordinate.copyOf().also { it[axisIndex] = upperSourceKeyIndex }
 		val lowerForm = formByOldIndex[linearIndexOf(lowerCoordinate)] ?: continue
@@ -189,6 +210,7 @@ fun <TForm> KeyformGrid<TForm>.withKeyInserted(
 		val insertedCoordinate = cell.coordinate.copyOf().also { it[axisIndex] = insertPosition }
 		newCells.add(KeyformCell(insertedCoordinate, insertedForm))
 	}
+
 	return KeyformGrid(newAxes.toList(), newCells)
 }
 
@@ -209,28 +231,37 @@ fun <TForm> KeyformGrid<TForm>.withKeyInserted(
  */
 fun KeyformGrid<*>.keyDestinationFor(parameterId: ParameterId, keyIndex: Int, newValue: Float): Float? {
 	val axisIndex = axisIndexOf(parameterId)
+
 	if (axisIndex < 0 || !isDense) {
 		return null
 	}
+
 	val keys = axes[axisIndex].keys
+
 	if (keyIndex < 0 || keyIndex >= keys.size) {
 		return null
 	}
+
 	var nearestIndex = -1
 	var nearestDistance = Float.MAX_VALUE
+
 	for (index in keys.indices) {
 		if (index == keyIndex) {
 			continue
 		}
+
 		val distance = abs(keys[index] - newValue)
+
 		if (distance < nearestDistance) {
 			nearestDistance = distance
 			nearestIndex = index
 		}
 	}
+
 	if (nearestDistance >= EPS_SPAN || nearestIndex < 0) {
 		return newValue
 	}
+
 	val nearestOther = keys[nearestIndex]
 	// Pushed to the side it was already approaching from, so the nudge never reverses the drag.
 	//
@@ -245,6 +276,7 @@ fun KeyformGrid<*>.keyDestinationFor(parameterId: ParameterId, keyIndex: Int, ne
 			newValue < nearestOther
 		}
 	val nudged = if (approachingFromBelow) nearestOther - EPS_SPAN else nearestOther + EPS_SPAN
+
 	// The nudge is measured against the NEAREST key only, so on a crowded axis it can land right on top of
 	// the next one along - and two axis keys closer than EPS_SPAN is precisely the unresolvable span this
 	// function exists to prevent (bindBracket gives such a span fraction 0, making the upper key
@@ -275,6 +307,7 @@ private fun collidesBeyond(keys: FloatArray, keyIndex: Int, nudgedOffIndex: Int,
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -288,13 +321,16 @@ private fun collidesBeyond(keys: FloatArray, keyIndex: Int, nudgedOffIndex: Int,
 private fun axisMidpointExcluding(keys: FloatArray, keyIndex: Int): Float {
 	var lowest = Float.MAX_VALUE
 	var highest = -Float.MAX_VALUE
+
 	for (index in keys.indices) {
 		if (index == keyIndex) {
 			continue
 		}
+
 		lowest = minOf(lowest, keys[index])
 		highest = maxOf(highest, keys[index])
 	}
+
 	return if (lowest > highest) keys[keyIndex] else (lowest + highest) / 2f
 }
 
@@ -317,15 +353,19 @@ private fun axisMidpointExcluding(keys: FloatArray, keyIndex: Int): Float {
  */
 fun KeyformGrid<*>.keyIndexAfterInsert(parameterId: ParameterId, keyValue: Float): Int {
 	val axisIndex = axisIndexOf(parameterId)
+
 	if (axisIndex < 0 || !isDense) {
 		return -1
 	}
+
 	val keys = axes[axisIndex].keys
+
 	// Through keyIndexAt, the one definition of the evaluator's on-a-key snap tolerance - the same gate
 	// withKeyInserted applies before it decides it has anything to add.
 	if (keys.isEmpty() || keyIndexAt(parameterId, keyValue) >= 0) {
 		return -1
 	}
+
 	return keys.count { existing -> existing < keyValue }
 }
 
@@ -348,14 +388,17 @@ fun KeyformGrid<*>.keyIndexAfterMove(parameterId: ParameterId, keyIndex: Int, ne
 	// Its ordinal is simply how many keys end up below it.  Ties break toward the mover's old side, which
 	// is what sortedBy's stability gives the rebuild in withKeyMoved.
 	var below = 0
+
 	for (index in keys.indices) {
 		if (index == keyIndex) {
 			continue
 		}
+
 		if (keys[index] < destination || (keys[index] == destination && index < keyIndex)) {
 			below++
 		}
 	}
+
 	return below
 }
 
@@ -388,6 +431,7 @@ fun <TForm> KeyformGrid<TForm>.withKeyMoved(parameterId: ParameterId, keyIndex: 
 	val axisIndex = axisIndexOf(parameterId)
 	val destination = keyDestinationFor(parameterId, keyIndex, newValue) ?: return this
 	val keys = axes[axisIndex].keys
+
 	if (destination == keys[keyIndex]) {
 		return this
 	}
@@ -401,6 +445,7 @@ fun <TForm> KeyformGrid<TForm>.withKeyMoved(parameterId: ParameterId, keyIndex: 
 	// The inverse mapping is what the cells travel through: a cell sitting at old ordinal o now sits at the
 	// position o ended up in.
 	val newOrdinalByOld = IntArray(keys.size)
+
 	for (newIndex in oldOrdinalsInNewOrder.indices) {
 		newOrdinalByOld[oldOrdinalsInNewOrder[newIndex]] = newIndex
 	}
@@ -408,16 +453,19 @@ fun <TForm> KeyformGrid<TForm>.withKeyMoved(parameterId: ParameterId, keyIndex: 
 	val newAxes = axes.toMutableList()
 	newAxes[axisIndex] = KeyformAxis(parameterId, newKeys)
 	val reordered = oldOrdinalsInNewOrder.withIndex().any { (newIndex, oldIndex) -> newIndex != oldIndex }
+
 	if (!reordered) {
 		// Nothing crossed, so every coordinate still addresses the same cell and the cells can be shared.
 		return KeyformGrid(newAxes.toList(), cells)
 	}
+
 	val movedCells =
 		cells.map { cell ->
 			val coordinate = cell.coordinate.copyOf()
 			coordinate[axisIndex] = newOrdinalByOld[coordinate[axisIndex]]
 			KeyformCell(coordinate, cell.form)
 		}
+
 	return KeyformGrid(newAxes.toList(), movedCells)
 }
 
@@ -443,18 +491,24 @@ fun <TForm> KeyformGrid<TForm>.withKeyRemoved(
 	collapseBelowKeyCount: Int = 2,
 ): KeyformGrid<TForm>? {
 	val axisIndex = axisIndexOf(parameterId)
+
 	if (axisIndex < 0 || !isDense) {
 		return this
 	}
+
 	val oldKeys = axes[axisIndex].keys
+
 	if (keyIndex < 0 || keyIndex >= oldKeys.size) {
 		return this
 	}
+
 	if (oldKeys.size - 1 < collapseBelowKeyCount) {
 		// Keep whichever key survives the removal, so the collapsed slice is the one the rigger kept.
 		val survivingKeyIndex = if (keyIndex == 0) minOf(1, oldKeys.size - 1) else keyIndex - 1
+
 		return withAxisCollapsed(parameterId, oldKeys[survivingKeyIndex])
 	}
+
 	val newKeys = FloatArray(oldKeys.size - 1)
 	oldKeys.copyInto(newKeys, destinationOffset = 0, startIndex = 0, endIndex = keyIndex)
 	oldKeys.copyInto(newKeys, destinationOffset = keyIndex, startIndex = keyIndex + 1, endIndex = oldKeys.size)
@@ -463,12 +517,14 @@ fun <TForm> KeyformGrid<TForm>.withKeyRemoved(
 	val newCells =
 		cells.mapNotNull { cell ->
 			val keyOnAxis = cell.coordinate[axisIndex]
+
 			when {
 				keyOnAxis == keyIndex -> null
 				keyOnAxis > keyIndex -> KeyformCell(cell.coordinate.copyOf().also { it[axisIndex] = keyOnAxis - 1 }, cell.form)
 				else -> cell
 			}
 		}
+
 	return KeyformGrid(newAxes.toList(), newCells)
 }
 
@@ -486,6 +542,7 @@ fun <TForm> KeyformGrid<TForm>.withCellWritten(coordinate: IntArray, form: TForm
 	if (coordinate.size != axes.size) {
 		return this
 	}
+
 	val targetIndex = linearIndexOf(coordinate)
 	var replaced = false
 	val newCells =
@@ -497,6 +554,7 @@ fun <TForm> KeyformGrid<TForm>.withCellWritten(coordinate: IntArray, form: TForm
 				cell
 			}
 		}
+
 	return if (replaced) {
 		KeyformGrid(axes, newCells)
 	} else {
@@ -528,28 +586,37 @@ fun <TForm> KeyformGrid<TForm>.withFormCaptured(
 	if (!isDense || axes.isEmpty()) {
 		return this
 	}
+
 	var working = this
+
 	for (axis in axes) {
 		val poseValue = pose(axis.parameterId)
+
 		// keyIndexAt is the one definition of the on-a-key snap; inlining the epsilon here once let the
 		// capture and the sheet UI disagree about whether the pose sits on a key.
 		if (working.keyIndexAt(axis.parameterId, poseValue) >= 0) {
 			continue
 		}
+
 		working = working.withKeyInserted(axis.parameterId, poseValue, interpolator)
 	}
+
 	val coordinate = IntArray(working.axes.size)
+
 	for (axisIndex in working.axes.indices) {
 		val axis = working.axes[axisIndex]
 		val poseValue = pose(axis.parameterId)
 		val keyIndex = working.keyIndexAt(axis.parameterId, poseValue)
+
 		if (keyIndex < 0) {
 			// An axis refused its key (a degenerate span, say); writing a neighbouring cell would silently
 			// retarget the capture, so leave the grid untouched instead.
 			return this
 		}
+
 		coordinate[axisIndex] = keyIndex
 	}
+
 	return working.withCellWritten(coordinate, form)
 }
 
@@ -579,16 +646,22 @@ fun <TForm> KeyformGrid<TForm>.refinedToUnion(
 	if (!isDense) {
 		return this
 	}
+
 	var working = this
+
 	for ((parameterId, unionKeys) in unionKeysByParameter) {
 		val axisIndex = working.axisIndexOf(parameterId)
+
 		if (axisIndex >= 0) {
 			val ownKeys = working.axes[axisIndex].keys
+
 			if (ownKeys.isEmpty()) {
 				continue
 			}
+
 			val spanStart = ownKeys.first()
 			val spanEnd = ownKeys.last()
+
 			for (unionKey in unionKeys.sortedArray()) {
 				if (unionKey > spanStart && unionKey < spanEnd) {
 					working = working.withKeyInserted(parameterId, unionKey, interpolator, OutOfSpanKeyPolicy.Reject)
@@ -597,9 +670,11 @@ fun <TForm> KeyformGrid<TForm>.refinedToUnion(
 		} else {
 			val range = parameterRanges[parameterId] ?: continue
 			val appendedKeys = distinctSortedKeys(unionKeys + range.start + range.endInclusive)
+
 			if (appendedKeys.size < 2) {
 				continue
 			}
+
 			val newAxis = KeyformAxis(parameterId, appendedKeys)
 			val replicated =
 				buildList {
@@ -612,6 +687,7 @@ fun <TForm> KeyformGrid<TForm>.refinedToUnion(
 			working = KeyformGrid(working.axes + newAxis, replicated)
 		}
 	}
+
 	return working
 }
 
@@ -628,11 +704,13 @@ fun <TForm> KeyformGrid<TForm>.refinedToUnion(
 private fun distinctSortedKeys(candidates: FloatArray): FloatArray {
 	val sorted = candidates.sortedArray()
 	val kept = ArrayList<Float>(sorted.size)
+
 	for (candidate in sorted) {
 		if (kept.isEmpty() || abs(kept.last() - candidate) >= EPS_KEY) {
 			kept.add(candidate)
 		}
 	}
+
 	return kept.toFloatArray()
 }
 
@@ -651,8 +729,10 @@ private fun spansStayResolvable(existingKeys: FloatArray, keyValue: Float, inser
 	if (insertPosition > 0 && keyValue - existingKeys[insertPosition - 1] < EPS_SPAN) {
 		return false
 	}
+
 	if (insertPosition < existingKeys.size && existingKeys[insertPosition] - keyValue < EPS_SPAN) {
 		return false
 	}
+
 	return true
 }

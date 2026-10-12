@@ -43,11 +43,13 @@ internal fun importParameters(context: Moc3ImportContext): List<Parameter> =
  */
 internal fun importParameterLinks(context: Moc3ImportContext): List<ParameterLink> {
 	val knownParameterIds = context.parameterIds.toSet()
+
 	// cdi3: CombinedParameters is an array of [horizontal, vertical] id pairs - the editor's LINKED
 	// parameter pads. Entries that are not a 2-pair or name an unknown parameter are skipped.
 	return context.displayInfo?.combinedParameters.orEmpty().mapNotNull { pair ->
 		val horizontalId = pair.getOrNull(0)?.let(::ParameterId) ?: return@mapNotNull null
 		val verticalId = pair.getOrNull(1)?.let(::ParameterId) ?: return@mapNotNull null
+
 		if (pair.size == 2 && horizontalId in knownParameterIds && verticalId in knownParameterIds) {
 			ParameterLink(horizontalId, verticalId)
 		} else {
@@ -84,10 +86,12 @@ internal fun importParameterTree(context: Moc3ImportContext): List<ParameterNode
 			for (parameter in parametersByGroup[ownerGroupId].orEmpty()) {
 				add(ParameterNode.Param(ParameterId(parameter.id)))
 			}
+
 			for (group in groupsByParent[ownerGroupId].orEmpty()) {
 				if (!visited.add(group.id)) {
 					continue
 				}
+
 				add(
 					ParameterNode.Group(
 						id = ParameterGroupId(group.id),
@@ -117,5 +121,6 @@ internal fun importParameterTree(context: Moc3ImportContext): List<ParameterNode
 			walk(tree)
 		}
 	val unplaced = parameterIds.filter { parameterId -> parameterId !in placedParameterIds }
+
 	return tree + unplaced.map { parameterId -> ParameterNode.Param(parameterId) }
 }

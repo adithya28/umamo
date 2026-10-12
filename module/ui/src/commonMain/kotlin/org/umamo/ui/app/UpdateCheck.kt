@@ -111,6 +111,7 @@ internal data class ReleaseVersion(
 		fun parse(text: String): ReleaseVersion? {
 			val match = PATTERN.matchEntire(text.trim()) ?: return null
 			val (major, minor, patch, suffix) = match.destructured
+
 			return ReleaseVersion(
 				major = major.toIntOrNull() ?: return null,
 				minor = minor.toIntOrNull() ?: return null,
@@ -211,22 +212,29 @@ internal suspend fun checkForUpdate(
 		} catch (failure: Exception) {
 			return UpdateCheckOutcome.Failed(failure.message ?: failure::class.simpleName ?: "no answer", answered = false)
 		}
+
 	if (response.status == 404) {
 		return UpdateCheckOutcome.NothingPublished
 	}
+
 	if (response.status != 200) {
 		val message = gitHubMessage(response.body)?.let { text -> ": $text" } ?: ""
+
 		return UpdateCheckOutcome.Failed("GitHub answered HTTP ${response.status}$message", answered = true)
 	}
+
 	val release =
 		runCatching { releaseJson.decodeFromString(LatestReleaseJson.serializer(), response.body) }.getOrNull()
 			?: return UpdateCheckOutcome.Failed("GitHub's answer could not be read", answered = true)
+
 	if (release.draft || release.prerelease) {
 		return UpdateCheckOutcome.NothingPublished
 	}
+
 	val latest =
 		ReleaseVersion.parse(release.tagName)
 			?: return UpdateCheckOutcome.Failed("the latest release's tag ${release.tagName} is not a version", answered = true)
+
 	return if (latest > current) {
 		UpdateCheckOutcome.Newer(latest, currentVersion, ProjectInfo.DOWNLOAD_URL)
 	} else {
@@ -264,7 +272,9 @@ internal fun updateCheckDue(
 	if (settings.getBoolean(CHECK_FOR_UPDATES_KEY) == false) {
 		return false
 	}
+
 	val lastCheck = (settings.get(LAST_UPDATE_CHECK_KEY) as? JsonPrimitive)?.longOrNull ?: 0L
+
 	return nowMillis - lastCheck >= UPDATE_CHECK_INTERVAL_MILLIS || nowMillis < lastCheck
 }
 
@@ -298,6 +308,7 @@ internal fun updateSkipped(
 	settings: Settings,
 ): Boolean {
 	val skipped = settings.getString(SKIPPED_UPDATE_VERSION_KEY)?.let(ReleaseVersion::parse) ?: return false
+
 	return outcome.latest <= skipped
 }
 

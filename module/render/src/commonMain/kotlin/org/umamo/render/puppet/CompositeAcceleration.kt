@@ -71,6 +71,7 @@ internal fun planCompositeAcceleration(
 	if (!flattenEnabled && !boundsScissorEnabled) {
 		return CompositeAcceleration.NONE
 	}
+
 	val flattenable = HashSet<PartId>()
 	val compositeBounds = HashMap<PartId, PosedAabb>()
 	val extendedBounds = HashMap<DrawableId, PosedAabb>()
@@ -88,6 +89,7 @@ internal fun planCompositeAcceleration(
 		if (id in ownBoundsById) {
 			return ownBoundsById[id]
 		}
+
 		val gpuDrawable = residents[id]
 		val corners = gpuDrawable?.corners
 		// visible == posed this frame, so corners are fresh (they stay stale-but-non-null on a
@@ -99,6 +101,7 @@ internal fun planCompositeAcceleration(
 				deformedWorldBounds(gpuDrawable.boundsBase, gpuDrawable.boundsCells, corners, gpuDrawable.parentWorld, gpuDrawable.blend)
 			}
 		ownBoundsById[id] = bounds
+
 		return bounds
 	}
 
@@ -110,13 +113,16 @@ internal fun planCompositeAcceleration(
 	 */
 	fun weldedWorldBounds(id: DrawableId): PosedAabb? {
 		var bounds = ownWorldBounds(id) ?: return null
+
 		for (partnerId in gluePartnersById[id].orEmpty()) {
 			if (residents[partnerId]?.visible != true) {
 				continue // an unposed partner welds at zero intensity and moves nothing
 			}
+
 			val partnerBounds = ownWorldBounds(partnerId) ?: return null
 			bounds = unionBounds(bounds, partnerBounds)
 		}
+
 		return bounds
 	}
 
@@ -133,30 +139,37 @@ internal fun planCompositeAcceleration(
 		var bounds: PosedAabb? = null
 		var boundsComplete = true
 		var contentFlattenable = true
+
 		for (child in node.children) {
 			when (child) {
 				is RenderPlanDrawable -> {
 					val gpuDrawable = residents[child.id] ?: continue
 					val extended = gpuDrawable.isExtendedBlend
+
 					if (gpuDrawable.blendMode != BlendMode.Normal || gpuDrawable.alphaBlendMode != AlphaBlendMode.Over) {
 						contentFlattenable = false
 					}
+
 					val childBounds = weldedWorldBounds(child.id)
+
 					if (childBounds == null) {
 						boundsComplete = false
 					} else {
 						if (extended) {
 							extendedBounds[child.id] = childBounds
 						}
+
 						bounds = bounds?.let { unionBounds(it, childBounds) } ?: childBounds
 					}
 				}
 
 				is RenderPlanComposite -> {
 					val (childBounds, childContent) = walkComposite(child)
+
 					if (child.composite.blendMode != BlendMode.Normal || child.composite.alphaBlendMode != AlphaBlendMode.Over) {
 						contentFlattenable = false
 					}
+
 					if (childBounds == null) {
 						boundsComplete = false
 					} else {
@@ -165,11 +178,14 @@ internal fun planCompositeAcceleration(
 				}
 			}
 		}
+
 		val subtreeBounds = if (boundsComplete) bounds else null
 		subtreeBounds?.let { compositeBounds[node.partId] = it }
+
 		if (flattenEnabled && contentFlattenable && compositeStateIsIdentity(node, compositeStates)) {
 			flattenable.add(node.partId)
 		}
+
 		return subtreeBounds to contentFlattenable
 	}
 
@@ -177,14 +193,18 @@ internal fun planCompositeAcceleration(
 		when (node) {
 			is RenderPlanDrawable -> {
 				val gpuDrawable = residents[node.id] ?: continue
+
 				if (gpuDrawable.isExtendedBlend) {
 					weldedWorldBounds(node.id)?.let { extendedBounds[node.id] = it }
 				}
 			}
 
-			is RenderPlanComposite -> walkComposite(node)
+			is RenderPlanComposite -> {
+				walkComposite(node)
+			}
 		}
 	}
+
 	return CompositeAcceleration(
 		flattenable,
 		if (boundsScissorEnabled) compositeBounds else emptyMap(),
@@ -203,15 +223,19 @@ internal fun planCompositeAcceleration(
  */
 private fun compositeStateIsIdentity(node: RenderPlanComposite, compositeStates: Map<PartId, PartRenderState>): Boolean {
 	val composite = node.composite
+
 	if (composite.blendMode != BlendMode.Normal || composite.alphaBlendMode != AlphaBlendMode.Over) {
 		return false
 	}
+
 	if (composite.maskedBy.isNotEmpty()) {
 		return false
 	}
+
 	val state = compositeStates[node.partId]
 	val opacity = state?.opacity ?: composite.opacity
 	val multiply = state?.multiplyColor ?: composite.multiplyColor
 	val screen = state?.screenColor ?: composite.screenColor
+
 	return opacity == 1f && multiply == ColorRgb.MultiplyIdentity && screen == ColorRgb.ScreenIdentity
 }

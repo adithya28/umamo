@@ -56,6 +56,7 @@ fun newBlankDocument(): BlankDocument {
 			worldOriginX = canvasCenterWorldOriginX(BLANK_DOCUMENT_CANVAS_SIZE),
 			worldOriginZ = canvasCenterWorldOriginZ(BLANK_DOCUMENT_CANVAS_SIZE),
 		)
+
 	return BlankDocument(
 		puppet = puppet,
 		// No pages, and the convention a pack at open writes (premultipliedAlpha = false), so the first

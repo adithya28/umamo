@@ -73,6 +73,7 @@ internal fun overlayDrawEntry(mesh: MeshOverlayMesh, buffers: OverlayMeshBuffers
 	val activeFace = mesh.activeFace
 	val faceResolved = activeFace != null && activeFace * 3 + 2 < faceCorners.size
 	val faceStart = if (faceResolved) activeFace * 3 else 0
+
 	return OverlayDrawEntry(
 		buffers = buffers,
 		baseOffset = baseOffset,
@@ -168,16 +169,21 @@ internal class MeshOverlayResidency(
 		if (overlay === applied && !residencyChanged) {
 			return
 		}
+
 		residencyChanged = false
 		val previousById = entries.associateBy { entry -> entry.mesh.drawableId }
+
 		if (overlay == null) {
 			for (entry in entries) {
 				device.destroyOverlayMeshBuffers(entry.buffers)
 			}
+
 			entries = emptyList()
 			applied = null
+
 			return
 		}
+
 		val layout =
 			planOverlayLayout(
 				overlay,
@@ -187,6 +193,7 @@ internal class MeshOverlayResidency(
 		val drawableById = model.drawables.associateBy { drawable -> drawable.id }
 		val next = ArrayList<OverlayResident>(layout.placed.size)
 		val placedIds = HashSet<DrawableId>(layout.placed.size)
+
 		for (placement in layout.placed) {
 			val mesh = placement.mesh
 			val resident = residents.getValue(mesh.drawableId)
@@ -196,8 +203,10 @@ internal class MeshOverlayResidency(
 			val edgeFlags = overlayFlagsOrZeros(mesh.edgeFlags, mesh.edgeCount)
 			val faceFlags = overlayFlagsOrZeros(mesh.faceFlags, faceCorners.size / 3)
 			val buffers: OverlayMeshBuffers
+
 			if (previous != null && previous.gpuDrawable === resident && previous.mesh.edgeEndpoints === mesh.edgeEndpoints) {
 				buffers = previous.buffers
+
 				if (overlayFlagsDiffer(previous.mesh.vertexFlags, mesh.vertexFlags) ||
 					overlayFlagsDiffer(previous.mesh.edgeFlags, mesh.edgeFlags) ||
 					overlayFlagsDiffer(previous.mesh.faceFlags, mesh.faceFlags)
@@ -208,26 +217,33 @@ internal class MeshOverlayResidency(
 				if (previous != null) {
 					device.destroyOverlayMeshBuffers(previous.buffers)
 				}
+
 				buffers = device.createOverlayMeshBuffers(OverlayMeshSpec(mesh.edgeEndpoints, faceCorners, vertexFlags, edgeFlags, faceFlags))
 			}
+
 			if (previous == null || previous.gpuDrawable !== resident || previous.baseOffset != placement.baseOffset) {
 				storeStale = true
 			}
+
 			placedIds.add(mesh.drawableId)
 			next.add(residentOf(mesh, resident, placement.baseOffset, buffers, faceCorners))
 		}
+
 		for (entry in entries) {
 			if (entry.mesh.drawableId !in placedIds) {
 				device.destroyOverlayMeshBuffers(entry.buffers)
 			}
 		}
+
 		entries = next
+
 		if (layout.totalVertexCount > storeCapacity) {
 			store?.let { outgrown -> device.destroyDeformedPositionStore(outgrown) }
 			store = device.createDeformedPositionStore(layout.totalVertexCount)
 			storeCapacity = layout.totalVertexCount
 			storeStale = true
 		}
+
 		applied = overlay
 	}
 
@@ -236,6 +252,7 @@ internal class MeshOverlayResidency(
 		for (entry in entries) {
 			device.destroyOverlayMeshBuffers(entry.buffers)
 		}
+
 		entries = emptyList()
 		store?.let { live -> device.destroyDeformedPositionStore(live) }
 		store = null

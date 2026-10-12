@@ -33,18 +33,23 @@ class DecodedPageExportTest {
 	private fun loadSample(): Moc3Document? {
 		val file = sample ?: return null
 		val load = runBlocking { loadMoc3Document(PlatformFile(file), file.readBytes()) }
+
 		return assertIs<Moc3Document>(assertIs<DocumentLoad.Loaded>(load).document)
 	}
 
 	@Test
 	fun theHandedOverPagesAreThePagePngsDecodedWithoutACopy() {
 		val document = loadSample()
+
 		if (document == null) {
 			println("moc3.sample not present; skipping the decoded-page export gate")
+
 			return
 		}
+
 		val pages = conversionPagesFor(document)
 		assertEquals(document.textures.atlases.size, pages.size, "one conversion page per decoded page")
+
 		for ((pageIndex, page) in pages.withIndex()) {
 			val decoded = assertNotNull(page.decoded, "page $pageIndex carries its decoded pixels")
 			assertSame(document.textures.atlases[pageIndex].rgba, decoded.rgba, "page $pageIndex is the document's own buffer, not a copy")
@@ -55,10 +60,13 @@ class DecodedPageExportTest {
 	@Test
 	fun anExportLeavesTheDocumentsPagesUntouched() {
 		val document = loadSample()
+
 		if (document == null) {
 			println("moc3.sample not present; skipping the decoded-page export gate")
+
 			return
 		}
+
 		val before = document.textures.atlases.map { page -> page.rgba.contentHashCode() }
 
 		val rendered = renderCmo3Export(document, exportedModelFor(document, null), document.textures, "gate", nowMillis = 0L, obfuscateKey = 0)

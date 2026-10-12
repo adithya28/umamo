@@ -77,10 +77,12 @@ class DelaunayTriangulationTest {
 
 		val permutation = (0 until pointCount).shuffled(Random(71))
 		val permuted = DoubleArray(2 * pointCount)
+
 		for ((newIndex, oldIndex) in permutation.withIndex()) {
 			permuted[2 * newIndex] = points[2 * oldIndex]
 			permuted[2 * newIndex + 1] = points[2 * oldIndex + 1]
 		}
+
 		val permutedTriangles = triangulate(permuted).triangles
 		val mappedBack = IntArray(permutedTriangles.size) { permutation[permutedTriangles[it]] }
 		assertEquals(reference, normalizedTriangleSet(mappedBack))

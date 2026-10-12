@@ -39,13 +39,17 @@ class AlwaysSerializedFieldsTest {
 	@Test
 	fun theEditorsMandatoryFieldsAreNeverConditionallySerialized() {
 		val violations = ArrayList<String>()
+
 		for ((owner, propertyName) in alwaysSerialized) {
 			val property =
 				owner.declaredMemberProperties.firstOrNull { candidate -> candidate.name == propertyName }
+
 			if (property == null) {
 				violations.add("${owner.simpleName}.$propertyName no longer exists")
+
 				continue
 			}
+
 			if (property.findAnnotation<DontSerializeIfDefault>() != null) {
 				violations.add(
 					"${owner.simpleName}.$propertyName carries @DontSerializeIfDefault - the official editor " +
@@ -53,12 +57,14 @@ class AlwaysSerializedFieldsTest {
 				)
 			}
 		}
+
 		// The class-level annotation would suppress every property just as effectively.
 		for (owner in alwaysSerialized.map { (ownerClass, _) -> ownerClass }.distinct()) {
 			if (owner.findAnnotation<DontSerializeIfDefault>() != null) {
 				violations.add("${owner.simpleName} carries a CLASS-level @DontSerializeIfDefault")
 			}
 		}
+
 		assertTrue(violations.isEmpty(), "mandatory fields became conditional:\n" + violations.joinToString("\n"))
 	}
 }

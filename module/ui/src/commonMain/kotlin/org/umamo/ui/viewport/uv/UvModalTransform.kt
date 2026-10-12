@@ -84,6 +84,7 @@ internal abstract class UvModalTransform<TCapture>(
 		if (ownedOperator() != null) {
 			session.clearUvOperator()
 		}
+
 		return end()
 	}
 

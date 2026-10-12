@@ -38,6 +38,7 @@ internal class UvSpaceCamera(
 		var minY = Float.MAX_VALUE
 		var maxX = -Float.MAX_VALUE
 		var maxY = -Float.MAX_VALUE
+
 		for (geometry in geometries()) {
 			val vertexIndices: Iterable<Int> =
 				if (editMode) {
@@ -45,6 +46,7 @@ internal class UvSpaceCamera(
 				} else {
 					0 until geometry.positions.size / 2
 				}
+
 			for (vertexIndex in vertexIndices) {
 				minX = minOf(minX, geometry.positions[vertexIndex * 2])
 				maxX = maxOf(maxX, geometry.positions[vertexIndex * 2])
@@ -52,9 +54,11 @@ internal class UvSpaceCamera(
 				maxY = maxOf(maxY, geometry.positions[vertexIndex * 2 + 1])
 			}
 		}
+
 		if (minX > maxX) {
 			return
 		}
+
 		// A one-texel floor keeps a single-vertex frame from exploding the zoom to its clamp.
 		service.fitWorldRect(areaId, minX, minY, maxOf(maxX, minX + 1f), maxOf(maxY, minY + 1f))
 	}

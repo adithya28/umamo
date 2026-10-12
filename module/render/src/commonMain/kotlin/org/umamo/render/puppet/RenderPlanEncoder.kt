@@ -65,12 +65,15 @@ internal class RenderPlanEncoder(
 		// Pass 1: capture every glue mesh's deformed positions into the shared store. Only when the pose
 		// changed - a static pose leaves the store (and pass 2's reads of it) unchanged.
 		val activeStore = residency.positionStore
+
 		if (activeStore != null && residency.glueStoreStale) {
 			val capture = frame.beginDeformCapturePass(pipelines.capture, activeStore)
+
 			for (gpuDrawable in residency.glueDeformList) {
 				if (gpuDrawable.corners == null) {
 					continue
 				}
+
 				fillDeform(deformScratch, gpuDrawable)
 				texturesScratch.atlas = null
 				texturesScratch.maskCoverage = null
@@ -84,6 +87,7 @@ internal class RenderPlanEncoder(
 					gpuDrawable.vertexCount,
 				)
 			}
+
 			capture.end()
 			frame.barrier(activeStore)
 			residency.glueStoreStale = false
@@ -154,10 +158,12 @@ internal class RenderPlanEncoder(
 		orderOpacity: Float,
 	): RenderPassEncoder {
 		var pass = startPass
+
 		for (node in nodes) {
 			when (node) {
 				is RenderPlanDrawable -> {
 					val gpuDrawable = residency.residents[node.id] ?: continue
+
 					if (gpuDrawable.isExtendedBlend) {
 						// A 5.3 extended blend: not fixed-function-expressible, so draw the drawable
 						// alone into a layer target and composite it in-shader.
@@ -167,18 +173,25 @@ internal class RenderPlanEncoder(
 						if (gpuDrawable.alphaBlendMode != AlphaBlendMode.Out && gpuDrawable.opacity == 0f) {
 							continue
 						}
+
 						var layerRect: ScissorRect? = null
+
 						if (inputs.boundsScissorEnabled && gpuDrawable.alphaBlendMode != AlphaBlendMode.Out) {
 							val bounds = inputs.acceleration.extendedDrawableBounds[gpuDrawable.id]
+
 							if (bounds != null) {
 								layerRect = scissorRectOf(bounds, inputs.affine, inputs.viewportWidth, inputs.viewportHeight, inputs.pixelScale) ?: continue
 							}
 						}
+
 						pass.end()
 						pass = compositeDrawable(frame, gpuDrawable, target, depth, inputs, layerRect, scissor, orderTarget)
+
 						continue
 					}
+
 					var maskCoverage: GpuTexture? = null
+
 					if (gpuDrawable.maskIds.isNotEmpty()) {
 						// Mask by pass fragmentation: end the pass, render coverage into the mask target,
 						// resume preserving what is drawn so far. Correct on every backend and non-nesting.
@@ -187,6 +200,7 @@ internal class RenderPlanEncoder(
 						pass = frame.beginRenderPass(passSpec(target, LoadAction.Load, inputs.viewportWidth, inputs.viewportHeight, scissor = scissor, drawOrder = orderTarget))
 						maskCoverage = sideTargets.maskTarget?.sampledTexture
 					}
+
 					val isActive = inputs.activeId != null && gpuDrawable.id == inputs.activeId
 					val highlight = if (isActive || gpuDrawable.id in inputs.selectedIds) SELECTION_TINT_STRENGTH else 0f
 					// Only a Normal-blend drawable covers what is behind it; an Additive or Multiply one tints it, so
@@ -213,26 +227,34 @@ internal class RenderPlanEncoder(
 						// Identity source-over of an all-Normal/Over subtree: Over is associative,
 						// so the subtree draws inline - no layer, no snapshot, no composite draw.
 						pass = renderPlanNodes(frame, node.children, target, depth, inputs, pass, scissor, orderTarget, orderOpacity)
+
 						continue
 					}
+
 					// A fully faded non-Out layer composites to the unchanged destination, so skip it
 					// outright - independent of the bounds-scissor toggle (see the extended-blend branch).
 					val poseOpacity = inputs.compositeStates[node.partId]?.opacity ?: node.composite.opacity
+
 					if (node.composite.alphaBlendMode != AlphaBlendMode.Out && poseOpacity == 0f) {
 						continue
 					}
+
 					var layerRect: ScissorRect? = null
+
 					if (inputs.boundsScissorEnabled && node.composite.alphaBlendMode != AlphaBlendMode.Out) {
 						val bounds = inputs.acceleration.compositeBounds[node.partId]
+
 						if (bounds != null) {
 							layerRect = scissorRectOf(bounds, inputs.affine, inputs.viewportWidth, inputs.viewportHeight, inputs.pixelScale) ?: continue
 						}
 					}
+
 					pass.end()
 					pass = compositeGroup(frame, node, target, depth, inputs, layerRect, scissor, orderTarget, orderOpacity * poseOpacity)
 				}
 			}
 		}
+
 		return pass
 	}
 
@@ -282,9 +304,11 @@ internal class RenderPlanEncoder(
 		subtreePass = renderPlanNodes(frame, node.children, layerTarget, depth + 1, inputs, subtreePass, layerRect, layerOrder, orderOpacity)
 		subtreePass.end()
 		val masked = node.composite.maskedBy.isNotEmpty()
+
 		if (masked) {
 			renderMaskCoverage(frame, node.composite.maskedBy, inputs)
 		}
+
 		// The pose-blended channels; a part missing from the map (never the case for an isolated
 		// group, but harmless) falls back to its static channels.
 		val state = inputs.compositeStates[node.partId]
@@ -301,6 +325,7 @@ internal class RenderPlanEncoder(
 		compositeScratch.screenBlue = screen.blue
 		compositeScratch.useMask = masked
 		compositeScratch.invertMask = masked && node.composite.invertMask
+
 		return encodeComposite(frame, layerTarget, target, inputs, intersectScissor(layerRect, parentScissor), parentScissor, parentOrder)
 	}
 
@@ -332,10 +357,12 @@ internal class RenderPlanEncoder(
 		parentOrder: RenderTarget?,
 	): RenderPassEncoder {
 		var maskCoverage: GpuTexture? = null
+
 		if (gpuDrawable.maskIds.isNotEmpty()) {
 			renderMaskCoverage(frame, gpuDrawable.maskIds, inputs)
 			maskCoverage = sideTargets.maskTarget?.sampledTexture
 		}
+
 		val layerTarget = sideTargets.acquireLayer(depth)
 		val layerPass =
 			frame.beginRenderPass(passSpec(layerTarget, LoadAction.Clear, inputs.viewportWidth, inputs.viewportHeight, clearAlpha = 0f, scissor = layerRect))
@@ -366,6 +393,7 @@ internal class RenderPlanEncoder(
 		compositeScratch.screenBlue = 0f
 		compositeScratch.useMask = false
 		compositeScratch.invertMask = false
+
 		return encodeComposite(frame, layerTarget, target, inputs, intersectScissor(layerRect, parentScissor), parentScissor, parentOrder)
 	}
 
@@ -422,6 +450,7 @@ internal class RenderPlanEncoder(
 		texturesScratch.compositeLayer = null
 		texturesScratch.destinationSnapshot = null
 		compositePass.end()
+
 		// A fresh pass under the ENCLOSING span's scissor - the composite's own scissor must not leak
 		// onto whatever the caller draws next into this target.
 		return frame.beginRenderPass(passSpec(target, LoadAction.Load, inputs.viewportWidth, inputs.viewportHeight, scissor = continuationScissor, drawOrder = continuationOrder))
@@ -444,11 +473,14 @@ internal class RenderPlanEncoder(
 	) {
 		val target = sideTargets.maskTarget ?: return
 		val coverage = frame.beginRenderPass(passSpec(target, LoadAction.Clear, inputs.viewportWidth, inputs.viewportHeight, clearAlpha = 0f))
+
 		for (maskId in maskIds) {
 			val mask = residency.residents[maskId] ?: continue
+
 			if (!mask.visible || mask.indexCount == 0) {
 				continue
 			}
+
 			// Coverage is the mask's shape at full intensity, unmasked, and ALWAYS Normal blend regardless
 			// of the mask drawable's own blend mode: an Additive or Multiply source would leave the cleared
 			// coverage target's alpha at 0, so the masked drawable would sample zero coverage and vanish.
@@ -464,6 +496,7 @@ internal class RenderPlanEncoder(
 				maskCoverage = null,
 			)
 		}
+
 		coverage.end()
 	}
 
@@ -511,6 +544,7 @@ internal class RenderPlanEncoder(
 		// fragment scratch. A glue draw does not deform, so it needs no delta / control-point textures.
 		texturesScratch.atlas = gpuDrawable.activeTexture()
 		texturesScratch.maskCoverage = maskCoverage
+
 		if (gpuDrawable.isGlueMesh) {
 			texturesScratch.deltaTexture = null
 			texturesScratch.warpControlPoints = null

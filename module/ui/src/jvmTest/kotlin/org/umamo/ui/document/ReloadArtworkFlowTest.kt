@@ -122,9 +122,11 @@ class ReloadArtworkFlowTest {
 			val published = sessionAtlasPages.binding.value.textures
 			val derived = assertNotNull(deriveAtlasTextures(withoutBig, document.artRasters, premultipliedAlpha = false))
 			assertEquals(2, published.atlases.size)
+
 			for ((pageIndex, page) in published.atlases.withIndex()) {
 				assertTrue(page.rgba.contentEquals(derived.atlases[pageIndex].rgba), "published page $pageIndex equals its derivation")
 			}
+
 			follower.cancel()
 		}
 
@@ -174,9 +176,11 @@ class ReloadArtworkFlowTest {
 			}
 			val published = sessionAtlasPages.binding.value.textures
 			val derived = assertNotNull(deriveAtlasTextures(reloaded, document.artRasters, premultipliedAlpha = false), "the reloaded model derives")
+
 			for ((pageIndex, page) in published.atlases.withIndex()) {
 				assertTrue(page.rgba.contentEquals(derived.atlases[pageIndex].rgba), "published page $pageIndex equals its derivation")
 			}
+
 			assertTrue(published.atlases.any { page -> page.rgba.any { byte -> byte == 9.toByte() } }, "the pages carry the repainted pixels")
 
 			// An adjustment re-lands the SAME step with wider re-born quads.  Before any undo, which

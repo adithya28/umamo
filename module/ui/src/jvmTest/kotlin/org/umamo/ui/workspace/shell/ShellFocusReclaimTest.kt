@@ -139,6 +139,7 @@ class ShellFocusReclaimTest {
 	 */
 	private fun runWithDefaultLocaleRestored(block: suspend ComposeUiTest.() -> Unit) {
 		val defaultLocale = Locale.getDefault()
+
 		try {
 			runComposeUiTest { block() }
 		} finally {
@@ -211,6 +212,7 @@ class ShellFocusReclaimTest {
 	private fun bundledSettings(): Settings {
 		val fileSystem = FakeFileSystem()
 		fileSystem.createDirectories("/config".toPath())
+
 		return Settings.load(OkioAppStorage(fileSystem, "/config".toPath(), "/data".toPath()), runBlocking { defaultSettingsJson() })
 	}
 

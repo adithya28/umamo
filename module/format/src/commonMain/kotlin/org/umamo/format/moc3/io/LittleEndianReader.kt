@@ -43,6 +43,7 @@ public class LittleEndianReader(private val data: ByteArray) {
 	public fun readU8(): Int {
 		val value = data[position].toInt() and 0xFF
 		position += 1
+
 		return value
 	}
 
@@ -55,6 +56,7 @@ public class LittleEndianReader(private val data: ByteArray) {
 		val low = data[position].toInt() and 0xFF
 		val high = data[position + 1].toInt() and 0xFF
 		position += 2
+
 		return (high shl 8) or low
 	}
 
@@ -69,6 +71,7 @@ public class LittleEndianReader(private val data: ByteArray) {
 		val byte2 = data[position + 2].toInt() and 0xFF
 		val byte3 = data[position + 3].toInt() and 0xFF
 		position += 4
+
 		return byte0 or (byte1 shl 8) or (byte2 shl 16) or (byte3 shl 24)
 	}
 
@@ -98,6 +101,7 @@ public class LittleEndianReader(private val data: ByteArray) {
 	public fun readBytes(count: Int): ByteArray {
 		val out = data.copyOfRange(position, position + count)
 		position += count
+
 		return out
 	}
 
@@ -113,6 +117,7 @@ public class LittleEndianReader(private val data: ByteArray) {
 		val raw = readBytes(width)
 		var end = 0
 		while (end < raw.size && raw[end].toInt() != 0) end++
+
 		return raw.decodeToString(0, end)
 	}
 }

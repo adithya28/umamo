@@ -54,6 +54,7 @@ internal const val REPACK_MAX_GUTTER = 64
  */
 internal fun repackParameters(options: AtlasPackOptions, keepPinned: Boolean = true): List<OperatorParameter> {
 	val pageSides = (REPACK_PAGE_SIZE_CHOICES + options.maxPageSize).distinct().sorted()
+
 	return listOf(
 		OperatorParameter.ChoiceParameter(
 			RepackParameterKeys.PAGE_SIZE,
@@ -85,6 +86,7 @@ internal fun repackParameters(options: AtlasPackOptions, keepPinned: Boolean = t
  */
 internal fun repackOptionsOf(parameters: List<OperatorParameter>, fallback: AtlasPackOptions): AtlasPackOptions {
 	val gutter = parameters.intValue(RepackParameterKeys.GUTTER, fallback.gutter).coerceIn(0, REPACK_MAX_GUTTER)
+
 	return fallback.copy(
 		maxPageSize = parameters.choiceValue(RepackParameterKeys.PAGE_SIZE, fallback.maxPageSize.toString()).toIntOrNull() ?: fallback.maxPageSize,
 		gutter = gutter,
@@ -142,6 +144,7 @@ class AtlasRepackSessionOptions {
 	 */
 	fun optionsFor(session: EditorSession, documentPageSize: Int): AtlasPackOptions {
 		val sticky = remembered ?: return AtlasPackOptions(maxPageSize = documentPageSize)
+
 		return if (rememberedSessionHash == session.hashCode()) sticky else sticky.copy(maxPageSize = documentPageSize)
 	}
 

@@ -139,6 +139,7 @@ internal class ToolSettings(private val notify: (String, NoticePlacement) -> Uni
 	 */
 	private fun applyProportionalSettings(settings: ProportionalEditState) {
 		mutableProportionalSettings.value = settings
+
 		if (mutableProportionalEdit.value != null) {
 			mutableProportionalEdit.value = settings
 		}
@@ -155,8 +156,10 @@ internal class ToolSettings(private val notify: (String, NoticePlacement) -> Uni
 	override fun setProportionalEdit(state: ProportionalEditState?) {
 		if (state == null) {
 			mutableProportionalEdit.value = null
+
 			return
 		}
+
 		val clamped = state.copy(radiusWorld = clampProportionalRadius(state.radiusWorld))
 		mutableProportionalSettings.value = clamped
 		mutableProportionalEdit.value = clamped

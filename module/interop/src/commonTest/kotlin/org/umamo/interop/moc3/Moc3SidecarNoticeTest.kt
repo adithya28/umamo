@@ -123,6 +123,7 @@ class Moc3SidecarNoticeTest {
 	private fun sidecarReasonsOf(sidecar: Moc3Sidecars.PassThroughSidecar): List<ExportNoticeReason> {
 		val bundle = Moc3Sidecars.bundle(puppet, basename = "rig", version = MocVersion.V50, pages = emptyList(), sidecars = listOf(sidecar))
 		assertEquals(sidecar.text, bundle.files.single { file -> file.name == sidecar.fileName }.bytes.decodeToString(), "the sidecar is written as it was")
+
 		return bundle.report.notices.filterIsInstance<ExportNotice.UnsupportedChange>().map { notice -> notice.reason }.filter { reason -> reason is ExportNoticeReason.SidecarNamesUnwrittenParameters || reason is ExportNoticeReason.SidecarNamesUnwrittenParts }
 	}
 

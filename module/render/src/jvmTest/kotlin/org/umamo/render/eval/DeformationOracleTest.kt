@@ -55,11 +55,13 @@ class DeformationOracleTest {
 		var compared = 0
 		val mismatches = StringBuilder()
 		var shown = 0
+
 		for (drawable in model.drawables) {
 			val entry = oracle[drawable.id.raw] ?: continue
 			val world = geometry.worldPositions[drawable.id] ?: continue
 			compared++
 			val hash = transformedHash(world, originX, -originY, ppu, 1f)
+
 			if (closeEnough(hash, entry.vposH)) {
 				posMatch++
 			} else if (shown < 20) {
@@ -76,6 +78,7 @@ class DeformationOracleTest {
 				shown++
 			}
 		}
+
 		println("[oracle] posMatch=$posMatch / $compared (transform (x-ox)/ppu,(y+oy)/ppu)")
 		println("[oracle] mismatches (bounded-ULP residuals):\n$mismatches")
 		// The gate is pinned to 156, not 157: after the oracle harness was rebuilt from csrc (the
@@ -103,6 +106,7 @@ class DeformationOracleTest {
 			"[oracle] absent -D$property (needs -Dcmo3.sample -Dmoc3.sample -Drelive.dumpModel -Drelive.coreLib)",
 			file != null,
 		)
+
 		return file!!
 	}
 
@@ -110,25 +114,30 @@ class DeformationOracleTest {
 
 	private fun rollingHash(values: FloatArray): Double {
 		var hp = 0.0
+
 		for (value in values) {
 			hp = hp * 1.0000001 + value
 		}
+
 		return hp
 	}
 
 	private fun closeEnough(a: Double, b: Double): Boolean {
 		val scale = maxOf(1.0, abs(a), abs(b))
+
 		return abs(a - b) <= 1e-5 * scale
 	}
 
 	private fun transformedHash(world: FloatArray, offsetX: Float, offsetY: Float, scale: Float, signY: Float): Double {
 		var hp = 0.0
 		var index = 0
+
 		while (index < world.size) {
 			hp = hp * 1.0000001 + (world[index] - offsetX) / scale
 			hp = hp * 1.0000001 + signY * (world[index + 1] - offsetY) / scale
 			index += 2
 		}
+
 		return hp
 	}
 
@@ -138,6 +147,7 @@ class DeformationOracleTest {
 		var minY = Float.MAX_VALUE
 		var maxY = -Float.MAX_VALUE
 		var index = 0
+
 		while (index < world.size) {
 			minX = minOf(minX, world[index])
 			maxX = maxOf(maxX, world[index])
@@ -145,20 +155,25 @@ class DeformationOracleTest {
 			maxY = maxOf(maxY, world[index + 1])
 			index += 2
 		}
+
 		println("[oracle] $id raw range x[$minX..$maxX] y[$minY..$maxY] first=${world.take(4).toList()}")
 	}
 
 	private fun hasRotationAncestor(deformerById: Map<DeformerId, Deformer>, start: DeformerId?): Boolean {
 		var current = start
 		var guard = 0
+
 		while (current != null && guard < 10000) {
 			val deformer = deformerById[current] ?: return false
+
 			if (deformer is Deformer.Rotation) {
 				return true
 			}
+
 			current = deformer.parent
 			guard++
 		}
+
 		return false
 	}
 
@@ -172,16 +187,19 @@ class DeformationOracleTest {
 		val vposRegex = Regex("""vpos_h=(\S+)""")
 		val vuvRegex = Regex("""vuv_h=(\S+)""")
 		val result = HashMap<String, OracleEntry>()
+
 		for (line in output.lineSequence()) {
 			if (!line.startsWith("D ")) {
 				continue
 			}
+
 			val id = idRegex.find(line)?.groupValues?.get(1) ?: continue
 			val vtx = vtxRegex.find(line)?.groupValues?.get(1)?.toIntOrNull() ?: continue
 			val vposH = vposRegex.find(line)?.groupValues?.get(1)?.toDoubleOrNull() ?: continue
 			val vuvH = vuvRegex.find(line)?.groupValues?.get(1)?.toDoubleOrNull() ?: continue
 			result[id] = OracleEntry(vtx, vposH, vuvH)
 		}
+
 		return result
 	}
 }

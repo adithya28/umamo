@@ -42,6 +42,7 @@ class ParametersRowDragTest {
 		val padding = 6f * test.density.density
 		val top = field.top - padding
 		val bottom = slider.bottom + padding
+
 		return Offset(grip.center.x, top + (bottom - top) * down)
 	}
 
@@ -56,6 +57,7 @@ class ParametersRowDragTest {
 	 */
 	private fun overGroupRow(test: ComposeUiTest, harness: ParametersPanelHarness, rowIndex: Int, down: Float): Offset {
 		val grip = test.gripBounds(harness, rowIndex)
+
 		return Offset(grip.center.x, grip.top + grip.height * down)
 	}
 

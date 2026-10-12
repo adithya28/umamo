@@ -129,30 +129,38 @@ public fun analyzeAlpha(
 	var minColumn = Int.MAX_VALUE
 	var maxColumn = -1
 	var pixelIndex = 0
+
 	for (rowIndex in 0 until height) {
 		for (columnIndex in 0 until width) {
 			// The `and 0xFF` is load-bearing: Kotlin Byte is signed, so alpha 128..255 reads
 			// negative without it and a >= threshold compare silently drops those pixels.
 			val alpha = rgba[pixelIndex * 4 + 3].toInt() and 0xFF
+
 			if (alpha >= alphaThreshold) {
 				opaquePixelCount++
 				maskWords[pixelIndex ushr 6] = maskWords[pixelIndex ushr 6] or (1L shl (pixelIndex and 63))
+
 				if (rowIndex < minRow) {
 					minRow = rowIndex
 				}
+
 				if (rowIndex > maxRow) {
 					maxRow = rowIndex
 				}
+
 				if (columnIndex < minColumn) {
 					minColumn = columnIndex
 				}
+
 				if (columnIndex > maxColumn) {
 					maxColumn = columnIndex
 				}
 			}
+
 			pixelIndex++
 		}
 	}
+
 	if (opaquePixelCount == 0) {
 		return null
 	}
@@ -172,6 +180,7 @@ public fun analyzeAlpha(
 				// simplifyClosedRing returns the input array itself when nothing can drop;
 				// reuse the contour object then instead of re-wrapping the same ring.
 				val simplifiedPoints = simplifyClosedRing(contour.points, contourEpsilon)
+
 				if (simplifiedPoints === contour.points) {
 					contour
 				} else {
@@ -181,6 +190,7 @@ public fun analyzeAlpha(
 		} else {
 			exactContours
 		}
+
 	return AlphaAnalysis(opaqueBounds, opaquePixelCount, contours)
 }
 

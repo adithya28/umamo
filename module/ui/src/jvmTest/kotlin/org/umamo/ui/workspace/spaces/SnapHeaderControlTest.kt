@@ -47,6 +47,7 @@ class SnapHeaderControlTest {
 			for (row in VIEWPORT_ROWS) {
 				assertTrue(popupShows(row), "the $row row")
 			}
+
 			clickMenuEntry(CURSOR_TO_WORLD_ORIGIN)
 			val model = session.model.value
 			assertEquals(Cursor2d(model.worldOriginX, model.worldOriginZ), session.cursor2d.value, "the cursor sits on the world origin")
@@ -60,10 +61,12 @@ class SnapHeaderControlTest {
 			val session = gizmoEditSession()
 			val invoked = mutableListOf<String>()
 			val commands = CommandRegistry()
+
 			// Recording stand-ins: the real handlers post a request only a mounted UV overlay collects.
 			for (commandId in UV_SNAP_IDS) {
 				commands.register(Command(commandId, title = null) { invoked += commandId })
 			}
+
 			setAreaHeader(kind = SpaceKind.UvEditor, headerWidth = 1200.dp, puppet = mutableStateOf(session.model.value), session = session, commands = commands)
 
 			clickDescribed(SNAP)
@@ -71,6 +74,7 @@ class SnapHeaderControlTest {
 			for (row in UV_ROWS) {
 				assertTrue(popupShows(row), "the $row row")
 			}
+
 			clickMenuEntry(CURSOR_TO_PIXELS)
 			assertEquals(listOf("uv.snap.cursorToPixels"), invoked)
 		}

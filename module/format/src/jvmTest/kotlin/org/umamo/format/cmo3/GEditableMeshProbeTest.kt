@@ -24,6 +24,7 @@ class GEditableMeshProbeTest {
 			System.getProperty("cmo3.probe")
 				?: run {
 					println("cmo3.probe not present; skipping editable-mesh probe")
+
 					return
 				}
 		val files = spec.split(',').map { File(it.trim()) }.filter { it.isFile }
@@ -32,11 +33,13 @@ class GEditableMeshProbeTest {
 		var sharedPointArrayCount = 0
 		var edgeBearingCount = 0
 		var delaunayCount = 0
+
 		for (file in files) {
 			val root = Cmo3.read(file.readBytes()).root as? CModelSource ?: continue
 			val drawables =
 				(((root.drawableSourceSet as? CDrawableSourceSet)?._sources as? Iterable<*>) ?: emptyList<Any?>())
 					.filterIsInstance<CArtMeshSource>()
+
 			for (drawable in drawables) {
 				val extensions = (drawable._extensions as? Iterable<*>) ?: emptyList<Any?>()
 				val editableMesh =
@@ -47,47 +50,63 @@ class GEditableMeshProbeTest {
 				val point = editableMesh.point
 				val pointUid = editableMesh.pointUid
 				val edge = editableMesh.edge
+
 				if (point != null && point !is FloatArray) {
 					failures.add("${file.name}: point is ${point::class.simpleName}")
+
 					continue
 				}
+
 				if (pointUid != null && pointUid !is IntArray) {
 					failures.add("${file.name}: pointUid is ${pointUid::class.simpleName}")
+
 					continue
 				}
+
 				if (edge != null && edge !is ShortArray) {
 					failures.add("${file.name}: edge is ${edge::class.simpleName}")
+
 					continue
 				}
+
 				val pointArray: FloatArray? = point
 				val uidArray: IntArray? = pointUid
 				val edgeArray: ShortArray? = edge
+
 				if (pointArray != null && positions != null) {
 					if (pointArray === positions) {
 						sharedPointArrayCount++
 					}
+
 					if (pointArray.size != positions.size) {
 						failures.add("${file.name}: point size ${pointArray.size} != positions size ${positions.size}")
 					}
+
 					if (uidArray != null && uidArray.size * 2 != pointArray.size) {
 						failures.add("${file.name}: pointUid count ${uidArray.size} != vertex count ${pointArray.size / 2}")
 					}
 				}
+
 				if (edgeArray != null && edgeArray.isNotEmpty()) {
 					edgeBearingCount++
+
 					if (edgeArray.size % 2 != 0) {
 						failures.add("${file.name}: edge array size ${edgeArray.size} is odd")
 					}
+
 					val vertexCount = (pointArray?.size ?: 0) / 2
+
 					if (vertexCount > 0 && edgeArray.any { endpoint -> endpoint < 0 || endpoint >= vertexCount }) {
 						failures.add("${file.name}: edge endpoint out of vertex range")
 					}
 				}
+
 				if (editableMesh.useDelaunayTriangulation) {
 					delaunayCount++
 				}
 			}
 		}
+
 		println(
 			"editable meshes: $meshCount, point===positions shares: $sharedPointArrayCount, " +
 				"edge-bearing: $edgeBearingCount, delaunay: $delaunayCount",

@@ -107,12 +107,15 @@ internal fun gizmoEditSession(editing: List<DrawableId> = listOf(RIG_QUAD), elem
 	session.setMode(EditorMode.Edit)
 	assertEquals(EditorMode.Edit, session.mode.value, "the rig must really be in Edit mode")
 	var selection = session.meshSelection.value
+
 	for (element in elements) {
 		selection = MeshSelectionOps.add(selection, editing.first(), element)
 	}
+
 	if (elements.isNotEmpty()) {
 		session.setMeshSelection(selection)
 	}
+
 	return session
 }
 
@@ -127,6 +130,7 @@ internal fun gizmoObjectSession(selected: List<DrawableId> = listOf(RIG_QUAD)): 
 	val session = EditorSession(gizmoRigModel())
 	val targets = selected.map { drawableId -> SelectionTarget.Drawable(drawableId) }
 	session.setSelection(Selection(targets.toSet(), targets.firstOrNull()))
+
 	return session
 }
 

@@ -81,7 +81,7 @@ enum class DockEdge {
  */
 fun reduce(root: AreaNode, command: AreaCommand): AreaNode =
 	when (command) {
-		is AreaCommand.SplitArea ->
+		is AreaCommand.SplitArea -> {
 			mapLeaf(root, command.areaId) { leaf ->
 				SplitNode(
 					orientation = command.orientation,
@@ -90,10 +90,17 @@ fun reduce(root: AreaNode, command: AreaCommand): AreaNode =
 					second = LeafArea(newAreaId(), leaf.space),
 				)
 			}
-		is AreaCommand.SwitchSpace ->
+		}
+
+		is AreaCommand.SwitchSpace -> {
 			mapLeaf(root, command.areaId) { leaf -> leaf.copy(space = command.kind) }
-		is AreaCommand.CloseArea -> closeArea(root, command.areaId)
-		is AreaCommand.JoinAreas ->
+		}
+
+		is AreaCommand.CloseArea -> {
+			closeArea(root, command.areaId)
+		}
+
+		is AreaCommand.JoinAreas -> {
 			// removeLeaf collapses a split to its OTHER child, so removing the consumed sibling promotes
 			// the survivor - but only valid when the two really are direct siblings, else a no-op.
 			if (command.survivorId != command.consumedId &&
@@ -103,7 +110,11 @@ fun reduce(root: AreaNode, command: AreaCommand): AreaNode =
 			} else {
 				root
 			}
-		is AreaCommand.DockArea -> dockArea(root, command.sourceId, command.edge, command.ratio)
+		}
+
+		is AreaCommand.DockArea -> {
+			dockArea(root, command.sourceId, command.edge, command.ratio)
+		}
 	}
 
 /**
@@ -122,16 +133,22 @@ fun reduce(root: AreaNode, command: AreaCommand): AreaNode =
 private fun dockArea(root: AreaNode, sourceId: String, edge: DockEdge, ratio: Float): AreaNode {
 	val sourceLeaf = findLeaf(root, sourceId)
 	val remainder = removeLeaf(root, sourceId)
+
 	if (sourceLeaf == null || remainder == null) {
 		return root
 	}
+
 	val stripRatio = ratio.coerceIn(MIN_RATIO, 1f - MIN_RATIO)
+
 	return when (edge) {
 		// The strip is the first child for Top/Left and the second for Bottom/Right, so the ratio (always
 		// the leading child's fraction) is the strip's share where it leads and the complement otherwise.
 		DockEdge.Top -> SplitNode(SplitOrientation.Vertical, stripRatio, sourceLeaf, remainder)
+
 		DockEdge.Bottom -> SplitNode(SplitOrientation.Vertical, 1f - stripRatio, remainder, sourceLeaf)
+
 		DockEdge.Left -> SplitNode(SplitOrientation.Horizontal, stripRatio, sourceLeaf, remainder)
+
 		DockEdge.Right -> SplitNode(SplitOrientation.Horizontal, 1f - stripRatio, remainder, sourceLeaf)
 	}
 }
@@ -163,7 +180,10 @@ private fun findLeaf(node: AreaNode, areaId: String): LeafArea? =
  */
 internal fun areDirectSiblings(node: AreaNode, firstId: String, secondId: String): Boolean =
 	when (node) {
-		is LeafArea -> false
+		is LeafArea -> {
+			false
+		}
+
 		is SplitNode -> {
 			val firstChild = node.first
 			val secondChild = node.second
@@ -194,17 +214,20 @@ internal fun areDirectSiblings(node: AreaNode, firstId: String, secondId: String
  */
 private fun mapLeaf(node: AreaNode, areaId: String, transform: (LeafArea) -> AreaNode): AreaNode =
 	when (node) {
-		is LeafArea ->
+		is LeafArea -> {
 			if (node.id == areaId) {
 				transform(node)
 			} else {
 				node
 			}
-		is SplitNode ->
+		}
+
+		is SplitNode -> {
 			node.copy(
 				first = mapLeaf(node.first, areaId, transform),
 				second = mapLeaf(node.second, areaId, transform),
 			)
+		}
 	}
 
 /**
@@ -222,6 +245,7 @@ private fun closeArea(root: AreaNode, areaId: String): AreaNode {
 	if (root is LeafArea) {
 		return root
 	}
+
 	return removeLeaf(root, areaId) ?: root
 }
 
@@ -238,19 +262,31 @@ private fun closeArea(root: AreaNode, areaId: String): AreaNode {
  */
 private fun removeLeaf(node: AreaNode, areaId: String): AreaNode? =
 	when (node) {
-		is LeafArea -> null
+		is LeafArea -> {
+			null
+		}
+
 		is SplitNode -> {
 			val firstChild = node.first
 			val secondChild = node.second
+
 			when {
-				firstChild is LeafArea && firstChild.id == areaId -> secondChild
-				secondChild is LeafArea && secondChild.id == areaId -> firstChild
+				firstChild is LeafArea && firstChild.id == areaId -> {
+					secondChild
+				}
+
+				secondChild is LeafArea && secondChild.id == areaId -> {
+					firstChild
+				}
+
 				else -> {
 					val rewrittenFirst = removeLeaf(firstChild, areaId)
+
 					if (rewrittenFirst != null) {
 						node.copy(first = rewrittenFirst)
 					} else {
 						val rewrittenSecond = removeLeaf(secondChild, areaId)
+
 						if (rewrittenSecond != null) {
 							node.copy(second = rewrittenSecond)
 						} else {

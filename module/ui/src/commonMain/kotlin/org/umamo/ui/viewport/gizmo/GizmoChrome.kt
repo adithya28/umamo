@@ -52,11 +52,13 @@ private val AXIS_LOCK_Z_COLOR =
  */
 internal fun DrawScope.drawAxisConstraintLine(constraint: TransformAxisConstraint?, anchorScreen: Offset, viewport: Size) {
 	when (constraint) {
-		TransformAxisConstraint.AxisX ->
+		TransformAxisConstraint.AxisX -> {
 			drawLine(color = AXIS_LOCK_X_COLOR, start = Offset(0f, anchorScreen.y), end = Offset(viewport.width, anchorScreen.y), strokeWidth = 1f)
+		}
 
-		TransformAxisConstraint.AxisZ ->
+		TransformAxisConstraint.AxisZ -> {
 			drawLine(color = AXIS_LOCK_Z_COLOR, start = Offset(anchorScreen.x, 0f), end = Offset(anchorScreen.x, viewport.height), strokeWidth = 1f)
+		}
 
 		null -> {}
 	}
@@ -92,6 +94,7 @@ internal fun DrawScope.drawOwnedModalTransformHud(
 	if (!owned || pivotWorld == null) {
 		return
 	}
+
 	drawModalTransformHud(
 		axisConstraint = axisConstraint.value,
 		pivotScreen = worldToScreen(pivotWorld.first, pivotWorld.second, camera, size),
@@ -133,9 +136,11 @@ internal fun DrawScope.drawModalTransformHud(
 	proportionalRadiusPx: Float? = null,
 ) {
 	drawAxisConstraintLine(axisConstraint, pivotScreen, viewport)
+
 	if (proportionalRadiusPx != null) {
 		drawCircle(color = lineColor, radius = proportionalRadiusPx, center = pivotScreen, style = Stroke(width = 1f))
 	}
+
 	drawLine(
 		color = lineColor,
 		start = pivotScreen,
@@ -173,6 +178,7 @@ internal fun DrawScope.drawSelectToolAffordances(
 			if (!boxDragInFlight) {
 				drawCrosshairGuides(pointer, viewport, style)
 			}
+
 			drawCursor(crosshairCursor, pointer)
 		}
 

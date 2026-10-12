@@ -105,7 +105,9 @@ internal fun groupDragFraction(
 	if (!selection.containsAll(draggedKeys) || (!summary && selection.size < 2)) {
 		return null
 	}
+
 	val span = maxOf(parameter.max, parameter.min) - minOf(parameter.max, parameter.min)
+
 	return if (span > 0f) (at - mark.position) / span else null
 }
 
@@ -196,6 +198,7 @@ internal fun KeyformSheetViewState.dragKeySelection(
 	commit: Boolean,
 ) {
 	val plan = resolveTrackKeys(session?.keySelection?.value.orEmpty(), projections)
+
 	if (session == null || plan.isEmpty()) {
 		dragPreviewFraction = null
 	} else if (commit) {

@@ -20,6 +20,7 @@ import org.umamo.runtime.model.PuppetAtlas
  */
 internal fun placementToDraw(placement: PlacementPreview?, appliedAtlas: PuppetAtlas): PlacementPreview? {
 	val ghostAtlas = placement?.ghostAtlas ?: return placement
+
 	return if (ghostAtlas === appliedAtlas || ghostAtlas == appliedAtlas) {
 		placement.withoutGhost()
 	} else {

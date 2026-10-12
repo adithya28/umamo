@@ -57,6 +57,7 @@ private class Cmo3SourceLayer(
 	override val blend: LayerBlend = layerBlendOf(walked.layer.blend)
 	override val raster: LayerRaster by lazy {
 		val decoded = resource?.let(extractPng)?.let { png -> runCatching { PngCodec.read(png) }.getOrNull() }
+
 		if (decoded != null) {
 			LayerRaster(decoded.width, decoded.height, decoded.rgba)
 		} else {
@@ -116,5 +117,6 @@ fun cmo3SourceArtOf(modelSource: CModelSource, sourceId: ArtSourceId, extractPng
 			.firstOrNull { candidate -> Cmo3Import.uuidOf(candidate.guid) == sourceId.raw }
 			?: return null
 	val layers = walkLayeredImage(image).map { walked -> Cmo3SourceLayer(walked, extractPng) }
+
 	return Cmo3LayeredArt(layers, image.width, image.height)
 }

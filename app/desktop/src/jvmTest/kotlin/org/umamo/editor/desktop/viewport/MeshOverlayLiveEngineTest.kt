@@ -59,11 +59,14 @@ class MeshOverlayLiveEngineTest {
 		val textures = PuppetTextures(listOf(solidBlueImage()), mapOf(probeId.raw to 0), false)
 		val service = OffscreenPuppetService(model, textures, LiveParams(emptyMap()))
 		service.start()
+
 		try {
 			val frames = service.register("area")
 			service.resize("area", 100, 100)
+
 			if (!awaitFrame(frames) { sample -> isArtBlue(sample) }) {
 				println("[overlay-live] no GL frame arrived; skipping (context unavailable, or the art never rendered)")
+
 				return
 			}
 
@@ -134,13 +137,17 @@ class MeshOverlayLiveEngineTest {
 	 */
 	private fun awaitFrame(frames: StateFlow<RenderedFrame?>, accept: (Color) -> Boolean): Boolean {
 		val start = System.currentTimeMillis()
+
 		while (System.currentTimeMillis() - start < 5_000) {
 			val frame = frames.value
+
 			if (frame != null && accept(sampleOf(frame.bitmap.toPixelMap()))) {
 				return true
 			}
+
 			Thread.sleep(20)
 		}
+
 		return false
 	}
 
@@ -160,10 +167,12 @@ class MeshOverlayLiveEngineTest {
 	private fun solidBlueImage(): DecodedImage {
 		val size = 16
 		val rgba = ByteArray(size * size * 4)
+
 		for (pixel in rgba.indices step 4) {
 			rgba[pixel + 2] = 0xFF.toByte()
 			rgba[pixel + 3] = 0xFF.toByte()
 		}
+
 		return DecodedImage(rgba, size, size)
 	}
 
@@ -187,6 +196,7 @@ class MeshOverlayLiveEngineTest {
 						listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(quadPositions.size)))),
 					),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),

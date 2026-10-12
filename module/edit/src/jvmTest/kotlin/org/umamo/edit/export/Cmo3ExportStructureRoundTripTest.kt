@@ -54,6 +54,7 @@ class Cmo3ExportStructureRoundTripTest {
 		val report = Cmo3Export.apply(edited, cmo3)
 		val reimportedSource =
 			Cmo3.read(Cmo3.write(cmo3)).root as? CModelSource ?: error("re-read root is not a CModelSource")
+
 		return RoundTrip(edited, Cmo3Import.fromModelSource(reimportedSource), report)
 	}
 
@@ -86,13 +87,16 @@ class Cmo3ExportStructureRoundTripTest {
 			(editedGrid == null) == (reimportedGrid == null),
 			"$label: geometry grid presence changed through the round trip",
 		)
+
 		if (editedGrid != null && reimportedGrid != null) {
 			val reimportedByCoordinate =
 				reimportedGrid.cells.associate { cell -> cell.coordinate.toList() to cell.form.positionDeltas }
 			var maxComponentDifference = 0f
+
 			for (cell in editedGrid.cells) {
 				val reimportedDeltas = reimportedByCoordinate[cell.coordinate.toList()]
 				assertTrue(reimportedDeltas != null, "$label: cell ${cell.coordinate.toList()} vanished")
+
 				for (component in cell.form.positionDeltas.indices) {
 					maxComponentDifference =
 						maxOf(
@@ -101,12 +105,16 @@ class Cmo3ExportStructureRoundTripTest {
 						)
 				}
 			}
+
 			assertTrue(maxComponentDifference < 1e-3f, "$label: geometry drifted by $maxComponentDifference")
 		}
+
 		val residual = diffPuppetModels(result.reimported, result.edited)
+
 		if (residual.isEmpty) {
 			return
 		}
+
 		val tolerated = setOf(DrawableField.TEXTURE_SOURCE, DrawableField.GEOMETRY, DrawableField.BLEND_SHAPES)
 		val onlyToleratedResidue =
 			residual.parameters.isEmpty() &&
@@ -127,9 +135,11 @@ class Cmo3ExportStructureRoundTripTest {
 
 	private fun skipMessageOrNull(): File? {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.sample not present; skipping structure round-trip test")
 		}
+
 		return file
 	}
 
@@ -148,19 +158,23 @@ class Cmo3ExportStructureRoundTripTest {
 							drawable.channelGrids.gridsByChannel.values.forEach { grid -> grid.axes.forEach { add(it.parameterId) } }
 							drawable.blendShapes.forEach { add(it.parameterId) }
 						}
+
 						for (deformer in model.deformers) {
 							deformer.channelGrids.gridsByChannel.values.forEach { grid -> grid.axes.forEach { add(it.parameterId) } }
 						}
+
 						model.parameterLinks.forEach {
 							add(it.horizontal)
 							add(it.vertical)
 						}
 					}
 				val victim = model.parameters.firstOrNull { it.id !in referenced && it.id.raw != "UmamoTestParam" }
+
 				if (victim != null) {
 					deletedId = victim.id.raw
 					model = model.withParameterDeleted(victim.id)
 				}
+
 				model
 			}
 		// Physics the file retained may still read or drive the victim (EricaTamamo's ParamAngleZ feeds 43
@@ -215,9 +229,11 @@ class Cmo3ExportStructureRoundTripTest {
 				val leafPart =
 					puppet.parts.firstOrNull { part -> part.children.none { it is OrgChild.Part } }
 				var model = puppet
+
 				if (leafPart != null) {
 					model = model.withPartDeleted(leafPart.id, cascade = true)
 				}
+
 				model.deformers.firstOrNull()?.let { deformer ->
 					model = model.withDeformerDeleted(deformer.id, localPositionsByDrawable = emptyMap())
 				}

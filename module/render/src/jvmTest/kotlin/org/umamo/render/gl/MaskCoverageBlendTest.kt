@@ -69,6 +69,7 @@ class MaskCoverageBlendTest {
 	private fun model(maskBlend: BlendMode): PuppetModel {
 		val maskSource = drawable(maskId, maskBlend, emptyList())
 		val masked = drawable(maskedId, BlendMode.Normal, listOf(maskId))
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),
@@ -111,15 +112,18 @@ class MaskCoverageBlendTest {
 		GL11.glReadPixels(0, 0, viewportSize, viewportSize, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, frame)
 		val row = viewportSize / 2
 		var lit = 0
+
 		for (column in 0 until viewportSize) {
 			val pixel = (row * viewportSize + column) * 4
 			val red = frame.get(pixel).toInt() and 0xFF
 			val green = frame.get(pixel + 1).toInt() and 0xFF
 			val blue = frame.get(pixel + 2).toInt() and 0xFF
+
 			if (maxOf(red, green, blue) > 16) {
 				lit++
 			}
 		}
+
 		return lit
 	}
 }

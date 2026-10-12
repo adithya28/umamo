@@ -216,6 +216,7 @@ class UvScenePublishTest {
 			publishUvScene(publishing.service, "uv", session, publishing.scene, publishing.stroke, publishing.sizes, publishing.placement, StandardTestDispatcher(testScheduler))
 		}
 		runCurrent()
+
 		return publishing
 	}
 }

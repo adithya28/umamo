@@ -49,6 +49,7 @@ class LivePlacementMoveGateTest {
 
 	private fun pixelBytes(image: DecodedImage, x: Int, y: Int): ByteArray {
 		val offset = (y * image.width + x) * 4
+
 		return image.rgba.copyOfRange(offset, offset + 4)
 	}
 
@@ -66,10 +67,13 @@ class LivePlacementMoveGateTest {
 	fun aLivePlacementMoveExportsTheMovedArrangement() =
 		runBlocking {
 			val file = sample
+
 			if (file == null) {
 				println("cmo3.sample not present; skipping the live placement move gate")
+
 				return@runBlocking
 			}
+
 			val load = loadDocument(file.readBytes(), file.name, file.path)
 			val document = assertIs<Cmo3Document>(assertIs<DocumentLoad.Loaded>(load).document)
 			val session = EditorSession(document.puppet, document.liveParams.values)
@@ -128,6 +132,7 @@ class LivePlacementMoveGateTest {
 					assertNotNull(moved.drawables.first { drawable -> drawable.id == moverDrawable.id }.mesh).uvs,
 					assertNotNull(moved.atlas.storedToArtAffineForTile(mover.id)),
 				)
+
 			for (componentIndex in artUvsBefore.indices) {
 				assertTrue(
 					abs(artUvsBefore[componentIndex] - artUvsAfter[componentIndex]) < 1e-4f,
@@ -166,16 +171,20 @@ class LivePlacementMoveGateTest {
 			assertPlacementClose(turnedPlacement, reimported.atlas.tileById[turner.id]?.placement, turner.name)
 			val editedUvs = moved.drawables.associate { drawable -> drawable.id to drawable.mesh?.uvs }
 			var uvMismatches = 0
+
 			for (drawable in reimported.drawables) {
 				val expected = editedUvs[drawable.id] ?: continue
+
 				if (!expected.contentEquals(drawable.mesh?.uvs)) {
 					uvMismatches++
 				}
 			}
+
 			assertEquals(0, uvMismatches, "drawables whose exported uvs differ from the session's")
 			val exportedPages = cmo3AtlasPages(reread.root as CModelSource) { resource -> reread.extractLayerPng(resource) }.pageBytes
 			val expectedPages = effective.atlases.map { pageImage -> encodeAtlasPng(pageImage) }
 			assertEquals(expectedPages.size, exportedPages.size, "exported page count")
+
 			for ((pageIndex, bytes) in exportedPages.withIndex()) {
 				assertTrue(expectedPages.any { expected -> expected.contentEquals(bytes) }, "exported page $pageIndex is not one of the resolver's pages")
 			}

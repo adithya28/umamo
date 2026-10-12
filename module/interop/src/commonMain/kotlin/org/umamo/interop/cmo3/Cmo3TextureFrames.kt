@@ -81,6 +81,7 @@ internal class Cmo3TextureFrames(private val modelSource: CModelSource) {
 	 */
 	fun storedFrameOf(source: CArtMeshSource): Cmo3StoredFrame {
 		val sampled = sampledResourceOf(source)
+
 		return when {
 			sampled != null && isAtlasPage(sampled) -> Cmo3StoredFrame.Page
 			!Cmo3Import.hasAtlasRegion(source) || samplesReducedCopy(source) -> Cmo3StoredFrame.Cache
@@ -97,6 +98,7 @@ internal class Cmo3TextureFrames(private val modelSource: CModelSource) {
 	 */
 	fun renderedImageOf(source: CArtMeshSource): CImageResource? {
 		val sampled = sampledResourceOf(source) ?: return null
+
 		// CMO3: CModelImage field _filteredImage - the raster the copy was reduced from.
 		return ownerByReducedCopy[sampled]?.let { owner -> owner._filteredImage as? CImageResource } ?: sampled
 	}
@@ -114,11 +116,14 @@ internal class Cmo3TextureFrames(private val modelSource: CModelSource) {
 	 */
 	fun modelUvsOf(source: CArtMeshSource, storedUvs: FloatArray, storedToArt: FloatArray? = null): FloatArray {
 		val frame = storedFrameOf(source)
+
 		if (frame == Cmo3StoredFrame.Page) {
 			return storedUvs
 		}
+
 		val artUvs = if (frame == Cmo3StoredFrame.Cache) rasterUvsOfCache(source, storedUvs) else storedUvs
 		val artToModel = storedToArt?.takeUnless(::isIdentityAffine)?.let(::invertUvAffine) ?: return artUvs
+
 		return applyUvAffine(artUvs, artToModel)
 	}
 
@@ -132,17 +137,21 @@ internal class Cmo3TextureFrames(private val modelSource: CModelSource) {
 	private fun rasterUvsOfCache(source: CArtMeshSource, cacheUvs: FloatArray): FloatArray {
 		val affine = cacheAffineOf(source) ?: return cacheUvs
 		val determinant = affine.m00 * affine.m11 - affine.m01 * affine.m10
+
 		// A degenerate affine would invert to NaN or infinity; the coordinates stay as stored.
 		if (determinant == 0f) {
 			return cacheUvs
 		}
+
 		val rasterUvs = FloatArray(cacheUvs.size)
 		var componentIndex = 0
+
 		while (componentIndex + 1 < cacheUvs.size) {
 			rasterUvs[componentIndex] = inverseU(affine, determinant, cacheUvs[componentIndex], cacheUvs[componentIndex + 1])
 			rasterUvs[componentIndex + 1] = inverseV(affine, determinant, cacheUvs[componentIndex], cacheUvs[componentIndex + 1])
 			componentIndex += 2
 		}
+
 		return rasterUvs
 	}
 
@@ -173,19 +182,23 @@ internal class Cmo3TextureFrames(private val modelSource: CModelSource) {
 		baselineUvs: FloatArray? = null,
 	): FloatArray {
 		val frame = storedFrameOf(source)
+
 		if (frame == Cmo3StoredFrame.Page) {
 			return modelUvs.copyOf()
 		}
+
 		val artUvs = storedToArt?.takeUnless(::isIdentityAffine)?.let { affine -> applyUvAffine(modelUvs, affine) } ?: modelUvs
 		val cacheAffine = if (frame == Cmo3StoredFrame.Cache) cacheAffineOf(source) else null
 		val keptStored = storedUvs?.takeIf { stored -> stored.size == modelUvs.size && baselineUvs?.size == modelUvs.size }
 		val result = FloatArray(modelUvs.size)
 		var componentIndex = 0
+
 		while (componentIndex + 1 < modelUvs.size) {
 			val unchangedPair =
 				baselineUvs != null &&
 					modelUvs[componentIndex].toRawBits() == baselineUvs[componentIndex].toRawBits() &&
 					modelUvs[componentIndex + 1].toRawBits() == baselineUvs[componentIndex + 1].toRawBits()
+
 			if (keptStored != null && unchangedPair) {
 				result[componentIndex] = keptStored[componentIndex]
 				result[componentIndex + 1] = keptStored[componentIndex + 1]
@@ -198,8 +211,10 @@ internal class Cmo3TextureFrames(private val modelSource: CModelSource) {
 				result[componentIndex] = artUvs[componentIndex]
 				result[componentIndex + 1] = artUvs[componentIndex + 1]
 			}
+
 			componentIndex += 2
 		}
+
 		return result
 	}
 
@@ -215,6 +230,7 @@ internal class Cmo3TextureFrames(private val modelSource: CModelSource) {
 	fun isAtlasPage(resource: CImageResource): Boolean {
 		// CMO3: CImageResource field imageFileBuf - the archive entry holding the pixels.
 		val archivePath = resource.imageFileBuf?.archivePath
+
 		// CMO3: CModelSource field textureManager -> CTextureManager field _textureAtlases -> CTextureAtlas
 		// field cachedAtlasImage.
 		return Cmo3Import.elementsOf((modelSource.textureManager as? CTextureManager)?._textureAtlases).any { atlas ->
@@ -233,6 +249,7 @@ internal class Cmo3TextureFrames(private val modelSource: CModelSource) {
 	 */
 	fun isShownFrom(source: CArtMeshSource, modelImage: CModelImage): Boolean {
 		val sampled = sampledResourceOf(source) ?: return false
+
 		// CMO3: CModelImage field _filteredImage.
 		return sampled === modelImage._filteredImage || ownerByReducedCopy[sampled] === modelImage
 	}
@@ -306,6 +323,7 @@ internal class Cmo3TextureFrames(private val modelSource: CModelSource) {
 					affine.m10 == 0f &&
 					affine.m11 == 1f &&
 					affine.m12 == 0f
+
 			return affine.takeUnless { isIdentity }
 		}
 
@@ -327,6 +345,7 @@ internal class Cmo3TextureFrames(private val modelSource: CModelSource) {
 					.mapNotNull { atlas -> atlas.cachedAtlasImage as? CImageResource }
 					.toHashSet()
 			val ownerByCopy = HashMap<CImageResource, CModelImage>()
+
 			// CMO3: CTextureManager field _modelImageGroups -> CModelImageGroup field _modelImages.
 			for (group in Cmo3Import.elementsOf(textureManager._modelImageGroups).filterIsInstance<CModelImageGroup>()) {
 				for (modelImage in Cmo3Import.elementsOf(group._modelImages).filterIsInstance<CModelImage>()) {
@@ -335,14 +354,17 @@ internal class Cmo3TextureFrames(private val modelSource: CModelSource) {
 					// CCachedImage field _cachedImageResource - the raster itself at SCALE_1, and a reduced
 					// copy beside it when the editor made one.
 					val manager = modelImage.cachedImageManager as? CCachedImageManager ?: continue
+
 					for (cached in Cmo3Import.elementsOf(manager.cachedImages).filterIsInstance<CCachedImage>()) {
 						val resource = cached._cachedImageResource as? CImageResource ?: continue
+
 						if (resource !== raster && resource !in pages) {
 							ownerByCopy[resource] = modelImage
 						}
 					}
 				}
 			}
+
 			return ownerByCopy
 		}
 	}

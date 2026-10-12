@@ -106,6 +106,7 @@ class MeshDeltasTest {
 		val random = Random(3)
 		repeat(10_000) {
 			val value = Float.fromBits(random.nextInt())
+
 			if (value.isFinite() && value != 0f) {
 				assertEquals(value.toRawBits(), floatBelow(floatAbove(value)).toRawBits(), "$value up and back down")
 				assertTrue(floatAbove(value) > value && floatBelow(value) < value, "$value lies between its neighbors")

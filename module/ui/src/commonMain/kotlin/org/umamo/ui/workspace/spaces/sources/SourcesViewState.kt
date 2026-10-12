@@ -81,6 +81,7 @@ internal class SourcesViewState : PersistentSpaceState {
 		if (searching) {
 			return
 		}
+
 		expanded[nodeId] = !isOpen(nodeId)
 	}
 
@@ -107,6 +108,7 @@ internal class SourcesViewState : PersistentSpaceState {
 	 */
 	override fun toJson(): JsonObject {
 		val (opened, closed) = foldDeviationsOf(expanded, ::sourcesOpensByDefault)
+
 		return buildJsonObject {
 			put("expanded", opened)
 			put("collapsed", closed)

@@ -177,12 +177,15 @@ class RelationPickController {
 	 */
 	fun resolve(target: SelectionTarget): Boolean {
 		val pending = request ?: return false
+
 		if (target.pickKind() !in pending.accepts) {
 			return false
 		}
+
 		request = null
 		hoveredTarget = null
 		pending.onPicked(target)
+
 		return true
 	}
 }
@@ -212,5 +215,6 @@ fun RelationPickController.pickingFor(owner: Any?): Boolean {
 	DisposableEffect(this, owner) {
 		onDispose { cancelFor(owner) }
 	}
+
 	return isPickingFor(owner)
 }

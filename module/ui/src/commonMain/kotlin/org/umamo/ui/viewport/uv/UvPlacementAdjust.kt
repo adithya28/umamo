@@ -49,13 +49,14 @@ internal object PlacementParameterKeys {
  */
 internal fun placementParameters(status: PlacementDragStatus, pageWidth: Int, pageHeight: Int): List<OperatorParameter> =
 	when (status.operatorKind) {
-		MeshOperatorKind.Grab ->
+		MeshOperatorKind.Grab -> {
 			listOf(
 				OperatorParameter.IntParameter(PlacementParameterKeys.DELTA_X, PlacementParameterKeys.DELTA_X, status.deltaX, -pageWidth, pageWidth, unit = ParameterUnit.Pixels),
 				OperatorParameter.IntParameter(PlacementParameterKeys.DELTA_Y, PlacementParameterKeys.DELTA_Y, status.deltaY, -pageHeight, pageHeight, unit = ParameterUnit.Pixels),
 			)
+		}
 
-		MeshOperatorKind.Rotate ->
+		MeshOperatorKind.Rotate -> {
 			listOf(
 				OperatorParameter.FloatParameter(
 					PlacementParameterKeys.ANGLE,
@@ -66,14 +67,18 @@ internal fun placementParameters(status: PlacementDragStatus, pageWidth: Int, pa
 					unit = ParameterUnit.Degrees,
 				),
 			)
+		}
 
-		MeshOperatorKind.Scale ->
+		MeshOperatorKind.Scale -> {
 			listOf(
 				OperatorParameter.FloatParameter(PlacementParameterKeys.SCALE_X, PlacementParameterKeys.SCALE_X, status.factorX, TRANSFORM_SCALE_MIN, TRANSFORM_SCALE_MAX, TRANSFORM_SCALE_STEP),
 				OperatorParameter.FloatParameter(PlacementParameterKeys.SCALE_Y, PlacementParameterKeys.SCALE_Y, status.factorY, TRANSFORM_SCALE_MIN, TRANSFORM_SCALE_MAX, TRANSFORM_SCALE_STEP),
 			)
+		}
 
-		MeshOperatorKind.VertexSlide -> emptyList()
+		MeshOperatorKind.VertexSlide -> {
+			emptyList()
+		}
 	}
 
 /**
@@ -87,7 +92,7 @@ internal fun placementParameters(status: PlacementDragStatus, pageWidth: Int, pa
  */
 internal fun placementGestureParametersOf(kind: MeshOperatorKind, parameters: List<OperatorParameter>): PlacementGestureParameters =
 	when (kind) {
-		MeshOperatorKind.Grab ->
+		MeshOperatorKind.Grab -> {
 			PlacementGestureParameters(
 				deltaDisplayX = parameters.intValue(PlacementParameterKeys.DELTA_X, 0).toFloat(),
 				deltaDisplayY = -parameters.intValue(PlacementParameterKeys.DELTA_Y, 0).toFloat(),
@@ -95,8 +100,9 @@ internal fun placementGestureParametersOf(kind: MeshOperatorKind, parameters: Li
 				factorY = 1f,
 				rotationRadians = 0f,
 			)
+		}
 
-		MeshOperatorKind.Rotate ->
+		MeshOperatorKind.Rotate -> {
 			PlacementGestureParameters(
 				deltaDisplayX = 0f,
 				deltaDisplayY = 0f,
@@ -104,8 +110,9 @@ internal fun placementGestureParametersOf(kind: MeshOperatorKind, parameters: Li
 				factorY = 1f,
 				rotationRadians = (-parameters.floatValue(PlacementParameterKeys.ANGLE, 0f) * PI / 180.0).toFloat(),
 			)
+		}
 
-		MeshOperatorKind.Scale ->
+		MeshOperatorKind.Scale -> {
 			PlacementGestureParameters(
 				deltaDisplayX = 0f,
 				deltaDisplayY = 0f,
@@ -113,8 +120,11 @@ internal fun placementGestureParametersOf(kind: MeshOperatorKind, parameters: Li
 				factorY = parameters.floatValue(PlacementParameterKeys.SCALE_Y, 1f),
 				rotationRadians = 0f,
 			)
+		}
 
-		MeshOperatorKind.VertexSlide -> PlacementGestureParameters(0f, 0f, 1f, 1f, 0f)
+		MeshOperatorKind.VertexSlide -> {
+			PlacementGestureParameters(0f, 0f, 1f, 1f, 0f)
+		}
 	}
 
 /**
@@ -127,12 +137,15 @@ internal fun placementGestureParametersOf(kind: MeshOperatorKind, parameters: Li
  */
 internal fun changedPlacements(movers: List<PlacementMover>, result: PlacementDragResult): Map<AtlasTileId, AtlasPlacement?> {
 	val changed = LinkedHashMap<AtlasTileId, AtlasPlacement?>()
+
 	for (mover in movers) {
 		val next = result.placementByTile[mover.tileId] ?: continue
+
 		if (next != mover.placement) {
 			changed[mover.tileId] = next
 		}
 	}
+
 	return changed
 }
 
@@ -161,9 +174,11 @@ internal fun registerPlacementAdjustment(
 ): AdjustableOperation? {
 	val kind = gesture.transform.operatorKind
 	val parameters = placementParameters(result.status, gesture.pageWidth, gesture.pageHeight)
+
 	if (parameters.isEmpty()) {
 		return null
 	}
+
 	return session.registerAdjustableOperation(session.model.value, areaId, parameters) { record ->
 		val adjusted =
 			evaluatePlacementDrag(
@@ -177,6 +192,7 @@ internal fun registerPlacementAdjustment(
 				extrude = gesture.extrude,
 			)
 		val landed = record.baseSnapshot.model.withAtlasPlacements(changedPlacements(gesture.movers, adjusted))
+
 		if (session.amendLastCommit(record, landed)) {
 			onLanded(adjusted)
 		}

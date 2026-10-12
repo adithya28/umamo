@@ -87,21 +87,27 @@ internal class UvGizmoGeometryCache {
 	 */
 	fun surfaceUvs(shownDrawables: List<Drawable>, model: PuppetModel, layerView: UvEditorLayer?): Map<DrawableId, FloatArray> {
 		val surfaceUvsById = LinkedHashMap<DrawableId, FloatArray>(shownDrawables.size)
+
 		for (drawable in shownDrawables) {
 			val mesh = drawable.mesh ?: continue
+
 			if (layerView == null) {
 				surfaceUvsById[drawable.id] = mesh.uvs
+
 				continue
 			}
+
 			val binding = model.atlasBindingFor(drawable) ?: continue
 			val recovered = recoveredUvsOf(drawable.id, mesh.uvs, binding, layerView) ?: continue
 			surfaceUvsById[drawable.id] = recovered
 		}
+
 		if (layerView == null) {
 			recoveredById.clear()
 		} else {
 			recoveredById.keys.retainAll(surfaceUvsById.keys)
 		}
+
 		return surfaceUvsById
 	}
 
@@ -122,24 +128,30 @@ internal class UvGizmoGeometryCache {
 		displayHeight: Int,
 	): List<GizmoMeshGeometry> {
 		val geometries = ArrayList<GizmoMeshGeometry>(shownDrawables.size)
+
 		for (drawable in shownDrawables) {
 			val mesh = drawable.mesh ?: continue
 			val uvs = uvsById[drawable.id] ?: continue
 			val edges = edgesOf(drawable.id, mesh.indices)
 			val positions = displayPositionsOf(drawable.id, uvs, displayWidth, displayHeight)
 			val cached = geometryById[drawable.id]
+
 			if (cached != null && cached.indices === mesh.indices && cached.edges === edges && cached.positions === positions) {
 				geometries.add(cached)
+
 				continue
 			}
+
 			val geometry = GizmoMeshGeometry(drawable.id, mesh.indices, edges, positions)
 			geometryById[drawable.id] = geometry
 			geometries.add(geometry)
 		}
+
 		val shownIds = geometries.mapTo(HashSet(geometries.size)) { geometry -> geometry.drawableId }
 		geometryById.keys.retainAll(shownIds)
 		displayById.keys.retainAll(shownIds)
 		edgesById.keys.retainAll(shownIds)
+
 		return geometries
 	}
 
@@ -155,6 +167,7 @@ internal class UvGizmoGeometryCache {
 	 */
 	private fun recoveredUvsOf(drawableId: DrawableId, storedUvs: FloatArray, binding: DrawableLayerBinding, layerView: UvEditorLayer): FloatArray? {
 		val cached = recoveredById[drawableId]
+
 		if (cached != null &&
 			cached.storedUvs === storedUvs &&
 			cached.binding == binding &&
@@ -163,8 +176,10 @@ internal class UvGizmoGeometryCache {
 		) {
 			return cached.recovered
 		}
+
 		val recovered = layerUvsFromAtlasUvs(storedUvs, binding, layerView.width, layerView.height)
 		recoveredById[drawableId] = RecoveredUvs(storedUvs, binding, layerView.width, layerView.height, recovered)
+
 		return recovered
 	}
 
@@ -180,11 +195,14 @@ internal class UvGizmoGeometryCache {
 	 */
 	private fun displayPositionsOf(drawableId: DrawableId, surfaceUvs: FloatArray, displayWidth: Int, displayHeight: Int): FloatArray {
 		val cached = displayById[drawableId]
+
 		if (cached != null && cached.surfaceUvs === surfaceUvs && cached.displayWidth == displayWidth && cached.displayHeight == displayHeight) {
 			return cached.positions
 		}
+
 		val positions = uvToDisplay(surfaceUvs, displayWidth, displayHeight)
 		displayById[drawableId] = DisplayPositions(surfaceUvs, displayWidth, displayHeight, positions)
+
 		return positions
 	}
 
@@ -197,11 +215,14 @@ internal class UvGizmoGeometryCache {
 	 */
 	private fun edgesOf(drawableId: DrawableId, indices: IntArray): List<MeshElement.Edge> {
 		val cached = edgesById[drawableId]
+
 		if (cached != null && cached.indices === indices) {
 			return cached.edges
 		}
+
 		val edges = MeshTopology.uniqueEdges(indices)
 		edgesById[drawableId] = Edges(indices, edges)
+
 		return edges
 	}
 }

@@ -113,10 +113,13 @@ class LiveParamsAdapter(private val liveParams: LiveParams, private val session:
 		if (session.posePinned) {
 			return
 		}
+
 		val current = liveParams.values
+
 		if (current[id] == value) {
 			return
 		}
+
 		liveParams.values = current + (id to value)
 		session.clearPendingChannelEdits()
 	}
@@ -133,6 +136,7 @@ class LiveParamsAdapter(private val liveParams: LiveParams, private val session:
 		if (session.posePinned) {
 			return
 		}
+
 		session.commitPose(ParameterChange.SetValue(changedIds.toList()), liveParams.values)
 	}
 }

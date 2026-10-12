@@ -91,6 +91,7 @@ class SourcesRowLayoutTest {
 	 */
 	private fun modelWithALongLayerName(): PuppetModel {
 		val base = sourcesFixtureModel()
+
 		return base.copy(
 			sources =
 				base.sources.map { source ->

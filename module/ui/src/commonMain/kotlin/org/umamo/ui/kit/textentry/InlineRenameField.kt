@@ -68,8 +68,10 @@ fun InlineRenameField(
 		if (resolved) {
 			return
 		}
+
 		resolved = true
 		val trimmed = fieldValue.text.trim()
+
 		if (trimmed.isEmpty()) {
 			onCancel()
 		} else {
@@ -81,6 +83,7 @@ fun InlineRenameField(
 		if (resolved) {
 			return
 		}
+
 		resolved = true
 		onCancel()
 	}

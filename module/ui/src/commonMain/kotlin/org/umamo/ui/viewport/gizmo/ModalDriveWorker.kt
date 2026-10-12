@@ -109,8 +109,10 @@ internal class ModalDriveWorker<TRequest : Any, TResult : Any>(
 		submittedSequence++
 		latest = request
 		latestEpoch = gesture.epoch
+
 		if (attachments == 0) {
 			publishResult(request, computeSequential(request), submittedSequence)
+
 			return
 		}
 
@@ -124,6 +126,7 @@ internal class ModalDriveWorker<TRequest : Any, TResult : Any>(
 	 */
 	fun settle() {
 		val request = latest ?: return
+
 		if (latestEpoch != gesture.epoch || doneSequence >= submittedSequence) {
 			return
 		}
@@ -140,6 +143,7 @@ internal class ModalDriveWorker<TRequest : Any, TResult : Any>(
 	 */
 	suspend fun run(dispatcher: CoroutineDispatcher) {
 		attachments++
+
 		try {
 			for (ticket in tickets) {
 				// A waiting worker is handed a ticket the moment it is sent, so by the time it runs, newer
@@ -148,7 +152,9 @@ internal class ModalDriveWorker<TRequest : Any, TResult : Any>(
 				if (!isCurrent(ticket) || ticket.sequence != submittedSequence) {
 					continue
 				}
+
 				val result = withContext(dispatcher) { computeOffThread(ticket.request) }
+
 				if (isCurrent(ticket)) {
 					publishResult(ticket.request, result, ticket.sequence)
 				}
@@ -239,11 +245,13 @@ internal fun <TItem> balancedChunks(
 	}
 
 	var totalWeight = 0L
+
 	for (item in items) {
 		totalWeight += weightOf(item)
 	}
 
 	val chunkWeight = maxOf(minChunkWeight.toLong(), (totalWeight + targetChunks - 1) / targetChunks)
+
 	if (totalWeight <= chunkWeight) {
 		return listOf(items.indices)
 	}
@@ -251,8 +259,10 @@ internal fun <TItem> balancedChunks(
 	val chunks = ArrayList<IntRange>()
 	var chunkStart = 0
 	var runningWeight = 0L
+
 	for (itemIndex in items.indices) {
 		runningWeight += weightOf(items[itemIndex])
+
 		if (runningWeight >= chunkWeight) {
 			chunks.add(chunkStart..itemIndex)
 			chunkStart = itemIndex + 1

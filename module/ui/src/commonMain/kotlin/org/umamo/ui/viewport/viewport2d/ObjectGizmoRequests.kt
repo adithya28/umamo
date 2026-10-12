@@ -24,6 +24,7 @@ internal suspend fun collectObjectGizmoRequests(areaId: String, session: EditorS
 		if (session.mode.value != EditorMode.Object || request.areaId != areaId) {
 			return@collect
 		}
+
 		handleObjectSnapRequest(session, request.kind, (overlays?.grid ?: GridConfig()).snapStep)
 	}
 }

@@ -246,17 +246,21 @@ fun OverflowRow(
 				if (maxWidthPx == OVERFLOW_WIDTH_UNBOUNDED) natural else minOf(natural, maxWidthPx.coerceAtLeast(0))
 			}
 		val placeables = HashMap<Int, Placeable>(packing.placements.size)
+
 		for (placement in packing.placements) {
 			if (slots[placement.slotIndex].kind == OverflowSlotKind.Flexible) {
 				continue
 			}
+
 			placeables[placement.slotIndex] = measurableFor(placement.slotIndex).measure(slotConstraints.copy(maxWidth = placement.widthPx))
 		}
 
 		val collapsed = packing.collapsedSlotIndices.map { slotIndex -> slotKeys[slotIndex] }
+
 		if (collapsedKeys.value != collapsed) {
 			collapsedKeys.value = collapsed
 		}
+
 		if (lastPackKey.value != packKey) {
 			lastPackKey.value = packKey
 		}
@@ -281,11 +285,13 @@ fun OverflowRow(
 					}
 				}.first().measure(slotConstraints)
 			}
+
 		if (overflowPlaceable != null && overflowButtonWidthPx.value != overflowPlaceable.width) {
 			// The first strip to overflow reserved nothing, so it packed one chip too generously.  Recording
 			// the real width re-measures once and settles; from then on the reserve is a constant.
 			overflowButtonWidthPx.value = overflowPlaceable.width
 		}
+
 		// The chip is gone, so an open panel would be anchored to nothing.  It cannot be OPENED while
 		// unplaced (an absent node takes no clicks), but it can be open when the strip widens under it.
 		if (collapsed.isEmpty() && overflowExpanded) {
@@ -302,6 +308,7 @@ fun OverflowRow(
 				placeable.place(x = placement.xPx, y = verticalAlignment.align(placeable.height, height))
 			}
 			val buttonXPx = packing.overflowButtonXPx
+
 			if (overflowPlaceable != null && buttonXPx != null) {
 				overflowPlaceable.place(x = buttonXPx, y = verticalAlignment.align(overflowPlaceable.height, height))
 			}
@@ -323,9 +330,11 @@ private fun OverflowMenuRow(content: @Composable () -> Unit) {
 		val verticalPaddingPx = OVERFLOW_MENU_ROW_PADDING_VERTICAL.roundToPx()
 		val placeables = measurables.map { measurable -> measurable.measure(constraints) }
 		val contentWidth = placeables.maxOfOrNull { placeable -> placeable.width } ?: 0
+
 		if (contentWidth == 0) {
 			return@Layout layout(0, 0) {}
 		}
+
 		val contentHeight = placeables.maxOf { placeable -> placeable.height }
 		layout(contentWidth + horizontalPaddingPx * 2, contentHeight + verticalPaddingPx * 2) {
 			placeables.forEach { placeable -> placeable.place(horizontalPaddingPx, verticalPaddingPx) }

@@ -59,6 +59,7 @@ class UmaPuppetGeometryBridgeTest {
 	 */
 	private fun roundTrip(model: PuppetModel): PuppetModel {
 		val bytes = Uma.write(UmaModel.create(writer).withPuppet(UmaPuppetExport.puppetOf(model)))
+
 		return UmaPuppetImport.modelOf(Uma.read(bytes).puppet!!)
 	}
 
@@ -98,6 +99,7 @@ class UmaPuppetGeometryBridgeTest {
 				),
 			)
 		val limits = listOf(BlendWeightLimit(ParameterId("P0"), listOf(BlendWeightLimitPoint(-30f, 0f), BlendWeightLimitPoint(30f, 1f))))
+
 		return PuppetModel(
 			parameters = listOf(Parameter(ParameterId("P0"), "Angle", -30f, 30f, 0f), Parameter(ParameterId("P1"), "Morph", 0f, 1f, 0f)),
 			parts =

@@ -69,9 +69,11 @@ class DeformCaptureSessionTest {
 		deform.parentType = 0
 		val textures = DrawTextures()
 		textures.deltaTexture = deltaTexture
+
 		for ((mesh, offset) in captures) {
 			capture.captureDeformedPositions(mesh, deform, textures, offset, 3)
 		}
+
 		capture.end()
 		frame.barrier(store)
 		frame.endFrame()
@@ -88,6 +90,7 @@ class DeformCaptureSessionTest {
 		val buffer = BufferUtils.createFloatBuffer(vertexCount * 2)
 		GL15.glBindBuffer(GL31.GL_TEXTURE_BUFFER, (store as GlDeformedPositionStore).buffer)
 		GL15.glGetBufferSubData(GL31.GL_TEXTURE_BUFFER, 0L, buffer)
+
 		return FloatArray(vertexCount * 2) { index -> buffer.get(index) }
 	}
 

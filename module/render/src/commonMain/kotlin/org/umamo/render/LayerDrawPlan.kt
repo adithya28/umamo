@@ -105,24 +105,31 @@ fun buildLayerDrawPlan(model: PuppetModel): LayerDrawPlan {
 	if (model.atlas.tiles.isEmpty()) {
 		return LayerDrawPlan.EMPTY
 	}
+
 	val drawsByDrawableId = HashMap<String, DrawableLayerDraw>()
 	val layerByteCostByKey = HashMap<String, Long>()
 	var unresolved = 0
+
 	for (drawable in model.drawables) {
 		if (drawable.mesh == null) {
 			continue
 		}
+
 		val binding = model.atlasBindingFor(drawable)
 		val tile = drawable.atlasTileId?.let { tileId -> model.atlas.tileById[tileId] }
 		val affine = if (binding != null && tile != null) layerUvAffineOf(binding, tile.width, tile.height) else null
+
 		if (binding == null || tile == null || affine == null) {
 			unresolved++
+
 			continue
 		}
+
 		// Four bytes per pixel: what the image occupies once decoded to RGBA and again once uploaded,
 		// which is the quantity the residency budget is denominated in.
 		layerByteCostByKey[binding.layerKey] = tile.width.toLong() * tile.height.toLong() * 4L
 		drawsByDrawableId[drawable.id.raw] = DrawableLayerDraw(binding.layerKey, affine)
 	}
+
 	return LayerDrawPlan(drawsByDrawableId, layerByteCostByKey, unresolved)
 }

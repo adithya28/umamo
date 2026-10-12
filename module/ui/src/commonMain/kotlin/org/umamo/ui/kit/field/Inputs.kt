@@ -94,6 +94,7 @@ fun Checkbox(
 			val radius = CornerRadius(2.dp.toPx())
 			drawRoundRect(color = boxFill, cornerRadius = radius)
 			drawRoundRect(color = boxBorder, cornerRadius = radius, style = Stroke(1.dp.toPx()))
+
 			if (checked) {
 				val tick = Path()
 				tick.moveTo(size.width * 0.22f, size.height * 0.52f)
@@ -140,9 +141,11 @@ fun TextField(
 	// String-shaped, and the caret is re-pinned to the end whenever the caller replaces the text out from
 	// under the field (a cleared search box, a reset).
 	var fieldValue by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+
 	if (fieldValue.text != value) {
 		fieldValue = TextFieldValue(value, TextRange(value.length))
 	}
+
 	// Park the cancel hook only while focused; the shell checks it to yield Space / letters to the field
 	// and to route Escape (clear focus) here.  Drop it on focus loss and on dispose-while-focused.
 	DisposableEffect(Unit) {
@@ -154,6 +157,7 @@ fun TextField(
 	}
 	val applyEdit: (TextFieldValue) -> Unit = { edited ->
 		fieldValue = edited
+
 		if (edited.text != value) {
 			onValueChange(edited.text)
 		}
@@ -196,8 +200,10 @@ fun TextField(
 						if (placeholder != null && value.isEmpty()) {
 							Text(text = placeholder, style = LocalUmamoTypography.current.bodySmall, color = colors.textMuted)
 						}
+
 						innerTextField()
 					}
+
 					if (trailing != null) {
 						Spacer(modifier = Modifier.width(4.dp))
 						trailing()

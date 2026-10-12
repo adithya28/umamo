@@ -7,6 +7,14 @@ kotlin = "2.4.20"
 agp = "9.3.0"
 composeMultiplatform = "1.11.1"
 ktlint = "14.2.0"
+# The ktlint ENGINE the plugin above runs, pinned rather than left to the plugin's default (an older 1.5.0):
+# gradle/ktlint-rules compiles Umamo's own rule set against this engine's API, so the API it builds against
+# and the engine that loads it must be the same release.  1.x is the ceiling for now: 2.x publishes under
+# the io.github.ktlint.core group, and the plugin only loads com.pinterest.ktlint.
+ktlintEngine = "1.8.0"
+# The SLF4J the ktlint engine logs through.  The engine's CLI jar bundles a binding, but the bare engine the
+# rule set's tests drive does not, and its logger fails to initialize without one.
+slf4j = "2.0.17"
 lwjgl = "3.4.2"
 androidxActivity = "1.13.0"
 # JDOM 1.x (package org.jdom) — the exact XML library the Cubism editor uses. Pinned to 1.1.x
@@ -98,8 +106,18 @@ sqldelightNativeDriver = { module = "app.cash.sqldelight:native-driver", version
 # modules apply, so what build-logic compiles against and what the modules get can never drift.
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 
+# ktlint's rule API, for Umamo's own rule set in gradle/ktlint-rules: the core (Rule, the AST helpers), the
+# CLI's rule set provider contract, and the engine its tests drive the rule through.
+ktlintRuleEngineCore = { module = "com.pinterest.ktlint:ktlint-rule-engine-core", version.ref = "ktlintEngine" }
+ktlintCliRulesetCore = { module = "com.pinterest.ktlint:ktlint-cli-ruleset-core", version.ref = "ktlintEngine" }
+ktlintRuleEngine = { module = "com.pinterest.ktlint:ktlint-rule-engine", version.ref = "ktlintEngine" }
+slf4jNop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
+
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+# Plain Kotlin/JVM, for gradle/ktlint-rules only: a ktlint rule set is a JVM jar the engine loads, never a
+# multiplatform library.
+kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 # Since Kotlin 2.0 the Compose compiler ships as a Kotlin Gradle plugin, version-locked
 # to Kotlin itself (replaces the old standalone composeCompiler version matrix).
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

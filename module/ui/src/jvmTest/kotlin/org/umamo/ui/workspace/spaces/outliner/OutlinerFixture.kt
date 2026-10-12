@@ -167,6 +167,7 @@ internal fun ComposeUiTest.mountOutliner(
 	val harness = ParametersPanelHarness(showOutliner = true, thumbnails = thumbnails, model = model)
 	harness.outlinerSize = DpSize(PANEL_OUTLINER_WIDTH, height)
 	mountParametersPanel(harness)
+
 	return harness
 }
 
@@ -247,6 +248,7 @@ internal fun ComposeUiTest.rowBox(name: String): ControlBox {
 	val label = outlinerBoundsOfText(name)
 	val outliner = outlinerBox()
 	val halfRow = with(density) { OUTLINER_ROW_HEIGHT.toPx() / 2f }
+
 	return ControlBox(left = outliner.left, top = label.center.y - halfRow, right = outliner.right, bottom = label.center.y + halfRow)
 }
 
@@ -273,12 +275,15 @@ internal fun ComposeUiTest.slotPoint(description: String, rowName: String): Offs
 	val row = rowBox(rowName)
 	val slots = onAllNodes(hasContentDescription(description) and inOutliner(), useUnmergedTree = true)
 	val count = slots.fetchSemanticsNodes().size
+
 	for (slotIndex in 0 until count) {
 		val bounds = panelBoundsOf(slots[slotIndex])
+
 		if (bounds.center.y >= row.top && bounds.center.y < row.bottom) {
 			return bounds.center
 		}
 	}
+
 	error("no slot named $description on the row $rowName")
 }
 
@@ -309,6 +314,7 @@ internal fun ComposeUiTest.previewCardInWindow(name: String): Rect {
 	val art = with(density) { PREVIEW_CARD_ART.toPx() }
 	val artGap = with(density) { PREVIEW_CARD_ART_GAP.toPx() }
 	val left = label.left - padding
+
 	return Rect(left = left, top = label.top - artGap - art - padding, right = left + art + padding * 2f, bottom = label.bottom + padding)
 }
 
@@ -354,6 +360,7 @@ internal fun ComposeUiTest.longPressAndMove(from: Offset, through: List<Offset>)
 		moveTo(from)
 		press()
 		advanceEventTime(viewConfiguration.longPressTimeoutMillis + LONG_PRESS_MARGIN_MILLIS)
+
 		for (point in through) {
 			advanceEventTime(GESTURE_STEP_MILLIS)
 			moveTo(point)

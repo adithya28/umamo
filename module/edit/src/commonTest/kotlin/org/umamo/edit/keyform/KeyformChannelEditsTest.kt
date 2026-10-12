@@ -62,6 +62,7 @@ class KeyformChannelEditsTest {
 	/** The opacity a model's drawable evaluates to at [value] on [parameterId]. */
 	private fun opacityAt(puppet: PuppetModel, parameterId: ParameterId, value: Float): Float {
 		val drawable = puppet.drawables.single()
+
 		return drawable.channelGrids.scalarAt(
 			FormChannel.OPACITY,
 			drawable.opacity,
@@ -181,9 +182,11 @@ class KeyformChannelEditsTest {
 	@Test
 	fun removingPastTwoKeysUnbindsTheChannel() {
 		var puppet = model().withChannelKeyCaptured(target, parameter(angleX), mapOf(angleX to 15f), ChannelValue.Scalar(1f))
+
 		for (keyValue in listOf(15f, 0f, -30f)) {
 			puppet = puppet.withChannelKeyRemoved(target, parameter(angleX), mapOf(angleX to keyValue))
 		}
+
 		assertTrue(puppet.drawables.single().channelGrids.isEmpty, "the track is gone")
 		assertFalse(puppet.isChannelKeyedOn(target, angleX))
 		assertEquals(0.25f, opacityAt(puppet, angleX, 15f), "the channel reads its static again")

@@ -70,8 +70,10 @@ object PsdReader : ArtReader {
 		val folderStack = ArrayDeque<String>()
 		val layersTopToBottom = ArrayList<SourceLayer>()
 		var emittedOrder = 0
+
 		for (recordIndex in parse.records.indices.reversed()) {
 			val record = parse.records[recordIndex]
+
 			when (record.dividerType) {
 				1, 2 -> {
 					// Folder header (open/closed): name the group and push it onto the path stack.
@@ -116,6 +118,7 @@ object PsdReader : ArtReader {
 				}
 			}
 		}
+
 		// The compositor and re-import expect layers bottom-to-top (painter's order), matching KRA.
 		return PsdSourceArt(
 			widthPx = header.width,
@@ -135,14 +138,17 @@ object PsdReader : ArtReader {
 private fun isPsd(bytes: ByteArray): Boolean {
 	// PSD: File Header signature '8BPS' @ +0x00.
 	val signature = byteArrayOf(0x38, 0x42, 0x50, 0x53) // "8BPS"
+
 	if (bytes.size < signature.size) {
 		return false
 	}
+
 	for (signatureIndex in signature.indices) {
 		if (bytes[signatureIndex] != signature[signatureIndex]) {
 			return false
 		}
 	}
+
 	return true
 }
 

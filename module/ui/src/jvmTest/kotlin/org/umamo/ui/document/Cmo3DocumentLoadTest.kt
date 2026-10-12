@@ -33,6 +33,7 @@ class Cmo3DocumentLoadTest {
 		// nothing else in the load path would complain).
 		val textures = document.textures
 		assertTrue(textures.atlases.isNotEmpty(), "at least one atlas page decoded")
+
 		for (page in textures.atlases) {
 			assertTrue(page.width > 0 && page.height > 0, "page has real dimensions")
 			assertEquals(page.width * page.height * 4, page.rgba.size, "RGBA8888, tightly packed")
@@ -41,6 +42,7 @@ class Cmo3DocumentLoadTest {
 		// Every mapped drawable must resolve to a page the renderer can actually index: PuppetRenderer
 		// looks pages up by direct list indexing, so a stale index is a first-frame crash.
 		assertTrue(textures.atlasIndexByDrawableId.isNotEmpty(), "drawables are bound to pages")
+
 		for ((drawableId, pageIndex) in textures.atlasIndexByDrawableId) {
 			assertTrue(pageIndex in textures.atlases.indices, "$drawableId points at a decoded page")
 		}

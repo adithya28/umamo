@@ -109,6 +109,7 @@ class StatusHintTableTest {
 	fun noSuggestionIsCutUnderTheDefaultKeymap() {
 		for (mode in EditorMode.entries) {
 			val commands = everyCommandTable(commandFixtureSession(mode))
+
 			for (kind in SpaceKind.entries) {
 				val uncut = everyStatusHintFor(commands, defaultKeymap(), kind)
 				assertTrue(uncut.size <= STATUS_HINT_LIMIT, "$kind in $mode mode has ${uncut.size} suggestions, and the strip shows $STATUS_HINT_LIMIT")

@@ -281,6 +281,7 @@ class Cmo3SourceLayerWebTest {
 		// patch its mesh covers (the whole tile here), one entry per drawable.
 		fun iconPixels(icon: Any?): RasterImage {
 			val path = assertNotNull(Cmo3Icons.archivePathOf(icon), "the icon names an entry")
+
 			return PngCodec.read(assertNotNull(chain.pngEntries.firstOrNull { entry -> entry.path == path }, "icon entry '$path' was collected").pngBytes)
 		}
 		assertContentEquals(gradient(1).fittedInto(64).rgba, iconPixels(eye.icon64).rgba, "the eye's 64px icon is the fitted raster")
@@ -328,6 +329,7 @@ class Cmo3SourceLayerWebTest {
 		// Every written drawable carries its icons through the codec, at distinct entries.
 		val rereadMeshes = Cmo3Import.elementsOf((rereadRoot.drawableSourceSet as CDrawableSourceSet)._sources).filterIsInstance<CArtMeshSource>()
 		val rereadIconPaths = ArrayList<String>()
+
 		for (mesh in rereadMeshes) {
 			for ((icon, size) in listOf(mesh.icon32 to 32, mesh.icon16 to 16)) {
 				val path = assertNotNull(Cmo3Icons.archivePathOf(icon), "${Cmo3Import.idStrOf(mesh.id)} has a ${size}px icon")
@@ -336,22 +338,29 @@ class Cmo3SourceLayerWebTest {
 				rereadIconPaths.add(path)
 			}
 		}
+
 		assertEquals(rereadIconPaths.size, rereadIconPaths.toSet().size, "one icon entry per drawable and size")
 		val reimported = Cmo3Import.fromModelSource(rereadRoot)
+
 		for (drawable in puppet.drawables) {
 			val back = assertNotNull(reimported.drawables.firstOrNull { candidate -> candidate.id == drawable.id }, "${drawable.name} re-imports")
+
 			if (drawable.id.raw == "Guide") {
 				// Through the cache frame and back: within a few ulps, not bit for bit.
 				val expected = assertNotNull(drawable.mesh).uvs
 				val actual = assertNotNull(back.mesh).uvs
 				assertEquals(expected.size, actual.size)
+
 				for (componentIndex in expected.indices) {
 					assertEquals(expected[componentIndex], actual[componentIndex], 1e-6f, "Guide uv $componentIndex")
 				}
+
 				continue
 			}
+
 			assertContentEquals(drawable.mesh?.uvs, back.mesh?.uvs, "${drawable.name} uvs are verbatim")
 		}
+
 		// The written guide has the corpus shape, samples the very raster its model image holds, and shows from it.
 		val guideMesh = rereadMeshes.single { mesh -> Cmo3Import.idStrOf(mesh.id) == "Guide" }
 		assertEquals(TextureState.MODEL_IMAGE, guideMesh.textureState)

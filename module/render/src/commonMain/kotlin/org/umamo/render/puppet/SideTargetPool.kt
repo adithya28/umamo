@@ -82,6 +82,7 @@ internal class SideTargetPool(
 					RenderTargetSpec(capacityWidth, capacityHeight, TextureFormat.Rgba8, sampled = true),
 				)
 		}
+
 		if (snapshotTarget == null) {
 			snapshotTarget =
 				device.createRenderTarget(
@@ -118,6 +119,7 @@ internal class SideTargetPool(
 				),
 			)
 		}
+
 		return layerTargets[depth]
 	}
 
@@ -131,9 +133,11 @@ internal class SideTargetPool(
 		maskTarget = null
 		drawOrderTarget?.let { target -> device.destroyRenderTarget(target) }
 		drawOrderTarget = null
+
 		for (target in layerTargets) {
 			device.destroyRenderTarget(target)
 		}
+
 		layerTargets.clear()
 		snapshotTarget?.let { target -> device.destroyRenderTarget(target) }
 		snapshotTarget = null

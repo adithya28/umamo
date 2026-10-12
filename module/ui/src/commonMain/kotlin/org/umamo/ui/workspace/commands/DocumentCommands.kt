@@ -34,6 +34,7 @@ class DirtyDocumentPrompt(
  */
 private fun dirtyDocumentRequest(prompt: DirtyDocumentPrompt, quitting: Boolean): ConfirmRequest {
 	val save = prompt.save
+
 	return if (save != null) {
 		ConfirmRequest(
 			message = if (quitting) Res.string.confirm_save_before_quit else Res.string.confirm_save_before_replace,

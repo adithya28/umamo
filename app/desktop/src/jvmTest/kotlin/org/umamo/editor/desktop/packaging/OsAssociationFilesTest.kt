@@ -43,6 +43,7 @@ class OsAssociationFilesTest {
 	private fun magicBytesOf(value: String): ByteArray {
 		val bytes = ByteArrayOutputStream()
 		var position = 0
+
 		while (position < value.length) {
 			if (value[position] == '\\' && position + 3 < value.length && value.substring(position + 1, position + 4).all { digit -> digit in '0'..'7' }) {
 				bytes.write(value.substring(position + 1, position + 4).toInt(8))
@@ -52,6 +53,7 @@ class OsAssociationFilesTest {
 				position++
 			}
 		}
+
 		return bytes.toByteArray()
 	}
 
@@ -64,13 +66,16 @@ class OsAssociationFilesTest {
 	private fun rulesUnder(parent: Element): List<MagicRule> {
 		val rules = ArrayList<MagicRule>()
 		val children = parent.childNodes
+
 		for (childIndex in 0 until children.length) {
 			val child = children.item(childIndex) as? Element ?: continue
+
 			if (child.tagName == "match") {
 				assertEquals("string", child.getAttribute("type"), "the matcher below only evaluates string rules")
 				rules += MagicRule(child.getAttribute("offset").toInt(), magicBytesOf(child.getAttribute("value")), rulesUnder(child))
 			}
 		}
+
 		return rules
 	}
 
@@ -93,6 +98,7 @@ class OsAssociationFilesTest {
 	/** The `mime-type` element of the committed entry. */
 	private fun mimeTypeElement(): Element {
 		val document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(mimeEntry)
+
 		return document.getElementsByTagName("mime-type").item(0) as Element
 	}
 
@@ -117,10 +123,12 @@ class OsAssociationFilesTest {
 				zip.write(content)
 				zip.closeEntry()
 			}
+
 			zip.putNextEntry(ZipEntry("content.txt"))
 			zip.write("not a puppet".toByteArray())
 			zip.closeEntry()
 		}
+
 		return bytes.toByteArray()
 	}
 

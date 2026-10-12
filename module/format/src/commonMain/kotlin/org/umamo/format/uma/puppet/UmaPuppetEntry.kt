@@ -81,9 +81,11 @@ internal object UmaPuppetEntry {
 		// UMA §4.8: the shape rules come before identities, so a coordinate outside its axis is reported as that
 		// rather than as a cell with no identity.
 		val problem = UmaPuppetShape.firstProblem(puppet) ?: firstIdentityProblem(tree, UmaPuppet.serializer().descriptor, identities, "")
+
 		if (problem != null) {
 			throw UmaFormatException(UmaReadFailure.MalformedEntry(path, problem))
 		}
+
 		return puppet
 	}
 
@@ -109,6 +111,7 @@ internal object UmaPuppetEntry {
 				throw UmaWriteException(path, failure.message.orEmpty(), failure)
 			}
 		firstIdentityProblem(tree, UmaPuppet.serializer().descriptor, identities, "")?.let { problem -> throw UmaWriteException(path, problem) }
+
 		return tree
 	}
 
@@ -141,6 +144,7 @@ internal object UmaPuppetEntry {
 			{ element ->
 				val firstId = jsonStringOrNull(element[firstKey])
 				val secondId = jsonStringOrNull(element[secondKey])
+
 				when {
 					firstId != null && secondId == null -> "$firstKey:$firstId"
 					secondId != null && firstId == null -> "$secondKey:$secondId"
@@ -175,6 +179,7 @@ internal object UmaPuppetEntry {
 	private fun cellIdentitiesIn(grid: JsonObject): (JsonObject) -> String? {
 		val axisTrees = grid["axes"] as? JsonArray ?: return { null }
 		val axes = ArrayList<IdentityAxis>(axisTrees.size)
+
 		for (axisTree in axisTrees) {
 			val axis = axisTree as? JsonObject ?: return { null }
 			val parameter = jsonStringOrNull(axis["parameter"]) ?: return { null }
@@ -186,20 +191,28 @@ internal object UmaPuppetEntry {
 				}
 			axes += IdentityAxis(parameter, keys, IntArray(keys.size) { keyIndex -> (0 until keyIndex).count { earlierIndex -> keys[earlierIndex] == keys[keyIndex] } })
 		}
+
 		val axisOrder = axes.indices.sortedBy { axisIndex -> axes[axisIndex].parameter }
+
 		return identity@{ cell ->
 			val coordinate = cell["coordinate"] as? JsonArray ?: return@identity null
+
 			if (coordinate.size != axes.size) {
 				return@identity null
 			}
+
 			val keyIndices = IntArray(axes.size)
+
 			for ((axisIndex, component) in coordinate.withIndex()) {
 				val keyIndex = (component as? JsonPrimitive)?.takeIf { primitive -> !primitive.isString }?.intOrNull ?: return@identity null
+
 				if (keyIndex !in axes[axisIndex].keys.indices) {
 					return@identity null
 				}
+
 				keyIndices[axisIndex] = keyIndex
 			}
+
 			axisOrder.joinToString(IDENTITY_SEPARATOR.toString()) { axisIndex ->
 				val axis = axes[axisIndex]
 				val keyIndex = keyIndices[axisIndex]

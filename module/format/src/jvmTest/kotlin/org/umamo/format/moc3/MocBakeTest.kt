@@ -24,14 +24,18 @@ class MocBakeTest {
 	@Test
 	fun repackRoundTripsSemanticModel() {
 		val files = samples()
+
 		if (files.isEmpty()) {
 			println("moc3.samples not present; skipping bake test")
+
 			return
 		}
+
 		// Build output, never beside the corpus.  A `work/` that lands inside the samples tree is picked
 		// up by this test's OWN walkTopDown on the next run - which is how `baked-baked-*.moc3` came to
 		// exist - and by every other gate that walks the corpus for models.
 		val workDir = File("build/moc3-bake").apply { mkdirs() }
+
 		for (file in files) {
 			val original = MocCodec.read(file.readBytes())
 			val baked = MocEncoder.repack(original)

@@ -16,6 +16,7 @@ class SelfCheckTest {
 	@Test
 	fun everyCheckPassesAndTheReportMatchesTheOutput() {
 		val report = File.createTempFile("umamo-self-check", ".txt")
+
 		try {
 			val lines = ArrayList<String>()
 
@@ -23,9 +24,11 @@ class SelfCheckTest {
 
 			assertEquals(0, exitCode, lines.joinToString("\n"))
 			assertEquals(selfChecks().size + 1, lines.size, "one line per check, then the summary")
+
 			for ((check, line) in selfChecks().zip(lines)) {
 				assertTrue(line.startsWith("${check.name}: OK "), line)
 			}
+
 			assertEquals(lines, report.readLines(), "the report file carries the same lines")
 		} finally {
 			report.delete()
@@ -63,6 +66,7 @@ class SelfCheckTest {
 	@Test
 	fun theImagesRuntimeIsFoundThroughASymbolicLink() {
 		val root = Files.createTempDirectory("umamo-self-check-image")
+
 		try {
 			val realImage = Files.createDirectories(root.resolve("private/umamo"))
 			Files.createDirectories(realImage.resolve("bin"))

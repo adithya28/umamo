@@ -107,34 +107,43 @@ internal class UvSceneResidency(
 		if (direct === applied) {
 			return
 		}
+
 		if (direct == null) {
 			freeBuffers(residents)
 			residents = emptyList()
 			applied = null
+
 			return
 		}
+
 		val layout = planDirectOverlayLayout(direct)
 		var storeReplaced = false
+
 		if (layout.totalVertexCount > storeCapacity) {
 			store?.let { outgrown -> device.destroyDeformedPositionStore(outgrown) }
 			store = device.createDeformedPositionStore(layout.totalVertexCount)
 			storeCapacity = layout.totalVertexCount
 			storeReplaced = true
 		}
+
 		val previousById = residents.associateBy { resident -> resident.mesh.drawableId }
 		val placedIds = HashSet<DrawableId>(layout.placed.size)
 		val next = ArrayList<DirectOverlayResident>(layout.placed.size)
+
 		for (placement in layout.placed) {
 			val mesh = placement.mesh
 			val previous = previousById[mesh.drawableId]
 			val buffers = buffersFor(mesh, placement.triangleIndices, previous)
 			val positionsMoved = previous == null || previous.positions !== placement.positions || previous.entry.baseOffset != placement.baseOffset
+
 			if (storeReplaced || positionsMoved) {
 				store?.let { liveStore -> device.updateDeformedPositions(liveStore, placement.baseOffset, placement.positions) }
 			}
+
 			placedIds.add(mesh.drawableId)
 			next.add(DirectOverlayResident(mesh, placement.positions, placement.triangleIndices, overlayDrawEntry(mesh, buffers, placement.baseOffset, placement.triangleIndices)))
 		}
+
 		freeBuffers(residents.filter { resident -> resident.mesh.drawableId !in placedIds })
 		residents = next
 		applied = direct
@@ -152,8 +161,10 @@ internal class UvSceneResidency(
 		if (preview == null) {
 			freeCropsExcept(emptySet())
 			placement = null
+
 			return
 		}
+
 		val shownCrops = HashSet<DecodedImage>()
 
 		/**
@@ -164,9 +175,11 @@ internal class UvSceneResidency(
 		 */
 		fun resolve(quad: PlacementCropQuad): ResolvedCropQuad? {
 			val resident = layerTexture(quad.tileKey)
+
 			if (resident != null) {
 				return ResolvedCropQuad(resident, quad.quadToWorld, quad.sampleAffine)
 			}
+
 			val crop = quad.crop ?: return null
 			shownCrops.add(crop)
 			val texture =
@@ -175,6 +188,7 @@ internal class UvSceneResidency(
 					// draw the same pixels.
 					device.createTexture(crop.width, crop.height, TextureFormat.Rgba8, TextureFilter.Linear, crop.rgba, TextureWrap.ClampToTransparentBorder)
 				}
+
 			return ResolvedCropQuad(texture, quad.quadToWorld, IDENTITY_SAMPLE)
 		}
 		val crops = ArrayList<ResolvedCropQuad>(preview.crops.size + preview.ghostCrops.size)
@@ -209,6 +223,7 @@ internal class UvSceneResidency(
 		val vertexFlags = overlayFlagsOrZeros(mesh.vertexFlags, mesh.vertexCount)
 		val edgeFlags = overlayFlagsOrZeros(mesh.edgeFlags, mesh.edgeCount)
 		val faceFlags = overlayFlagsOrZeros(mesh.faceFlags, triangleIndices.size / 3)
+
 		if (previous != null && previous.mesh.edgeEndpoints === mesh.edgeEndpoints && previous.triangleIndices === triangleIndices) {
 			if (overlayFlagsDiffer(previous.mesh.vertexFlags, mesh.vertexFlags) ||
 				overlayFlagsDiffer(previous.mesh.edgeFlags, mesh.edgeFlags) ||
@@ -216,9 +231,12 @@ internal class UvSceneResidency(
 			) {
 				device.updateOverlayMeshFlags(previous.entry.buffers, vertexFlags, edgeFlags, faceFlags)
 			}
+
 			return previous.entry.buffers
 		}
+
 		previous?.let { stale -> device.destroyOverlayMeshBuffers(stale.entry.buffers) }
+
 		return device.createOverlayMeshBuffers(OverlayMeshSpec(mesh.edgeEndpoints, triangleIndices, vertexFlags, edgeFlags, faceFlags))
 	}
 
@@ -229,8 +247,10 @@ internal class UvSceneResidency(
 	 */
 	private fun freeCropsExcept(kept: Set<DecodedImage>) {
 		val entries = cropTextures.entries.iterator()
+
 		while (entries.hasNext()) {
 			val entry = entries.next()
+
 			if (entry.key !in kept) {
 				device.destroyTexture(entry.value)
 				entries.remove()

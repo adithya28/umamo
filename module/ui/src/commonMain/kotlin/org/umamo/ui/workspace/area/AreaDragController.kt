@@ -166,21 +166,29 @@ class AreaDragController {
 	fun endDrag(): AreaCommand? {
 		val active = dragState
 		dragState = null
+
 		if (active == null) {
 			return null
 		}
+
 		val target = active.targetId
+
 		if (active.validJoin && target != null) {
 			return AreaCommand.JoinAreas(survivorId = active.sourceId, consumedId = target)
 		}
+
 		val edge = active.dockEdge
+
 		if (active.validDock && edge != null) {
 			return AreaCommand.DockArea(active.sourceId, edge, active.dockRatio)
 		}
+
 		val orientation = active.splitOrientation
+
 		if (active.validSplit && orientation != null) {
 			return AreaCommand.SplitArea(active.sourceId, orientation, active.splitRatio)
 		}
+
 		return null
 	}
 
@@ -216,9 +224,11 @@ class AreaDragController {
 		var validSplit = false
 		var splitRatio = 0.5f
 		val sourceRect = bounds[sourceId]
+
 		if (overSource && sourceRect != null) {
 			if (splitOrientation == null) {
 				val delta = pointer - startPointer
+
 				if (delta.getDistance() >= splitThresholdPx) {
 					splitOrientation =
 						if (abs(delta.x) >= abs(delta.y)) {
@@ -228,7 +238,9 @@ class AreaDragController {
 						}
 				}
 			}
+
 			val orientation = splitOrientation
+
 			if (orientation != null) {
 				splitRatio = ratioWithin(sourceRect, pointer, orientation)
 				validSplit = true
@@ -244,8 +256,10 @@ class AreaDragController {
 		var validDock = false
 		var dockEdge: DockEdge? = null
 		var dockRatio = DEFAULT_DOCK_FRACTION
+
 		if (onDifferentLeaf && !aligned) {
 			val targetRect = bounds[targetId]
+
 			if (targetRect != null) {
 				dockEdge = edgeZoneOf(targetRect, pointer)
 				dockRatio = dockStripFractionOf(sourceId, dockEdge)
@@ -282,6 +296,7 @@ class AreaDragController {
 		val fractionY = if (rect.height > 0f) (pointer.y - rect.top) / rect.height else 0.5f
 		val offsetX = fractionX - 0.5f
 		val offsetY = fractionY - 0.5f
+
 		return if (abs(offsetX) >= abs(offsetY)) {
 			if (offsetX < 0f) DockEdge.Left else DockEdge.Right
 		} else {
@@ -300,16 +315,22 @@ class AreaDragController {
 	private fun dockStripFractionOf(sourceId: String, edge: DockEdge): Float {
 		val sourceRect = bounds[sourceId]
 		val content = contentCoords?.size
+
 		if (sourceRect == null || content == null) {
 			return DEFAULT_DOCK_FRACTION
 		}
+
 		val fraction =
 			when (edge) {
-				DockEdge.Top, DockEdge.Bottom ->
+				DockEdge.Top, DockEdge.Bottom -> {
 					if (content.height > 0) sourceRect.height / content.height.toFloat() else DEFAULT_DOCK_FRACTION
-				DockEdge.Left, DockEdge.Right ->
+				}
+
+				DockEdge.Left, DockEdge.Right -> {
 					if (content.width > 0) sourceRect.width / content.width.toFloat() else DEFAULT_DOCK_FRACTION
+				}
 			}
+
 		return fraction.coerceIn(MIN_RATIO, 1f - MIN_RATIO)
 	}
 
@@ -325,11 +346,15 @@ class AreaDragController {
 	private fun ratioWithin(rect: Rect, pointer: Offset, orientation: SplitOrientation): Float {
 		val fraction =
 			when (orientation) {
-				SplitOrientation.Horizontal ->
+				SplitOrientation.Horizontal -> {
 					if (rect.width > 0f) (pointer.x - rect.left) / rect.width else 0.5f
-				SplitOrientation.Vertical ->
+				}
+
+				SplitOrientation.Vertical -> {
 					if (rect.height > 0f) (pointer.y - rect.top) / rect.height else 0.5f
+				}
 			}
+
 		return fraction.coerceIn(MIN_RATIO, 1f - MIN_RATIO)
 	}
 }

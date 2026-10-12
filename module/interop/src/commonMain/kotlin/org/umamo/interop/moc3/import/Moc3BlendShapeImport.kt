@@ -68,14 +68,17 @@ internal fun meshBlendShapesOf(
 		drawable.channelGrids.colorAt(FormChannel.MULTIPLY_COLOR, drawable.multiplyColor, defaultValue)
 	val referenceScreen =
 		drawable.channelGrids.colorAt(FormChannel.SCREEN_COLOR, drawable.screenColor, defaultValue)
+
 	return records.mapNotNull { record ->
 		val payloads =
 			record.keyforms.map { keyform ->
 				(keyform as? BlendShapeKeyform.Mesh)?.form ?: return@mapNotNull null
 			}
+
 		if (payloads.size != record.keyPositions.size) {
 			return@mapNotNull null
 		}
+
 		bindingOfRecord(context, record) { keyIndex ->
 			MeshForm(
 				positionDeltas =
@@ -119,14 +122,17 @@ internal fun warpBlendShapesOf(
 	val referenceMultiply =
 		warp.channelGrids.colorAt(FormChannel.MULTIPLY_COLOR, warp.multiplyColor, defaultValue)
 	val referenceScreen = warp.channelGrids.colorAt(FormChannel.SCREEN_COLOR, warp.screenColor, defaultValue)
+
 	return records.mapNotNull { record ->
 		val payloads =
 			record.keyforms.map { keyform ->
 				(keyform as? BlendShapeKeyform.Warp)?.form ?: return@mapNotNull null
 			}
+
 		if (payloads.size != record.keyPositions.size) {
 			return@mapNotNull null
 		}
+
 		bindingOfRecord(context, record) { keyIndex ->
 			WarpForm(
 				addReference(reference, context.convertDeltas(space, payloads[keyIndex].controlPoints)),
@@ -170,14 +176,17 @@ internal fun rotationBlendShapesOf(
 		rotation.channelGrids.colorAt(FormChannel.MULTIPLY_COLOR, rotation.multiplyColor, defaultValue)
 	val referenceScreen =
 		rotation.channelGrids.colorAt(FormChannel.SCREEN_COLOR, rotation.screenColor, defaultValue)
+
 	return records.mapNotNull { record ->
 		val payloads =
 			record.keyforms.map { keyform ->
 				(keyform as? BlendShapeKeyform.Rotation)?.form ?: return@mapNotNull null
 			}
+
 		if (payloads.size != record.keyPositions.size) {
 			return@mapNotNull null
 		}
+
 		bindingOfRecord(context, record) { keyIndex ->
 			val originDelta =
 				context.convertDeltas(space, floatArrayOf(payloads[keyIndex].originX, payloads[keyIndex].originY))
@@ -222,14 +231,17 @@ internal fun partBlendShapesOf(
 ): List<BlendShapeBinding<PartForm>> {
 	val defaultValue: (ParameterId) -> Float = context::defaultValueOf
 	val referenceDrawOrder = channelGrids.scalarAt(FormChannel.DRAW_ORDER, staticOrder, defaultValue)
+
 	return records.mapNotNull { record ->
 		val payloads =
 			record.keyforms.map { keyform ->
 				(keyform as? BlendShapeKeyform.Part)?.drawOrderDelta ?: return@mapNotNull null
 			}
+
 		if (payloads.size != record.keyPositions.size) {
 			return@mapNotNull null
 		}
+
 		bindingOfRecord(context, record) { keyIndex ->
 			PartForm(drawOrder = referenceDrawOrder + payloads[keyIndex])
 		}

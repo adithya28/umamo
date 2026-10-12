@@ -83,6 +83,7 @@ internal fun DrawScope.drawTrackLane(
 		strokeWidth = 1f,
 	)
 	playhead?.let { value -> drawPlayhead(value, axis, colors.accent, markRadiusPx) }
+
 	for (mark in marks) {
 		// A mark being dragged draws at the pointer, not at its stored position, so the gesture reads as
 		// direct manipulation rather than as a jump on release.  A GROUP drag shifts every selected mark

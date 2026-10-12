@@ -55,17 +55,21 @@ internal fun buildDeltaTexels(
 ): FloatArray {
 	val texels = FloatArray(vertexCount * cellCount * 2)
 	var writeIndex = 0
+
 	for (vertexIndex in 0 until vertexCount) {
 		for (cellIndex in 0 until cellCount) {
 			val deltas = cells[cellIndex]?.form?.positionDeltas
+
 			if (deltas != null && vertexIndex * 2 + 1 < deltas.size) {
 				texels[writeIndex] = deltas[vertexIndex * 2]
 				texels[writeIndex + 1] = deltas[vertexIndex * 2 + 1]
 			}
+
 			// else: leave (0, 0) - a missing cell or a short delta array means no offset from rest.
 			writeIndex += 2
 		}
 	}
+
 	return texels
 }
 
@@ -108,8 +112,10 @@ internal class BlendColumnLayout(
 internal fun blendColumnLayout(drawable: Drawable, cellCount: Int): BlendColumnLayout {
 	val columnByKey = HashMap<Long, Int>()
 	var nextColumn = cellCount
+
 	for (bindingIndex in drawable.blendShapes.indices) {
 		val binding = drawable.blendShapes[bindingIndex]
+
 		for (keyIndex in binding.forms.indices) {
 			if (binding.forms[keyIndex] != null) {
 				columnByKey[BlendColumnLayout.packKey(bindingIndex, keyIndex)] = nextColumn
@@ -117,6 +123,7 @@ internal fun blendColumnLayout(drawable: Drawable, cellCount: Int): BlendColumnL
 			}
 		}
 	}
+
 	return BlendColumnLayout(cellCount, nextColumn - cellCount, columnByKey)
 }
 
@@ -145,20 +152,26 @@ internal fun buildDeltaTexelsWithBlend(
 	val width = layout.cellCount + layout.blendColumnCount
 	val texels = FloatArray(vertexCount * width * 2)
 	val reference = meshGridDefaultDeltas(drawable, defaultValue)
+
 	for (vertexIndex in 0 until vertexCount) {
 		val rowBase = vertexIndex * width * 2
+
 		for (cellIndex in 0 until layout.cellCount) {
 			val deltas = cells[cellIndex]?.form?.positionDeltas
+
 			if (deltas != null && vertexIndex * 2 + 1 < deltas.size) {
 				texels[rowBase + cellIndex * 2] = deltas[vertexIndex * 2]
 				texels[rowBase + cellIndex * 2 + 1] = deltas[vertexIndex * 2 + 1]
 			}
 		}
+
 		for (bindingIndex in drawable.blendShapes.indices) {
 			val binding = drawable.blendShapes[bindingIndex]
+
 			for (keyIndex in binding.forms.indices) {
 				val form = binding.forms[keyIndex] ?: continue
 				val column = layout.columnOf(bindingIndex, keyIndex) ?: continue
+
 				if (vertexIndex * 2 + 1 < form.positionDeltas.size) {
 					val referenceX = reference?.getOrNull(vertexIndex * 2) ?: 0f
 					val referenceY = reference?.getOrNull(vertexIndex * 2 + 1) ?: 0f
@@ -168,5 +181,6 @@ internal fun buildDeltaTexelsWithBlend(
 			}
 		}
 	}
+
 	return texels
 }

@@ -45,6 +45,7 @@ class KeyformSheetPoseLockTest {
 		mountParametersPanel(harness)
 		runOnIdle { harness.session.setParameterSelection(ParameterSelection.of(PanelIds.bodyX)) }
 		waitForIdle()
+
 		return harness
 	}
 
@@ -64,6 +65,7 @@ class KeyformSheetPoseLockTest {
 		val label = panelBoundsOfText(rowLabel)
 		val sheetViewState = harness.sheetScope.spaceState(KEYFORM_SHEET_VIEW_STATE_KEY) { KeyformSheetViewState() }
 		val trackLeft = sheet.left + with(density) { sheetViewState.labelColumnWidth.toPx() }
+
 		return Offset(trackLeft + (sheet.right - trackLeft) * across, label.center.y)
 	}
 

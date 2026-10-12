@@ -120,6 +120,7 @@ internal fun UvObjectGizmoOverlay(
 	modifier: Modifier = Modifier,
 ) {
 	val mode by session.mode.collectAsState()
+
 	if (mode == EditorMode.Edit || camera == null) {
 		return
 	}
@@ -230,6 +231,7 @@ internal fun UvObjectGizmoOverlay(
 	// surface, the shown geometry, the selection, and the frame as they are when the effect runs.
 	LaunchedEffect(activeOperator) {
 		val operator = activeOperator?.takeIf { latched -> latched.areaId == areaId }
+
 		if (operator == null) {
 			modalTransform.end()
 		} else {

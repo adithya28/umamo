@@ -62,10 +62,13 @@ class EditGrabRenderPerfProbeTest {
 	@Test
 	fun probePreviewPushStages() {
 		val mocFile = sample
+
 		if (mocFile == null) {
 			println("moc3.perfSample not present; skipping perf probe")
+
 			return
 		}
+
 		requireHeadlessGl(PROBE_TAG)
 		val puppet = restMeshesToCanvasSpace(Moc3Import.fromMocDocument(Moc3.read(mocFile.readBytes()), null))
 		report("GL: ${GL11.glGetString(GL11.GL_RENDERER)} / ${GL11.glGetString(GL11.GL_VERSION)}")
@@ -113,6 +116,7 @@ class EditGrabRenderPerfProbeTest {
 		val readbackTimes = ArrayList<Long>(rounds)
 		var positionsOnlyCount = 0
 		var current = start
+
 		for (round in 0 until rounds) {
 			val foldStart = System.nanoTime()
 			val folded = translateEveryMesh(current, 2f * (round + 1))
@@ -122,12 +126,14 @@ class EditGrabRenderPerfProbeTest {
 			GL11.glFinish()
 			val updateEnd = System.nanoTime()
 			updateTimes.add(updateEnd - updateStart)
+
 			if (kind == ModelUpdateKind.PositionsOnly) {
 				positionsOnlyCount++
 			} else {
 				renderer.setPose(emptyMap())
 				poseTimes.add(System.nanoTime() - updateEnd)
 			}
+
 			val renderStart = System.nanoTime()
 			renderer.render(target, viewportWidth, viewportHeight)
 			GL11.glFinish()
@@ -137,12 +143,14 @@ class EditGrabRenderPerfProbeTest {
 			renderTimes.add(renderEnd - renderStart)
 			current = folded
 		}
+
 		report("pushes: $rounds, classified PositionsOnly=$positionsOnlyCount Structural=${rounds - positionsOnlyCount}")
 		stats("G0 (probe only) translate every mesh into a new model", foldTimes)
 		stats("G1 renderer.updateModel: diff + reconcile + re-upload + positions-only refresh [per push]", updateTimes)
 		stats("G2 renderer.setPose on a Structural push only [per push; n=0 means every push kept the pose]", poseTimes)
 		stats("G3 renderer.render ${viewportWidth}x$viewportHeight [per frame; host GL]", renderTimes)
 		stats("G4 device.readPixels, synchronous [per frame; host GL]", readbackTimes)
+
 		return current
 	}
 
@@ -159,6 +167,7 @@ class EditGrabRenderPerfProbeTest {
 		val prepareTimes = ArrayList<Long>(forcedRounds)
 		val resolveTimes = ArrayList<Long>(forcedRounds)
 		var current = start
+
 		for (round in 0 until forcedRounds) {
 			val folded = translateEveryMesh(current, -2f * (round + 1))
 			renderer.updateModel(folded)
@@ -174,6 +183,7 @@ class EditGrabRenderPerfProbeTest {
 			prepareTimes.add(prepareEnd - prepareStart)
 			current = folded
 		}
+
 		stats("G2r renderer.setPose forced after a positions-only push (the rebake the engine skips)", forcedTimes)
 		stats("G2a   preparePose, standalone (deformer worlds + corners + channels)", prepareTimes)
 		stats("G2b   resolvePose, standalone (draw order + plan; approximate residency set)", resolveTimes)
@@ -205,6 +215,7 @@ class EditGrabRenderPerfProbeTest {
 		val stillTimes = ArrayList<Long>(rounds)
 		val pushedTimes = ArrayList<Long>(rounds)
 		var current = start
+
 		for (round in 0 until rounds) {
 			val stillStart = System.nanoTime()
 			renderer.render(target, viewportWidth, viewportHeight)
@@ -218,6 +229,7 @@ class EditGrabRenderPerfProbeTest {
 			GL11.glFinish()
 			pushedTimes.add(System.nanoTime() - pushedStart)
 		}
+
 		renderer.setMeshOverlay(null)
 		report("G5 first frame with the overlay (buffer uploads + capture + draws): %.1f ms".format(firstNanos / 1e6))
 		stats("G6 renderer.render with the overlay, nothing moved (draws only) [per frame; host GL]", stillTimes)
@@ -254,6 +266,7 @@ class EditGrabRenderPerfProbeTest {
 		val hiddenTimes = ArrayList<Long>(rounds)
 		val pushedTimes = ArrayList<Long>(rounds)
 		var current = start
+
 		for (round in 0 until rounds) {
 			val stillStart = System.nanoTime()
 			renderer.render(target, viewportWidth, viewportHeight)
@@ -275,6 +288,7 @@ class EditGrabRenderPerfProbeTest {
 			GL11.glFinish()
 			pushedTimes.add(System.nanoTime() - pushedStart)
 		}
+
 		renderer.setMeshOverlay(null)
 		report("G5w first frame with the wireframe of every mesh (buffer uploads + capture + draws): %.1f ms".format(firstNanos / 1e6))
 		stats("G6w renderer.render with the wireframe culled, nothing moved (the draw-order pass + draws) [per frame; host GL]", stillTimes)
@@ -326,6 +340,7 @@ class EditGrabRenderPerfProbeTest {
 		val stillTimes = ArrayList<Long>(rounds)
 		val oneTimes = ArrayList<Long>(rounds)
 		val allTimes = ArrayList<Long>(rounds)
+
 		for (round in 0 until rounds) {
 			val stillStart = System.nanoTime()
 			renderer.renderUnderlayImage(target, surface, viewportWidth, viewportHeight, "uv", still)
@@ -336,12 +351,14 @@ class EditGrabRenderPerfProbeTest {
 			GL11.glFinish()
 			oneTimes.add(System.nanoTime() - oneStart)
 		}
+
 		for (round in 0 until rounds) {
 			val allStart = System.nanoTime()
 			renderer.renderUnderlayImage(target, surface, viewportWidth, viewportHeight, "uv", if (round % 2 == 0) allMoved else still)
 			GL11.glFinish()
 			allTimes.add(System.nanoTime() - allStart)
 		}
+
 		// The Object-mode islands of every mesh: the first frame, a still one, and one after a selection
 		// change, which re-styles the islands over the same arrays.
 		val islandMeshes = overlay.meshes.map { mesh -> MeshOverlayMesh(mesh.drawableId, mesh.vertexCount, mesh.edgeEndpoints, ByteArray(0), ByteArray(0), ByteArray(0), null, null, null, null) }
@@ -360,6 +377,7 @@ class EditGrabRenderPerfProbeTest {
 		val islandsFirstNanos = System.nanoTime() - islandsFirstStart
 		val islandStillTimes = ArrayList<Long>(rounds)
 		val islandRestyleTimes = ArrayList<Long>(rounds)
+
 		for (round in 0 until rounds) {
 			val stillStart = System.nanoTime()
 			renderer.renderUnderlayImage(target, surface, viewportWidth, viewportHeight, "uv", islands)
@@ -370,6 +388,7 @@ class EditGrabRenderPerfProbeTest {
 			GL11.glFinish()
 			islandRestyleTimes.add(System.nanoTime() - restyleStart)
 		}
+
 		renderer.retainUvScenes { false }
 		stats("U3 UV frame without the overlay (grid, surround, surface) [per frame; host GL]", bareTimes)
 		report("U4 first UV frame with the overlay (store + buffers + every position uploaded + draws): %.1f ms".format(firstNanos / 1e6))
@@ -411,9 +430,11 @@ class EditGrabRenderPerfProbeTest {
 		val meshes =
 			model.drawables.mapNotNull { drawable ->
 				val mesh = drawable.mesh
+
 				if (mesh == null || mesh.indices.isEmpty()) {
 					return@mapNotNull null
 				}
+
 				val vertexCount = mesh.positions.size / 2
 				val edges = uniqueEdgesOf(mesh.indices)
 				MeshOverlayMesh(
@@ -428,6 +449,7 @@ class EditGrabRenderPerfProbeTest {
 					activeFace = null,
 				)
 			}
+
 		return MeshOverlay(MeshOverlayKind.Edit, MeshOverlaySelectMode.Vertex, meshes, MeshOverlaySizes(3.5f, 1f, 2.5f))
 	}
 
@@ -441,19 +463,23 @@ class EditGrabRenderPerfProbeTest {
 		val seen = HashSet<Long>(indices.size)
 		val edges = ArrayList<Int>(indices.size * 2)
 		var triangleStart = 0
+
 		while (triangleStart + 2 < indices.size) {
 			for (cornerIndex in 0 until 3) {
 				val first = indices[triangleStart + cornerIndex]
 				val second = indices[triangleStart + (cornerIndex + 1) % 3]
 				val low = minOf(first, second)
 				val high = maxOf(first, second)
+
 				if (seen.add((low.toLong() shl 32) or high.toLong())) {
 					edges.add(low)
 					edges.add(high)
 				}
 			}
+
 			triangleStart += 3
 		}
+
 		return edges.toIntArray()
 	}
 
@@ -473,11 +499,13 @@ class EditGrabRenderPerfProbeTest {
 					val mesh = drawable.mesh ?: return@map drawable
 					val moved = mesh.positions.copyOf()
 					var slot = 0
+
 					while (slot + 1 < moved.size) {
 						moved[slot] += delta
 						moved[slot + 1] += delta
 						slot += 2
 					}
+
 					drawable.copy(mesh = DrawableMesh.withLocalEqualToCanvas(moved, mesh.uvs, mesh.indices))
 				},
 		)
@@ -491,8 +519,10 @@ class EditGrabRenderPerfProbeTest {
 	private fun stats(label: String, nanos: List<Long>) {
 		if (nanos.isEmpty()) {
 			report("%-${LABEL_WIDTH}s (n=0)".format(label))
+
 			return
 		}
+
 		val sorted = nanos.sorted()
 		report(
 			"%-${LABEL_WIDTH}s min %8.1f ms  median %8.1f ms  max %8.1f ms  (n=%d)".format(

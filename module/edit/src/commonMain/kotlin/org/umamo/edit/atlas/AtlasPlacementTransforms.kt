@@ -56,14 +56,18 @@ fun AtlasPlacement.composedWith(pageAffine: FloatArray): AtlasPlacement? {
 	val columnY1 = composed[4]
 	val lengthX = hypot(columnX0, columnX1)
 	val lengthY = hypot(columnY0, columnY1)
+
 	if (lengthX == 0f || lengthY == 0f) {
 		return null
 	}
+
 	// The two columns are the rotated, scaled unit axes; a placement keeps them perpendicular.
 	val shear = abs(columnX0 * columnY0 + columnX1 * columnY1) / (lengthX * lengthY)
+
 	if (shear > PLACEMENT_SHEAR_TOLERANCE) {
 		return null
 	}
+
 	// The rotation is read off the x axis, negated back when that axis carries a mirror so the
 	// receiver's sign convention survives; the y scale is then the y axis projected onto the rotated
 	// y direction, which carries its own sign.
@@ -72,6 +76,7 @@ fun AtlasPlacement.composedWith(pageAffine: FloatArray): AtlasPlacement? {
 	val cosine = cos(radians)
 	val sine = sin(radians)
 	val scaleYSigned = columnY1 * cosine - columnY0 * sine
+
 	return AtlasPlacement(
 		pageIndex = pageIndex,
 		positionX = composed[2],
@@ -103,6 +108,7 @@ fun translationAffine(deltaX: Float, deltaY: Float): FloatArray = floatArrayOf(1
 fun rotationAboutAffine(pivotX: Float, pivotY: Float, radians: Float): FloatArray {
 	val cosine = cos(radians)
 	val sine = sin(radians)
+
 	return floatArrayOf(
 		cosine,
 		-sine,
@@ -151,6 +157,7 @@ fun localAxisScaleAboutAffine(
 	val intoTileAxes = rotationAboutAffine(pivotX, pivotY, -radians)
 	val scaled = scaleAboutAffine(pivotX, pivotY, factorX, factorY)
 	val outOfTileAxes = rotationAboutAffine(pivotX, pivotY, radians)
+
 	return composeAffine(outOfTileAxes, composeAffine(scaled, intoTileAxes))
 }
 
@@ -165,20 +172,27 @@ fun localAxisScaleAboutAffine(
  */
 fun PuppetModel.placementSelectedTileIds(selection: Selection): Set<AtlasTileId> {
 	val selectedIds = selection.targets.mapNotNullTo(HashSet()) { target -> (target as? SelectionTarget.Drawable)?.id }
+
 	if (selectedIds.isEmpty()) {
 		return emptySet()
 	}
+
 	val tileIds = LinkedHashSet<AtlasTileId>()
+
 	for (drawable in drawables) {
 		if (drawable.id !in selectedIds) {
 			continue
 		}
+
 		val tileId = drawable.atlasTileId ?: continue
+
 		if (atlas.tileById[tileId]?.placement == null) {
 			continue
 		}
+
 		tileIds.add(tileId)
 	}
+
 	return tileIds
 }
 

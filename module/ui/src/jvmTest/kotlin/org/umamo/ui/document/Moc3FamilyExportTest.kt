@@ -51,6 +51,7 @@ class Moc3FamilyExportTest {
 			buildMoc3Document("$basename.moc3", "$basename.moc3", byName.getValue("$basename.moc3")) { reference ->
 				byName[reference]
 			}
+
 		return loaded to (assertIs<DocumentLoad.Loaded>(reimported).document as Moc3Document)
 	}
 
@@ -132,9 +133,11 @@ class Moc3FamilyExportTest {
 				}
 			}
 		assertTrue(references.isNotEmpty(), "the manifest must reference something")
+
 		for (reference in references) {
 			assertContains(names, reference, "the manifest names $reference, which the bundle does not contain")
 		}
+
 		// The non-file sections are user data with no home in PuppetModel; losing them on a round trip
 		// would silently delete a rigger's eye-blink wiring.
 		assertEquals(loaded.manifest.groups, manifest.groups, "auto-wiring groups")

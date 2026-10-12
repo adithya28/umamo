@@ -109,6 +109,7 @@ internal fun <Key> rememberRowHoverPreviewState(): RowHoverPreviewState<Key> {
 	val state = remember { RowHoverPreviewState<Key>() }
 	LaunchedEffect(state.hovered) {
 		val pending = state.hovered
+
 		if (pending == null) {
 			state.shown = null
 		} else {
@@ -116,6 +117,7 @@ internal fun <Key> rememberRowHoverPreviewState(): RowHoverPreviewState<Key> {
 			state.shown = pending
 		}
 	}
+
 	return state
 }
 
@@ -168,9 +170,11 @@ internal fun <Key> ReportRowHover(
 internal fun Modifier.trackRowHoverPointer(state: RowHoverPreviewState<*>, enabled: Boolean): Modifier {
 	// Plain holder, so a layout pass recomposes nothing; read only when an event arrives.
 	val surface = remember { RowCoordinatesHolder() }
+
 	if (!enabled) {
 		return this
 	}
+
 	return this
 		.onGloballyPositioned { coordinates -> surface.coordinates = coordinates }
 		.pointerInput(state) {
@@ -178,6 +182,7 @@ internal fun Modifier.trackRowHoverPointer(state: RowHoverPreviewState<*>, enabl
 				while (true) {
 					val event = awaitPointerEvent(PointerEventPass.Initial)
 					val coordinates = surface.coordinates
+
 					// An exit reports where the pointer left to, which is no longer over the space.
 					if (event.type != PointerEventType.Exit && coordinates != null && coordinates.isAttached) {
 						state.reportPointer(coordinates.localToWindow(event.changes.first().position))

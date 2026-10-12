@@ -78,8 +78,10 @@ private class DifferenceCollector(val differences: MutableList<String> = ArrayLi
 	fun floats(path: String, expected: FloatArray, actual: FloatArray) {
 		if (expected.size != actual.size) {
 			differences += "$path: expected ${expected.size} floats, got ${actual.size}"
+
 			return
 		}
+
 		val first = expected.indices.firstOrNull { valueIndex -> expected[valueIndex].toRawBits() != actual[valueIndex].toRawBits() } ?: return
 		differences += "$path[$first]: expected ${expected[first]}, got ${actual[first]}"
 	}
@@ -107,8 +109,10 @@ private class DifferenceCollector(val differences: MutableList<String> = ArrayLi
 	fun mesh(path: String, expected: DrawableMesh?, actual: DrawableMesh?) {
 		if (expected == null || actual == null) {
 			same("$path present", expected != null, actual != null)
+
 			return
 		}
+
 		floats("$path.positions", expected.positions, actual.positions)
 		floats("$path.localPositions", expected.localPositions, actual.localPositions)
 		floats("$path.uvs", expected.uvs, actual.uvs)
@@ -126,8 +130,10 @@ private class DifferenceCollector(val differences: MutableList<String> = ArrayLi
 	fun <T> grid(path: String, expected: KeyformGrid<T>?, actual: KeyformGrid<T>?, compareForm: (String, T, T) -> Unit) {
 		if (expected == null || actual == null) {
 			same("$path present", expected != null, actual != null)
+
 			return
 		}
+
 		each("$path.axes", expected.axes, actual.axes) { axisPath, left, right ->
 			same("$axisPath.parameter", left.parameterId, right.parameterId)
 			floats("$axisPath.keys", left.keys, right.keys)
@@ -147,6 +153,7 @@ private class DifferenceCollector(val differences: MutableList<String> = ArrayLi
 	 */
 	fun channels(path: String, expected: ChannelGrids, actual: ChannelGrids) {
 		same("$path.channels keys", expected.gridsByChannel.keys, actual.gridsByChannel.keys)
+
 		for ((channel, expectedGrid) in expected.gridsByChannel) {
 			val actualGrid = actual.gridsByChannel[channel] ?: continue
 			grid("$path.channels.${channel.name}", expectedGrid, actualGrid) { valuePath, left, right -> channelValue("$valuePath.value", left, right) }
@@ -208,7 +215,10 @@ private class DifferenceCollector(val differences: MutableList<String> = ArrayLi
 	 */
 	fun renderNode(path: String, expected: RenderNode, actual: RenderNode) {
 		when {
-			expected is RenderDrawable && actual is RenderDrawable -> same("$path.id", expected.id, actual.id)
+			expected is RenderDrawable && actual is RenderDrawable -> {
+				same("$path.id", expected.id, actual.id)
+			}
+
 			expected is RenderGroup && actual is RenderGroup -> {
 				same("$path.partId", expected.partId, actual.partId)
 				same("$path.drawOrder", expected.drawOrder, actual.drawOrder)
@@ -217,7 +227,9 @@ private class DifferenceCollector(val differences: MutableList<String> = ArrayLi
 				each("$path.children", expected.children, actual.children) { childPath, left, right -> renderNode(childPath, left, right) }
 			}
 
-			else -> differences += "$path: expected a ${expected::class.simpleName}, got a ${actual::class.simpleName}"
+			else -> {
+				differences += "$path: expected a ${expected::class.simpleName}, got a ${actual::class.simpleName}"
+			}
 		}
 	}
 
@@ -232,8 +244,10 @@ private class DifferenceCollector(val differences: MutableList<String> = ArrayLi
 	fun <T> each(path: String, expected: List<T>, actual: List<T>, compare: (String, T, T) -> Unit) {
 		if (expected.size != actual.size) {
 			differences += "$path: expected ${expected.size} elements, got ${actual.size}"
+
 			return
 		}
+
 		for (elementIndex in expected.indices) {
 			compare("$path[$elementIndex]", expected[elementIndex], actual[elementIndex])
 		}
@@ -303,6 +317,7 @@ internal fun puppetStructureDifferences(expected: PuppetModel, actual: PuppetMod
 			same("$path.isVisible", left.isVisible, right.isVisible)
 			same("$path.isEnabled", left.isEnabled, right.isEnabled)
 			same("$path.isSelectable", left.isSelectable, right.isSelectable)
+
 			when {
 				left is Deformer.Warp && right is Deformer.Warp -> {
 					same("$path.rows", left.rows, right.rows)
@@ -331,8 +346,11 @@ internal fun puppetStructureDifferences(expected: PuppetModel, actual: PuppetMod
 					blendShapes(path, left.blendShapes, right.blendShapes) { formPath, leftForm: RotationForm, rightForm -> rotationForm(formPath, leftForm, rightForm) }
 				}
 
-				else -> differences += "$path: expected a ${left::class.simpleName}, got a ${right::class.simpleName}"
+				else -> {
+					differences += "$path: expected a ${left::class.simpleName}, got a ${right::class.simpleName}"
+				}
 			}
+
 			channels(path, left.channelGrids, right.channelGrids)
 		}
 
@@ -376,6 +394,7 @@ internal fun puppetStructureDifferences(expected: PuppetModel, actual: PuppetMod
 
 		renderNode("renderRoot", expected.renderRoot, actual.renderRoot)
 	}
+
 	return collector.differences
 }
 
@@ -405,6 +424,7 @@ internal fun atlasDifferences(expected: PuppetModel, actual: PuppetModel): List<
 			same("$path.replaces", leftTile.replaces, rightTile.replaces)
 			val leftPlacement = leftTile.placement
 			val rightPlacement = rightTile.placement
+
 			if (leftPlacement == null || rightPlacement == null) {
 				same("$path.placement present", leftPlacement != null, rightPlacement != null)
 			} else {
@@ -417,6 +437,7 @@ internal fun atlasDifferences(expected: PuppetModel, actual: PuppetModel): List<
 			}
 		}
 	}
+
 	return collector.differences
 }
 
@@ -443,6 +464,7 @@ internal fun sourcesDifferences(expected: PuppetModel, actual: PuppetModel): Lis
 			each("$path.layers", left.layers, right.layers) { layerPath, leftLayer, rightLayer -> same(layerPath, leftLayer, rightLayer) }
 		}
 	}
+
 	return collector.differences
 }
 

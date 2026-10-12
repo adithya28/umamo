@@ -31,10 +31,13 @@ class PngImageIoParityTest {
 	fun decodesImageIoInterlacedRgba() {
 		val image = gradientArgbImage(width = 19, height = 13)
 		val png = encodePng(image, interlaced = true)
+
 		if ((png[28].toInt() and 0xFF) != 1) {
 			println("ImageIO did not produce an interlaced PNG on this JDK; skipping Adam7 assertion")
+
 			return
 		}
+
 		val decoded = PngCodec.read(png)
 		assertArgbImageMatches(image, decoded)
 	}
@@ -44,16 +47,21 @@ class PngImageIoParityTest {
 		// 8-bit grayscale decodes through the per-sample lookup table rather than the RGBA copy, so
 		// its Adam7 scatter is a separate path.
 		val image = BufferedImage(19, 13, BufferedImage.TYPE_BYTE_GRAY)
+
 		for (y in 0 until image.height) {
 			for (x in 0 until image.width) {
 				image.raster.setSample(x, y, 0, (x * 13 + y * 7) and 0xFF)
 			}
 		}
+
 		val png = encodePng(image, interlaced = true)
+
 		if ((png[28].toInt() and 0xFF) != 1) {
 			println("ImageIO did not produce an interlaced PNG on this JDK; skipping Adam7 assertion")
+
 			return
 		}
+
 		assertGraySamplesMatch(image, PngCodec.read(png)) { sample -> sample }
 	}
 
@@ -61,17 +69,22 @@ class PngImageIoParityTest {
 	fun decodesImageIoInterlacedGray16() {
 		// 16-bit grayscale decodes sample by sample and rescales by PNG spec §13.12's linear equation.
 		val image = BufferedImage(19, 13, BufferedImage.TYPE_USHORT_GRAY)
+
 		for (y in 0 until image.height) {
 			for (x in 0 until image.width) {
 				image.raster.setSample(x, y, 0, (x * 3001 + y * 1733) and 0xFFFF)
 			}
 		}
+
 		val png = encodePng(image, interlaced = true)
 		assertEquals(16, png[24].toInt() and 0xFF, "ImageIO writes TYPE_USHORT_GRAY as a 16-bit PNG")
+
 		if ((png[28].toInt() and 0xFF) != 1) {
 			println("ImageIO did not produce an interlaced PNG on this JDK; skipping Adam7 assertion")
+
 			return
 		}
+
 		assertGraySamplesMatch(image, PngCodec.read(png)) { sample -> ((2L * sample * 255 + 65535) / (2L * 65535)).toInt() }
 	}
 
@@ -96,6 +109,7 @@ class PngImageIoParityTest {
 	 */
 	private fun gradientArgbImage(width: Int, height: Int): BufferedImage {
 		val image = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+
 		for (y in 0 until height) {
 			for (x in 0 until width) {
 				val red = (x * 13) and 0xFF
@@ -105,6 +119,7 @@ class PngImageIoParityTest {
 				image.setRGB(x, y, (alpha shl 24) or (red shl 16) or (green shl 8) or blue)
 			}
 		}
+
 		return image
 	}
 
@@ -117,20 +132,26 @@ class PngImageIoParityTest {
 	 */
 	private fun encodePng(image: BufferedImage, interlaced: Boolean): ByteArray {
 		val out = ByteArrayOutputStream()
+
 		if (!interlaced) {
 			ImageIO.write(image, "png", out)
+
 			return out.toByteArray()
 		}
+
 		val writer = ImageIO.getImageWritersByFormatName("png").next()
 		val param = writer.defaultWriteParam
+
 		if (param.canWriteProgressive()) {
 			param.progressiveMode = ImageWriteParam.MODE_DEFAULT
 		}
+
 		ImageIO.createImageOutputStream(out).use { stream ->
 			writer.output = stream
 			writer.write(null, IIOImage(image, null, null), param)
 		}
 		writer.dispose()
+
 		return out.toByteArray()
 	}
 
@@ -143,6 +164,7 @@ class PngImageIoParityTest {
 	private fun assertArgbImageMatches(reference: BufferedImage, decoded: RasterImage) {
 		assertEquals(reference.width, decoded.width, "width")
 		assertEquals(reference.height, decoded.height, "height")
+
 		for (y in 0 until reference.height) {
 			for (x in 0 until reference.width) {
 				val packed = reference.getRGB(x, y)
@@ -166,6 +188,7 @@ class PngImageIoParityTest {
 	private fun assertGraySamplesMatch(reference: BufferedImage, decoded: RasterImage, toEightBits: (Int) -> Int) {
 		assertEquals(reference.width, decoded.width, "width")
 		assertEquals(reference.height, decoded.height, "height")
+
 		for (y in 0 until reference.height) {
 			for (x in 0 until reference.width) {
 				val expectedGray = toEightBits(reference.raster.getSample(x, y, 0))

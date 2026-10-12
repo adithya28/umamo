@@ -47,6 +47,7 @@ class ArtworkEditsTest {
 
 	private fun model(): PuppetModel {
 		val drawable = drawable("ArtMesh1", "art-0/lyid:1")
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = listOf(Part(PartId("Part1"), "Folder", listOf(OrgChild.Drawable(drawable.id)))),

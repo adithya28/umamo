@@ -41,6 +41,7 @@ internal class WorkspaceLayoutController(
 	private fun publish(newLayout: InterfaceLayout, structural: Boolean) {
 		layout = newLayout
 		onLayoutChange(newLayout)
+
 		if (structural) {
 			structuralEditCount++
 		}
@@ -106,9 +107,11 @@ internal class WorkspaceLayoutController(
 	 */
 	fun duplicate(sourceId: String, suggestedName: String) {
 		val sourceIndex = layout.workspaces.indexOfFirst { workspace -> workspace.id == sourceId }
+
 		if (sourceIndex < 0) {
 			return
 		}
+
 		val source = layout.workspaces[sourceIndex]
 		val copy =
 			Workspace(

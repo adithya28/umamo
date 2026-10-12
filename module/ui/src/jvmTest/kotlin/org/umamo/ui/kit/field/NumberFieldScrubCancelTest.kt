@@ -297,6 +297,7 @@ class NumberFieldScrubCancelTest {
 			advanceEventTime(GESTURE_GAP_MILLIS)
 			moveTo(field.center)
 			press()
+
 			for (stepIndex in 1..SCRUB_STEPS) {
 				advanceEventTime(GESTURE_STEP_MILLIS)
 				moveTo(field.center + Offset(SCRUB_PIXELS * stepIndex / SCRUB_STEPS, 0f))

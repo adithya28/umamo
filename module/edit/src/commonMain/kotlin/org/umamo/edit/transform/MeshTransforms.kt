@@ -30,13 +30,17 @@ object MeshTransforms {
 		if (indices.isEmpty()) {
 			return 0f to 0f
 		}
+
 		var sumX = 0f
 		var sumY = 0f
+
 		for (vertexIndex in indices) {
 			sumX += positions[vertexIndex * 2]
 			sumY += positions[vertexIndex * 2 + 1]
 		}
+
 		val count = indices.size.toFloat()
+
 		return (sumX / count) to (sumY / count)
 	}
 
@@ -54,8 +58,10 @@ object MeshTransforms {
 		var sumX = 0f
 		var sumY = 0f
 		var vertexCount = 0
+
 		for (positions in positionsList) {
 			var slotIndex = 0
+
 			while (slotIndex + 1 < positions.size) {
 				sumX += positions[slotIndex]
 				sumY += positions[slotIndex + 1]
@@ -63,10 +69,13 @@ object MeshTransforms {
 				slotIndex += 2
 			}
 		}
+
 		if (vertexCount == 0) {
 			return 0f to 0f
 		}
+
 		val count = vertexCount.toFloat()
+
 		return (sumX / count) to (sumY / count)
 	}
 
@@ -81,10 +90,12 @@ object MeshTransforms {
 	 */
 	fun translateVertices(positions: FloatArray, indices: Set<Int>, deltaX: Float, deltaY: Float): FloatArray {
 		val result = positions.copyOf()
+
 		for (vertexIndex in indices) {
 			result[vertexIndex * 2] += deltaX
 			result[vertexIndex * 2 + 1] += deltaY
 		}
+
 		return result
 	}
 
@@ -101,10 +112,12 @@ object MeshTransforms {
 	 */
 	fun collapseVertices(positions: FloatArray, indices: Set<Int>, targetX: Float, targetY: Float): FloatArray {
 		val result = positions.copyOf()
+
 		for (vertexIndex in indices) {
 			result[vertexIndex * 2] = targetX
 			result[vertexIndex * 2 + 1] = targetY
 		}
+
 		return result
 	}
 
@@ -120,12 +133,14 @@ object MeshTransforms {
 	 */
 	fun scaleVertices(positions: FloatArray, indices: Set<Int>, factor: Float, pivotX: Float, pivotY: Float): FloatArray {
 		val result = positions.copyOf()
+
 		for (vertexIndex in indices) {
 			val x = result[vertexIndex * 2]
 			val y = result[vertexIndex * 2 + 1]
 			result[vertexIndex * 2] = pivotX + (x - pivotX) * factor
 			result[vertexIndex * 2 + 1] = pivotY + (y - pivotY) * factor
 		}
+
 		return result
 	}
 
@@ -144,12 +159,14 @@ object MeshTransforms {
 	 */
 	fun scaleVerticesAxis(positions: FloatArray, indices: Set<Int>, factorX: Float, factorY: Float, pivotX: Float, pivotY: Float): FloatArray {
 		val result = positions.copyOf()
+
 		for (vertexIndex in indices) {
 			val x = result[vertexIndex * 2]
 			val y = result[vertexIndex * 2 + 1]
 			result[vertexIndex * 2] = pivotX + (x - pivotX) * factorX
 			result[vertexIndex * 2 + 1] = pivotY + (y - pivotY) * factorY
 		}
+
 		return result
 	}
 
@@ -167,12 +184,14 @@ object MeshTransforms {
 		val result = positions.copyOf()
 		val cosAngle = cos(radians)
 		val sinAngle = sin(radians)
+
 		for (vertexIndex in indices) {
 			val offsetX = result[vertexIndex * 2] - pivotX
 			val offsetY = result[vertexIndex * 2 + 1] - pivotY
 			result[vertexIndex * 2] = pivotX + offsetX * cosAngle - offsetY * sinAngle
 			result[vertexIndex * 2 + 1] = pivotY + offsetX * sinAngle + offsetY * cosAngle
 		}
+
 		return result
 	}
 
@@ -188,10 +207,12 @@ object MeshTransforms {
 	 */
 	fun translateVerticesWeighted(positions: FloatArray, weights: Map<Int, Float>, deltaX: Float, deltaY: Float): FloatArray {
 		val result = positions.copyOf()
+
 		for ((vertexIndex, weight) in weights) {
 			result[vertexIndex * 2] += deltaX * weight
 			result[vertexIndex * 2 + 1] += deltaY * weight
 		}
+
 		return result
 	}
 
@@ -211,12 +232,14 @@ object MeshTransforms {
 	 */
 	fun scaleVerticesWeighted(positions: FloatArray, weights: Map<Int, Float>, factorX: Float, factorY: Float, pivotX: Float, pivotY: Float): FloatArray {
 		val result = positions.copyOf()
+
 		for ((vertexIndex, weight) in weights) {
 			val x = result[vertexIndex * 2]
 			val y = result[vertexIndex * 2 + 1]
 			result[vertexIndex * 2] = pivotX + (x - pivotX) * (1f + (factorX - 1f) * weight)
 			result[vertexIndex * 2 + 1] = pivotY + (y - pivotY) * (1f + (factorY - 1f) * weight)
 		}
+
 		return result
 	}
 
@@ -235,6 +258,7 @@ object MeshTransforms {
 	 */
 	fun rotateVerticesWeighted(positions: FloatArray, weights: Map<Int, Float>, radians: Float, pivotX: Float, pivotY: Float): FloatArray {
 		val result = positions.copyOf()
+
 		for ((vertexIndex, weight) in weights) {
 			val cosAngle = cos(radians * weight)
 			val sinAngle = sin(radians * weight)
@@ -243,6 +267,7 @@ object MeshTransforms {
 			result[vertexIndex * 2] = pivotX + offsetX * cosAngle - offsetY * sinAngle
 			result[vertexIndex * 2 + 1] = pivotY + offsetX * sinAngle + offsetY * cosAngle
 		}
+
 		return result
 	}
 }

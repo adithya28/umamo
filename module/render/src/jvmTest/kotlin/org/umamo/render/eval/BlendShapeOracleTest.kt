@@ -48,6 +48,7 @@ class BlendShapeOracleTest {
 
 		var totalCompared = 0
 		var totalMatched = 0
+
 		for (pair in pairs) {
 			val root = Cmo3.read(pair.cmo3).root as? CModelSource ?: error("${pair.name}: root is not a CModelSource")
 			val puppet = Cmo3Import.fromModelSource(root)
@@ -56,6 +57,7 @@ class BlendShapeOracleTest {
 			// conversion are gated end-to-end.  Same-file comparison, so any cmo3-vs-moc3
 			// authoring-state skew is out of the picture by construction.
 			val moc3Puppet = restMeshesToCanvasSpace(Moc3Import.fromMocDocument(Moc3.read(pair.moc3.readBytes()), null))
+
 			for (pose in pair.poses) {
 				val (compared, matched, worst) = comparePose(puppet, dumpModel, coreLib, pair.moc3, pose)
 				totalCompared += compared
@@ -82,6 +84,7 @@ class BlendShapeOracleTest {
 				)
 			}
 		}
+
 		println("[oracle] blend-shape posed total: $totalMatched/$totalCompared")
 		assertTrue(totalCompared > 0, "expected comparable drawables")
 	}
@@ -105,12 +108,14 @@ class BlendShapeOracleTest {
 		var compared = 0
 		var matched = 0
 		var worst = 0.0
+
 		for (drawable in puppet.drawables) {
 			val entry = dump.entries[drawable.id.raw] ?: continue
 			val world = geometry.worldPositions[drawable.id] ?: continue
 			compared++
 			// Same transform as the default-pose gate: (x-ox)/ppu, (y+oy)/ppu (umamo pre-flips Y).
 			val hash = oracleTransformedHash(world, dump.originX, -dump.originY, dump.pixelsPerUnit)
+
 			if (oracleCloseEnough(hash, entry.vposH)) {
 				matched++
 			} else {
@@ -118,6 +123,7 @@ class BlendShapeOracleTest {
 				worst = maxOf(worst, relativeError)
 			}
 		}
+
 		return Triple(compared, matched, worst)
 	}
 
@@ -134,6 +140,7 @@ class BlendShapeOracleTest {
 		val pairs = ArrayList<OraclePair>()
 		val modelA = cmo3("modelA")
 		val modelAMoc = moc3("modelA.moc3")
+
 		if (modelA != null && modelAMoc != null) {
 			pairs.add(
 				OraclePair(
@@ -158,8 +165,10 @@ class BlendShapeOracleTest {
 				),
 			)
 		}
+
 		val modelB = cmo3("modelB")
 		val modelBMoc = moc3("modelB.moc3")
+
 		if (modelB != null && modelBMoc != null) {
 			pairs.add(
 				OraclePair(
@@ -178,8 +187,10 @@ class BlendShapeOracleTest {
 				),
 			)
 		}
+
 		val modelC = cmo3("modelC")
 		val modelCMoc = moc3("modelC.moc3")
+
 		if (modelC != null && modelCMoc != null) {
 			pairs.add(
 				OraclePair(
@@ -196,6 +207,7 @@ class BlendShapeOracleTest {
 				),
 			)
 		}
+
 		return pairs
 	}
 }

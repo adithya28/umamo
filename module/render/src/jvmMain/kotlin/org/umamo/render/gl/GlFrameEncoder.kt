@@ -56,6 +56,7 @@ internal class GlFrameEncoder(private val emptyVao: Int) : FrameEncoder {
 		GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, target.framebuffer)
 		GL11.glViewport(0, 0, spec.viewportWidth, spec.viewportHeight)
 		val scissor = spec.scissor
+
 		if (scissor != null) {
 			// The spec's rect is top-left-origin (the read-back convention); GL scissors bottom-up.
 			GL11.glEnable(GL11.GL_SCISSOR_TEST)
@@ -63,18 +64,22 @@ internal class GlFrameEncoder(private val emptyVao: Int) : FrameEncoder {
 		} else {
 			GL11.glDisable(GL11.GL_SCISSOR_TEST)
 		}
+
 		// The draw-order target rides the pass as its second color attachment, detached from a pass that has
 		// none (an attachment is framebuffer state, and a pass that samples the order must not keep it attached).
 		// Both the attachment and the draw-buffer list persist on the framebuffer, so each is changed only when
 		// the pass needs another value than the target was left with.
 		val order = spec.drawOrderTarget as GlRenderTarget?
+
 		if (order !== target.attachedDrawOrder) {
 			if (order == null) {
 				listDrawBuffers(target, both = false)
 			}
+
 			GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT1, GL11.GL_TEXTURE_2D, order?.colorTexture ?: 0, 0)
 			target.attachedDrawOrder = order
 		}
+
 		if (spec.loadAction == LoadAction.Clear) {
 			// With a scissor set, the clear is confined to the rect too - that is the point: a
 			// bounds-scissored composite layer never pays a full-viewport clear.  The list names the color
@@ -83,11 +88,13 @@ internal class GlFrameEncoder(private val emptyVao: Int) : FrameEncoder {
 			GL11.glClearColor(spec.clearRed, spec.clearGreen, spec.clearBlue, spec.clearAlpha)
 			GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
 		}
+
 		if (order != null && spec.clearDrawOrder) {
 			// Cleared through its draw-buffer slot, so the color target's own load action is untouched.
 			listDrawBuffers(target, both = true)
 			GL30.glClearBufferfv(GL11.GL_COLOR, 1, ZERO_ORDER)
 		}
+
 		// Load preserves the target's contents (a bound FBO already holds them); DontCare needs no work on
 		// GL - the pass overwrites every pixel, which a tile-based backend would exploit but GL cannot.
 		return GlRenderPassEncoder(emptyVao, target, hasDrawOrder = order != null)
@@ -100,6 +107,7 @@ internal class GlFrameEncoder(private val emptyVao: Int) : FrameEncoder {
 		GL20.glUniform1i(glPipeline.locations.cpTex, UNIT_CP)
 		// Discard the rasterizer: the capture writes positions via transform feedback and draws nothing.
 		GL11.glEnable(GL30.GL_RASTERIZER_DISCARD)
+
 		return GlDeformCapturePassEncoder(glPipeline, store as GlDeformedPositionStore)
 	}
 
@@ -149,9 +157,11 @@ internal class GlRenderPassEncoder(private val emptyVao: Int, private val target
 
 	override fun setPipeline(pipeline: RenderPipeline) {
 		val glPipeline = pipeline as GlRenderPipeline
+
 		if (glPipeline === this.pipeline) {
 			return // already bound: program, blend, and samplers are all still in effect
 		}
+
 		this.pipeline = glPipeline
 		cameraApplied = false
 		glueStateApplied = false
@@ -179,6 +189,7 @@ internal class GlRenderPassEncoder(private val emptyVao: Int, private val target
 		if (cameraApplied) {
 			return // the current program already holds this pass's camera (constant across the pass)
 		}
+
 		cameraApplied = true
 		val locations = current.locations
 		GL20.glUniform4f(locations.worldToNdc, worldToNdc.scaleX, worldToNdc.scaleY, worldToNdc.offsetX, worldToNdc.offsetY)
@@ -202,6 +213,7 @@ internal class GlRenderPassEncoder(private val emptyVao: Int, private val target
 		textures: DrawTextures,
 	) {
 		val locations = current.locations
+
 		// The weld intensities and the position texture buffer are constant across the pass, so bind them
 		// once per glue-program bind (matching the old useProgramFor), not per glue draw.
 		if (!glueStateApplied) {
@@ -210,6 +222,7 @@ internal class GlRenderPassEncoder(private val emptyVao: Int, private val target
 			GL13.glActiveTexture(GL13.GL_TEXTURE0 + UNIT_POSITION)
 			GL11.glBindTexture(GL31.GL_TEXTURE_BUFFER, (store as GlDeformedPositionStore).textureBuffer)
 		}
+
 		GL20.glUniform1i(locations.baseOffset, baseVertexOffset)
 		setFragmentUniforms(current, fragment, textures)
 		val glMesh = mesh as GlMesh
@@ -237,9 +250,11 @@ internal class GlRenderPassEncoder(private val emptyVao: Int, private val target
 		GL20.glUniform1i(locations.invertMask, if (composite.invertMask) 1 else 0)
 		textures.compositeLayer?.let { bindTexture2D(UNIT_LAYER, it) }
 		textures.destinationSnapshot?.let { bindTexture2D(UNIT_DEST, it) }
+
 		if (composite.useMask) {
 			textures.maskCoverage?.let { bindTexture2D(UNIT_MASK, it) }
 		}
+
 		GL30.glBindVertexArray(emptyVao)
 		GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 3)
 	}
@@ -259,12 +274,14 @@ internal class GlRenderPassEncoder(private val emptyVao: Int, private val target
 		GL20.glUniform3f(locations.minorColor, colors.minorRed, colors.minorGreen, colors.minorBlue)
 		val surface = uniforms.surface
 		GL20.glUniform1i(locations.useSurface, if (surface != null) 1 else 0)
+
 		if (surface != null) {
 			GL20.glUniform4f(locations.surfaceBounds, surface.minX, surface.minY, surface.minX + surface.width, surface.minY + surface.height)
 			GL20.glUniform3f(locations.surroundColor, colors.surroundRed, colors.surroundGreen, colors.surroundBlue)
 			GL20.glUniform3f(locations.frameColor, colors.frameRed, colors.frameGreen, colors.frameBlue)
 			GL20.glUniform1f(locations.frameWidthPx, uniforms.frameWidthPx)
 		}
+
 		GL30.glBindVertexArray(emptyVao)
 		GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 3)
 	}
@@ -314,12 +331,15 @@ internal class GlRenderPassEncoder(private val emptyVao: Int, private val target
 		if (vao == 0) {
 			return
 		}
+
 		val glStore = store as GlDeformedPositionStore
+
 		if (overlayStoreBound !== glStore) {
 			overlayStoreBound = glStore
 			GL13.glActiveTexture(GL13.GL_TEXTURE0 + UNIT_POSITION)
 			GL11.glBindTexture(GL31.GL_TEXTURE_BUFFER, glStore.textureBuffer)
 		}
+
 		val locations = current.locations
 		GL20.glUniform2f(locations.viewportSize, uniforms.viewportWidth, uniforms.viewportHeight)
 		GL20.glUniform1i(locations.baseOffset, uniforms.baseOffset)
@@ -332,10 +352,13 @@ internal class GlRenderPassEncoder(private val emptyVao: Int, private val target
 		setOverlayColor(locations.activeColor, uniforms.activeColor)
 		// The edge program alone declares these; the others resolve -1, a no-op.
 		GL20.glUniform1i(locations.cullOrder, uniforms.cullOrder)
+
 		if (orderTexture != null) {
 			bindTexture2D(UNIT_DRAW_ORDER, orderTexture)
 		}
+
 		GL30.glBindVertexArray(vao)
+
 		if (uniforms.activeDraw) {
 			GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, verticesPerInstance)
 		} else if (instanceCount > 0) {
@@ -369,6 +392,7 @@ internal class GlRenderPassEncoder(private val emptyVao: Int, private val target
 		val locations = pipeline.locations
 		GL20.glUniform1i(locations.useTexture, if (fragment.useTexture) 1 else 0)
 		val atlas = textures.atlas
+
 		if (fragment.useTexture && atlas != null) {
 			bindTexture2D(UNIT_ATLAS, atlas)
 			// The shader filters linear art itself, past the sampler, so it is told what the sampler would do.
@@ -378,6 +402,7 @@ internal class GlRenderPassEncoder(private val emptyVao: Int, private val target
 		} else {
 			GL20.glUniform4f(locations.drawColor, fragment.colorRed, fragment.colorGreen, fragment.colorBlue, fragment.colorAlpha)
 		}
+
 		GL20.glUniform1f(locations.opacity, fragment.opacity)
 		GL20.glUniform3f(locations.multiplyColor, fragment.multiplyRed, fragment.multiplyGreen, fragment.multiplyBlue)
 		GL20.glUniform3f(locations.screenColor, fragment.screenRed, fragment.screenGreen, fragment.screenBlue)
@@ -391,6 +416,7 @@ internal class GlRenderPassEncoder(private val emptyVao: Int, private val target
 		GL20.glUniform3f(locations.uvAffineRow1, fragment.uvAffine[3], fragment.uvAffine[4], fragment.uvAffine[5])
 		GL20.glUniform1i(locations.useMask, if (fragment.useMask) 1 else 0)
 		GL20.glUniform1i(locations.invertMask, if (fragment.invertMask) 1 else 0)
+
 		if (fragment.useMask) {
 			textures.maskCoverage?.let { bindTexture2D(UNIT_MASK, it) }
 		}
@@ -425,6 +451,7 @@ internal class GlDeformCapturePassEncoder(
 	) {
 		marshalDeformUniforms(pipeline.locations, deform, textures, cornerCellScratch, cornerWeightScratch)
 		GL30.glBindVertexArray((mesh as GlMesh).vao)
+
 		if (feedbackCursor != destinationVertexOffset) {
 			closeSession()
 			// The range runs to the store's end, so the session's later appends land inside it; feedback never
@@ -439,6 +466,7 @@ internal class GlDeformCapturePassEncoder(
 			GL30.glBeginTransformFeedback(GL11.GL_POINTS)
 			feedbackCursor = destinationVertexOffset
 		}
+
 		GL11.glDrawArrays(GL11.GL_POINTS, 0, vertexCount)
 		feedbackCursor += vertexCount
 	}
@@ -481,10 +509,12 @@ private fun marshalDeformUniforms(
 	val cornerCount = minOf(org.umamo.render.glsl.MAX_CORNERS, deform.cornerCount)
 	cornerCellScratch.clear()
 	cornerWeightScratch.clear()
+
 	for (cornerIndex in 0 until cornerCount) {
 		cornerCellScratch.put(deform.cornerCell[cornerIndex])
 		cornerWeightScratch.put(deform.cornerWeight[cornerIndex])
 	}
+
 	cornerCellScratch.flip()
 	cornerWeightScratch.flip()
 	GL20.glUniform1i(locations.cornerCount, cornerCount)
@@ -493,11 +523,14 @@ private fun marshalDeformUniforms(
 	// Blend-shape columns: skip the array uploads entirely for the zero-blend common case.
 	val blendCount = minOf(org.umamo.render.glsl.MAX_BLEND_CORNERS, deform.blendCount)
 	GL20.glUniform1i(locations.blendCount, blendCount)
+
 	if (blendCount > 0) {
 		GL20.glUniform1iv(locations.blendCell, deform.blendCell)
 		GL20.glUniform1fv(locations.blendWeight, deform.blendWeight)
 	}
+
 	GL20.glUniform1i(locations.parentType, deform.parentType)
+
 	if (deform.parentType == 1) {
 		GL20.glUniform1fv(locations.rot, deform.rotation)
 	} else if (deform.parentType == 2) {
@@ -506,6 +539,7 @@ private fun marshalDeformUniforms(
 		GL20.glUniform1i(locations.warpBilinear, if (deform.warpBilinear) 1 else 0)
 		textures.warpControlPoints?.let { bindTexture2D(UNIT_CP, it) }
 	}
+
 	textures.deltaTexture?.let { bindTexture2D(UNIT_DELTA, it) }
 }
 
@@ -521,7 +555,9 @@ private fun listDrawBuffers(target: GlRenderTarget, both: Boolean) {
 	if (both == target.listsBothDrawBuffers) {
 		return
 	}
+
 	target.listsBothDrawBuffers = both
+
 	if (both) {
 		GL20.glDrawBuffers(BOTH_DRAW_BUFFERS)
 	} else {
@@ -562,15 +598,20 @@ private fun applyCull(cullBackFaces: Boolean) {
 /** Sets the fixed-function blend state for a pipeline's blend mode. */
 private fun applyBlend(blend: org.umamo.render.device.PipelineBlend) {
 	when (blend) {
-		org.umamo.render.device.PipelineBlend.Opaque -> GL11.glDisable(GL11.GL_BLEND)
+		org.umamo.render.device.PipelineBlend.Opaque -> {
+			GL11.glDisable(GL11.GL_BLEND)
+		}
+
 		org.umamo.render.device.PipelineBlend.Normal -> {
 			GL11.glEnable(GL11.GL_BLEND)
 			GL14.glBlendFuncSeparate(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA)
 		}
+
 		org.umamo.render.device.PipelineBlend.Additive -> {
 			GL11.glEnable(GL11.GL_BLEND)
 			GL14.glBlendFuncSeparate(GL11.GL_ONE, GL11.GL_ONE, GL11.GL_ZERO, GL11.GL_ONE)
 		}
+
 		org.umamo.render.device.PipelineBlend.Multiply -> {
 			GL11.glEnable(GL11.GL_BLEND)
 			GL14.glBlendFuncSeparate(GL11.GL_DST_COLOR, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ZERO, GL11.GL_ONE)

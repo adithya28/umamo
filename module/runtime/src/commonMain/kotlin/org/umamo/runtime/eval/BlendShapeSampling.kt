@@ -21,17 +21,27 @@ fun BlendWeightLimit.weightAt(value: Float): Float {
 	if (points.isEmpty()) {
 		return 1f
 	}
+
 	return when {
-		value <= points.first().value -> points.first().weight
-		value >= points.last().value -> points.last().weight
+		value <= points.first().value -> {
+			points.first().weight
+		}
+
+		value >= points.last().value -> {
+			points.last().weight
+		}
+
 		else -> {
 			var lowerPointIndex = 0
+
 			while (lowerPointIndex + 1 < points.size && points[lowerPointIndex + 1].value <= value) {
 				lowerPointIndex++
 			}
+
 			val lower = points[lowerPointIndex]
 			val upper = points[lowerPointIndex + 1]
 			val span = upper.value - lower.value
+
 			if (span > 0f) {
 				val fraction = (value - lower.value) / span
 				lower.weight + fraction * (upper.weight - lower.weight)
@@ -51,15 +61,19 @@ fun BlendWeightLimit.weightAt(value: Float): Float {
  */
 fun List<BlendWeightLimit>.multiplierAt(paramValue: (ParameterId) -> Float): Float {
 	var multiplier = 1f
+
 	for (limit in this) {
 		if (limit.points.isEmpty()) {
 			continue
 		}
+
 		val capped = limit.weightAt(paramValue(limit.parameterId))
+
 		if (capped < multiplier) {
 			multiplier = capped
 		}
 	}
+
 	return multiplier
 }
 
@@ -75,10 +89,13 @@ fun BlendShapeBinding<*>.contributesAt(value: Float): Boolean {
 	if (keys.size < 2) {
 		return false
 	}
+
 	var lowerKeyIndex = 0
+
 	while (lowerKeyIndex + 1 < keys.size && keys[lowerKeyIndex + 1] <= value) {
 		lowerKeyIndex++
 	}
+
 	val span = if (lowerKeyIndex + 1 < keys.size) keys[lowerKeyIndex + 1] - keys[lowerKeyIndex] else 0f
 	val fraction =
 		when {
@@ -89,5 +106,6 @@ fun BlendShapeBinding<*>.contributesAt(value: Float): Boolean {
 		}
 	val lowerContributes = lowerKeyIndex != neutralIndex && 1f - fraction > 0f && forms.getOrNull(lowerKeyIndex) != null
 	val upperContributes = fraction > 0f && lowerKeyIndex + 1 != neutralIndex && forms.getOrNull(lowerKeyIndex + 1) != null
+
 	return lowerContributes || upperContributes
 }

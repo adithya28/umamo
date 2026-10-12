@@ -20,11 +20,13 @@ internal class EnumSerializer(private val tag: String, private val enumClass: Cl
 		val element = Element(tag)
 		element.setFieldName(name)
 		element.setAttribute(ATTR_ENUM_VALUE, (value as Enum<*>).name)
+
 		return element
 	}
 
 	override fun createInstance(element: Element, ctx: ReadContext): Any {
 		val constantName = element.getAttributeValue(ATTR_ENUM_VALUE)
+
 		// Class.getEnumConstants() is @Nullable in Java (null for non-enum classes), so Kotlin types it
 		// Array<...>?. This serializer is only ever constructed for an enum class, so the array is
 		// non-null by construction - assert it with !! rather than threading a spurious null path.
@@ -49,12 +51,14 @@ internal class ArraySerializer(
 		element.setFieldName(name)
 		element.setAttribute(ATTR_COUNT, size(value).toString())
 		element.text = encode(value)
+
 		return element
 	}
 
 	override fun createInstance(element: Element, ctx: ReadContext): Any {
 		val text = element.text.trim()
 		val tokens = if (text.isEmpty()) emptyList() else text.split(ARRAY_SEPARATOR)
+
 		return decode(tokens)
 	}
 
@@ -77,6 +81,7 @@ internal class SetSerializer(private val tag: String, private val factory: () ->
 		element.setFieldName(name)
 		element.setAttribute(ATTR_COUNT, set.size.toString())
 		for (item in set) element.addContent(ctx.createElementFromObject(null, item))
+
 		return element
 	}
 
@@ -84,6 +89,7 @@ internal class SetSerializer(private val tag: String, private val factory: () ->
 		val out = factory()
 		@Suppress("UNCHECKED_CAST")
 		for (child in element.children as List<Element>) out.add(ctx.createObjectFromElement(child))
+
 		return out
 	}
 }
@@ -108,6 +114,7 @@ internal class MapSerializer(
 		// CMO3: string-keyed maps carry keyType="string" and store each value as <Value xs.n="key">;
 		// object-keyed maps omit keyType and wrap each pair in <entry><key/><value/></entry>.
 		val stringKeyed = map.isEmpty() || map.keys.all { it is String }
+
 		if (stringKeyed) {
 			element.setAttribute(ATTR_KEY_TYPE, "string")
 			for ((key, mapValue) in map) element.addContent(ctx.createElementFromObject(key as String?, mapValue))
@@ -119,6 +126,7 @@ internal class MapSerializer(
 				element.addContent(entry)
 			}
 		}
+
 		return element
 	}
 
@@ -127,6 +135,7 @@ internal class MapSerializer(
 
 		@Suppress("UNCHECKED_CAST")
 		val children = element.children as List<Element>
+
 		if (element.getAttributeValue(ATTR_KEY_TYPE) == "string") {
 			for (valueElement in children) {
 				val key = valueElement.getAttributeValue(ATTR_NAME)
@@ -143,6 +152,7 @@ internal class MapSerializer(
 					valueElement?.let { ctx.createObjectFromElement(it) }
 			}
 		}
+
 		return out
 	}
 }

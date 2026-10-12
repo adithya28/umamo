@@ -20,5 +20,6 @@ import okio.Path.Companion.toPath
 @Suppress("UNUSED_PARAMETER")
 fun androidAppStorage(context: Context, applicationName: String = "umamo"): AppStorage {
 	val base = context.filesDir.absolutePath.toPath()
+
 	return OkioAppStorage(FileSystem.SYSTEM, configDirectory = base / "config", dataDirectory = base / "data")
 }

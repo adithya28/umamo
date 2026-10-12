@@ -92,34 +92,45 @@ private class DocumentLayeredArt(
 fun documentSourceArtOf(model: PuppetModel, sourceId: ArtSourceId, rasterOf: (AtlasTileId) -> LayerRaster?): SourceArt? {
 	val source = model.sources.firstOrNull { candidate -> candidate.id == sourceId } ?: return null
 	val presentRows = source.layers.filter { row -> row.present }
+
 	if (presentRows.isEmpty()) {
 		return null
 	}
+
 	val rowByKey = HashMap<String, ArtSourceLayer>()
+
 	for (row in presentRows) {
 		if (row.key !in rowByKey) {
 			rowByKey[row.key] = row
 		}
 	}
+
 	val boundTileByKey = HashMap<String, AtlasTile>()
+
 	for (tile in model.atlas.tiles) {
 		val ref = tile.source?.takeIf { binding -> binding.sourceId == sourceId } ?: continue
 		val held = boundTileByKey[ref.layerKey]
+
 		if (held == null) {
 			boundTileByKey[ref.layerKey] = tile
+
 			continue
 		}
+
 		val row = rowByKey[ref.layerKey] ?: continue
+
 		if (!sizedLike(held, row) && sizedLike(tile, row)) {
 			boundTileByKey[ref.layerKey] = tile
 		}
 	}
+
 	val layers =
 		presentRows.mapIndexed { order, row ->
 			val boundTile = boundTileByKey[row.key]?.takeUnless { row.empty }
 			val stable = boundTile?.source?.stableKey ?: layerKeyLooksStable(row.key)
 			DocumentSourceLayer(row, order, boundTile, stable, rasterOf)
 		}
+
 	return DocumentLayeredArt(layers, model.canvasWidth.roundToInt(), model.canvasHeight.roundToInt())
 }
 

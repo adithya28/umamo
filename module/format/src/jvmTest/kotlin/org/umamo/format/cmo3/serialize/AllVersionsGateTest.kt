@@ -20,11 +20,14 @@ class AllVersionsGateTest {
 			System.getProperty("cmo3.probe")
 				?: run {
 					println("cmo3.probe not present; skipping cross-version gate")
+
 					return
 				}
 		val files = spec.split(',').map { File(it.trim()) }.filter { it.isFile }
+
 		if (files.isEmpty()) {
 			println("cmo3.probe lists no readable samples; skipping")
+
 			return
 		}
 

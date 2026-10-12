@@ -79,18 +79,23 @@ internal class MeshOverlayEncoder(
 	 */
 	fun encodeCapture(frame: FrameEncoder) {
 		val store = overlayResidency.store ?: return
+
 		// An entry the current pose leaves unposed (a hidden ancestor, a grid out of range, or no pose yet) has
 		// nothing to capture: its corners may be a stale earlier pose's, so the pose's own flag decides.  With
 		// none posed the store stays stale for the pose that follows, rather than an empty pass clearing it.
 		if (!overlayResidency.storeStale || overlayResidency.entries.none { entry -> entry.gpuDrawable.visible }) {
 			return
 		}
+
 		val capture = frame.beginDeformCapturePass(pipelines.capture, store)
+
 		for (entry in overlayResidency.entries) {
 			val gpuDrawable = entry.gpuDrawable
+
 			if (!gpuDrawable.visible) {
 				continue
 			}
+
 			fillDeform(deformScratch, gpuDrawable)
 			texturesScratch.atlas = null
 			texturesScratch.maskCoverage = null
@@ -98,6 +103,7 @@ internal class MeshOverlayEncoder(
 			texturesScratch.warpControlPoints = gpuDrawable.cpTexture
 			capture.captureDeformedPositions(gpuDrawable.mesh, deformScratch, texturesScratch, entry.baseOffset, gpuDrawable.vertexCount)
 		}
+
 		capture.end()
 		frame.barrier(store)
 		overlayResidency.storeStale = false
@@ -163,10 +169,13 @@ internal class MeshOverlayEncoder(
 		if (entries.isEmpty()) {
 			return
 		}
+
 		if (overlay.kind == MeshOverlayKind.Islands) {
 			drawIslands(pass, overlay, entries, store, frame)
+
 			return
 		}
+
 		val palette = frame.palette
 		val sizes = overlay.sizes
 		val editing = overlay.kind == MeshOverlayKind.Edit
@@ -198,18 +207,23 @@ internal class MeshOverlayEncoder(
 		// wrote one, so its edges leave out what a drawable in front covers; the cage is never culled, and a
 		// wireframe entry the order does not know (its drawable not drawn this frame) draws whole.
 		val orderTexture = frame.orderTexture
+
 		for (entry in entries) {
 			val faded = overlay.kind.drawsAsWireframe(entry.wireframeOnly)
+
 			if (faded && wireframeHidden) {
 				continue
 			}
+
 			setColors(palette.edgeIdle, palette.edgeSelected, palette.edgeActive, opaque = false, alphaScale = if (faded) frame.wireframeOpacity else 1f)
 			batch(entry)
 			val cullOrder = if (faded && orderTexture != null) frame.drawOrderOf[entry.drawableId] ?: -1 else -1
 			uniformsScratch.cullOrder = cullOrder
 			pass.drawOverlayEdges(entry.buffers, store, uniformsScratch, if (cullOrder >= 0) orderTexture else null)
 		}
+
 		uniformsScratch.cullOrder = -1
+
 		if (editing) {
 			setColors(palette.edgeIdle, palette.edgeSelected, palette.edgeActive, opaque = false)
 			forEachCageEntry(entries) { entry ->
@@ -289,12 +303,14 @@ internal class MeshOverlayEncoder(
 		if (frame.wireframeOpacity <= 0f) {
 			return
 		}
+
 		val palette = frame.palette
 		val alphaScale = frame.wireframeOpacity
 		val edgeHalfWidth = overlay.sizes.edgeWidthPx * frame.pixelScale / 2f
 		uniformsScratch.viewportWidth = frame.viewportWidth.toFloat()
 		uniformsScratch.viewportHeight = frame.viewportHeight.toFloat()
 		uniformsScratch.fillIdle = true
+
 		for (entry in entries) {
 			val style = entry.islandStyle
 			val fill =

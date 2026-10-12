@@ -82,10 +82,13 @@ fun FileDropTarget(onDrop: (List<String>) -> Unit, content: @Composable () -> Un
 
 				override fun onDrop(event: DragAndDropEvent): Boolean {
 					val paths = event.droppedFilePaths()
+
 					if (paths.isEmpty()) {
 						return false
 					}
+
 					currentOnDrop(paths)
+
 					return true
 				}
 			}
@@ -97,6 +100,7 @@ fun FileDropTarget(onDrop: (List<String>) -> Unit, content: @Composable () -> Un
 		),
 	) {
 		content()
+
 		if (dragOver) {
 			Box(
 				Modifier

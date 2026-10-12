@@ -164,6 +164,7 @@ fun TrackSheet(
 			formatTick = formatTick,
 			markRadius = markRadius,
 		)
+
 		for (line in lines) {
 			key(line.row.key) {
 				TrackSheetRow(

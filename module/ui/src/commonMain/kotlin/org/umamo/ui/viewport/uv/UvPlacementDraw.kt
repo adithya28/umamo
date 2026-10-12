@@ -34,12 +34,16 @@ internal fun DrawScope.drawPlacementCollisions(
 	if (capture == null || result == null) {
 		return
 	}
+
 	val warningStroke = Stroke(width = 2f)
+
 	for (mover in capture.movers) {
 		val placement = result.placementByTile[mover.tileId] ?: continue
+
 		if (mover.tileId in result.paintingTileIds) {
 			drawContours(mover.contours, placement, capture.pageHeight, camera, size, warningColor, warningStroke)
 		}
+
 		if (mover.tileId in result.offPageTileIds) {
 			drawTileQuad(mover.trim, placement, capture.pageHeight, camera, size) { quad ->
 				drawPath(quad, warningColor, style = warningStroke)
@@ -62,6 +66,7 @@ internal fun DrawScope.drawPlacementCollisions(
 private fun tileToScreen(tileX: Float, tileY: Float, tileToDisplay: FloatArray, camera: ViewportCamera, size: IntSize): Offset {
 	val displayX = tileToDisplay[0] * tileX + tileToDisplay[1] * tileY + tileToDisplay[2]
 	val displayY = tileToDisplay[3] * tileX + tileToDisplay[4] * tileY + tileToDisplay[5]
+
 	return worldToScreen(displayX, displayY, camera, size)
 }
 
@@ -91,10 +96,12 @@ private fun DrawScope.drawTileQuad(
 	val quad = Path()
 	val first = tileToScreen(left, top, tileToDisplay, camera, size)
 	quad.moveTo(first.x, first.y)
+
 	for ((cornerX, cornerY) in listOf(right to top, right to bottom, left to bottom)) {
 		val corner = tileToScreen(cornerX, cornerY, tileToDisplay, camera, size)
 		quad.lineTo(corner.x, corner.y)
 	}
+
 	quad.close()
 	draw(quad)
 }
@@ -121,21 +128,27 @@ private fun DrawScope.drawContours(
 	stroke: Stroke,
 ) {
 	val tileToDisplay = tileToDisplayAffine(placement, pageHeight)
+
 	for (contour in contours) {
 		if (contour.points.size < 6) {
 			continue
 		}
+
 		val outline = Path()
 		var pointIndex = 0
+
 		while (pointIndex + 1 < contour.points.size) {
 			val screen = tileToScreen(contour.points[pointIndex].toFloat(), contour.points[pointIndex + 1].toFloat(), tileToDisplay, camera, size)
+
 			if (pointIndex == 0) {
 				outline.moveTo(screen.x, screen.y)
 			} else {
 				outline.lineTo(screen.x, screen.y)
 			}
+
 			pointIndex += 2
 		}
+
 		outline.close()
 		drawPath(outline, color, style = stroke)
 	}

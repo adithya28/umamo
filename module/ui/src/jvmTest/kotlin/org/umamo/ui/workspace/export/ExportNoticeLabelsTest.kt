@@ -127,6 +127,7 @@ class ExportNoticeLabelsTest {
 	@Test
 	fun everyPhraseSuppliesExactlyThePlaceholdersItsTemplateHas() {
 		val placeholderCounts = placeholderCountsByKey()
+
 		for (reason in sampleReasons) {
 			val phrase = exportNoticeReasonPhrase(reason)
 			val key = phrase.resource.key
@@ -153,11 +154,13 @@ class ExportNoticeLabelsTest {
 		val counts = HashMap<String, Int>()
 		val stringPattern = Regex("""<string name="([^"]+)">(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
 		val placeholderPattern = Regex("""%(\d+)\$""")
+
 		for (match in stringPattern.findAll(text)) {
 			val key = match.groupValues[1]
 			val body = match.groupValues[2]
 			counts[key] = placeholderPattern.findAll(body).map { it.groupValues[1] }.toSet().size
 		}
+
 		return counts
 	}
 }

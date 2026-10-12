@@ -51,6 +51,7 @@ class SourcesDropTest {
 		controller.reportBounds(targetKey, Rect(0f, 22f, 100f, 44f))
 		controller.start(draggedKey, payload, 50f, 11f)
 		controller.drag(50f, 33f)
+
 		return controller
 	}
 

@@ -50,6 +50,7 @@ class DrawableSpaceMappingTest {
 	/** 2x4 world rectangle at (10,20): the same 1x1 quad lattice the evaluator's warp routing test uses. */
 	private fun warpDeformer(): Deformer.Warp {
 		val controlPoints = floatArrayOf(10f, 20f, 12f, 20f, 10f, 24f, 12f, 24f)
+
 		return Deformer.Warp(DeformerId("W"), "W", null, null, 1, 1, true, KeyformGrid(axis(), listOf(KeyformCell(intArrayOf(0), WarpLatticeForm(controlPoints)))))
 	}
 
@@ -113,10 +114,13 @@ class DrawableSpaceMappingTest {
 		val mapping = assertNotNull(drawableSpaceMapping(puppet, emptyMap(), drawableId))
 		val world = mapping.localToWorld(local)
 		val evaluatorWorld = CpuDeformationEvaluator().evaluate(puppet, emptyMap()).worldPositions.getValue(drawableId)
+
 		for (coordIndex in world.indices) {
 			assertEquals(evaluatorWorld[coordIndex], world[coordIndex], tol, "forward coord $coordIndex matches the evaluator")
 		}
+
 		val recovered = mapping.worldToLocal(world, FloatArray(local.size), setOf(0, 1))
+
 		for (coordIndex in local.indices) {
 			assertEquals(local[coordIndex], recovered[coordIndex], tol, "inverse coord $coordIndex round-trips")
 		}
@@ -207,6 +211,7 @@ class DrawableSpaceMappingTest {
 		val worldRest = mapping.localToWorld(local)
 
 		var previousLocalU = Float.NaN
+
 		for (frame in 1..200) {
 			val worldTarget =
 				worldRest.copyOf().also {
@@ -218,10 +223,12 @@ class DrawableSpaceMappingTest {
 			// Follows: the reach-uncapped inverse lands the vertex on the moving target (never pins).
 			assertEquals(worldTarget[0], reprojected[0], 1f, "swept grab follows the target x (frame $frame)")
 			assertEquals(worldTarget[1], reprojected[1], 1f, "swept grab follows the target y (frame $frame)")
+
 			if (!previousLocalU.isNaN()) {
 				// No boil: the solved coordinate advances in a bounded step, never jittering / scattering.
 				assertTrue(abs(solved[0] - previousLocalU) < 1f, "solved u advances smoothly, no boil (frame $frame)")
 			}
+
 			previousLocalU = solved[0]
 		}
 	}
@@ -241,10 +248,13 @@ class DrawableSpaceMappingTest {
 			}
 		val directSolved = directMapping.worldToLocalLinearized(directTarget, directLocal, directRest, setOf(0, 1))
 		val directReprojected = directMapping.localToWorld(directSolved)
+
 		for (coordIndex in directTarget.indices) {
 			assertEquals(directTarget[coordIndex], directReprojected[coordIndex], tol, "direct reprojects onto target")
 		}
+
 		val directClosed = directMapping.worldToLocal(directTarget, directLocal, setOf(0, 1))
+
 		for (coordIndex in directSolved.indices) {
 			assertEquals(directClosed[coordIndex], directSolved[coordIndex], tol, "direct agrees with the closed form")
 		}
@@ -289,6 +299,7 @@ class DrawableSpaceMappingTest {
 
 		val solved = mapping.worldToLocalLinearized(worldTarget, local, worldRest, setOf(0, 1))
 		val reprojected = mapping.localToWorld(solved)
+
 		for (coordIndex in worldTarget.indices) {
 			assertEquals(worldTarget[coordIndex], reprojected[coordIndex], tol, "vertex reprojects exactly onto its world target (coord $coordIndex)")
 		}
@@ -310,19 +321,23 @@ class DrawableSpaceMappingTest {
 		val worldRest = mapping.localToWorld(local)
 		// A large grab: shift every vertex by the same world delta, far past the cage.
 		val worldTarget = worldRest.copyOf()
+
 		for (vertexIndex in 0 until 4) {
 			worldTarget[vertexIndex * 2] += 60f
 			worldTarget[vertexIndex * 2 + 1] += 40f
 		}
+
 		val solved = mapping.worldToLocalLinearized(worldTarget, local, worldRest, indices)
 
 		// Reproject the solved centroid and compare to the target centroid: the gross offset is gone.
 		var centroidU = 0f
 		var centroidV = 0f
+
 		for (vertexIndex in 0 until 4) {
 			centroidU += solved[vertexIndex * 2]
 			centroidV += solved[vertexIndex * 2 + 1]
 		}
+
 		val reprojectedCentroid = mapping.localToWorld(floatArrayOf(centroidU / 4f, centroidV / 4f))
 		val targetCentroidX = (worldTarget[0] + worldTarget[2] + worldTarget[4] + worldTarget[6]) / 4f
 		val targetCentroidY = (worldTarget[1] + worldTarget[3] + worldTarget[5] + worldTarget[7]) / 4f

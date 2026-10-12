@@ -171,13 +171,14 @@ fun transformParameters(
 	proportional: ProportionalRows?,
 ): List<OperatorParameter> {
 	val rows = ArrayList<OperatorParameter>()
+
 	when (kind) {
 		MeshOperatorKind.Grab -> {
 			rows.add(moveRow(TransformParameterKeys.MOVE_X, parameters.deltaX))
 			rows.add(moveRow(space.verticalMoveKey, space.rowVertical(parameters.deltaY)))
 		}
 
-		MeshOperatorKind.Rotate ->
+		MeshOperatorKind.Rotate -> {
 			rows.add(
 				OperatorParameter.FloatParameter(
 					TransformParameterKeys.ANGLE,
@@ -188,17 +189,22 @@ fun transformParameters(
 					unit = ParameterUnit.Degrees,
 				),
 			)
+		}
 
 		MeshOperatorKind.Scale -> {
 			rows.add(scaleRow(TransformParameterKeys.SCALE_X, parameters.factorX))
 			rows.add(scaleRow(space.verticalScaleKey, parameters.factorY))
 		}
 
-		MeshOperatorKind.VertexSlide -> return emptyList()
+		MeshOperatorKind.VertexSlide -> {
+			return emptyList()
+		}
 	}
+
 	if (proportional != null) {
 		rows.addAll(proportionalParameters(proportional))
 	}
+
 	return rows
 }
 
@@ -218,7 +224,7 @@ fun transformGestureParametersOf(
 	parameters: List<OperatorParameter>,
 ): TransformGestureParameters =
 	when (kind) {
-		MeshOperatorKind.Grab ->
+		MeshOperatorKind.Grab -> {
 			TransformGestureParameters(
 				deltaX = parameters.floatValue(TransformParameterKeys.MOVE_X, 0f),
 				deltaY = space.rowVertical(parameters.floatValue(space.verticalMoveKey, 0f)),
@@ -226,8 +232,9 @@ fun transformGestureParametersOf(
 				factorY = 1f,
 				rotationRadians = 0f,
 			)
+		}
 
-		MeshOperatorKind.Rotate ->
+		MeshOperatorKind.Rotate -> {
 			TransformGestureParameters(
 				deltaX = 0f,
 				deltaY = 0f,
@@ -235,8 +242,9 @@ fun transformGestureParametersOf(
 				factorY = 1f,
 				rotationRadians = space.radiansOfRow(parameters.floatValue(TransformParameterKeys.ANGLE, 0f)),
 			)
+		}
 
-		MeshOperatorKind.Scale ->
+		MeshOperatorKind.Scale -> {
 			TransformGestureParameters(
 				deltaX = 0f,
 				deltaY = 0f,
@@ -244,8 +252,11 @@ fun transformGestureParametersOf(
 				factorY = parameters.floatValue(space.verticalScaleKey, 1f),
 				rotationRadians = 0f,
 			)
+		}
 
-		MeshOperatorKind.VertexSlide -> TransformGestureParameters.IDENTITY
+		MeshOperatorKind.VertexSlide -> {
+			TransformGestureParameters.IDENTITY
+		}
 	}
 
 /**
@@ -258,7 +269,9 @@ fun proportionalRowsOf(parameters: List<OperatorParameter>): ProportionalRows? {
 	if (parameters.none { parameter -> parameter.key == TransformParameterKeys.PROPORTIONAL }) {
 		return null
 	}
+
 	val falloffKey = parameters.choiceValue(TransformParameterKeys.FALLOFF, ProportionalFalloff.Smooth.choiceKey)
+
 	return ProportionalRows(
 		enabled = parameters.booleanValue(TransformParameterKeys.PROPORTIONAL, false),
 		falloff = ProportionalFalloff.entries.firstOrNull { falloff -> falloff.choiceKey == falloffKey } ?: ProportionalFalloff.Smooth,
@@ -282,6 +295,7 @@ fun rederiveProportionalHalos(transform: ModalTransformCapture, parameters: List
 	val rows = proportionalRowsOf(parameters) ?: return null
 	val state = rows.asState()
 	transform.applyProportional(state, state?.radiusWorld ?: 0f)
+
 	return rows
 }
 

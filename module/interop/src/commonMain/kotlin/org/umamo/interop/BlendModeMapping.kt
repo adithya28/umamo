@@ -187,10 +187,17 @@ internal fun legacyBlendFlagOf(mode: BlendMode): Int =
  */
 internal fun nearestLegacyBlendMode(mode: BlendMode): BlendMode =
 	when (mode) {
-		BlendMode.AdditivePremultiplied, BlendMode.Additive, BlendMode.AdditiveGlow ->
+		BlendMode.AdditivePremultiplied, BlendMode.Additive, BlendMode.AdditiveGlow -> {
 			BlendMode.AdditivePremultiplied
-		BlendMode.MultiplyPremultiplied, BlendMode.Multiply -> BlendMode.MultiplyPremultiplied
-		else -> BlendMode.Normal
+		}
+
+		BlendMode.MultiplyPremultiplied, BlendMode.Multiply -> {
+			BlendMode.MultiplyPremultiplied
+		}
+
+		else -> {
+			BlendMode.Normal
+		}
 	}
 
 /**
@@ -257,5 +264,6 @@ internal fun packedBlendOf(color: BlendMode, alpha: AlphaBlendMode): Int {
 			AlphaBlendMode.Conjoint -> 3
 			AlphaBlendMode.Disjoint -> 4
 		}
+
 	return colorMode or (alphaMode shl 8)
 }

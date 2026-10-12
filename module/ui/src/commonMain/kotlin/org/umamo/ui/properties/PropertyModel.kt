@@ -39,6 +39,7 @@ class PropertyContext(
  */
 fun PropertyContext.activeDrawable(): Drawable? {
 	val target = activeTarget as? SelectionTarget.Drawable ?: return null
+
 	return puppet.drawables.firstOrNull { drawable -> drawable.id == target.id }
 }
 
@@ -50,6 +51,7 @@ fun PropertyContext.activeDrawable(): Drawable? {
  */
 fun PropertyContext.activeDeformer(): Deformer? {
 	val target = activeTarget as? SelectionTarget.Deformer ?: return null
+
 	return puppet.deformers.firstOrNull { deformer -> deformer.id == target.id }
 }
 
@@ -61,6 +63,7 @@ fun PropertyContext.activeDeformer(): Deformer? {
  */
 fun PropertyContext.activePart(): Part? {
 	val target = activeTarget as? SelectionTarget.Part ?: return null
+
 	return puppet.parts.firstOrNull { part -> part.id == target.id }
 }
 

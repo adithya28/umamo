@@ -159,6 +159,7 @@ internal fun OutlinerRowView(
 		if (target != null) {
 			session?.rename(target, newName)
 		}
+
 		onRenameEnd()
 	}
 	val body =
@@ -188,6 +189,7 @@ internal fun OutlinerRowView(
 				hoverPreview = hoverPreview,
 			)
 		}
+
 	if (target == null) {
 		body()
 	} else {
@@ -300,6 +302,7 @@ private fun OutlinerRowBody(
 	val relationPick = LocalRelationPick.current
 	LaunchedEffect(hovered, node.target) {
 		val target = node.target ?: return@LaunchedEffect
+
 		if (hovered) {
 			relationPick.hover(target)
 		} else {
@@ -311,6 +314,7 @@ private fun OutlinerRowBody(
 	// art, and the synthetic root rows have no entity to report.  A row's target is fixed for its list key,
 	// so the branch never flips under a live row.
 	val hoverTarget = node.target
+
 	if (hoverTarget != null) {
 		ReportRowHover(
 			state = hoverPreview,
@@ -321,6 +325,7 @@ private fun OutlinerRowBody(
 			boundsHolder = boundsHolder,
 		)
 	}
+
 	// Drop this row's drag-hit-test bounds when it scrolls off, so a drop never targets an off-screen row.
 	DisposableEffect(node.id) {
 		onDispose { dragController.clearBounds(node.id) }
@@ -432,6 +437,7 @@ private fun OutlinerRowBody(
 				)
 			}
 		}
+
 		// Selectability applies to any real entity (deformers included), so its column covers every real
 		// row; the eye only parts / drawables.  The filter dropdown's restriction toggles gate each column
 		// wholesale - a hidden column composes nothing, so its slot vanishes and a click there selects the
@@ -444,6 +450,7 @@ private fun OutlinerRowBody(
 				onToggle = onToggleSelectable,
 			)
 		}
+
 		if (showVisibilityColumn && showEye) {
 			VisibilityIndicator(
 				hidden = node.dimmed,
@@ -452,6 +459,7 @@ private fun OutlinerRowBody(
 				onToggle = onToggleVisibility,
 			)
 		}
+
 		if (node.target != null) {
 			Spacer(modifier = Modifier.width(OUTLINER_TRAILING_GAP))
 		}
@@ -474,6 +482,7 @@ private fun Modifier.outlinerAncestryGuides(depth: Int, rowIndex: () -> Int, col
 		if (depth == 0) {
 			return@drawBehind
 		}
+
 		// Drawn inside the row's band inset, so widen back out to the row's own frame: the guides run its full
 		// height and join the next row's.
 		inset(-OUTLINER_ROW_BAND_INSET.toPx()) {
@@ -489,6 +498,7 @@ private fun Modifier.outlinerAncestryGuides(depth: Int, rowIndex: () -> Int, col
 					(rowIndex() * size.height) % dashPeriodPx,
 				)
 			var ancestorLevel = 0
+
 			while (ancestorLevel < depth) {
 				val lineX = leftEdgePx + indentPx * ancestorLevel + chevronHalfPx
 				drawLine(

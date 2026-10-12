@@ -127,6 +127,7 @@ class PuppetModelDiffTest {
 	/** The field set of a category's single Changed entry, asserting it is the only diff. */
 	private fun <TId, TField> onlyChangedFields(diffs: List<EntityDiff<TId, TField>>): Set<TField> {
 		assertEquals(1, diffs.size)
+
 		return when (val entry = diffs.single()) {
 			is EntityDiff.Changed -> entry.fields
 			else -> fail("expected a Changed entry, got $entry")
@@ -408,6 +409,7 @@ class PuppetModelDiffTest {
 
 		fun fieldsAfter(edited: Glue): Set<GlueField> {
 			val diff = diffPuppetModels(baseline, puppet(drawables = baseline.drawables, glues = listOf(edited))).glues
+
 			return (diff.single() as GlueDiff.Changed).fields
 		}
 		assertEquals(setOf(GlueField.PAIRS), fieldsAfter(Glue(meshA, meshB, listOf(GluePair(0, 0, 0.9f, 0.5f)))))

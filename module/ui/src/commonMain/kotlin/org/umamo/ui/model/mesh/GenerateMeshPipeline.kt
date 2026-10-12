@@ -257,7 +257,9 @@ internal fun planMeshGeneration(base: PuppetModel, targets: Collection<DrawableI
 					continue
 				}
 
-				is RegenerationInput.Ready -> asked
+				is RegenerationInput.Ready -> {
+					asked
+				}
 			}
 		val raster = rasterByTile.getOrPut(input.tileId) { decode(input.tileId) }
 
@@ -611,15 +613,22 @@ private fun allowedReach(trim: LayerBounds?, oldReserve: AtlasPackReserve?): Atl
 	val trimReserve = trim?.let { bounds -> AtlasPackReserve(bounds.left, bounds.top, bounds.left + bounds.width, bounds.top + bounds.height) }
 
 	return when {
-		trimReserve == null -> oldReserve
-		oldReserve == null -> trimReserve
-		else ->
+		trimReserve == null -> {
+			oldReserve
+		}
+
+		oldReserve == null -> {
+			trimReserve
+		}
+
+		else -> {
 			AtlasPackReserve(
 				minOf(trimReserve.left, oldReserve.left),
 				minOf(trimReserve.top, oldReserve.top),
 				maxOf(trimReserve.right, oldReserve.right),
 				maxOf(trimReserve.bottom, oldReserve.bottom),
 			)
+		}
 	}
 }
 

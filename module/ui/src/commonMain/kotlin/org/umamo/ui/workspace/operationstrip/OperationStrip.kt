@@ -117,6 +117,7 @@ internal fun OperationStripHost(areaId: String?, kind: SpaceKind, content: @Comp
 	CompositionLocalProvider(LocalOperationStripInset provides inset) {
 		content()
 	}
+
 	if (session != null && record != null) {
 		Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomStart) {
 			OperationStrip(
@@ -162,6 +163,7 @@ internal fun OperationStrip(
 			expanded = strip.expanded,
 			onToggle = { strip.expanded = !strip.expanded },
 		)
+
 		if (strip.expanded) {
 			// The Properties section body's own insets and row spacing, so a strip row and a panel row
 			// sit identically inside their card.
@@ -198,6 +200,7 @@ private fun OperationParameterRow(
 ) {
 	val label = operatorParameterLabel(parameter.labelKey)
 	val description = operatorParameterDescription(parameter.labelKey)
+
 	when (parameter) {
 		is OperatorParameter.IntParameter -> {
 			val unitSuffix = parameterUnitSuffix(parameter.unit)
@@ -212,6 +215,7 @@ private fun OperationParameterRow(
 				)
 			}
 		}
+
 		is OperatorParameter.FloatParameter -> {
 			val unitSuffix = parameterUnitSuffix(parameter.unit)
 			PropertyFieldRow(label, description = description) {
@@ -226,6 +230,7 @@ private fun OperationParameterRow(
 				)
 			}
 		}
+
 		is OperatorParameter.BooleanParameter -> {
 			PropertyCheckboxRow(
 				checked = parameter.value,
@@ -234,6 +239,7 @@ private fun OperationParameterRow(
 				description = description,
 			)
 		}
+
 		is OperatorParameter.ChoiceParameter -> {
 			// Choice labels resolve here, in composable scope, because the dropdown's label lambda is not one.
 			val labelByKey =

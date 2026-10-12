@@ -146,6 +146,7 @@ internal fun TrackLane(
 			// sheet above it.
 			drawTrackLane(marks, axis, playhead, markRadiusPx, colors, drag.mark, drag.value, selectedMarkDragDelta())
 		}
+
 		if (laneMenuItems != null && menuOpen && laneWidth > 0) {
 			val menuValue = domainAt(menuAnchor.x.toFloat(), axis, laneWidth, markRadiusPx)
 			val menuMark = nearestMark(marks, menuValue, pickTolerance(axis, laneWidth, markRadiusPx))

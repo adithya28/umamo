@@ -74,9 +74,11 @@ private val TAB_STRIP_WIDTH = 32.dp
 @Composable
 fun PropertiesSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 	val puppet = LocalPuppet.current
+
 	if (puppet == null) {
 		return
 	}
+
 	val selection = LocalSelection.current?.selection ?: Selection()
 	// Per-item tabs need one focused item; a multi-selection or empty selection leaves only Document.
 	val activeTarget =
@@ -160,6 +162,7 @@ fun PropertiesSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 											!(viewState.expandedSections[section.id] ?: true)
 									},
 								)
+
 								if (expanded) {
 									Column(
 										modifier =
@@ -223,18 +226,23 @@ private fun buildVisibilityIndex(
 	query: String,
 ): Map<PropertyTabId, List<VisibleSection>> {
 	val index = LinkedHashMap<PropertyTabId, List<VisibleSection>>(visibleTabs.size)
+
 	for (tab in visibleTabs) {
 		val survivors = ArrayList<VisibleSection>()
+
 		for (section in tab.sections(context)) {
 			val rows = section.rows(context)
 			val rowTerms = rows.map { row -> row.terms.map { term -> stringResource(term) } }
 			val visibility = sectionVisibility(stringResource(section.title), rowTerms, query)
+
 			if (visibility.shown) {
 				survivors.add(VisibleSection(section, rows, visibility.visibleRowIndices))
 			}
 		}
+
 		index[tab.id] = survivors
 	}
+
 	return index
 }
 
@@ -316,7 +324,9 @@ private fun resolveActiveTab(
 ): PropertyTabId {
 	if (searching) {
 		val keepStored = stripTabs.firstOrNull { tab -> tab.id == stored }
+
 		return (keepStored ?: stripTabs.firstOrNull())?.id ?: PropertyTabId.Document
 	}
+
 	return if (visibleTabs.any { tab -> tab.id == stored }) stored else PropertyTabId.Document
 }

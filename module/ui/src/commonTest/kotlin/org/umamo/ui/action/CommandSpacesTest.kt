@@ -14,6 +14,7 @@ class CommandSpacesTest {
 		for (kind in SpaceKind.entries) {
 			assertTrue(CommandSpaces.Everywhere.appliesIn(kind), "Everywhere must cover $kind")
 		}
+
 		assertTrue(CommandSpaces.Everywhere.appliesIn(null), "a command that routes by nothing needs no surface")
 	}
 
@@ -21,6 +22,7 @@ class CommandSpacesTest {
 	@Test
 	fun aScopedCommandAppliesOnlyInItsSpaces() {
 		val spaces = CommandSpaces.of(SpaceKind.Viewport2D, SpaceKind.KeyformSheet)
+
 		for (kind in SpaceKind.entries) {
 			val expected = kind == SpaceKind.Viewport2D || kind == SpaceKind.KeyformSheet
 			assertTrue(spaces.appliesIn(kind) == expected, "$kind should ${if (expected) "" else "not "}be covered")

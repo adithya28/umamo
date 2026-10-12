@@ -104,9 +104,11 @@ internal class UmaAccessor(
 		 */
 		fun of(element: JsonElement): UmaAccessor? {
 			val candidate = element as? JsonObject ?: return null
+
 			if (candidate.size != 5) {
 				return null
 			}
+
 			return UmaAccessor(
 				buffer = jsonStringOrNull(candidate[BUFFER_KEY]) ?: return null,
 				byteOffset = sizeOf(candidate[BYTE_OFFSET_KEY]) ?: return null,
@@ -140,19 +142,24 @@ internal fun firstAccessorProblem(tree: JsonElement, buffers: (String) -> ByteAr
 	UmaAccessor.of(tree)?.let { accessor ->
 		val bytes = buffers(accessor.buffer) ?: return "$path names the buffer '${accessor.buffer}', which the archive does not hold"
 		val componentSize = UmaComponentType.sizeOf(accessor.componentType)
+
 		if (componentSize != null) {
 			if (accessor.byteLength.toLong() != accessor.count.toLong() * componentSize) {
 				return "$path declares ${accessor.count} ${accessor.componentType} components in ${accessor.byteLength} bytes"
 			}
+
 			if (accessor.byteOffset % componentSize != 0) {
 				return "$path starts at byte ${accessor.byteOffset}, which is not aligned to ${accessor.componentType}"
 			}
 		}
+
 		if (accessor.byteOffset.toLong() + accessor.byteLength > bytes.size) {
 			return "$path reaches byte ${accessor.byteOffset.toLong() + accessor.byteLength} of '${accessor.buffer}', which holds ${bytes.size}"
 		}
+
 		return null
 	}
+
 	when (tree) {
 		is JsonObject -> {
 			for ((key, value) in tree) {
@@ -168,6 +175,7 @@ internal fun firstAccessorProblem(tree: JsonElement, buffers: (String) -> ByteAr
 
 		else -> {}
 	}
+
 	return null
 }
 
@@ -185,9 +193,11 @@ internal class UmaScratchBuffer {
 	 */
 	fun appendFloats(values: FloatArray): UmaAccessor {
 		val offset = output.size.toInt()
+
 		for (value in values) {
 			output.writeIntLe(value.toRawBits())
 		}
+
 		return UmaAccessor(UmaAccessor.SCRATCH_BUFFER, offset, values.size * 4, values.size, UmaComponentType.FLOAT32)
 	}
 
@@ -199,9 +209,11 @@ internal class UmaScratchBuffer {
 	 */
 	fun appendInts(values: IntArray): UmaAccessor {
 		val offset = output.size.toInt()
+
 		for (value in values) {
 			output.writeIntLe(value)
 		}
+
 		return UmaAccessor(UmaAccessor.SCRATCH_BUFFER, offset, values.size * 4, values.size, UmaComponentType.INT32)
 	}
 
@@ -250,20 +262,25 @@ internal fun layOutBuffer(tree: JsonElement, ownedPath: String, sources: (String
 	 */
 	fun rewrite(element: JsonElement): JsonElement {
 		val accessor = UmaAccessor.of(element)
+
 		if (accessor != null) {
 			val source = checkNotNull(sources(accessor.buffer)) { "an accessor names the buffer '${accessor.buffer}', which is not available" }
 			check(accessor.byteOffset.toLong() + accessor.byteLength <= source.size) { "an accessor reaches past the end of '${accessor.buffer}'" }
 			// UMA §4.9: each array starts on a multiple of its component size.  A type this reader does not know aligns to
 			// 8, a multiple of every component size a newer reader may check it against.
 			val alignment = UmaComponentType.sizeOf(accessor.componentType) ?: UNKNOWN_COMPONENT_ALIGNMENT
+
 			while (output.size % alignment != 0L) {
 				output.writeByte(0)
 			}
+
 			val offset = output.size.toInt()
 			output.write(source, accessor.byteOffset, accessor.byteLength)
 			accessorCount++
+
 			return UmaAccessor(ownedPath, offset, accessor.byteLength, accessor.count, accessor.componentType).toJson()
 		}
+
 		return when (element) {
 			is JsonObject -> JsonObject(element.mapValuesTo(LinkedHashMap()) { (_, value) -> rewrite(value) })
 			is JsonArray -> JsonArray(element.map(::rewrite))
@@ -272,6 +289,7 @@ internal fun layOutBuffer(tree: JsonElement, ownedPath: String, sources: (String
 	}
 	val rewritten = rewrite(tree)
 	check(output.size <= Int.MAX_VALUE - 8L) { "the buffer '$ownedPath' exceeds what a byte array can hold" }
+
 	return UmaBufferLayout(rewritten, output.readByteArray(), accessorCount > 0)
 }
 
@@ -307,6 +325,7 @@ private class Float32AccessorSerializer(
 	override fun deserialize(decoder: Decoder): FloatArray {
 		val (accessor, bytes) = resolveAccessor(decoder, UmaComponentType.FLOAT32, buffers)
 		val reader = ByteReader(bytes, littleEndian = true)
+
 		return FloatArray(accessor.count) { componentIndex -> Float.fromBits(reader.u32AsInt(accessor.byteOffset + componentIndex * 4)) }
 	}
 }
@@ -343,6 +362,7 @@ private class Int32AccessorSerializer(
 	override fun deserialize(decoder: Decoder): IntArray {
 		val (accessor, bytes) = resolveAccessor(decoder, UmaComponentType.INT32, buffers)
 		val reader = ByteReader(bytes, littleEndian = true)
+
 		return IntArray(accessor.count) { componentIndex -> reader.u32AsInt(accessor.byteOffset + componentIndex * 4) }
 	}
 }
@@ -360,13 +380,17 @@ private class Int32AccessorSerializer(
 private fun resolveAccessor(decoder: Decoder, componentType: String, buffers: (String) -> ByteArray?): Pair<UmaAccessor, ByteArray> {
 	val element = (decoder as JsonDecoder).decodeJsonElement()
 	val accessor = UmaAccessor.of(element) ?: throw SerializationException("expected a $componentType accessor, found $element")
+
 	if (accessor.componentType != componentType) {
 		throw SerializationException("expected a $componentType accessor, found ${accessor.componentType}")
 	}
+
 	val bytes = buffers(accessor.buffer) ?: throw SerializationException("the accessor names the buffer '${accessor.buffer}', which the archive does not hold")
+
 	if (accessor.byteLength.toLong() != accessor.count.toLong() * 4 || accessor.byteOffset.toLong() + accessor.byteLength > bytes.size) {
 		throw SerializationException("the $componentType accessor does not fit the buffer '${accessor.buffer}'")
 	}
+
 	return accessor to bytes
 }
 

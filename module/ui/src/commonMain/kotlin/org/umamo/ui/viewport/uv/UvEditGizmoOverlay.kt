@@ -117,9 +117,11 @@ internal fun UvEditGizmoOverlay(
 	val proportionalEditState = session.proportionalEdit.collectAsState()
 	val renderSync = LocalPuppetRenderSync.current
 	val overlayColors = LocalUmamoColors.current
+
 	if (mode != EditorMode.Edit || camera == null) {
 		return
 	}
+
 	val overlayStyle = selectionOverlayStyle(overlayColors)
 
 	// Live values the long-running pointer loop, the per-area holders, and the effects read (they are keyed
@@ -151,6 +153,7 @@ internal fun UvEditGizmoOverlay(
 		LaunchedEffect(activeOperator, activeSelectTool) {
 			dropUvEditLatchesWithNothingToEdit(areaId, session)
 		}
+
 		return
 	}
 
@@ -187,6 +190,7 @@ internal fun UvEditGizmoOverlay(
 			if (modalTransform.abandon()) {
 				liveRenderSync.value?.resync()
 			}
+
 			marquee.discard()
 			meshPick.cancel()
 		}
@@ -235,6 +239,7 @@ internal fun UvEditGizmoOverlay(
 	// effect runs.
 	LaunchedEffect(activeOperator) {
 		val operator = activeOperator?.takeIf { latched -> latched.areaId == areaId }
+
 		if (operator != null) {
 			modalTransform.begin(operator.kind, liveGeometries.value, session.meshSelection.value, liveFrame.value)
 		} else {

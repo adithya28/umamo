@@ -105,11 +105,13 @@ fun sessionViewStateOf(tree: JsonObject?): SessionViewState? {
 	if (tree == null) {
 		return null
 	}
+
 	val selection = tree["selection"] as? JsonObject
 	val targets = selection?.let { block -> stringListOf(block, "targets") }.orEmpty().mapNotNullTo(LinkedHashSet(), ::selectionTargetOf)
 	val parameterSelection = tree["parameterSelection"] as? JsonObject
 	val parameterIds = parameterSelection?.let { block -> stringListOf(block, "ids") }.orEmpty().mapTo(LinkedHashSet(), ::ParameterId)
 	val proportional = tree["proportional"] as? JsonObject
+
 	return SessionViewState(
 		selection = Selection(targets, selection?.let { block -> stringOf(block, "active") }?.let(::selectionTargetOf)),
 		parameterSelection = ParameterSelection(parameterIds, parameterSelection?.let { block -> stringOf(block, "active") }?.let(::ParameterId)),
@@ -140,12 +142,14 @@ fun sessionViewStateOf(tree: JsonObject?): SessionViewState? {
 fun savedPoseOf(tree: JsonObject?): Map<ParameterId, Float> {
 	val entries = tree?.get("pose") as? JsonArray ?: return emptyMap()
 	val pose = LinkedHashMap<ParameterId, Float>()
+
 	for (entry in entries) {
 		val block = entry as? JsonObject ?: continue
 		val parameterId = stringOf(block, "parameter") ?: continue
 		val value = finiteFloatOf(block["value"]) ?: continue
 		pose[ParameterId(parameterId)] = value
 	}
+
 	return pose
 }
 

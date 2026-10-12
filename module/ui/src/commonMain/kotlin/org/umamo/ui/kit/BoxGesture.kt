@@ -132,14 +132,17 @@ internal class BoxGestureFlow<Frame>(private val surface: BoxGestureSurface<Fram
 		if (boxing && armed != startedArmed) {
 			cancel()
 		}
+
 		when (event.type) {
-			PointerEventType.Press ->
+			PointerEventType.Press -> {
 				if (event.buttons.isSecondaryPressed) {
 					if (boxing) {
 						cancel()
+
 						if (armed) {
 							surface.disarm()
 						}
+
 						change.consume()
 					} else if (armed) {
 						surface.disarm()
@@ -160,36 +163,46 @@ internal class BoxGestureFlow<Frame>(private val surface: BoxGestureSurface<Fram
 						change.consume()
 					}
 				}
+			}
 
-			PointerEventType.Move ->
+			PointerEventType.Move -> {
 				if (boxing) {
 					surface.dragBox(change.position)
 					change.consume()
 				}
+			}
 
-			PointerEventType.Release ->
+			PointerEventType.Release -> {
 				if (boxing) {
 					if (change.isConsumed) {
 						cancel()
+
 						return
 					}
+
 					// The box lands BEFORE the flag drops and a click runs after it, so a landing that
 					// commits a selection still sees the gesture as in flight.
 					val landed = (change.position - pressPosition).getDistance() > SELECT_DRAG_THRESHOLD_PX
+
 					if (landed) {
 						surface.landBox(pressPosition, change.position, event.keyboardModifiers.isShiftPressed, frame)
 					}
+
 					boxing = false
 					surface.setGestureActive(false)
+
 					if (!landed && !armed) {
 						surface.click(event, change)
 					}
+
 					if (armed) {
 						// Armed Box-select is one-shot: disarm after the drag (or a bare click).
 						surface.disarm()
 					}
+
 					change.consume()
 				}
+			}
 
 			else -> {}
 		}
@@ -203,6 +216,7 @@ internal class BoxGestureFlow<Frame>(private val surface: BoxGestureSurface<Fram
 		if (!boxing) {
 			return
 		}
+
 		surface.abandonBox()
 		boxing = false
 		surface.setGestureActive(false)

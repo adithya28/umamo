@@ -63,11 +63,13 @@ class MergeAdjustTest {
 				activeElement = ActiveMeshElement(drawableId, MeshElement.Vertex(1)),
 			),
 		)
+
 		return session
 	}
 
 	private fun survivor(session: EditorSession): Pair<Float, Float> {
 		val positions = session.model.value.drawables.single().mesh!!.positions
+
 		// The survivor appends last: the two kept vertices come first.
 		return positions[4] to positions[5]
 	}

@@ -43,20 +43,27 @@ internal class EditableUvCoverage(val mesh: DrawableMesh, val vertexIndices: Set
  */
 internal fun editableUvCoverage(selection: MeshSelection, model: PuppetModel, shownDrawableIds: Set<DrawableId>?): Map<DrawableId, EditableUvCoverage> {
 	val coverage = LinkedHashMap<DrawableId, EditableUvCoverage>()
+
 	for (drawableId in selection.drawableIds) {
 		if (shownDrawableIds != null && drawableId !in shownDrawableIds) {
 			continue
 		}
+
 		val mesh = model.meshOf(drawableId) ?: continue
+
 		if (mesh.uvs.isEmpty() || mesh.uvs.size != mesh.positions.size) {
 			continue
 		}
+
 		val covered = MeshTopology.coveredVertexIndices(selection.elementsOf(drawableId), mesh.indices)
+
 		if (covered.isEmpty()) {
 			continue
 		}
+
 		coverage[drawableId] = EditableUvCoverage(mesh, covered)
 	}
+
 	return coverage
 }
 
@@ -91,22 +98,29 @@ fun EditorSession.mirrorSelectedUvs(mirrorU: Boolean, frame: UvFrame? = null, sh
 	if (mode.value != EditorMode.Edit) {
 		return
 	}
+
 	val selection = meshSelection.value
+
 	if (selection.isEmpty) {
 		// Speaks up, unlike the mode guard above: reaching Mirror with an empty selection is an ordinary
 		// mistake a rigger makes, where a request arriving outside Edit mode is stale bus traffic the
 		// palette already gates.
 		emitNotice("notice.uv.noSelection", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	val model = model.value
 	// Each session mesh's covered vertices, by the rule the UV operator latch asked (editableUvCoverage),
 	// so a latched gesture always finds something to mirror.
 	val coverage = editableUvCoverage(selection, model, shownDrawableIds)
+
 	if (coverage.isEmpty()) {
 		emitNotice("notice.uv.noUvs", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	val coveredByDrawable = coverage.mapValues { (_, covered) -> covered.vertexIndices }
 	val meshByDrawable = coverage.mapValues { (_, covered) -> covered.mesh }
 	// The whole operation runs in the authoring frame: pivots, island medians, and the reflection
@@ -120,6 +134,7 @@ fun EditorSession.mirrorSelectedUvs(mirrorU: Boolean, frame: UvFrame? = null, sh
 			resolveUvMirrorPivot(coveredByDrawable, meshByDrawable, frameUvsByDrawable, selection, frame)
 		}
 	val newUvsByDrawable = LinkedHashMap<DrawableId, FloatArray>()
+
 	for ((drawableId, covered) in coveredByDrawable) {
 		val mesh = meshByDrawable.getValue(drawableId)
 		val frameUvs = frameUvsByDrawable.getValue(drawableId)
@@ -130,6 +145,7 @@ fun EditorSession.mirrorSelectedUvs(mirrorU: Boolean, frame: UvFrame? = null, sh
 				TransformPivots.sharedGroup(covered, sharedPivot.first, sharedPivot.second)
 			}
 		var mirroredUvs = frameUvs
+
 		for (group in groups) {
 			mirroredUvs =
 				MeshTransforms.scaleVerticesAxis(
@@ -141,6 +157,7 @@ fun EditorSession.mirrorSelectedUvs(mirrorU: Boolean, frame: UvFrame? = null, sh
 					group.pivotY,
 				)
 		}
+
 		// Back to the stored form, then overwrite ONLY the covered vertices onto the current stored
 		// array: a frame round trip is exact in the reals but not in floats, so rebuilding from the
 		// stored values is what keeps an untouched vertex bit-identical (and out of the export's
@@ -148,12 +165,15 @@ fun EditorSession.mirrorSelectedUvs(mirrorU: Boolean, frame: UvFrame? = null, sh
 		// straight copy of the moved components.
 		val storedMirrored = frame?.fromFrame(mirroredUvs) ?: mirroredUvs
 		val newUvs = mesh.uvs.copyOf()
+
 		for (vertexIndex in covered) {
 			newUvs[vertexIndex * 2] = storedMirrored[vertexIndex * 2]
 			newUvs[vertexIndex * 2 + 1] = storedMirrored[vertexIndex * 2 + 1]
 		}
+
 		newUvsByDrawable[drawableId] = newUvs
 	}
+
 	commitMeshUvs(MeshChange.MirrorUvs(newUvsByDrawable.keys.toList(), mirrorU), newUvsByDrawable)
 }
 
@@ -183,6 +203,7 @@ private fun EditorSession.resolveUvMirrorPivot(
 	when (pivotMode.value) {
 		TransformPivotMode.Cursor -> {
 			val cursor = uvCursor.value
+
 			if (cursor != null) {
 				return frame?.pointToFrame(cursor.u, cursor.v) ?: (cursor.u to cursor.v)
 			}
@@ -192,8 +213,10 @@ private fun EditorSession.resolveUvMirrorPivot(
 			val active = selection.activeElement
 			val activeMesh = active?.let { activeElement -> meshByDrawable[activeElement.drawableId] }
 			val activeFrameUvs = active?.let { activeElement -> frameUvsByDrawable[activeElement.drawableId] }
+
 			if (active != null && activeMesh != null && activeFrameUvs != null) {
 				val activeCovered = MeshTopology.coveredVertexIndices(setOf(active.element), activeMesh.indices)
+
 				if (activeCovered.isNotEmpty()) {
 					return MeshTransforms.medianPivot(activeFrameUvs, activeCovered)
 				}
@@ -202,21 +225,26 @@ private fun EditorSession.resolveUvMirrorPivot(
 
 		TransformPivotMode.MedianPoint, TransformPivotMode.IndividualOrigins -> {}
 	}
+
 	var sumU = 0f
 	var sumV = 0f
 	var coveredCount = 0
+
 	for ((drawableId, covered) in coveredByDrawable) {
 		val uvs = frameUvsByDrawable.getValue(drawableId)
+
 		for (vertexIndex in covered) {
 			sumU += uvs[vertexIndex * 2]
 			sumV += uvs[vertexIndex * 2 + 1]
 			coveredCount += 1
 		}
 	}
+
 	if (coveredCount == 0) {
 		// Unreachable today (callers pre-filter empty covered sets); the authoring frame's center is
 		// a safe anchor.
 		return 0.5f to 0.5f
 	}
+
 	return (sumU / coveredCount) to (sumV / coveredCount)
 }

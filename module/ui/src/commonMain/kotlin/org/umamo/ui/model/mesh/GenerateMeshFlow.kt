@@ -284,10 +284,11 @@ private fun logOutcome(base: PuppetModel, outcome: GenerateMeshOutcome) {
 	}
 
 	when (outcome) {
-		is GenerateMeshOutcome.PackRefused ->
+		is GenerateMeshOutcome.PackRefused -> {
 			for (refusal in outcome.refusals) {
 				UmamoLog.warn("generate mesh: the atlas has no room for '${refusal.tileName}' (${refusal.reason}); nothing was applied")
 			}
+		}
 
 		is GenerateMeshOutcome.Generated -> {
 			for ((drawableId, notices) in outcome.noticesByDrawable) {
@@ -301,7 +302,9 @@ private fun logOutcome(base: PuppetModel, outcome: GenerateMeshOutcome) {
 			)
 		}
 
-		is GenerateMeshOutcome.NothingGenerated -> UmamoLog.warn("generate mesh: nothing generated; ${outcome.skips.size} skipped")
+		is GenerateMeshOutcome.NothingGenerated -> {
+			UmamoLog.warn("generate mesh: nothing generated; ${outcome.skips.size} skipped")
+		}
 	}
 }
 

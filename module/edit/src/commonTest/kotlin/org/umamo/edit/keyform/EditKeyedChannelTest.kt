@@ -58,6 +58,7 @@ class EditKeyedChannelTest {
 				geometryGrid = null,
 				channelGrids = ChannelGrids(mapOf(FormChannel.OPACITY to opacityTrack)),
 			)
+
 		return EditorSession(
 			PuppetModel(
 				parameters = listOf(Parameter(angleX, angleX.raw, min = -1f, max = 1f, default = 0f)),

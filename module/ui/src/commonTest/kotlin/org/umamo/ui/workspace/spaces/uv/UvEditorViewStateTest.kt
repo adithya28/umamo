@@ -460,6 +460,7 @@ class UvEditorViewStateTest {
 		assertEquals(1, geometries.size, "one geometry per bound drawable")
 		// The same triangleUvs the page test uses: (0.25, 0.5) -> (16, 16) on a 64x32 frame, v flipped.
 		val expectedPositions = floatArrayOf(16f, 16f, 48f, 16f, 16f, 24f)
+
 		for (componentIndex in expectedPositions.indices) {
 			assertEquals(expectedPositions[componentIndex], geometries.first().positions[componentIndex], 1e-4f, "component $componentIndex")
 		}
@@ -597,9 +598,11 @@ class UvEditorViewStateTest {
 		// uv (0.25, 0.5) -> (16, 16), (0.75, 0.5) -> (48, 16), (0.25, 0.25) -> (16, 24): u scales by the
 		// width, v flips then scales by the height.
 		val expectedPositions = floatArrayOf(16f, 16f, 48f, 16f, 16f, 24f)
+
 		for (componentIndex in expectedPositions.indices) {
 			assertEquals(expectedPositions[componentIndex], geometry.positions[componentIndex], 1e-4f, "display component $componentIndex")
 		}
+
 		assertEquals(MeshTopology.uniqueEdges(intArrayOf(0, 1, 2)), geometry.edges, "edges derive from the triangle indices")
 	}
 

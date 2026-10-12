@@ -58,7 +58,9 @@ internal fun lzfDecompress(
 			if (outputPos + literalRunLength > outputLimit) {
 				return 0
 			}
+
 			var remaining = literalRunLength
+
 			while (remaining > 0) {
 				output[outputPos] = input[inputPos]
 				outputPos++
@@ -70,18 +72,23 @@ internal fun lzfDecompress(
 			backReferenceLength -= 1
 			// ref = op - ofs; ref-- where ofs = (control & 31) << 8.
 			var referencePos = outputPos - ((control and 31) shl 8) - 1
+
 			if (backReferenceLength == 6) {
 				backReferenceLength += input[inputPos].toInt() and 0xFF
 				inputPos++
 			}
+
 			referencePos -= input[inputPos].toInt() and 0xFF
 			inputPos++
+
 			if (outputPos + backReferenceLength + 3 > outputLimit) {
 				return 0
 			}
+
 			if (referencePos < 0) {
 				return 0
 			}
+
 			// 3 bytes always, then backReferenceLength more (the length is biased by 3).
 			output[outputPos] = output[referencePos]
 			outputPos++
@@ -92,6 +99,7 @@ internal fun lzfDecompress(
 			output[outputPos] = output[referencePos]
 			outputPos++
 			referencePos++
+
 			while (backReferenceLength > 0) {
 				output[outputPos] = output[referencePos]
 				outputPos++
@@ -100,6 +108,7 @@ internal fun lzfDecompress(
 			}
 		}
 	}
+
 	return outputPos
 }
 
@@ -126,13 +135,16 @@ internal fun delinearizeColors(
 	val strideSize = dataSize / pixelSize
 	var outputPos = 0
 	var pixelStartByte = 0
+
 	while (outputPos < dataSize) {
 		var inputPos = pixelStartByte
+
 		for (channelIndex in 0 until pixelSize) {
 			packedOutput[outputPos] = planarInput[inputPos]
 			outputPos++
 			inputPos += strideSize
 		}
+
 		pixelStartByte++
 	}
 }

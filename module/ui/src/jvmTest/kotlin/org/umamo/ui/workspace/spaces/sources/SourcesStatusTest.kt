@@ -46,6 +46,7 @@ class SourcesStatusTest {
 		val bodies = OpenBodyCounter()
 		val openBodiesWhenAsked = ArrayList<Int>()
 		Composer.setTracer(bodies)
+
 		try {
 			runComposeUiTest {
 				val harness = mountSources(onSourcePresenceAsked = { openBodiesWhenAsked.add(bodies.open) })

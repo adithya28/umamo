@@ -33,10 +33,12 @@ const val KEYMAP_OVERRIDES_KEY: String = "input.keybinding.overrides"
 internal fun readKeymapOverrides(settings: Settings): Map<String, String> {
 	val element = settings.get(KEYMAP_OVERRIDES_KEY) as? JsonObject ?: return emptyMap()
 	val overrides = LinkedHashMap<String, String>()
+
 	for ((spec, value) in element) {
 		val commandId = runCatching { value.jsonPrimitive.contentOrNull }.getOrNull() ?: ""
 		overrides[spec] = commandId
 	}
+
 	return overrides
 }
 
@@ -68,18 +70,22 @@ internal fun writeKeymapOverrides(settings: Settings, overrides: Map<String, Str
 fun loadKeymap(settings: Settings): Keymap {
 	val presetId = settings.getString(KEYMAP_PRESET_KEY) ?: "default"
 	val resolved = LinkedHashMap<KeyChord, String>()
+
 	for ((spec, commandId) in keymapPresetSpecs(presetId)) {
 		val chord = parseKeyChord(spec) ?: continue
 		resolved[chord] = commandId
 	}
+
 	for ((spec, commandId) in readKeymapOverrides(settings)) {
 		val chord = parseKeyChord(spec) ?: continue
+
 		if (commandId.isEmpty()) {
 			resolved.remove(chord) // explicit unbind: mask a chord the preset binds
 		} else {
 			resolved[chord] = commandId
 		}
 	}
+
 	return Keymap(resolved)
 }
 
@@ -126,6 +132,7 @@ fun setKeymapPreset(settings: Settings, presetId: String) {
  */
 private fun isPresetChord(settings: Settings, chord: KeyChord): Boolean {
 	val presetId = settings.getString(KEYMAP_PRESET_KEY) ?: "default"
+
 	return keymapPresetSpecs(presetId).keys.any { spec -> parseKeyChord(spec) == chord }
 }
 
@@ -139,6 +146,7 @@ private fun isPresetChord(settings: Settings, chord: KeyChord): Boolean {
  */
 private fun releaseChord(settings: Settings, overrides: MutableMap<String, String>, chord: KeyChord) {
 	val spec = chordToSpec(chord)
+
 	if (isPresetChord(settings, chord)) {
 		overrides[spec] = ""
 	} else {
@@ -161,9 +169,11 @@ private fun releaseChord(settings: Settings, overrides: MutableMap<String, Strin
 fun rebindCommand(settings: Settings, commandId: String, newChord: KeyChord) {
 	val overrides = readKeymapOverrides(settings).toMutableMap()
 	val previous = loadKeymap(settings).chordFor(commandId)
+
 	if (previous != null && previous != newChord) {
 		releaseChord(settings, overrides, previous)
 	}
+
 	overrides[chordToSpec(newChord)] = commandId
 	writeKeymapOverrides(settings, overrides)
 }

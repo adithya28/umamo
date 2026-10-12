@@ -74,6 +74,7 @@ internal class OutlinerViewState : PersistentSpaceState {
 		if (searching) {
 			return
 		}
+
 		expanded[nodeId] = !isOpen(nodeId)
 	}
 
@@ -101,6 +102,7 @@ internal class OutlinerViewState : PersistentSpaceState {
 	override fun toJson(): JsonObject {
 		// UMA §7.3: the fold state is two arrays of node ids, the deviations from "only the root is open".
 		val (opened, closed) = foldDeviationsOf(expanded, ::outlinerOpensByDefault)
+
 		return buildJsonObject {
 			put("expanded", opened)
 			put("collapsed", closed)

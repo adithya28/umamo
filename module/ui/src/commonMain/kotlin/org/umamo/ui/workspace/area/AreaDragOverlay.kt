@@ -42,9 +42,11 @@ import kotlin.math.min
 @Composable
 fun AreaDragOverlay(controller: AreaDragController, modifier: Modifier = Modifier) {
 	val state = controller.dragState
+
 	if (state == null) {
 		return
 	}
+
 	val colors = LocalUmamoColors.current
 	val accent = colors.accent
 	val fillWash = colors.dropZoneFill
@@ -58,20 +60,28 @@ fun AreaDragOverlay(controller: AreaDragController, modifier: Modifier = Modifie
 		}
 	val gapPx = with(density) { SPLITTER_THICKNESS.toPx() }
 	val sourceRect = controller.boundsOf(state.sourceId)
+
 	if (state.validJoin && state.targetId != null) {
 		val targetRect = controller.boundsOf(state.targetId)
+
 		if (sourceRect != null && targetRect != null) {
 			Canvas(modifier = modifier) { drawJoinHighlight(sourceRect, targetRect, accent, fillWash, emphasisWash, corner) }
 		}
+
 		return
 	}
+
 	val dockEdge = state.dockEdge
+
 	if (state.validDock && dockEdge != null && sourceRect != null) {
 		val dockRatio = state.dockRatio
 		Canvas(modifier = modifier) { drawDockHighlight(sourceRect, dockEdge, dockRatio, accent, fillWash, emphasisWash, corner) }
+
 		return
 	}
+
 	val orientation = state.splitOrientation
+
 	if (state.validSplit && orientation != null && sourceRect != null) {
 		val ratio = state.splitRatio
 		Canvas(modifier = modifier) { drawSplitHighlight(sourceRect, orientation, ratio, accent, fillWash, emphasisWash, corner, gapPx) }
@@ -187,6 +197,7 @@ private fun DrawScope.drawSplitHighlight(
 				Rect(source.left, source.top, dividerX - halfGap, source.bottom) to
 					Rect(dividerX + halfGap, source.top, source.right, source.bottom)
 			}
+
 			SplitOrientation.Vertical -> {
 				val dividerY = source.top + ratio * source.height
 				Rect(source.left, source.top, source.right, dividerY - halfGap) to

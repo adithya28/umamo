@@ -43,6 +43,7 @@ class SourcesRecompositionTest {
 	private fun counting(body: ComposeUiTest.(ComposableRunCounter) -> Unit) {
 		val counter = ComposableRunCounter(SOURCES_PACKAGE_PREFIX)
 		Composer.setTracer(counter)
+
 		try {
 			runComposeUiTest { body(counter) }
 		} finally {

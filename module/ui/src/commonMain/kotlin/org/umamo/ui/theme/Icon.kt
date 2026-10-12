@@ -189,6 +189,7 @@ private fun compositeIcon(vararg layers: IconLayer, offsetX: Float = 0f, offsetY
 			layer.path.translate(Offset(offsetX, offsetY))
 		}
 	}
+
 	return UmamoIcon(layers = layers.toList())
 }
 
@@ -625,13 +626,17 @@ fun DrawScope.drawIcon(icon: UmamoIcon, color: Color) {
 		for (layer in icon.layers) {
 			val drawStyle =
 				when (val style = layer.style) {
-					IconStyle.Filled -> Fill
-					is IconStyle.Outlined ->
+					IconStyle.Filled -> {
+						Fill
+					}
+
+					is IconStyle.Outlined -> {
 						Stroke(
 							width = style.strokeWidth,
 							cap = StrokeCap.Round,
 							join = StrokeJoin.Round,
 						)
+					}
 				}
 			drawPath(path = layer.path, color = layer.color ?: color, alpha = layer.opacity, style = drawStyle)
 		}

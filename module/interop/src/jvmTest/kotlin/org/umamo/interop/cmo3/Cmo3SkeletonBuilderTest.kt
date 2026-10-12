@@ -60,6 +60,7 @@ class Cmo3SkeletonBuilderTest {
 				?.firstOrNull { file -> file.name == "BareMinimum.cmo3" && file.isFile }
 				?: run {
 					println("BareMinimum.cmo3 not in cmo3.probe; skipping spine comparison")
+
 					return
 				}
 		val blankArchive = CaffCodec.read(bareMinimum.readBytes())
@@ -81,6 +82,7 @@ class Cmo3SkeletonBuilderTest {
 	private fun modelSourceChildren(rootElement: Element): List<Pair<String, String?>> {
 		val mainElement = rootElement.getChild("main") ?: error("no <main> element")
 		val modelSource = mainElement.children.filterIsInstance<Element>().firstOrNull() ?: error("no model root element")
+
 		return modelSource.children.filterIsInstance<Element>().map { child -> child.name to child.getAttributeValue("xs.n") }
 	}
 }

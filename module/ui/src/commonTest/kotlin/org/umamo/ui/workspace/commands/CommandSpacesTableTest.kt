@@ -92,6 +92,7 @@ class CommandSpacesTableTest {
 	fun everyUvCommandIsScoped() {
 		val uvCommands = everyCommandTable().filter { command -> command.id.startsWith("uv.") }
 		assertTrue(uvCommands.isNotEmpty(), "the table must actually hold uv commands for this to mean anything")
+
 		for (command in uvCommands) {
 			assertEquals(CommandSpaces.UvEditor, command.spaces, "${command.id} must be scoped to the UV editor")
 		}
@@ -105,6 +106,7 @@ class CommandSpacesTableTest {
 	@Test
 	fun theSheetCommandsWithAFallbackStayEverywhere() {
 		val byId = everyCommandTable().associateBy { command -> command.id }
+
 		for (id in listOf("keyform.deleteSelectedKeys", "keyform.nudgeKeyLeft", "keyform.nudgeKeyRight", "keyform.frameAll")) {
 			assertEquals(CommandSpaces.Everywhere, byId.getValue(id).spaces, "$id reaches the lone open sheet from anywhere")
 		}

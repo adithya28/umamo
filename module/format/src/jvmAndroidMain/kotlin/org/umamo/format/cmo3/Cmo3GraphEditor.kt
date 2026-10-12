@@ -68,20 +68,26 @@ public class Cmo3GraphEditor internal constructor(private val graph: ModelGraph)
 	 */
 	public fun pruneUnreachableShared() {
 		val sharedById = HashMap<String, Any>()
+
 		for (instance in graph.sharedOrder) {
 			graph.sharedInfo[instance]?.let { sharedRef -> sharedById[sharedRef.id] = instance }
 		}
+
 		val reachable = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Any, Boolean>())
 		val stack = ArrayDeque<Any?>()
 		graph.root?.let(stack::addLast)
+
 		while (stack.isNotEmpty()) {
 			val obj = stack.removeLast() ?: continue
+
 			if (obj is CharSequence || obj is Number || obj is Boolean || obj is Char || obj is Enum<*>) {
 				continue
 			}
+
 			if (!reachable.add(obj)) {
 				continue
 			}
+
 			// xs.ref attributes inside this object's verbatim children target pool entries no typed
 			// field holds; those targets stay live.
 			graph.childOrder[obj]?.values?.forEach { slotsAtTag ->
@@ -91,36 +97,54 @@ public class Cmo3GraphEditor internal constructor(private val graph: ModelGraph)
 					}
 				}
 			}
+
 			when (obj) {
-				is VerbatimNode -> addVerbatimRefTargets(obj.element, sharedById, stack)
-				is Iterable<*> -> obj.forEach(stack::addLast)
+				is VerbatimNode -> {
+					addVerbatimRefTargets(obj.element, sharedById, stack)
+				}
+
+				is Iterable<*> -> {
+					obj.forEach(stack::addLast)
+				}
+
 				is Map<*, *> -> {
 					obj.keys.forEach(stack::addLast)
 					obj.values.forEach(stack::addLast)
 				}
 
-				is Array<*> -> obj.forEach(stack::addLast)
-				else ->
+				is Array<*> -> {
+					obj.forEach(stack::addLast)
+				}
+
+				else -> {
 					if (shouldWalkFields(obj)) {
 						var currentClass: Class<*>? = obj::class.java
+
 						while (currentClass != null && currentClass != Any::class.java) {
 							for (field in currentClass.declaredFields) {
 								if (java.lang.reflect.Modifier.isStatic(field.modifiers)) {
 									continue
 								}
+
 								field.isAccessible = true
 								stack.addLast(field.get(obj))
 							}
+
 							currentClass = currentClass.superclass
 						}
 					}
+				}
 			}
 		}
+
 		val unreachable = graph.sharedOrder.filter { instance -> instance !in reachable }
+
 		if (unreachable.isEmpty()) {
 			return
 		}
+
 		graph.sharedOrder.removeAll { instance -> instance !in reachable }
+
 		for (instance in unreachable) {
 			graph.sharedInfo.remove(instance)
 		}
@@ -137,6 +161,7 @@ public class Cmo3GraphEditor internal constructor(private val graph: ModelGraph)
 	 */
 	private fun shouldWalkFields(obj: Any): Boolean {
 		val className = obj::class.java.name
+
 		return !className.startsWith("java.") &&
 			!className.startsWith("javax.") &&
 			!className.startsWith("kotlin.") &&
@@ -153,6 +178,7 @@ public class Cmo3GraphEditor internal constructor(private val graph: ModelGraph)
 	 */
 	private fun addVerbatimRefTargets(element: Element, sharedById: Map<String, Any>, stack: ArrayDeque<Any?>) {
 		element.getAttributeValue(ATTR_REF)?.let { refId -> sharedById[refId]?.let(stack::addLast) }
+
 		@Suppress("UNCHECKED_CAST")
 		for (child in element.children as List<Element>) {
 			addVerbatimRefTargets(child, sharedById, stack)

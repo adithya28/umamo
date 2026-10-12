@@ -48,10 +48,13 @@ class BlendDeltaFrameProbeTest {
 	fun storedMeshDeltasIdentifyTheirReferenceFrame() {
 		val cmo3File = modelACmo3
 		val moc3File = modelAMoc3
+
 		if (cmo3File == null || moc3File == null) {
 			println("Model A corpus pair not present; skipping delta-frame probe")
+
 			return
 		}
+
 		val root = Cmo3.read(cmo3File).root as? CModelSource ?: error("root is not a CModelSource")
 		val puppet = Cmo3Import.fromModelSource(root)
 		val model = MocCodec.read(moc3File.readBytes())
@@ -71,6 +74,7 @@ class BlendDeltaFrameProbeTest {
 			if (record.target != BlendShapeTarget.ART_MESH) {
 				continue
 			}
+
 			val meshId = document.artMeshes[record.targetIndex].id
 			val parameterId = document.parameters[record.parameterIndex].id
 			val drawable = puppet.drawables.firstOrNull { it.id.raw == meshId } ?: continue
@@ -92,12 +96,14 @@ class BlendDeltaFrameProbeTest {
 				if (keyIndex == binding.neutralIndex) {
 					continue
 				}
+
 				val authoredDeltas = (binding.forms[keyIndex])?.positionDeltas ?: continue
 				val stored = meshPositionIndex[record.recordBase + keyIndex]
 
 				var setupError = 0f
 				var gridError = 0f
 				var hypothesisGap = 0f
+
 				for (componentIndex in authoredDeltas.indices) {
 					// Canvas -> model: divide by ppu; Y components (odd indices) flip sign.
 					val sign = if (componentIndex % 2 == 1) -1f else 1f
@@ -112,17 +118,21 @@ class BlendDeltaFrameProbeTest {
 				}
 
 				val tolerance = 2e-3f
+
 				if (hypothesisGap <= tolerance) {
 					coinciding++
 				} else {
 					discriminating++
 					worstGridError = maxOf(worstGridError, gridError)
+
 					if (setupError < gridError) {
 						setupWins++
 					}
+
 					if (gridError < setupError) {
 						gridWins++
 					}
+
 					println(
 						"[probe] $meshId/$parameterId key=${binding.keys[keyIndex]} " +
 							"setupErr=$setupError gridErr=$gridError gap=$hypothesisGap",
@@ -131,17 +141,20 @@ class BlendDeltaFrameProbeTest {
 					// units) vs the grid-at-default form, at the worst-residual component.
 					var worstComponent = 0
 					var worstResidual = 0f
+
 					for (componentIndex in authoredDeltas.indices) {
 						val sign = if (componentIndex % 2 == 1) -1f else 1f
 						val impliedReference =
 							base[componentIndex] + authoredDeltas[componentIndex] - sign * positionValues[stored + componentIndex] * pixelsPerUnit
 						val gridReference = gridAtDefault?.get(componentIndex) ?: base[componentIndex]
 						val residual = abs(impliedReference - gridReference)
+
 						if (residual > worstResidual) {
 							worstResidual = residual
 							worstComponent = componentIndex
 						}
 					}
+
 					val sign = if (worstComponent % 2 == 1) -1f else 1f
 					val impliedReference =
 						base[worstComponent] + authoredDeltas[worstComponent] - sign * positionValues[stored + worstComponent] * pixelsPerUnit
@@ -154,11 +167,13 @@ class BlendDeltaFrameProbeTest {
 				}
 			}
 		}
+
 		println(
 			"[probe] verdict: discriminating=$discriminating (setup=$setupWins grid=$gridWins) " +
 				"coinciding=$coinciding worstGridErr=$worstGridError",
 		)
 		assertTrue(discriminating + coinciding > 0, "Model A should yield joinable mesh records")
+
 		if (discriminating > 0) {
 			assertTrue(
 				gridWins == discriminating,

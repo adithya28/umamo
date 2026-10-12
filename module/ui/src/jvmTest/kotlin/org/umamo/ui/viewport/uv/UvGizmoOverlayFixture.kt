@@ -271,6 +271,7 @@ internal fun ComposeUiTest.mountUvGizmoOverlays(session: EditorSession, placemen
 		}
 	}
 	waitForIdle()
+
 	return fixture
 }
 
@@ -288,6 +289,7 @@ internal fun ComposeUiTest.mountUvGizmoOverlays(session: EditorSession, placemen
 internal fun ComposeUiTest.awaitPlacementCapture(fixture: UvGizmoOverlayFixture, areaId: String, at: Offset) {
 	val deadline = System.currentTimeMillis() + PLACEMENT_CAPTURE_TIMEOUT_MILLIS
 	var nudged = false
+
 	while (fixture.placementDragStatusByArea.getValue(areaId).value == null) {
 		check(System.currentTimeMillis() < deadline) { "the placement capture never landed" }
 		nudged = !nudged

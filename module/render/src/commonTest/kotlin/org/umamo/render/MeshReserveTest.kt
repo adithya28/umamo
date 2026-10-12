@@ -66,6 +66,7 @@ class MeshReserveTest {
 				geometryGrid = null,
 			).copy(atlasTileId = TILE)
 		val placement = AtlasPlacement(pageIndex = 0, positionX = PLACEMENT_X, positionY = PLACEMENT_Y, scaleX = 1f, scaleY = 1f, rotationDegrees = 0f)
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = emptyList(),

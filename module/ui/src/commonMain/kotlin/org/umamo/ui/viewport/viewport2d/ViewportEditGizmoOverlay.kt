@@ -190,6 +190,7 @@ fun ViewportEditGizmoOverlay(
 			if (modalTransform.abandon()) {
 				service.setModel(session.model.value)
 			}
+
 			marquee.discard()
 			meshPick.cancel()
 		}
@@ -248,6 +249,7 @@ fun ViewportEditGizmoOverlay(
 	// operator changed, and meshSelection is read as the effect runs, as the collected state has it.
 	LaunchedEffect(activeOperator) {
 		val operator = activeOperator?.takeIf { it.areaId == areaId }
+
 		if (operator != null) {
 			modalTransform.begin(operator.kind, liveGeometry, meshSelection)
 		} else {

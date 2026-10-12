@@ -76,13 +76,16 @@ internal fun performOutlinerDrop(
 	val fraction = controller.dropTargetFraction ?: 0.5f
 	val dragged = controller.draggedPayload
 	controller.end()
+
 	if (targetId == null || session == null || dragged == null) {
 		return
 	}
+
 	val targetNode = rows.firstOrNull { row -> row.node.id == targetId }?.node ?: return
 	val target = targetNode.target ?: return
 	val drop = puppet.resolveOutlinerDrop(dragged, target, fraction) ?: return
 	session.applyOutlinerDrop(drop)
+
 	if (drop.expandTarget) {
 		expand(targetNode.id)
 	}

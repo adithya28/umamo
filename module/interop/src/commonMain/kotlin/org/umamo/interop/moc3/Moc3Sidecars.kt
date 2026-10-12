@@ -142,17 +142,21 @@ object Moc3Sidecars {
 		val displayInfoName = "$basename.cdi3.json".takeIf { options.includeDisplayInfo }
 		val files = ArrayList<BundleFile>(pages.size + sidecars.size + 3)
 		files.add(BundleFile(mocFileName, mocBytes))
+
 		if (displayInfoName != null) {
 			files.add(
 				BundleFile(displayInfoName, Moc3.writeCdi3(displayInfo(puppet, lowered.writtenIds)).encodeToByteArray()),
 			)
 		}
+
 		for (page in pages) {
 			files.add(BundleFile(page.fileName, page.bytes))
 		}
+
 		for (sidecar in sidecars) {
 			files.add(BundleFile(sidecar.fileName, sidecar.text.encodeToByteArray()))
 		}
+
 		val manifest =
 			Model3Json(
 				version = MODEL3_VERSION,
@@ -178,6 +182,7 @@ object Moc3Sidecars {
 			)
 		files.add(BundleFile("$basename.model3.json", Moc3.writeModel3(manifest).encodeToByteArray()))
 		val sidecarNotices = sidecars.flatMap { sidecar -> unwrittenIdNotices(sidecar, lowered.writtenIds) }
+
 		return Bundle(files, mocFileName, if (sidecarNotices.isEmpty()) report else report.copy(notices = report.notices + sidecarNotices))
 	}
 
@@ -206,12 +211,15 @@ object Moc3Sidecars {
 		val missingParameters = named.parameterIds.filter { id -> id !in writtenParameters }.distinct()
 		val missingParts = named.partIds.filter { id -> id !in writtenParts }.distinct()
 		val notices = ArrayList<ExportNotice>(2)
+
 		if (missingParameters.isNotEmpty()) {
 			notices.add(ExportNotice.UnsupportedChange(ExportEntityCategory.Document, sidecar.fileName, ExportNoticeReason.SidecarNamesUnwrittenParameters(sidecar.fileName, missingParameters)))
 		}
+
 		if (missingParts.isNotEmpty()) {
 			notices.add(ExportNotice.UnsupportedChange(ExportEntityCategory.Document, sidecar.fileName, ExportNoticeReason.SidecarNamesUnwrittenParts(sidecar.fileName, missingParts)))
 		}
+
 		return notices
 	}
 
@@ -233,10 +241,12 @@ object Moc3Sidecars {
 				val targets = physics.physicsSettings.flatMap { setting -> setting.input.map { input -> input.source } + setting.output.map { output -> output.destination } }
 				NamedIds(targets.filter { target -> target.target == "Parameter" }.map { target -> target.id }, emptyList())
 			}
+
 			SidecarKind.Expression -> {
 				// exp3: Parameters[].Id, the parameter each entry sets (MOC3.md § 6.5).
 				NamedIds(Moc3.readExp3(sidecar.text).parameters.map { parameter -> parameter.id }, emptyList())
 			}
+
 			SidecarKind.Motion -> {
 				// motion3: Curves[].Target and Id - a "Parameter" curve drives a parameter, a "PartOpacity" curve a
 				// part, and a "Model" curve a model-level channel that names no object (MOC3.md § 6.6).
@@ -246,11 +256,15 @@ object Moc3Sidecars {
 					curves.filter { curve -> curve.target == "PartOpacity" }.map { curve -> curve.id },
 				)
 			}
+
 			SidecarKind.Pose -> {
 				// pose3: Groups[][].Id and Link[], every one a part (MOC3.md § 6.7).
 				NamedIds(emptyList(), Moc3.readPose3(sidecar.text).groups.flatten().flatMap { entry -> listOf(entry.id) + entry.link.orEmpty() })
 			}
-			SidecarKind.UserData -> NamedIds(emptyList(), emptyList())
+
+			SidecarKind.UserData -> {
+				NamedIds(emptyList(), emptyList())
+			}
 		}
 
 	/**
@@ -295,7 +309,10 @@ object Moc3Sidecars {
 		fun walk(nodes: List<ParameterNode>, parentGroupId: String) {
 			for (node in nodes) {
 				when (node) {
-					is ParameterNode.Param -> groupIdByParameter[node.id.raw] = parentGroupId
+					is ParameterNode.Param -> {
+						groupIdByParameter[node.id.raw] = parentGroupId
+					}
+
 					is ParameterNode.Group -> {
 						groups.add(DisplayParameterGroup(id = node.id.raw, groupId = parentGroupId, name = node.name))
 						walk(node.children, node.id.raw)

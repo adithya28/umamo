@@ -112,6 +112,7 @@ class CompositeRendererTest {
 		renderer.render(target, viewportSize, viewportSize)
 		val image = device.readPixels(target)
 		val pixelOffset = (y * viewportSize + x) * 4
+
 		return IntArray(4) { channelIndex -> image.rgba[pixelOffset + channelIndex].toInt() and 0xFF }
 	}
 
@@ -164,6 +165,7 @@ class CompositeRendererTest {
 	@Test
 	fun premultipliedModesIgnoreTheAlphaBlendSetting() {
 		requireHeadlessGl("[composite-renderer]")
+
 		// The "(Before 5.3)" Add/Multiply composite in premultiplied format and ignore the Alpha
 		// blend setting, so an isolated composite using one renders identically whether its alpha
 		// mode is Over or Disjoint.  A modern mode would diverge (it honors the alpha mode).
@@ -232,6 +234,7 @@ class CompositeRendererTest {
 		fun clipped(invert: Boolean): PuppetModel {
 			val maskSource = drawable("clip", positions = leftHalfQuad, isVisible = false)
 			val composite = PartComposite(maskedBy = listOf(DrawableId("clip")), invertMask = invert)
+
 			return model(
 				drawables = listOf(maskSource, drawable("top")),
 				parts = listOf(isolatedPart("fx", "top", composite)),

@@ -246,6 +246,7 @@ internal sealed interface PlacementGestureBuild {
  */
 internal fun flipAffineFrame(affine: FloatArray, pageHeight: Int): FloatArray {
 	val flip = floatArrayOf(1f, 0f, 0f, 0f, -1f, pageHeight.toFloat())
+
 	return composeAffine(flip, composeAffine(affine, flip))
 }
 
@@ -274,6 +275,7 @@ internal fun tileToDisplayAffine(placement: AtlasPlacement, pageHeight: Int): Fl
  */
 internal fun trimQuadToDisplay(placement: AtlasPlacement, trim: LayerBounds, pageHeight: Int): FloatArray {
 	val unitToTile = floatArrayOf(trim.width.toFloat(), 0f, trim.left.toFloat(), 0f, -trim.height.toFloat(), (trim.top + trim.height).toFloat())
+
 	return composeAffine(tileToDisplayAffine(placement, pageHeight), unitToTile)
 }
 
@@ -322,8 +324,13 @@ internal fun placementGestureParameters(
 			PlacementGestureParameters(0f, 0f, factorX, factorY, 0f)
 		}
 
-		MeshOperatorKind.Rotate -> PlacementGestureParameters(0f, 0f, 1f, 1f, gestureRotationRadians(frame, rotationTracker))
-		MeshOperatorKind.VertexSlide -> PlacementGestureParameters(0f, 0f, 1f, 1f, 0f)
+		MeshOperatorKind.Rotate -> {
+			PlacementGestureParameters(0f, 0f, 1f, 1f, gestureRotationRadians(frame, rotationTracker))
+		}
+
+		MeshOperatorKind.VertexSlide -> {
+			PlacementGestureParameters(0f, 0f, 1f, 1f, 0f)
+		}
 	}
 
 /**
@@ -368,13 +375,19 @@ internal fun evaluatePlacementDrag(
 	val snappedDeltaY = (-parameters.deltaDisplayY).roundToInt()
 	val placementByTile = LinkedHashMap<AtlasTileId, AtlasPlacement>()
 	val displayAffineByTile = LinkedHashMap<AtlasTileId, FloatArray>()
+
 	for (mover in movers) {
 		val pageAffine =
 			when (operatorKind) {
-				MeshOperatorKind.Grab -> translationAffine(snappedDeltaX.toFloat(), snappedDeltaY.toFloat())
-				MeshOperatorKind.Rotate ->
+				MeshOperatorKind.Grab -> {
+					translationAffine(snappedDeltaX.toFloat(), snappedDeltaY.toFloat())
+				}
+
+				MeshOperatorKind.Rotate -> {
 					flipAffineFrame(rotationAboutAffine(mover.pivotDisplayX, mover.pivotDisplayY, parameters.rotationRadians), pageHeight)
-				MeshOperatorKind.Scale ->
+				}
+
+				MeshOperatorKind.Scale -> {
 					if (parameters.factorX == parameters.factorY) {
 						flipAffineFrame(scaleAboutAffine(mover.pivotDisplayX, mover.pivotDisplayY, parameters.factorX, parameters.factorY), pageHeight)
 					} else {
@@ -386,9 +399,14 @@ internal fun evaluatePlacementDrag(
 							parameters.factorY,
 						)
 					}
-				MeshOperatorKind.VertexSlide -> translationAffine(0f, 0f)
+				}
+
+				MeshOperatorKind.VertexSlide -> {
+					translationAffine(0f, 0f)
+				}
 			}
 		val next = mover.placement.composedWith(pageAffine)
+
 		if (next == null) {
 			placementByTile[mover.tileId] = mover.placement
 			displayAffineByTile[mover.tileId] = translationAffine(0f, 0f)
@@ -402,19 +420,25 @@ internal fun evaluatePlacementDrag(
 	val sampling = HashSet<AtlasTileId>()
 	val painting = HashSet<AtlasTileId>()
 	val offPage = HashSet<AtlasTileId>()
+
 	for ((moverIndex, mover) in movers.withIndex()) {
 		val next = placementByTile.getValue(mover.tileId)
+
 		if (placementFootprint(next, mover.trim, reserve = null).exceeds(pageWidth, pageHeight)) {
 			offPage.add(mover.tileId)
 		}
+
 		val sampled = mover.meshMask?.let { coverage -> SampledRegion(next, coverage) }
+
 		// The mover's mesh over the page's paint: the pixel found is attributed to whichever bystanders
 		// can have painted it.
 		if (sampled != null && occupancy != null) {
 			val hit = occupancy.firstPaintedPixelIn(sampled)
+
 			if (hit != null) {
 				overlapping.add(mover.tileId)
 				sampling.add(mover.tileId)
+
 				for (bystander in bystanders) {
 					if (bystander.paintedBounds.overlaps(PlacementFootprint(hit.left.toFloat(), hit.top.toFloat(), hit.right.toFloat(), hit.bottom.toFloat()))) {
 						overlapping.add(bystander.tileId)
@@ -423,11 +447,14 @@ internal fun evaluatePlacementDrag(
 				}
 			}
 		}
+
 		// The bystanders' meshes over the mover's paint.
 		val mask = mover.mask
+
 		if (mask != null) {
 			for (bystander in bystanders) {
 				val bystanderSampled = bystander.sampled ?: continue
+
 				if (sampledRegionHitsMask(bystanderSampled, next, mask, extrude)) {
 					overlapping.add(mover.tileId)
 					painting.add(mover.tileId)
@@ -436,13 +463,16 @@ internal fun evaluatePlacementDrag(
 				}
 			}
 		}
+
 		// The other movers, both ways, each at its own new placement.
 		for (otherIndex in movers.indices) {
 			if (otherIndex == moverIndex) {
 				continue
 			}
+
 			val other = movers[otherIndex]
 			val otherMask = other.mask ?: continue
+
 			if (sampled != null && sampledRegionHitsMask(sampled, placementByTile.getValue(other.tileId), otherMask, extrude)) {
 				overlapping.add(mover.tileId)
 				sampling.add(mover.tileId)
@@ -451,6 +481,7 @@ internal fun evaluatePlacementDrag(
 			}
 		}
 	}
+
 	// The page-space angle is the display angle's mirror: the flip reverses a rotation's sense.
 	val status =
 		PlacementDragStatus(
@@ -463,6 +494,7 @@ internal fun evaluatePlacementDrag(
 			overlapCount = movers.count { mover -> mover.tileId in overlapping },
 			offPage = offPage.isNotEmpty(),
 		)
+
 	return PlacementDragResult(placementByTile, displayAffineByTile, overlapping, sampling, painting, offPage, status)
 }
 
@@ -476,6 +508,7 @@ internal fun evaluatePlacementDrag(
  */
 private fun vacatedRect(mover: PlacementMover, extrude: Int): PixelRect {
 	val bounds = placementFootprint(mover.placement, mover.trim, reserve = null).expanded(extrude.toFloat())
+
 	return PixelRect(floor(bounds.left).toInt(), floor(bounds.top).toInt(), ceil(bounds.right).toInt(), ceil(bounds.bottom).toInt())
 }
 
@@ -513,38 +546,49 @@ internal fun buildPlacementGesture(
 	operatorKind: MeshOperatorKind,
 ): PlacementGestureBuild {
 	val tileByDrawable = HashMap<DrawableId, AtlasTileId>()
+
 	for (drawable in model.drawables) {
 		val tileId = drawable.atlasTileId ?: continue
 		tileByDrawable[drawable.id] = tileId
 	}
+
 	val shownTileIds = shownGeometries.mapNotNullTo(HashSet()) { geometry -> tileByDrawable[geometry.drawableId] }
 	val candidateTileIds = model.placementDragTileIds(selection).filter { tileId -> tileId in shownTileIds }
+
 	if (candidateTileIds.isEmpty()) {
 		return PlacementGestureBuild.NotOnPage
 	}
+
 	// The shown page's MODEL index is the movers' page: they were chosen from islands shown on it.  A
 	// page whose model size disagrees with the shown surface means the two numberings diverged.
 	val pageIndex = model.atlas.tileById.getValue(candidateTileIds.first()).placement?.pageIndex ?: return PlacementGestureBuild.NotOnPage
 	val page = model.atlas.pages.getOrNull(pageIndex) ?: return PlacementGestureBuild.NotDerivable
+
 	if (page.width != surface.pageWidth || page.height != surface.pageHeight) {
 		return PlacementGestureBuild.NotDerivable
 	}
+
 	val reserveByTile = meshReserveByTile(model)
 	val extrude = model.atlas.composition.extrude
 
 	val movers = ArrayList<PlacementMover>()
+
 	for (tileId in candidateTileIds) {
 		val tile = model.atlas.tileById.getValue(tileId)
 		val placement = tile.placement ?: continue
+
 		if (placement.pageIndex != pageIndex) {
 			continue
 		}
+
 		// decodeRaster rather than the cached rasterFor: this runs off the UI thread the cache is
 		// confined to, and a mover's art is a handful of tiles.
 		val raster = surface.artRasters.decodeRaster(tileId) ?: return PlacementGestureBuild.NotDerivable
+
 		if (raster.width != tile.width || raster.height != tile.height) {
 			return PlacementGestureBuild.NotDerivable
 		}
+
 		// A placed tile with nothing opaque has nothing on the page to move.
 		val analysis = analyzeAlpha(raster.width, raster.height, raster.rgba, model.atlas.composition.alphaThreshold) ?: continue
 		val trim = analysis.opaqueBounds
@@ -565,16 +609,20 @@ internal fun buildPlacementGesture(
 			),
 		)
 	}
+
 	if (movers.isEmpty()) {
 		return PlacementGestureBuild.NotOnPage
 	}
+
 	val moverIds = movers.mapTo(HashSet()) { mover -> mover.tileId }
 	val bystanders =
 		model.atlas.tiles.mapNotNull { tile ->
 			val placement = tile.placement ?: return@mapNotNull null
+
 			if (placement.pageIndex != pageIndex || tile.id in moverIds) {
 				return@mapNotNull null
 			}
+
 			// The whole tile bounds its paint: known without a decode, and never narrower than the trim.
 			val extent = LayerBounds(0, 0, tile.width, tile.height)
 			PlacementBystander(
@@ -616,6 +664,7 @@ internal fun buildPlacementGesture(
 				PlacementMover(mover.tileId, mover.placement, mover.trim, mover.reserve, mover.meshMask, mover.mask, mover.contours, transform.anchor.first, transform.anchor.second, mover.crop)
 			}
 		}
+
 	return PlacementGestureBuild.Ready(
 		PlacementGesture(
 			transform = transform,
@@ -660,20 +709,26 @@ internal fun footprintCenterDisplay(footprint: PlacementFootprint, pageHeight: I
 internal fun placementFootprintCenters(model: PuppetModel, surface: UvPlacementSurface, tileIds: Collection<AtlasTileId>): Map<AtlasTileId, Pair<Float, Float>>? {
 	val reserveByTile = meshReserveByTile(model)
 	val centers = LinkedHashMap<AtlasTileId, Pair<Float, Float>>()
+
 	for (tileId in tileIds) {
 		val tile = model.atlas.tileById[tileId] ?: continue
 		val placement = tile.placement ?: continue
 		val page = model.atlas.pages.getOrNull(placement.pageIndex) ?: return null
+
 		if (page.width != surface.pageWidth || page.height != surface.pageHeight) {
 			return null
 		}
+
 		val raster = surface.artRasters.decodeRaster(tileId) ?: return null
+
 		if (raster.width != tile.width || raster.height != tile.height) {
 			return null
 		}
+
 		val trim = analyzeAlpha(raster.width, raster.height, raster.rgba, model.atlas.composition.alphaThreshold)?.opaqueBounds ?: continue
 		centers[tileId] = footprintCenterDisplay(placementFootprint(placement, trim, reserveByTile[tileId]), surface.pageHeight)
 	}
+
 	return centers
 }
 
@@ -697,10 +752,13 @@ internal fun cropRaster(raster: DecodedImage, trim: LayerBounds): DecodedImage? 
 	if (trim.width <= 0 || trim.height <= 0) {
 		return null
 	}
+
 	val bytes = ByteArray(trim.width * trim.height * 4)
+
 	for (rowIndex in 0 until trim.height) {
 		val sourceOffset = ((trim.top + rowIndex) * raster.width + trim.left) * 4
 		raster.rgba.copyInto(bytes, rowIndex * trim.width * 4, sourceOffset, sourceOffset + trim.width * 4)
 	}
+
 	return DecodedImage(bytes, trim.width, trim.height)
 }

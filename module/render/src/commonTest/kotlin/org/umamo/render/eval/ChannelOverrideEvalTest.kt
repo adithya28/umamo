@@ -54,6 +54,7 @@ class ChannelOverrideEvalTest {
 				opacity = 0.25f,
 				multiplyColor = ColorRgb(1f, 1f, 1f),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),

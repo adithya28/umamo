@@ -55,6 +55,7 @@ class UmaPuppetBridgeTest {
 	 */
 	private fun roundTrip(model: PuppetModel): PuppetModel {
 		val bytes = Uma.write(UmaModel.create(writer).withPuppet(UmaPuppetExport.puppetOf(model)))
+
 		return UmaPuppetImport.modelOf(Uma.read(bytes).puppet!!)
 	}
 
@@ -69,6 +70,7 @@ class UmaPuppetBridgeTest {
 		val drawables =
 			BlendMode.entries.mapIndexed { modeIndex, mode ->
 				val alphaMode = AlphaBlendMode.entries[modeIndex % AlphaBlendMode.entries.size]
+
 				if (modeIndex == 0) {
 					Drawable(
 						id = DrawableId("D0"),
@@ -95,6 +97,7 @@ class UmaPuppetBridgeTest {
 					Drawable(DrawableId("D$modeIndex"), "Drawable $modeIndex", null, mode, emptyList(), null, null, alphaBlendMode = alphaMode)
 				}
 			}
+
 		return PuppetModel(
 			parameters =
 				listOf(

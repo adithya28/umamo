@@ -111,6 +111,7 @@ fun ViewportObjectGizmoOverlay(
 	if (mode != EditorMode.Object || camera == null) {
 		return
 	}
+
 	// Armed = a select tool or an object operator LATCHED IN THIS AREA owns the pointer; only then does the
 	// overlay hide the OS cursor.  Idle is not inert: the loop still owns the click pick and the un-armed
 	// box, consuming only primary-driven events, so middle-drag pan and wheel zoom fall through to the
@@ -154,6 +155,7 @@ fun ViewportObjectGizmoOverlay(
 			if (modalTransform.abandon()) {
 				service.setModel(session.model.value)
 			}
+
 			marquee.discard()
 			objectPick.cancel()
 		}
@@ -184,6 +186,7 @@ fun ViewportObjectGizmoOverlay(
 	// preview the drive loop pushed.
 	LaunchedEffect(activeObjectOperator) {
 		val operator = activeObjectOperator?.takeIf { it.areaId == areaId }
+
 		if (operator != null) {
 			modalTransform.begin(operator.kind)
 		} else {

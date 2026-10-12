@@ -91,17 +91,30 @@ internal fun blendBindingScrubOf(
 ): BlendBindingScrub {
 	if (binding.parameterId == deleted.id) {
 		val contributedAtRest = binding.contributesAt(deleted.default) && binding.limits.multiplierAt(defaultOf) > 0f
+
 		return BlendBindingScrub.Drop(restPreserved = !contributedAtRest)
 	}
+
 	if (binding.limits.none { limit -> limit.parameterId == deleted.id }) {
 		return BlendBindingScrub.Unchanged
 	}
+
 	val (overDeleted, others) = binding.limits.partition { limit -> limit.parameterId == deleted.id }
 	val deletedCap = overDeleted.multiplierAt(defaultOf)
+
 	return when {
-		deletedCap >= 1f -> BlendBindingScrub.DropLimits(restPreserved = true)
-		deletedCap <= 0f -> BlendBindingScrub.Drop(restPreserved = true)
-		others.isEmpty() -> BlendBindingScrub.ScaleForms(deletedCap)
+		deletedCap >= 1f -> {
+			BlendBindingScrub.DropLimits(restPreserved = true)
+		}
+
+		deletedCap <= 0f -> {
+			BlendBindingScrub.Drop(restPreserved = true)
+		}
+
+		others.isEmpty() -> {
+			BlendBindingScrub.ScaleForms(deletedCap)
+		}
+
 		else -> {
 			val othersCap = others.multiplierAt(defaultOf)
 			val contributesAtRest = binding.contributesAt(defaultOf(binding.parameterId))
@@ -137,31 +150,41 @@ internal fun <TForm : Any> List<BlendShapeBinding<TForm>>.scrubbedOf(
 	if (none { binding -> binding.parameterId == deleted.id || binding.limits.any { limit -> limit.parameterId == deleted.id } }) {
 		return ScrubbedBindings(this, movesRest = false)
 	}
+
 	val scaler by lazy(scalerOf)
 	var movesRest = false
 	val bindings =
 		mapNotNull { binding ->
 			when (val scrub = blendBindingScrubOf(binding, deleted, defaultOf)) {
-				BlendBindingScrub.Unchanged -> binding
+				BlendBindingScrub.Unchanged -> {
+					binding
+				}
+
 				is BlendBindingScrub.Drop -> {
 					if (!scrub.restPreserved) {
 						movesRest = true
 					}
+
 					null
 				}
+
 				is BlendBindingScrub.DropLimits -> {
 					if (!scrub.restPreserved) {
 						movesRest = true
 					}
+
 					binding.copy(limits = binding.limits.filterNot { limit -> limit.parameterId == deleted.id })
 				}
-				is BlendBindingScrub.ScaleForms ->
+
+				is BlendBindingScrub.ScaleForms -> {
 					binding.copy(
 						limits = emptyList(),
 						forms = binding.forms.map { form -> form?.let { present -> scaler(present, scrub.factor) } },
 					)
+				}
 			}
 		}
+
 	return ScrubbedBindings(bindings, movesRest)
 }
 
@@ -203,6 +226,7 @@ internal fun Drawable.meshFormScaler(defaultOf: (ParameterId) -> Float): (MeshFo
 	val referenceOpacity = channelGrids.scalarAt(FormChannel.OPACITY, opacity, defaultOf)
 	val referenceMultiply = channelGrids.colorAt(FormChannel.MULTIPLY_COLOR, multiplyColor, defaultOf)
 	val referenceScreen = channelGrids.colorAt(FormChannel.SCREEN_COLOR, screenColor, defaultOf)
+
 	return { form, factor ->
 		MeshForm(
 			positionDeltas = FloatArray(form.positionDeltas.size) { componentIndex -> scaledAround(referenceDeltas?.getOrNull(componentIndex) ?: 0f, form.positionDeltas[componentIndex], factor) },
@@ -226,6 +250,7 @@ internal fun Deformer.Warp.warpFormScaler(defaultOf: (ParameterId) -> Float): (W
 	val referenceOpacity = channelGrids.scalarAt(FormChannel.OPACITY, opacity, defaultOf)
 	val referenceMultiply = channelGrids.colorAt(FormChannel.MULTIPLY_COLOR, multiplyColor, defaultOf)
 	val referenceScreen = channelGrids.colorAt(FormChannel.SCREEN_COLOR, screenColor, defaultOf)
+
 	return { form, factor ->
 		WarpForm(
 			controlPoints = FloatArray(form.controlPoints.size) { componentIndex -> scaledAround(referencePoints?.getOrNull(componentIndex) ?: 0f, form.controlPoints[componentIndex], factor) },
@@ -248,6 +273,7 @@ internal fun Deformer.Rotation.rotationFormScaler(defaultOf: (ParameterId) -> Fl
 	val referenceOpacity = channelGrids.scalarAt(FormChannel.OPACITY, opacity, defaultOf)
 	val referenceMultiply = channelGrids.colorAt(FormChannel.MULTIPLY_COLOR, multiplyColor, defaultOf)
 	val referenceScreen = channelGrids.colorAt(FormChannel.SCREEN_COLOR, screenColor, defaultOf)
+
 	return { form, factor ->
 		RotationForm(
 			originX = scaledAround(referencePivot.originX, form.originX, factor),
@@ -275,6 +301,7 @@ internal fun Part.partFormScaler(defaultOf: (ParameterId) -> Float): (PartForm, 
 	val referenceOpacity = channelGrids.scalarAt(FormChannel.OPACITY, composite.opacity, defaultOf)
 	val referenceMultiply = channelGrids.colorAt(FormChannel.MULTIPLY_COLOR, composite.multiplyColor, defaultOf)
 	val referenceScreen = channelGrids.colorAt(FormChannel.SCREEN_COLOR, composite.screenColor, defaultOf)
+
 	return { form, factor ->
 		PartForm(
 			drawOrder = scaledAround(referenceDrawOrder, form.drawOrder, factor),
@@ -292,6 +319,7 @@ internal fun Part.partFormScaler(defaultOf: (ParameterId) -> Float): (PartForm, 
  */
 internal fun PuppetModel.defaultValueLookup(): (ParameterId) -> Float {
 	val defaultById = parameters.associate { parameter -> parameter.id to parameter.default }
+
 	return { parameterId -> defaultById[parameterId] ?: 0f }
 }
 
@@ -313,16 +341,21 @@ internal fun PuppetModel.defaultValueLookup(): (ParameterId) -> Float {
  */
 internal fun collapseMovesRest(grid: KeyformGrid<*>?, parameterId: ParameterId, keepValue: Float, missingKeptCellMoves: Boolean = true): Boolean {
 	val axisIndex = grid?.axisIndexOf(parameterId) ?: return false
+
 	if (axisIndex < 0) {
 		return false
 	}
+
 	val keepIndex = grid.keyIndexAt(parameterId, keepValue)
+
 	if (keepIndex < 0) {
 		return true
 	}
+
 	if (!missingKeptCellMoves || grid.axes.size > 1) {
 		return false
 	}
+
 	return grid.cells.none { cell -> cell.coordinate.getOrNull(axisIndex) == keepIndex }
 }
 

@@ -31,19 +31,24 @@ import org.umamo.runtime.model.storedToArtAffineForTile
 fun PuppetModel.tileCarriesNoRigWork(tileId: AtlasTileId, row: ArtSourceLayer?): Boolean {
 	val tile = atlas.tileById[tileId] ?: return false
 	val over = drawables.filter { drawable -> drawable.atlasTileId == tileId }
+
 	if (over.isEmpty()) {
 		return true
 	}
+
 	if (row == null) {
 		return false
 	}
+
 	val storedToArt = atlas.storedToArtAffineForTile(tileId) ?: return false
 	val overIds = over.mapTo(HashSet()) { drawable -> drawable.id }
 	val masksAnother = drawables.any { drawable -> drawable.id !in overIds && drawable.maskedBy.any { maskId -> maskId in overIds } }
 	val glued = glues.any { glue -> glue.meshA in overIds || glue.meshB in overIds }
+
 	if (masksAnother || glued) {
 		return false
 	}
+
 	return over.all { drawable ->
 		val mesh = drawable.mesh ?: return@all false
 		drawable.parentDeformerId == null &&

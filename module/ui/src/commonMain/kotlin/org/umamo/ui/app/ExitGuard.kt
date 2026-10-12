@@ -40,6 +40,7 @@ class ExitGuard {
 	 */
 	fun request(exit: () -> Unit) {
 		val guard = installedGuard
+
 		if (guard == null) {
 			exit()
 		} else {
@@ -60,6 +61,7 @@ class ExitGuard {
 	fun install(workRunning: () -> Boolean = { false }, guard: (() -> Unit) -> Unit): () -> Unit {
 		installedGuard = guard
 		installedWorkRunning = workRunning
+
 		return {
 			if (installedGuard === guard) {
 				installedGuard = null

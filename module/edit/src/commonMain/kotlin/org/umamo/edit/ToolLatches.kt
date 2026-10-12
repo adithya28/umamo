@@ -107,12 +107,15 @@ internal class ToolLatches : SessionToolLatches {
 		mutableActiveObjectOperator.value = null
 		mutableActiveUvOperator.value = null
 		mutableActiveSelectTool.value = null
+
 		if (clearZoomRegion) {
 			mutableZoomRegionArmedArea.value = null
 		}
+
 		if (clearAxisConstraint) {
 			mutableAxisConstraint.value = null
 		}
+
 		if (clearViewportGesture) {
 			mutableViewportGestureActive.value = false
 		}
@@ -254,6 +257,7 @@ internal class ToolLatches : SessionToolLatches {
 		val clamped = radiusPx.coerceIn(MIN_CIRCLE_RADIUS_PX, MAX_CIRCLE_RADIUS_PX)
 		lastCircleRadiusPx = clamped
 		val current = mutableActiveSelectTool.value
+
 		if (current is ActiveSelectTool.Circle) {
 			// A resize keeps the brush in its arming area - only re-arming moves the tool.
 			mutableActiveSelectTool.value = ActiveSelectTool.Circle(clamped, current.areaId)
@@ -263,6 +267,7 @@ internal class ToolLatches : SessionToolLatches {
 	/** Grows the Circle-select radius by one step; a no-op unless a Circle tool is live. */
 	override fun growCircleRadius() {
 		val current = mutableActiveSelectTool.value
+
 		if (current is ActiveSelectTool.Circle) {
 			setCircleRadius(current.radiusPx + CIRCLE_RADIUS_STEP_PX)
 		}
@@ -271,6 +276,7 @@ internal class ToolLatches : SessionToolLatches {
 	/** Shrinks the Circle-select radius by one step; a no-op unless a Circle tool is live. */
 	override fun shrinkCircleRadius() {
 		val current = mutableActiveSelectTool.value
+
 		if (current is ActiveSelectTool.Circle) {
 			setCircleRadius(current.radiusPx - CIRCLE_RADIUS_STEP_PX)
 		}
@@ -306,24 +312,30 @@ internal class ToolLatches : SessionToolLatches {
 	 */
 	override fun releaseArea(areaId: String): Boolean {
 		var releasedOperator = false
+
 		if (mutableActiveMeshOperator.value?.areaId == areaId) {
 			clearMeshOperator()
 			releasedOperator = true
 		}
+
 		if (mutableActiveObjectOperator.value?.areaId == areaId) {
 			clearObjectOperator()
 			releasedOperator = true
 		}
+
 		if (mutableActiveUvOperator.value?.areaId == areaId) {
 			clearUvOperator()
 			releasedOperator = true
 		}
+
 		if (mutableActiveSelectTool.value?.areaId == areaId) {
 			clearSelectTool()
 		}
+
 		if (mutableZoomRegionArmedArea.value == areaId) {
 			disarmZoomRegion()
 		}
+
 		return releasedOperator
 	}
 
@@ -336,9 +348,11 @@ internal class ToolLatches : SessionToolLatches {
 	 */
 	override fun toggleAxisConstraint(axis: TransformAxisConstraint) {
 		val operator = mutableActiveMeshOperator.value ?: mutableActiveObjectOperator.value ?: mutableActiveUvOperator.value ?: return
+
 		if (operator.kind == MeshOperatorKind.Rotate) {
 			return
 		}
+
 		mutableAxisConstraint.value = if (mutableAxisConstraint.value == axis) null else axis
 	}
 

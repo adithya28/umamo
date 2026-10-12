@@ -38,15 +38,18 @@ internal fun outlinerRowMenuItems(
 	buildList {
 		add(MenuItem.Action(labels.selectHierarchy, onSelect = { commands.invoke(SELECT_HIERARCHY_COMMAND, target) }))
 		add(MenuItem.Separator)
+
 		if (target is SelectionTarget.Part || target is SelectionTarget.Drawable) {
 			add(MenuItem.Action(labels.visibility, onSelect = onToggleVisibility))
 		}
+
 		add(MenuItem.Action(labels.selectable, onSelect = onToggleSelectable))
 		add(MenuItem.Action(labels.rename, onSelect = onStartRename))
 		add(MenuItem.Separator)
 		// "Delete" removes just this item (a part keeps its contents, which rise to the parent); "Delete
 		// Hierarchy" removes a part's whole subtree.  A drawable / deformer has no hierarchy, so just "Delete".
 		add(MenuItem.Action(labels.delete, onSelect = { onRequestDelete(false) }))
+
 		if (target is SelectionTarget.Part) {
 			add(MenuItem.Action(labels.deleteHierarchy, onSelect = { onRequestDelete(true) }))
 		}

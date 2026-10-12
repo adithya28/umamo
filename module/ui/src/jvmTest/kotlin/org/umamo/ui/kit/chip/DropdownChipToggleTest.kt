@@ -169,6 +169,7 @@ class DropdownChipToggleTest {
 	 */
 	private fun androidx.compose.ui.test.ComposeUiTest.widthOf(description: String): Float {
 		val bounds = onNodeWithContentDescription(description, useUnmergedTree = true).getBoundsInRoot()
+
 		return (bounds.right - bounds.left).value
 	}
 

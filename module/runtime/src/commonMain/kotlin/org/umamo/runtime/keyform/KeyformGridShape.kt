@@ -41,19 +41,25 @@ val KeyformGrid<*>.cellCount: Int
 val KeyformGrid<*>.isDense: Boolean
 	get() {
 		val expectedCellCount = cellCount
+
 		if (expectedCellCount <= 0 || cells.size != expectedCellCount) {
 			return false
 		}
+
 		val seenIndices = HashSet<Int>(cells.size)
+
 		for (cell in cells) {
 			if (cell.coordinate.size != axes.size) {
 				return false
 			}
+
 			val linearIndex = linearIndexOf(cell.coordinate)
+
 			if (linearIndex < 0 || linearIndex >= expectedCellCount || !seenIndices.add(linearIndex)) {
 				return false
 			}
 		}
+
 		return true
 	}
 
@@ -81,18 +87,23 @@ fun KeyformGrid<*>.axisIndexOf(parameterId: ParameterId): Int = axes.indexOfFirs
  */
 fun <TForm> KeyformGrid<TForm>.withAxisCollapsed(parameterId: ParameterId, keepKeyValue: Float): KeyformGrid<TForm>? {
 	val axisIndex = axisIndexOf(parameterId)
+
 	if (axisIndex < 0) {
 		return this
 	}
+
 	val newAxes = axes.filterIndexed { index, _ -> index != axisIndex }
+
 	if (newAxes.isEmpty()) {
 		return null
 	}
+
 	val keepIndex = nearestKeyIndex(axes[axisIndex].keys, keepKeyValue)
 	val newCells =
 		cells
 			.filter { cell -> cell.coordinate[axisIndex] == keepIndex }
 			.map { cell -> KeyformCell(cell.coordinate.withElementRemoved(axisIndex), cell.form) }
+
 	return KeyformGrid(newAxes, newCells)
 }
 
@@ -113,14 +124,18 @@ fun <TForm> KeyformGrid<TForm>.withAxisCollapsed(parameterId: ParameterId, keepK
  */
 fun <TForm> KeyformGrid<TForm>.withAxisCollapsedKeepingCell(parameterId: ParameterId, keepKeyValue: Float): KeyformGrid<TForm>? {
 	val axisIndex = axisIndexOf(parameterId)
+
 	if (axisIndex < 0) {
 		return this
 	}
+
 	if (axes.size > 1) {
 		return withAxisCollapsed(parameterId, keepKeyValue)
 	}
+
 	val keepIndex = nearestKeyIndex(axes[axisIndex].keys, keepKeyValue)
 	val kept = cells.firstOrNull { cell -> cell.coordinate[axisIndex] == keepIndex } ?: return null
+
 	return KeyformGrid(emptyList(), listOf(KeyformCell(IntArray(0), kept.form)))
 }
 
@@ -137,9 +152,11 @@ fun <TForm> KeyformGrid<TForm>.withAxisCollapsedKeepingCell(parameterId: Paramet
  */
 fun KeyformGrid<*>.keyIndexAt(parameterId: ParameterId, value: Float): Int {
 	val axisIndex = axisIndexOf(parameterId)
+
 	if (axisIndex < 0) {
 		return -1
 	}
+
 	return axes[axisIndex].keys.indexOfFirst { key -> abs(key - value) < EPS_KEY }
 }
 
@@ -179,24 +196,33 @@ fun ChannelGrids.withAxisCollapsedLifting(parameterId: ParameterId, keepKeyValue
 	var changed = false
 	val scrubbed = LinkedHashMap<FormChannel, KeyformGrid<ChannelValue>>(gridsByChannel.size)
 	val lifted = LinkedHashMap<FormChannel, ChannelValue>()
+
 	for ((channel, grid) in gridsByChannel) {
 		val collapsed = grid.withAxisCollapsed(parameterId, keepKeyValue)
+
 		if (collapsed === grid) {
 			scrubbed[channel] = grid
+
 			continue
 		}
+
 		changed = true
+
 		if (collapsed != null) {
 			scrubbed[channel] = collapsed
+
 			continue
 		}
+
 		val axisIndex = grid.axisIndexOf(parameterId)
 		val keepIndex = nearestKeyIndex(grid.axes[axisIndex].keys, keepKeyValue)
 		val keptCell = grid.cells.firstOrNull { cell -> cell.coordinate.getOrNull(axisIndex) == keepIndex }
+
 		if (keptCell != null) {
 			lifted[channel] = keptCell.form
 		}
 	}
+
 	return if (changed) CollapsedChannels(ChannelGrids(scrubbed), lifted) else CollapsedChannels(this, emptyMap())
 }
 
@@ -211,15 +237,19 @@ private fun nearestKeyIndex(keys: FloatArray, value: Float): Int {
 	if (keys.isEmpty()) {
 		return 0
 	}
+
 	var bestIndex = 0
 	var bestDistance = abs(keys[0] - value)
+
 	for (keyIndex in 1 until keys.size) {
 		val distance = abs(keys[keyIndex] - value)
+
 		if (distance < bestDistance) {
 			bestDistance = distance
 			bestIndex = keyIndex
 		}
 	}
+
 	return bestIndex
 }
 
@@ -232,11 +262,13 @@ private fun nearestKeyIndex(keys: FloatArray, value: Float): Int {
 private fun IntArray.withElementRemoved(removeIndex: Int): IntArray {
 	val result = IntArray(size - 1)
 	var writeIndex = 0
+
 	for (readIndex in indices) {
 		if (readIndex != removeIndex) {
 			result[writeIndex] = this[readIndex]
 			writeIndex++
 		}
 	}
+
 	return result
 }

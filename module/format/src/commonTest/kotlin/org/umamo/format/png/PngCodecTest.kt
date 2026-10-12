@@ -50,10 +50,12 @@ class PngCodecTest {
 		idatPieces: (ByteArray) -> List<ByteArray> = { stream -> listOf(stream) },
 	): ByteArray {
 		val filtered = Buffer()
+
 		for (rowIndex in 0 until height) {
 			filtered.writeByte(0) // filter type None
 			filtered.write(samples, rowIndex * rowBytes, rowBytes)
 		}
+
 		val ihdr = Buffer()
 		ihdr.writeInt(width)
 		ihdr.writeInt(height)
@@ -66,16 +68,21 @@ class PngCodecTest {
 		val out = Buffer()
 		out.write(PNG_SIGNATURE)
 		writeChunk(out, "IHDR", ihdr.readByteArray())
+
 		if (palette != null) {
 			writeChunk(out, "PLTE", palette)
 		}
+
 		if (trns != null) {
 			writeChunk(out, "tRNS", trns)
 		}
+
 		for (piece in idatPieces(deflateIdat(filtered.readByteArray()))) {
 			writeChunk(out, "IDAT", piece)
 		}
+
 		writeChunk(out, "IEND", ByteArray(0))
+
 		return out.readByteArray()
 	}
 
@@ -134,12 +141,15 @@ class PngCodecTest {
 	fun decodes16BitGrayscaleByTheSpecLinearEquation() {
 		// Every 16-bit value once, 256 per row, big-endian (PNG spec §7.2).
 		val samples = ByteArray(65536 * 2)
+
 		for (value in 0 until 65536) {
 			samples[value * 2] = (value ushr 8).toByte()
 			samples[value * 2 + 1] = value.toByte()
 		}
+
 		val png = buildPng(width = 256, height = 256, bitDepth = 16, colorType = 0, samples = samples, rowBytes = 512)
 		val decoded = PngCodec.read(png)
+
 		for (value in 0 until 65536) {
 			// PNG spec §13.12: floor(value * 255 / 65535 + 0.5), evaluated as one exact integer division.
 			val expected = ((2L * value * 255 + 65535) / (2L * 65535)).toInt()

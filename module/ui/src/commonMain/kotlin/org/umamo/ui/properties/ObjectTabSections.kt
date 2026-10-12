@@ -74,6 +74,7 @@ internal val TransformSection =
 			val deformer = context.activeDeformer()
 			val session = context.session
 			val mesh = drawable?.mesh
+
 			if (drawable != null && mesh != null && mesh.vertexCount > 0) {
 				listOf(
 					PropertyRow(
@@ -150,6 +151,7 @@ private fun DrawableTransformRows(context: PropertyContext, drawableId: Drawable
 	val scrub = rememberFieldScrubPreview(editable)
 	// Read here, called in the commit: the answer is the pointer's state as the release lands.
 	val stripArea = LocalOperationStripArea.current
+
 	if (showSize) {
 		SizeFieldsWithAspectLock(
 			bounds = bounds,
@@ -413,6 +415,7 @@ internal val RelationsSection =
 			val deformer = context.activeDeformer()
 			val part = context.activePart()
 			val session = context.session
+
 			if (drawable != null) {
 				listOf(
 					PropertyRow(terms = listOf(Res.string.properties_part_ref)) { _ ->

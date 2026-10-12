@@ -51,6 +51,7 @@ class UvEditFrameTest {
 		val frame = sourceLayerEditFrame(packedBinding(rotationDegrees = 37.5f, scaleX = 0.86f, scaleY = 0.86f), 576, 646)
 		assertNotNull(frame, "a well-formed placement yields a frame")
 		assertFalse(frame.isStoredFrame, "a placed layer is not the stored frame")
+
 		for ((displayX, displayY) in listOf(0f to 0f, 137f to 251f, 575f to 645f)) {
 			val (u, v) = frame.storedUvAt(displayX, displayY)
 			val (backX, backY) = frame.displayAt(u, v)
@@ -90,6 +91,7 @@ class UvEditFrameTest {
 				"page" to atlasPageEditFrame(2048, 1024),
 				"layer" to sourceLayerEditFrame(packedBinding(rotationDegrees = 37.5f, scaleX = 0.86f, scaleY = 0.86f), 576, 646)!!,
 			)
+
 		for ((label, frame) in frames) {
 			// Display positions for every vertex, as a real gesture supplies - but only vertex 1 moved.
 			val displayPositions = FloatArray(storedUvs.size) { componentIndex -> 7f * (componentIndex + 1) }

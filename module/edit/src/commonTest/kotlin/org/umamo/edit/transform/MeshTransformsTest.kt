@@ -58,6 +58,7 @@ class MeshTransformsTest {
 			assertEquals(5f, result[vertexIndex * 2], "vertex $vertexIndex x piled on the target")
 			assertEquals(7f, result[vertexIndex * 2 + 1], "vertex $vertexIndex y piled on the target")
 		}
+
 		assertEquals(0f, result[4], "vertex 2 x untouched")
 		assertEquals(2f, result[5], "vertex 2 y untouched")
 		// Purity: the input array is unchanged.

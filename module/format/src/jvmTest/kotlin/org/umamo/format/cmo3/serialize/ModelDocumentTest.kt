@@ -19,10 +19,13 @@ class ModelDocumentTest {
 	@Test
 	fun parsesPartsAndReemitsByteIdentical() {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.sample not present; skipping ModelDocument test")
+
 			return
 		}
+
 		val mainXml =
 			CaffCodec.read(file.readBytes())
 				.firstByTag(CaffArchive.TAG_MAIN_XML)?.content ?: error("no main_xml")

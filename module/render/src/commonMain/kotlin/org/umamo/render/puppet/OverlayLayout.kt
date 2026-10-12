@@ -46,20 +46,26 @@ internal fun planOverlayLayout(
 ): OverlayLayout {
 	val placed = ArrayList<OverlayPlacement>(overlay.meshes.size)
 	var totalVertexCount = 0
+
 	for (mesh in overlay.meshes) {
 		val residentVertexCount = residentVertexCountById[mesh.drawableId] ?: continue
+
 		if (residentVertexCount != mesh.vertexCount) {
 			continue
 		}
+
 		if (overlay.kind == MeshOverlayKind.Edit && mesh.faceFlags.isNotEmpty()) {
 			val residentTriangleCount = residentTriangleCountById[mesh.drawableId] ?: continue
+
 			if (residentTriangleCount != mesh.faceFlags.size) {
 				continue
 			}
 		}
+
 		placed.add(OverlayPlacement(mesh, totalVertexCount))
 		totalVertexCount += mesh.vertexCount
 	}
+
 	return OverlayLayout(placed, totalVertexCount)
 }
 
@@ -103,20 +109,26 @@ internal class DirectOverlayLayout(
 internal fun planDirectOverlayLayout(direct: DirectMeshOverlay): DirectOverlayLayout {
 	val placed = ArrayList<DirectOverlayPlacement>(direct.overlay.meshes.size)
 	var totalVertexCount = 0
+
 	for (mesh in direct.overlay.meshes) {
 		val positions = direct.positionsById[mesh.drawableId] ?: continue
 		val triangleIndices = direct.triangleIndicesById[mesh.drawableId] ?: continue
+
 		if (positions.size != mesh.vertexCount * 2 || triangleIndices.size % 3 != 0) {
 			continue
 		}
+
 		if (triangleIndices.any { index -> index !in 0 until mesh.vertexCount }) {
 			continue
 		}
+
 		if (direct.overlay.kind == MeshOverlayKind.Edit && mesh.faceFlags.isNotEmpty() && mesh.faceFlags.size != triangleIndices.size / 3) {
 			continue
 		}
+
 		placed.add(DirectOverlayPlacement(mesh, positions, triangleIndices, totalVertexCount))
 		totalVertexCount += mesh.vertexCount
 	}
+
 	return DirectOverlayLayout(placed, totalVertexCount)
 }

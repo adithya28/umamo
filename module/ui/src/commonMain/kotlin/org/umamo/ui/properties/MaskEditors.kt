@@ -43,6 +43,7 @@ private const val MASKED_BY_LIST_NAME = "maskedBy"
  */
 internal fun maskCandidates(drawables: List<Drawable>, current: List<DrawableId>): List<Drawable> {
 	val applied = current.toSet()
+
 	return drawables.filter { drawable -> drawable.id !in applied }
 }
 
@@ -110,6 +111,7 @@ internal fun PartMaskEditor(part: Part, composite: PartComposite, context: Prope
 	// flight - one undo step that quietly undoes two others.
 	val mutateComposite: (PartComposite.() -> PartComposite) -> Unit = { change ->
 		val live = session?.model?.value?.parts?.firstOrNull { it.id == part.id }?.activeComposite
+
 		if (live != null) {
 			session.setPartComposite(part.id, live.change())
 		}
@@ -122,6 +124,7 @@ internal fun PartMaskEditor(part: Part, composite: PartComposite, context: Prope
 					add(MaskEntry.OfDrawable(masker.id, masker.name.ifBlank { masker.id.raw }))
 				}
 			}
+
 			for (maskPartId in composite.maskedByParts) {
 				context.puppet.parts.firstOrNull { it.id == maskPartId }?.let { masker ->
 					add(MaskEntry.OfPart(masker.id, masker.name.ifBlank { masker.id.raw }))
@@ -133,6 +136,7 @@ internal fun PartMaskEditor(part: Part, composite: PartComposite, context: Prope
 			for (candidate in maskCandidates(context.puppet.drawables, composite.maskedBy)) {
 				add(MaskEntry.OfDrawable(candidate.id, candidate.name.ifBlank { candidate.id.raw }))
 			}
+
 			// A part cannot mask itself (it would clip the very layer it composites).
 			for (candidate in context.puppet.parts) {
 				if (candidate.id != part.id && candidate.id !in composite.maskedByParts) {
@@ -143,6 +147,7 @@ internal fun PartMaskEditor(part: Part, composite: PartComposite, context: Prope
 	val addEntry: (MaskEntry) -> Unit = { entry ->
 		when (entry) {
 			is MaskEntry.OfDrawable -> mutateComposite { copy(maskedBy = (maskedBy + entry.id).distinct()) }
+
 			// A part masking itself would clip the very layer it composites; the candidate list excludes it,
 			// and the eyedropper has to refuse it too or the outliner becomes a way around the guard.
 			is MaskEntry.OfPart -> if (entry.id != part.id) mutateComposite { copy(maskedByParts = (maskedByParts + entry.id).distinct()) }
@@ -173,8 +178,14 @@ internal fun PartMaskEditor(part: Part, composite: PartComposite, context: Prope
 			onPick = {
 				relationPick.arm(setOf(PickKind.Drawable, PickKind.Part), owner) { target ->
 					when (target) {
-						is SelectionTarget.Drawable -> addEntry(MaskEntry.OfDrawable(target.id, target.id.raw))
-						is SelectionTarget.Part -> addEntry(MaskEntry.OfPart(target.id, target.id.raw))
+						is SelectionTarget.Drawable -> {
+							addEntry(MaskEntry.OfDrawable(target.id, target.id.raw))
+						}
+
+						is SelectionTarget.Part -> {
+							addEntry(MaskEntry.OfPart(target.id, target.id.raw))
+						}
+
 						is SelectionTarget.Deformer -> {}
 					}
 				}
@@ -206,6 +217,7 @@ internal fun DrawableMaskEditor(drawable: Drawable, context: PropertyContext) {
 	// the captured list would revert any mask added in the meantime.
 	val addMask: (DrawableId) -> Unit = { maskId ->
 		val live = session?.model?.value?.drawables?.firstOrNull { it.id == drawable.id }?.maskedBy
+
 		if (live != null) {
 			session.setDrawableMaskedBy(drawable.id, (live + maskId).distinct())
 		}

@@ -26,13 +26,17 @@ import org.umamo.runtime.model.PuppetModel
  */
 fun PuppetModel.freshParameterGroupId(): ParameterGroupId {
 	val existing = collectParameterGroupIds(parameterTree)
+
 	if (ParameterGroupId("ParamGroup") !in existing) {
 		return ParameterGroupId("ParamGroup")
 	}
+
 	var suffix = 2
+
 	while (ParameterGroupId("ParamGroup$suffix") in existing) {
 		suffix++
 	}
+
 	return ParameterGroupId("ParamGroup$suffix")
 }
 
@@ -51,7 +55,9 @@ fun PuppetModel.withParameterGroupCreated(newGroupId: ParameterGroupId, name: St
 	if (newGroupId in collectParameterGroupIds(parameterTree)) {
 		return this
 	}
+
 	val newGroup = ParameterNode.Group(newGroupId, name, initiallyOpen = true, children = emptyList())
+
 	return copy(parameterTree = listOf(newGroup) + materializedParameterTree())
 }
 
@@ -76,6 +82,7 @@ fun PuppetModel.withParameterGroupDeleted(groupId: ParameterGroupId): PuppetMode
 				else -> listOf(node)
 			}
 		}
+
 	return copy(parameterTree = splice(parameterTree))
 }
 
@@ -90,6 +97,7 @@ fun PuppetModel.withParameterGroupDeleted(groupId: ParameterGroupId): PuppetMode
  */
 fun PuppetModel.withParameterGroupRenamed(groupId: ParameterGroupId, newName: String): PuppetModel {
 	val trimmed = newName.trim()
+
 	if (trimmed.isEmpty()) {
 		return this
 	}
@@ -103,9 +111,11 @@ fun PuppetModel.withParameterGroupRenamed(groupId: ParameterGroupId, newName: St
 			}
 		}
 	val newTree = rename(parameterTree)
+
 	if (newTree == parameterTree) {
 		return this
 	}
+
 	return copy(parameterTree = newTree)
 }
 
@@ -119,6 +129,7 @@ fun PuppetModel.withParameterGroupRenamed(groupId: ParameterGroupId, newName: St
 fun EditorSession.createParameterGroup(name: String): ParameterGroupId {
 	val id = model.value.freshParameterGroupId()
 	mutate(ParameterChange.CreateGroup(id)) { model -> model.withParameterGroupCreated(id, name) }
+
 	return id
 }
 

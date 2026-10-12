@@ -36,6 +36,7 @@ internal fun warpInGrid(
 	if (u < 0f || v < 0f || u >= 1f || v >= 1f) {
 		return false
 	}
+
 	val pointsPerRow = cols + 1
 	val gridU = cols * u
 	val gridV = rows * v
@@ -46,6 +47,7 @@ internal fun warpInGrid(
 	val p10 = (cellIndex + 1) * 2
 	val p01 = (cellIndex + pointsPerRow) * 2
 	val p11 = (cellIndex + pointsPerRow + 1) * 2
+
 	if (!bilinear) {
 		if (cellU + cellV <= 1f) {
 			out[outIndex] = cp[p10] * cellU + cp[p00] * (1 - cellU - cellV) + cp[p01] * cellV
@@ -62,6 +64,7 @@ internal fun warpInGrid(
 		out[outIndex + 1] =
 			invCellV * cp[p10 + 1] * cellU + cp[p00 + 1] * (1 - cellU) * invCellV + (1 - cellU) * cp[p01 + 1] * cellV + cellU * cp[p11 + 1] * cellV
 	}
+
 	return true
 }
 
@@ -97,11 +100,14 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 	val dVy = ((botRightY - topLeftY) - (topRightY - botLeftY)) * 0.5f
 	val originX = (topLeftX + topRightX + botLeftX + botRightX) * 0.25f - (botRightX - topLeftX) * 0.5f
 	val originY = (topLeftY + topRightY + botLeftY + botRightY) * 0.25f - (botRightY - topLeftY) * 0.5f
+
 	if (u <= -2f || u >= 3f || v <= -2f || v >= 3f) {
 		out[outIndex] = dUx * u + originX + dVx * v
 		out[outIndex + 1] = dVy * v + dUy * u + originY
+
 		return
 	}
+
 	var blendU = 0f
 	var blendV = 0f
 	var corner0x = 0f
@@ -112,10 +118,12 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 	var corner2y = 0f
 	var corner3x = 0f
 	var corner3y = 0f
+
 	if (u <= 0f) {
 		blendU = (u + 2f) * 0.5f
 		corner3x = originX - 2f * dUx
 		corner3y = originY - 2f * dUy
+
 		if (v <= 0f) {
 			corner2x = topLeftX
 			corner2y = topLeftY
@@ -128,6 +136,7 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 			var loIdx = gridV.toInt()
 			val edgeHi: Float
 			val hiIdx: Int
+
 			if (rows == loIdx) {
 				loIdx = rows - 1
 				hiIdx = rows
@@ -136,6 +145,7 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 				hiIdx = loIdx + 1
 				edgeHi = (loIdx + 1).toFloat()
 			}
+
 			blendV = gridV - loIdx
 			val edgeLo = loIdx.toFloat() / rows
 			corner1x = cp[loIdx * pointsPerRow * 2]
@@ -163,6 +173,7 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 			val edgeX: Float
 			val edgeY: Float
 			val edgeHi: Float
+
 			if (cols == loIdx) {
 				loIdx = cols - 1
 				edgeX = topRightX
@@ -173,6 +184,7 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 				edgeY = cp[(loIdx + 1) * 2 + 1]
 				edgeHi = (loIdx + 1).toFloat()
 			}
+
 			corner2y = edgeY
 			blendV = (v + 2f) * 0.5f
 			blendU = gridU - loIdx
@@ -188,6 +200,7 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 			var loIdx = gridU.toInt()
 			val edgeHi: Float
 			val hiIdx: Int
+
 			if (cols == loIdx) {
 				loIdx = cols - 1
 				hiIdx = cols
@@ -196,6 +209,7 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 				hiIdx = loIdx + 1
 				edgeHi = (loIdx + 1).toFloat()
 			}
+
 			blendV = (v - 1f) * 0.5f
 			blendU = gridU - loIdx
 			val edgeLo = loIdx.toFloat() / cols
@@ -210,12 +224,14 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 		} else {
 			out[outIndex] = originX + dUx * u + dVx * v
 			out[outIndex + 1] = originY + dVy * v + dUy * u
+
 			return
 		}
 	} else {
 		blendU = (u - 1f) * 0.5f
 		corner2x = 3f * dUx + originX
 		corner2y = 3f * dUy + originY
+
 		if (v <= 0f) {
 			corner3x = topRightX
 			corner3y = topRightY
@@ -228,6 +244,7 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 			var loIdx = gridV.toInt()
 			val edgeHi: Float
 			val hiIdx: Int
+
 			if (rows == loIdx) {
 				loIdx = rows - 1
 				hiIdx = rows
@@ -236,6 +253,7 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 				hiIdx = loIdx + 1
 				edgeHi = (loIdx + 1).toFloat()
 			}
+
 			blendV = gridV - loIdx
 			corner0x = cp[(loIdx * pointsPerRow + cols) * 2]
 			corner0y = cp[(loIdx * pointsPerRow + cols) * 2 + 1]
@@ -258,6 +276,7 @@ internal fun warpExtrap(cp: FloatArray, cols: Int, rows: Int, u: Float, v: Float
 			corner2y = 3f * dVy + corner2y
 		}
 	}
+
 	if (blendU + blendV <= 1f) {
 		out[outIndex] = (corner1x - corner0x) * blendU + corner0x + (corner3x - corner0x) * blendV
 		out[outIndex + 1] = (corner1y - corner0y) * blendU + corner0y + (corner3y - corner0y) * blendV
@@ -345,6 +364,7 @@ internal fun rotationXform(
 	val cs = cos(radians.toDouble()).toFloat()
 	val fx = if (flipX) -1f else 1f
 	val fy = if (flipY) -1f else 1f
+
 	return RotationXform(
 		c12 = cs * scale * fx,
 		c13 = fy * cs * scale,

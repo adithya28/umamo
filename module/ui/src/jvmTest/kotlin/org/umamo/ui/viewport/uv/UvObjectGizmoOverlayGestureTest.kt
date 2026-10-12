@@ -215,6 +215,7 @@ class UvObjectGizmoOverlayGestureTest {
 		runComposeUiTest {
 			val fixture = mountPlaced(selected = emptyList())
 			val session = fixture.session
+
 			for (armedIn in listOf(RIGHT_AREA, LEFT_AREA)) {
 				session.beginBoxSelect(armedIn)
 				waitForIdle()

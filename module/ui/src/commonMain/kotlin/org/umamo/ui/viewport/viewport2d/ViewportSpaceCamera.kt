@@ -37,21 +37,27 @@ internal class ViewportSpaceCamera(
 				maxY = maxOf(maxY, worldPositions[vertexIndex * 2 + 1])
 			}
 		}
+
 		if (session.mode.value == EditorMode.Edit) {
 			// The covered vertices of the session selection, at the neutral pose Edit mode is pinned to.
 			val meshSelection = session.meshSelection.value
 			// One resolver for the sweep, so the deformer chain bakes once rather than once per mesh.
 			val spaces = DrawableSpaceResolver(model, emptyMap())
+
 			for (drawableId in meshSelection.drawableIds) {
 				val elements = meshSelection.elementsOf(drawableId)
+
 				if (elements.isEmpty()) {
 					continue
 				}
+
 				val mesh = spaces.drawable(drawableId)?.mesh ?: continue
 				val covered = MeshTopology.coveredVertexIndices(elements, mesh.indices)
+
 				if (covered.isEmpty()) {
 					continue
 				}
+
 				val mapping = spaces.mapping(drawableId) ?: continue
 				val world = mapping.localToWorld(spaces.localPosed(drawableId) ?: mesh.localPositions)
 				include(world, covered)
@@ -61,6 +67,7 @@ internal class ViewportSpaceCamera(
 			val pose = session.pose.value
 			val eligibleIds = eligibleTransformDrawables(session.selection.value, model) ?: return
 			val spaces = DrawableSpaceResolver(model, pose)
+
 			for (drawableId in eligibleIds) {
 				val mesh = spaces.drawable(drawableId)?.mesh ?: continue
 				val mapping = spaces.mapping(drawableId) ?: continue
@@ -68,9 +75,11 @@ internal class ViewportSpaceCamera(
 				include(world, 0 until world.size / 2)
 			}
 		}
+
 		if (minX > maxX) {
 			return
 		}
+
 		service.fitWorldRect(areaId, minX, minY, maxX, maxY)
 	}
 }

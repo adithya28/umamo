@@ -167,6 +167,7 @@ fun rememberApplicationGrid(surface: OverlaySurface): GridConfig {
 	val default = GridConfig.applicationDefault(surface)
 	val gridScale by rememberDoubleSetting(ViewportSettings.gridScaleKey(surface), default.scale.toDouble())
 	val gridSubdivisions by rememberIntSetting(ViewportSettings.gridSubdivisionsKey(surface), default.subdivisions)
+
 	return GridConfig(gridScale.toFloat(), gridSubdivisions)
 }
 

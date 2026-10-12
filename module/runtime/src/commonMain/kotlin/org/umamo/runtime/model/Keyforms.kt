@@ -98,6 +98,7 @@ data class Keyform(
 	override fun equals(other: Any?): Boolean {
 		if (this === other) return true
 		if (other !is Keyform) return false
+
 		return atValue == other.atValue && delta.contentEquals(other.delta)
 	}
 

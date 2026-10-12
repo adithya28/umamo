@@ -33,50 +33,93 @@ import org.umamo.ui.viewport.uv.PlacementParameterKeys
 internal fun operatorParameterLabel(labelKey: String): String =
 	when (labelKey) {
 		RepackParameterKeys.PAGE_SIZE -> stringResource(Res.string.repack_options_page_size)
+
 		RepackParameterKeys.GUTTER -> stringResource(Res.string.repack_options_gutter)
+
 		RepackParameterKeys.EXTRUDE -> stringResource(Res.string.repack_options_extrude)
+
 		RepackParameterKeys.ALLOW_ROTATION -> stringResource(Res.string.repack_options_allow_rotation)
+
 		RepackParameterKeys.KEEP_PINNED -> stringResource(Res.string.repack_options_keep_pinned)
+
 		RepackParameterKeys.POWER_OF_TWO -> stringResource(Res.string.repack_options_power_of_two)
+
 		RepackParameterKeys.SQUARE_PAGES -> stringResource(Res.string.repack_options_square_pages)
+
 		RepackParameterKeys.SHRINK_PAGES -> stringResource(Res.string.repack_options_shrink_pages)
+
 		RepackParameterKeys.ALPHA_THRESHOLD -> stringResource(Res.string.repack_options_alpha_threshold)
+
 		PlacementParameterKeys.DELTA_X -> stringResource(Res.string.placement_options_move_x)
+
 		PlacementParameterKeys.DELTA_Y -> stringResource(Res.string.placement_options_move_y)
+
 		PlacementParameterKeys.ANGLE -> stringResource(Res.string.placement_options_angle)
+
 		PlacementParameterKeys.SCALE_X -> stringResource(Res.string.placement_options_scale_x)
+
 		PlacementParameterKeys.SCALE_Y -> stringResource(Res.string.placement_options_scale_y)
+
 		ImportParameterKeys.ALIGN -> stringResource(Res.string.import_options_align)
+
 		ImportParameterKeys.OFFSET_X -> stringResource(Res.string.import_options_offset_x)
+
 		ImportParameterKeys.OFFSET_Z -> stringResource(Res.string.import_options_offset_z)
+
 		ImportParameterKeys.ALPHA_THRESHOLD -> stringResource(Res.string.import_options_alpha_threshold)
+
 		ImportParameterKeys.MARGIN -> stringResource(Res.string.import_options_margin)
+
 		MatchParameterKeys.THRESHOLD -> stringResource(Res.string.match_options_threshold)
+
 		// The transform rows share the placement rows' Move / Angle / Scale labels where the text is the
 		// same; the viewport's vertical axis is Z (Y+ forward, Z+ up), so it has labels of its own.
 		TransformParameterKeys.MOVE_X -> stringResource(Res.string.placement_options_move_x)
+
 		TransformParameterKeys.MOVE_Y -> stringResource(Res.string.placement_options_move_y)
+
 		TransformParameterKeys.MOVE_Z -> stringResource(Res.string.transform_options_move_z)
+
 		TransformParameterKeys.ANGLE -> stringResource(Res.string.placement_options_angle)
+
 		TransformParameterKeys.SCALE_X -> stringResource(Res.string.placement_options_scale_x)
+
 		TransformParameterKeys.SCALE_Y -> stringResource(Res.string.placement_options_scale_y)
+
 		TransformParameterKeys.SCALE_Z -> stringResource(Res.string.transform_options_scale_z)
+
 		TransformParameterKeys.PROPORTIONAL -> stringResource(Res.string.transform_options_proportional)
+
 		TransformParameterKeys.FALLOFF -> stringResource(Res.string.transform_options_falloff)
+
 		TransformParameterKeys.PROPORTIONAL_SIZE -> stringResource(Res.string.transform_options_proportional_size)
+
 		TransformParameterKeys.CONNECTED_ONLY -> stringResource(Res.string.transform_options_connected)
+
 		TransformParameterKeys.SLIDE_FACTOR -> stringResource(Res.string.transform_options_slide_factor)
+
 		MergeParameterKeys.TARGET -> stringResource(Res.string.merge_options_target)
+
 		MeshGenerationParameterKeys.PRESET -> stringResource(Res.string.mesh_options_preset)
+
 		MeshGenerationParameterKeys.ALPHA_THRESHOLD -> stringResource(Res.string.mesh_options_alpha_threshold)
+
 		MeshGenerationParameterKeys.OUTLINE_SPACING -> stringResource(Res.string.mesh_options_outline_spacing)
+
 		MeshGenerationParameterKeys.INTERIOR_SPACING -> stringResource(Res.string.mesh_options_interior_spacing)
+
 		MeshGenerationParameterKeys.OUTER_MARGIN -> stringResource(Res.string.mesh_options_outer_margin)
+
 		MeshGenerationParameterKeys.INNER_MARGIN -> stringResource(Res.string.mesh_options_inner_margin)
+
 		MeshGenerationParameterKeys.MINIMUM_MARGIN -> stringResource(Res.string.mesh_options_minimum_margin)
+
 		MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS -> stringResource(Res.string.mesh_options_minimum_outline_points)
+
 		MeshGenerationParameterKeys.VERTEX_BUDGET -> stringResource(Res.string.mesh_options_vertex_budget)
+
 		MeshGenerationParameterKeys.FILL_HOLES -> stringResource(Res.string.mesh_options_fill_holes)
+
 		else -> choiceLabel(labelKey) ?: labelKey
 	}
 
@@ -160,14 +203,19 @@ internal fun operatorParameterDescription(labelKey: String): String = operatorPa
 private fun choiceLabel(labelKey: String): String? {
 	if (labelKey.startsWith(TransformParameterKeys.FALLOFF_CHOICE_PREFIX)) {
 		val key = labelKey.removePrefix(TransformParameterKeys.FALLOFF_CHOICE_PREFIX)
+
 		return ProportionalFalloff.entries.firstOrNull { falloff -> falloff.choiceKey == key }?.let { falloff -> falloffLabel(falloff) }
 	}
+
 	if (labelKey.startsWith(ImportParameterKeys.ANCHOR_CHOICE_PREFIX)) {
 		val key = labelKey.removePrefix(ImportParameterKeys.ANCHOR_CHOICE_PREFIX)
+
 		return ArtworkAnchor.entries.firstOrNull { anchor -> anchor.key == key }?.let { anchor -> artworkAnchorLabel(anchor) }
 	}
+
 	if (labelKey.startsWith(MergeParameterKeys.TARGET_CHOICE_PREFIX)) {
 		val key = labelKey.removePrefix(MergeParameterKeys.TARGET_CHOICE_PREFIX)
+
 		return when (MergeTarget.entries.firstOrNull { target -> target.parameterKey == key }) {
 			MergeTarget.AtCenter -> stringResource(Res.string.merge_target_center)
 			MergeTarget.AtFirst -> stringResource(Res.string.merge_target_first)
@@ -175,8 +223,10 @@ private fun choiceLabel(labelKey: String): String? {
 			null -> null
 		}
 	}
+
 	if (labelKey.startsWith(MeshGenerationParameterKeys.PRESET_CHOICE_PREFIX)) {
 		val key = labelKey.removePrefix(MeshGenerationParameterKeys.PRESET_CHOICE_PREFIX)
+
 		return when (ArtMeshPreset.entries.firstOrNull { preset -> preset.key == key }) {
 			ArtMeshPreset.Standard -> stringResource(Res.string.mesh_preset_standard)
 			ArtMeshPreset.Fine -> stringResource(Res.string.mesh_preset_fine)
@@ -184,6 +234,7 @@ private fun choiceLabel(labelKey: String): String? {
 			null -> null
 		}
 	}
+
 	return null
 }
 

@@ -44,6 +44,7 @@ class UvIslandPickControllerTest {
 	private fun fourByFourPage(): DecodedImage {
 		val rgba = ByteArray(4 * 4 * 4) { byteIndex -> if (byteIndex % 4 == 3) 0xFF.toByte() else 0 }
 		rgba[(1 * 4 + 1) * 4 + 3] = 0
+
 		return DecodedImage(rgba, 4, 4)
 	}
 

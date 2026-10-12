@@ -18,6 +18,7 @@ public class BinaryWriter(initialCapacity: Int = 64 * 1024) {
 
 	private fun ensure(additional: Int) {
 		val needed = position + additional
+
 		if (needed > buffer.size) {
 			var newSize = buffer.size * 2
 			if (newSize < needed) newSize = needed
@@ -109,9 +110,11 @@ public class BinaryWriter(initialCapacity: Int = 64 * 1024) {
 		ensure(8)
 		val mask = (key.toLong() shl 32) or key.toLong()
 		val encoded = value xor mask
+
 		for (byteIndex in 0 until 8) {
 			buffer[position + byteIndex] = (encoded ushr (56 - 8 * byteIndex)).toByte()
 		}
+
 		position += 8
 	}
 
@@ -131,23 +134,31 @@ public class BinaryWriter(initialCapacity: Int = 64 * 1024) {
 	 */
 	public fun writeVarInt(value: Int, key: Int) {
 		when {
-			value < 0x80 -> writeU8(value, key)
+			value < 0x80 -> {
+				writeU8(value, key)
+			}
+
 			value < 0x4000 -> {
 				writeU8((value shr 7) and 0x7F or 0x80, key)
 				writeU8(value and 0x7F, key)
 			}
+
 			value < 0x200000 -> {
 				writeU8((value shr 14) and 0x7F or 0x80, key)
 				writeU8((value shr 7) and 0x7F or 0x80, key)
 				writeU8(value and 0x7F, key)
 			}
+
 			value < 0x10000000 -> {
 				writeU8((value shr 21) and 0x7F or 0x80, key)
 				writeU8((value shr 14) and 0x7F or 0x80, key)
 				writeU8((value shr 7) and 0x7F or 0x80, key)
 				writeU8(value and 0x7F, key)
 			}
-			else -> throw IllegalArgumentException("varint too large: $value")
+
+			else -> {
+				throw IllegalArgumentException("varint too large: $value")
+			}
 		}
 	}
 
@@ -171,14 +182,17 @@ public class BinaryWriter(initialCapacity: Int = 64 * 1024) {
 	 */
 	public fun writeBytes(bytes: ByteArray, key: Int) {
 		ensure(bytes.size)
+
 		if (key == 0) {
 			bytes.copyInto(buffer, position)
 		} else {
 			val byteKey = key and 0xFF
+
 			for (index in bytes.indices) {
 				buffer[position + index] = (bytes[index].toInt() xor byteKey).toByte()
 			}
 		}
+
 		position += bytes.size
 	}
 }

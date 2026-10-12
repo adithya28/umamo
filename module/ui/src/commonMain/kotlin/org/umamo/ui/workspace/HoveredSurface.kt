@@ -93,6 +93,7 @@ internal class HoveredSurfaceTracker {
 		if (lastTouchedStripHost?.areaId == areaId) {
 			lastTouchedStripHost = null
 		}
+
 		if (lastTouchedViewport?.areaId == areaId) {
 			lastTouchedViewport = null
 		}
@@ -107,6 +108,7 @@ internal class HoveredSurfaceTracker {
 		if (stamp.kind.hostsOperationStrip) {
 			lastTouchedStripHost = stamp
 		}
+
 		if (stamp.kind == SpaceKind.Viewport2D) {
 			lastTouchedViewport = stamp
 		}
@@ -126,9 +128,11 @@ internal class HoveredSurfaceTracker {
 	 */
 	fun restampKind(areaId: String, kind: SpaceKind) {
 		val current = lastTouched
+
 		if (current == null || current.areaId != areaId || current.kind == kind) {
 			return
 		}
+
 		val stamp = HoveredSurface(areaId, kind)
 		lastTouched = stamp
 		claimKind(stamp)
@@ -147,9 +151,11 @@ internal class HoveredSurfaceTracker {
 		if (lastTouched?.areaId == areaId) {
 			lastTouched = null
 		}
+
 		if (lastTouchedStripHost?.areaId == areaId) {
 			lastTouchedStripHost = null
 		}
+
 		if (lastTouchedViewport?.areaId == areaId) {
 			lastTouchedViewport = null
 		}
@@ -176,11 +182,13 @@ internal fun Modifier.stampsHoveredSurface(tracker: HoveredSurfaceTracker?, area
 	if (tracker == null) {
 		return this
 	}
+
 	return pointerInput(tracker, areaId, kind) {
 		val stamp = HoveredSurface(areaId, kind)
 		awaitPointerEventScope {
 			while (true) {
 				val event = awaitPointerEvent(PointerEventPass.Initial)
+
 				// Every pointer move over every leaf reaches here, so re-stamping an unchanged value would
 				// be the common case; compare first and leave the field alone when nothing moved areas.
 				if (event.type != PointerEventType.Exit && tracker.lastTouched != stamp) {

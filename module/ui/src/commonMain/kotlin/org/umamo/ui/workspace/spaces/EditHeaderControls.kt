@@ -82,9 +82,11 @@ internal fun MeshSelectModeButtons() {
 	val session = LocalEditorSession.current ?: return
 	val editorMode by session.mode.collectAsState()
 	val meshSelection by session.meshSelection.collectAsState()
+
 	if (editorMode != EditorMode.Edit) {
 		return
 	}
+
 	val selectMode = meshSelection.selectMode
 	ButtonGroup(
 		items =
@@ -283,6 +285,7 @@ internal class ProportionalSizeField(
 internal fun sessionProportionalSizeField(): ProportionalSizeField? {
 	val session = LocalEditorSession.current ?: return null
 	val settings by session.proportionalSettings.collectAsState()
+
 	return ProportionalSizeField(
 		value = settings.radiusWorld,
 		onValueChange = session::setProportionalRadius,
@@ -314,9 +317,11 @@ internal fun ProportionalEditControls(size: ProportionalSizeField?) {
 	val editorMode by session.mode.collectAsState()
 	val proportionalEdit by session.proportionalEdit.collectAsState()
 	val settings by session.proportionalSettings.collectAsState()
+
 	if (editorMode != EditorMode.Edit) {
 		return
 	}
+
 	val enabled = proportionalEdit != null
 	val stateIcon =
 		when {
@@ -364,6 +369,7 @@ internal fun ProportionalEditControls(size: ProportionalSizeField?) {
 				modifier = Modifier.fillMaxWidth().padding(horizontal = HEADER_PANEL_ROW_INSET),
 				axis = StackAxis.Vertical,
 			)
+
 			if (size != null) {
 				Spacer(modifier = Modifier.height(PROPORTIONAL_PANEL_GROUP_GAP))
 				ProportionalSizeRow(size)

@@ -39,10 +39,13 @@ class SourceReadTest {
 	fun aMissingFileOnACmo3DocumentReadsTheDecomposedLayers() =
 		runBlocking {
 			val file = sample
+
 			if (file == null) {
 				println("cmo3.sample not present; skipping the decomposed source read gate")
+
 				return@runBlocking
 			}
+
 			val load = loadDocument(file.readBytes(), file.name, file.path)
 			val document = assertIs<Cmo3Document>(assertIs<DocumentLoad.Loaded>(load).document)
 			val source = assertNotNull(document.puppet.sources.firstOrNull(), "the sample lists the artwork file it was rigged from")
@@ -72,6 +75,7 @@ class SourceReadTest {
 	fun aFileOnDiskIsPlacedByItsRecord() =
 		runBlocking {
 			val folder = createTempDirectory("umamo-source-read").toFile()
+
 			try {
 				val file = File(folder, "patch.png")
 				val rgba = ByteArray(4 * 3 * 4) { index -> if (index % 4 == 3) 0xFF.toByte() else 0x40 }

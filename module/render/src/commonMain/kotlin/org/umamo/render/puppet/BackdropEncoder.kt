@@ -88,9 +88,11 @@ internal class BackdropEncoder(
 		if (placement.scrimQuads.isEmpty() && placement.crops.isEmpty()) {
 			return
 		}
+
 		pass.setPipeline(pipelines.atlasPage)
 		pass.setCamera(grid.worldToNdc, grid.viewportWidth, grid.viewportHeight)
 		val scrim = placement.scrimColor
+
 		for (quad in placement.scrimQuads) {
 			fragmentScratch.reset()
 			fragmentScratch.colorRed = scrim.red
@@ -99,6 +101,7 @@ internal class BackdropEncoder(
 			fragmentScratch.colorAlpha = scrim.alpha
 			pass.drawImageQuad(null, quad, fragmentScratch)
 		}
+
 		for (crop in placement.crops) {
 			fragmentScratch.reset()
 			fragmentScratch.useTexture = true
@@ -123,6 +126,7 @@ internal class BackdropEncoder(
 	 */
 	fun encodeUnderlay(pass: RenderPassEncoder, image: DecodedImage?, handle: GpuTexture?, grid: GridUniforms) {
 		encodeGrid(pass, grid)
+
 		if (image != null && handle != null) {
 			pass.setPipeline(pipelines.atlasPage)
 			pass.setCamera(grid.worldToNdc, grid.viewportWidth, grid.viewportHeight)
@@ -151,12 +155,15 @@ internal class BackdropEncoder(
 		underlayTextures[image]?.let { existing ->
 			return existing
 		}
+
 		while (underlayTextures.size >= UNDERLAY_TEXTURE_CACHE_SIZE) {
 			val evicted = underlayTextures.keys.first()
 			underlayTextures.remove(evicted)?.let { handle -> device.destroyTexture(handle) }
 		}
+
 		val created = device.createTexture(image.width, image.height, TextureFormat.Rgba8, TextureFilter.Linear, image.rgba)
 		underlayTextures[image] = created
+
 		return created
 	}
 
@@ -171,6 +178,7 @@ internal class BackdropEncoder(
 		for (texture in underlayTextures.values) {
 			device.destroyTexture(texture)
 		}
+
 		underlayTextures.clear()
 	}
 }

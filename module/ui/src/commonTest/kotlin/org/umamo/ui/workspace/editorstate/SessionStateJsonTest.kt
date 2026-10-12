@@ -112,6 +112,7 @@ class SessionStateJsonTest {
 
 			assertEquals(saved, reopened, "$falloff round-trips")
 		}
+
 		val inverseSquare = sessionStateJson(SessionViewState(proportionalEnabled = true, proportionalSettings = ProportionalEditState(ProportionalFalloff.InverseSquare, 48f)), defaultPose, model)
 		val random = sessionStateJson(SessionViewState(proportionalEnabled = true, proportionalSettings = ProportionalEditState(ProportionalFalloff.Random, 48f)), defaultPose, model)
 		assertEquals("inverseSquare", (inverseSquare["proportional"] as JsonObject)["falloff"]?.jsonPrimitive?.content)

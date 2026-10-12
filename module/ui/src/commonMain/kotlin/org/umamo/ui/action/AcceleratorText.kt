@@ -30,14 +30,18 @@ internal fun formatAccelerator(chord: KeyChord, primaryLabel: String): String {
 			if (chord.primaryModifier) {
 				add(primaryLabel)
 			}
+
 			if (chord.alt) {
 				add("Alt")
 			}
+
 			if (chord.shift) {
 				add("Shift")
 			}
+
 			add(keyGlyph(chord.keyName))
 		}
+
 	return parts.joinToString(separator = "+")
 }
 
@@ -53,26 +57,66 @@ internal fun formatAccelerator(chord: KeyChord, primaryLabel: String): String {
  */
 internal fun keyGlyph(keyName: String): String =
 	when (keyName) {
-		"Space" -> "Space"
-		"Escape" -> "Esc"
-		"Equals" -> "="
-		"Minus" -> "−"
-		"PageUp" -> "Page Up"
-		"PageDown" -> "Page Down"
-		"NumpadAdd" -> "Num +"
-		"NumpadSubtract" -> "Num −"
-		"NumpadMultiply" -> "Num *"
-		"NumpadDivide" -> "Num /"
-		"NumpadDecimal" -> "Num ."
-		"NumpadEnter" -> "Num Enter"
-		else ->
+		"Space" -> {
+			"Space"
+		}
+
+		"Escape" -> {
+			"Esc"
+		}
+
+		"Equals" -> {
+			"="
+		}
+
+		"Minus" -> {
+			"−"
+		}
+
+		"PageUp" -> {
+			"Page Up"
+		}
+
+		"PageDown" -> {
+			"Page Down"
+		}
+
+		"NumpadAdd" -> {
+			"Num +"
+		}
+
+		"NumpadSubtract" -> {
+			"Num −"
+		}
+
+		"NumpadMultiply" -> {
+			"Num *"
+		}
+
+		"NumpadDivide" -> {
+			"Num /"
+		}
+
+		"NumpadDecimal" -> {
+			"Num ."
+		}
+
+		"NumpadEnter" -> {
+			"Num Enter"
+		}
+
+		else -> {
 			when {
 				keyName.startsWith("Key") -> keyName.removePrefix("Key")
+
 				keyName.startsWith("Digit") -> keyName.removePrefix("Digit")
+
 				// The remaining numpad tokens are the digits: "Numpad7" reads as "Num 7".
 				keyName.startsWith("Numpad") -> "Num " + keyName.removePrefix("Numpad")
+
 				else -> keyName
 			}
+		}
 	}
 
 /**

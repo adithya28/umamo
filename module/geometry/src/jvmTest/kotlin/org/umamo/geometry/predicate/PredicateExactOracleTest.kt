@@ -39,11 +39,13 @@ class PredicateExactOracleTest {
 			val centerY = random.nextDouble(-1000.0, 1000.0)
 			val radius = random.nextDouble(0.01, 500.0)
 			val points = DoubleArray(8)
+
 			for (pointIndex in 0 until 4) {
 				val angle = random.nextDouble(0.0, 2.0 * PI)
 				points[2 * pointIndex] = nudge(centerX + radius * cos(angle), random)
 				points[2 * pointIndex + 1] = nudge(centerY + radius * sin(angle), random)
 			}
+
 			val exact = exactIncircle(points)
 			val computed = incircle(points[0], points[1], points[2], points[3], points[4], points[5], points[6], points[7])
 			assertEquals(exact, signOf(computed), points.joinToString())
@@ -66,6 +68,7 @@ class PredicateExactOracleTest {
 		val acy = exact(ay).subtract(exact(cy))
 		val bcx = exact(bx).subtract(exact(cx))
 		val bcy = exact(by).subtract(exact(cy))
+
 		return acx.multiply(bcy).subtract(acy.multiply(bcx)).signum()
 	}
 
@@ -89,6 +92,7 @@ class PredicateExactOracleTest {
 			alift.multiply(bdx.multiply(cdy).subtract(cdx.multiply(bdy)))
 				.add(blift.multiply(cdx.multiply(ady).subtract(adx.multiply(cdy))))
 				.add(clift.multiply(adx.multiply(bdy).subtract(bdx.multiply(ady))))
+
 		return determinant.signum()
 	}
 

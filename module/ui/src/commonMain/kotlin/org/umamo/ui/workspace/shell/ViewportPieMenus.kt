@@ -17,15 +17,16 @@ import org.umamo.ui.theme.LocalUmamoIcons
  */
 fun pieMenuEntriesFor(kind: PieMenuKind): List<PieMenuEntry> =
 	when (kind) {
-		PieMenuKind.PivotMode ->
+		PieMenuKind.PivotMode -> {
 			listOf(
 				PieMenuEntry("transform.pivot.median", Res.string.cmd_transform_pivot_median, icon = LocalUmamoIcons.pivotMedian),
 				PieMenuEntry("transform.pivot.individual", Res.string.cmd_transform_pivot_individual, icon = LocalUmamoIcons.pivotIndividual),
 				PieMenuEntry("transform.pivot.active", Res.string.cmd_transform_pivot_active, icon = LocalUmamoIcons.pivotActive),
 				PieMenuEntry("transform.pivot.cursor", Res.string.cmd_transform_pivot_cursor, icon = LocalUmamoIcons.pivotCursor),
 			)
+		}
 
-		PieMenuKind.Snap ->
+		PieMenuKind.Snap -> {
 			listOf(
 				PieMenuEntry("snap.cursorToWorldOrigin", Res.string.cmd_snap_cursor_world_origin, icon = LocalUmamoIcons.cursor),
 				PieMenuEntry("snap.cursorToSelected", Res.string.cmd_snap_cursor_selected, icon = LocalUmamoIcons.cursor),
@@ -36,8 +37,9 @@ fun pieMenuEntriesFor(kind: PieMenuKind): List<PieMenuEntry> =
 				PieMenuEntry("snap.selectionToCursorOffset", Res.string.cmd_snap_selection_cursor_offset, icon = LocalUmamoIcons.selection),
 				PieMenuEntry("snap.selectionToActive", Res.string.cmd_snap_selection_active, icon = LocalUmamoIcons.selection),
 			)
+		}
 
-		PieMenuKind.UvSnap ->
+		PieMenuKind.UvSnap -> {
 			listOf(
 				PieMenuEntry("uv.snap.selectionToPixels", Res.string.cmd_uv_snap_selection_pixels, icon = LocalUmamoIcons.selection),
 				PieMenuEntry("uv.snap.selectionToCursor", Res.string.cmd_uv_snap_selection_cursor, icon = LocalUmamoIcons.selection),
@@ -47,13 +49,15 @@ fun pieMenuEntriesFor(kind: PieMenuKind): List<PieMenuEntry> =
 				PieMenuEntry("uv.snap.cursorToSelected", Res.string.cmd_uv_snap_cursor_selected, icon = LocalUmamoIcons.pivotCursor),
 				PieMenuEntry("uv.snap.cursorToGrid", Res.string.cmd_uv_snap_cursor_grid, icon = LocalUmamoIcons.pivotCursor),
 			)
+		}
 
-		PieMenuKind.MergeTarget ->
+		PieMenuKind.MergeTarget -> {
 			listOf(
 				PieMenuEntry("mesh.merge.atCenter", Res.string.cmd_mesh_merge_at_center),
 				PieMenuEntry("mesh.merge.atFirst", Res.string.cmd_mesh_merge_at_first),
 				PieMenuEntry("mesh.merge.atLast", Res.string.cmd_mesh_merge_at_last),
 			)
+		}
 	}
 
 /**

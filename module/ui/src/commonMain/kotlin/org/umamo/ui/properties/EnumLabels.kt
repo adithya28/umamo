@@ -253,7 +253,9 @@ fun formChannelLabelRes(channel: FormChannel): StringResource =
 fun runtimeTargetLabel(target: RuntimeTarget): String =
 	when (target) {
 		RuntimeTarget.NoTarget -> stringResource(Res.string.runtime_target_no_target)
+
 		RuntimeTarget.Ayagami -> stringResource(Res.string.runtime_target_ayagami, target.cubismLevelText().orEmpty())
+
 		RuntimeTarget.Cubism30,
 		RuntimeTarget.Cubism33,
 		RuntimeTarget.Cubism40,

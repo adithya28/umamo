@@ -34,6 +34,7 @@ fun numberFieldFillFraction(value: Float, min: Float, max: Float): Float? {
 	if (!min.isFinite() || !max.isFinite() || max <= min) {
 		return null
 	}
+
 	return ((value - min) / (max - min)).coerceIn(0f, 1f)
 }
 
@@ -47,10 +48,13 @@ fun numberFieldFillFraction(value: Float, min: Float, max: Float): Float? {
  */
 fun roundToDecimals(value: Float, decimals: Int): Float {
 	val places = decimals.coerceIn(0, NUMBER_FIELD_STORAGE_DECIMALS)
+
 	if (places <= 0) {
 		return round(value)
 	}
+
 	val scale = 10.0.pow(places).toFloat()
+
 	return round(value * scale) / scale
 }
 
@@ -65,15 +69,18 @@ fun roundToDecimals(value: Float, decimals: Int): Float {
  */
 fun formatDecimals(value: Float, decimals: Int): String {
 	val places = decimals.coerceIn(0, NUMBER_FIELD_STORAGE_DECIMALS)
+
 	if (places <= 0) {
 		return round(value.toDouble()).toLong().toString()
 	}
+
 	val scale = 10.0.pow(places).toLong()
 	val scaled = round(value.toDouble() * scale).toLong()
 	val sign = if (scaled < 0) "-" else ""
 	val magnitude = abs(scaled)
 	val whole = magnitude / scale
 	val fraction = (magnitude % scale).toString().padStart(places, '0')
+
 	return "$sign$whole.$fraction"
 }
 
@@ -90,5 +97,6 @@ fun formatDecimals(value: Float, decimals: Int): String {
  */
 fun scrubValue(startValue: Float, deltaPx: Float, step: Float, range: ClosedFloatingPointRange<Float>): Float {
 	val raw = startValue + (deltaPx / NUMBER_FIELD_SCRUB_PIXELS_PER_STEP) * step
+
 	return raw.coerceIn(range.start, range.endInclusive)
 }

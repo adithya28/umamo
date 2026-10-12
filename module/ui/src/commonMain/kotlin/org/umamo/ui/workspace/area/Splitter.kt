@@ -83,20 +83,27 @@ internal enum class SpineEdge {
  */
 fun dragSplitBoundary(node: SplitNode, dragPx: Float, axisPx: Float, minPx: Float, splitterPx: Float): SplitNode {
 	val usablePx = axisPx - splitterPx
+
 	if (axisPx <= 0f || usablePx <= 0f) {
 		return node
 	}
+
 	val dragBounds = boundaryDragBounds(node, axisPx, minPx, splitterPx)
+
 	if (dragBounds.isEmpty()) {
 		return node
 	}
+
 	val clampedDragPx = dragPx.coerceIn(dragBounds.start, dragBounds.endInclusive)
+
 	if (clampedDragPx == 0f) {
 		return node
 	}
+
 	val clampedRatio = node.ratio.coerceIn(MIN_RATIO, 1f - MIN_RATIO)
 	val firstExtentPx = clampedRatio * usablePx
 	val secondExtentPx = usablePx - firstExtentPx
+
 	return node.copy(
 		ratio = (firstExtentPx + clampedDragPx) / usablePx,
 		first = resizeEdgePanel(node.first, node.orientation, firstExtentPx, clampedDragPx, splitterPx, SpineEdge.Trailing),
@@ -121,8 +128,10 @@ internal fun edgePanelSizePx(node: AreaNode, orientation: SplitOrientation, axis
 	if (node !is SplitNode || node.orientation != orientation) {
 		return axisPx
 	}
+
 	val clampedRatio = node.ratio.coerceIn(MIN_RATIO, 1f - MIN_RATIO)
 	val usablePx = axisPx - splitterPx
+
 	return when (edge) {
 		SpineEdge.Trailing -> edgePanelSizePx(node.second, orientation, (1f - clampedRatio) * usablePx, splitterPx, edge)
 		SpineEdge.Leading -> edgePanelSizePx(node.first, orientation, clampedRatio * usablePx, splitterPx, edge)
@@ -156,6 +165,7 @@ internal fun boundaryDragBounds(node: SplitNode, axisPx: Float, minPx: Float, sp
 	// First-side spine: each node's extent grows by the drag, its new ratio is s*u / (u + drag).
 	var spineNode: AreaNode = node.first
 	var spineExtentPx = firstExtentPx
+
 	while (spineNode is SplitNode && spineNode.orientation == node.orientation) {
 		val spineUsablePx = spineExtentPx - splitterPx
 		val spineRatio = spineNode.ratio.coerceIn(MIN_RATIO, 1f - MIN_RATIO)
@@ -164,10 +174,12 @@ internal fun boundaryDragBounds(node: SplitNode, axisPx: Float, minPx: Float, sp
 		spineExtentPx = (1f - spineRatio) * spineUsablePx
 		spineNode = spineNode.second
 	}
+
 	// Second-side spine: each node's extent shrinks by the drag, its new ratio is
 	// (s*u - drag) / (u - drag).
 	spineNode = node.second
 	spineExtentPx = secondExtentPx
+
 	while (spineNode is SplitNode && spineNode.orientation == node.orientation) {
 		val spineUsablePx = spineExtentPx - splitterPx
 		val spineRatio = spineNode.ratio.coerceIn(MIN_RATIO, 1f - MIN_RATIO)
@@ -176,6 +188,7 @@ internal fun boundaryDragBounds(node: SplitNode, axisPx: Float, minPx: Float, sp
 		spineExtentPx = spineRatio * spineUsablePx
 		spineNode = spineNode.first
 	}
+
 	return lowerBoundPx..upperBoundPx
 }
 
@@ -199,21 +212,26 @@ private fun resizeEdgePanel(node: AreaNode, orientation: SplitOrientation, axisP
 	if (node !is SplitNode || node.orientation != orientation) {
 		return node
 	}
+
 	val usablePx = axisPx - splitterPx
 	val newUsablePx = usablePx + deltaPx
 	val clampedRatio = node.ratio.coerceIn(MIN_RATIO, 1f - MIN_RATIO)
 	val firstExtentPx = clampedRatio * usablePx
+
 	return when (edge) {
-		SpineEdge.Trailing ->
+		SpineEdge.Trailing -> {
 			node.copy(
 				ratio = firstExtentPx / newUsablePx,
 				second = resizeEdgePanel(node.second, orientation, usablePx - firstExtentPx, deltaPx, splitterPx, edge),
 			)
-		SpineEdge.Leading ->
+		}
+
+		SpineEdge.Leading -> {
 			node.copy(
 				ratio = (firstExtentPx + deltaPx) / newUsablePx,
 				first = resizeEdgePanel(node.first, orientation, firstExtentPx, deltaPx, splitterPx, edge),
 			)
+		}
 	}
 }
 

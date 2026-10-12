@@ -28,10 +28,12 @@ public object WebPReader : ReadOnlyRasterCodec {
 		if (candidateBytes.size < 12) {
 			return false
 		}
+
 		val riff =
 			candidateBytes[0] == 0x52.toByte() && candidateBytes[1] == 0x49.toByte() && candidateBytes[2] == 0x46.toByte() && candidateBytes[3] == 0x46.toByte()
 		val webp =
 			candidateBytes[8] == 0x57.toByte() && candidateBytes[9] == 0x45.toByte() && candidateBytes[10] == 0x42.toByte() && candidateBytes[11] == 0x50.toByte()
+
 		return riff && webp
 	}
 
@@ -46,6 +48,7 @@ public object WebPReader : ReadOnlyRasterCodec {
 		val header = parseVp8lHeader(bytes)
 		val raster = WebpRaster.create(header.width, header.height)
 		Vp8lDecoder(WebpLsbBitReader(bytes, header.bitStreamStart)).decode(raster, header.width, header.height)
+
 		return RasterImage(header.width, header.height, raster.data)
 	}
 }

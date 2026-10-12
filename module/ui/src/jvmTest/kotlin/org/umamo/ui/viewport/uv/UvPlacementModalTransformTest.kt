@@ -70,6 +70,7 @@ class UvPlacementModalTransformTest {
 		val sceneState = UvPlacementSceneState()
 		val transform = UvPlacementModalTransform(LEFT_AREA, session, mutableStateOf(atlasPagesOf(session)), mutableStateOf(dragStatus), mutableStateOf(sceneState))
 		transform.gesture.lastPointer = UV_RIG_GESTURE_START
+
 		return Rig(session, transform, dragStatus, sceneState)
 	}
 
@@ -81,6 +82,7 @@ class UvPlacementModalTransformTest {
 	 */
 	private fun Rig.latch(kind: MeshOperatorKind = MeshOperatorKind.Grab): ActiveOperator {
 		session.beginUvOperator(kind, LEFT_AREA)
+
 		return assertNotNull(session.activeUvOperator.value, "the session latched the placement")
 	}
 
@@ -111,6 +113,7 @@ class UvPlacementModalTransformTest {
 				gate.await(BUILD_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 				rasters.decodeRaster(tileId)
 			}
+
 		return UvPlacementSurface(UV_RIG_PAGE_SIDE, UV_RIG_PAGE_SIDE, gated, pageImage = null)
 	}
 
@@ -214,6 +217,7 @@ class UvPlacementModalTransformTest {
 			assertEquals(uvRigTilePlacement(110f), uvRigPlacementOf(rig.session, UV_RIG_QUAD_TILE), "with resolver = $withResolver")
 			assertNull(rig.session.activeUvOperator.value)
 			val ghost = rig.sceneState.ghost
+
 			if (withResolver) {
 				assertSame(rig.session.model.value.atlas, assertNotNull(ghost).atlas, "published for the committed atlas")
 				assertEquals(1, ghost.crops.size)

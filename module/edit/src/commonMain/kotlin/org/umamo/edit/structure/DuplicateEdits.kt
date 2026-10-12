@@ -55,11 +55,15 @@ fun PuppetModel.withDrawableDuplicated(id: DrawableId): Pair<PuppetModel, Drawab
 		if (placed) {
 			return children
 		}
+
 		val sourceIndex = children.indexOfFirst { child -> child is OrgChild.Drawable && child.id == id }
+
 		if (sourceIndex < 0) {
 			return children
 		}
+
 		placed = true
+
 		return children.toMutableList().apply { add(sourceIndex + 1, OrgChild.Drawable(copyId)) }
 	}
 	val newRootChildren = insertAfterSource(rootChildren)
@@ -71,6 +75,7 @@ fun PuppetModel.withDrawableDuplicated(id: DrawableId): Pair<PuppetModel, Drawab
 			parts = newParts,
 			rootChildren = finalRootChildren,
 		)
+
 	return edited.withDerivedRenderRoot().let { derived -> derived to copyId }
 }
 
@@ -83,11 +88,14 @@ fun PuppetModel.withDrawableDuplicated(id: DrawableId): Pair<PuppetModel, Drawab
  */
 private fun PuppetModel.uniqueDuplicateId(id: DrawableId): DrawableId {
 	var counter = 1
+
 	while (true) {
 		val candidate = DrawableId("${id.raw}.${counter.toString().padStart(3, '0')}")
+
 		if (drawables.none { drawable -> drawable.id == candidate }) {
 			return candidate
 		}
+
 		counter++
 	}
 }
@@ -100,11 +108,14 @@ private fun PuppetModel.uniqueDuplicateId(id: DrawableId): DrawableId {
  */
 private fun PuppetModel.uniqueDuplicateName(name: String): String {
 	var counter = 1
+
 	while (true) {
 		val candidate = "$name.${counter.toString().padStart(3, '0')}"
+
 		if (drawables.none { drawable -> drawable.name == candidate }) {
 			return candidate
 		}
+
 		counter++
 	}
 }
@@ -119,6 +130,7 @@ private fun PuppetModel.uniqueDuplicateName(name: String): String {
 private fun duplicatedMesh(mesh: DrawableMesh): DrawableMesh {
 	val positions = mesh.positions.copyOf()
 	val localPositions = if (mesh.localPositions === mesh.positions) positions else mesh.localPositions.copyOf()
+
 	return DrawableMesh(positions, localPositions, mesh.uvs, mesh.indices)
 }
 
@@ -135,17 +147,21 @@ fun EditorSession.duplicateSelectedDrawables(): List<DrawableId> {
 	if (mode.value != EditorMode.Object) {
 		return emptyList()
 	}
+
 	val eligibleIds = eligibleTransformDrawables(selection.value, model.value) ?: return emptyList()
 	var newModel = model.value
 	val copies = ArrayList<DrawableId>(eligibleIds.size)
+
 	for (drawableId in eligibleIds) {
 		val (edited, copyId) = newModel.withDrawableDuplicated(drawableId) ?: continue
 		newModel = edited
 		copies.add(copyId)
 	}
+
 	if (copies.isEmpty() || newModel === model.value) {
 		return emptyList()
 	}
+
 	val newSelection =
 		Selection(
 			copies.map { copyId -> SelectionTarget.Drawable(copyId) }.toSet<SelectionTarget>(),
@@ -154,5 +170,6 @@ fun EditorSession.duplicateSelectedDrawables(): List<DrawableId> {
 	// The remembered drawable tracks whatever is shown active (the rule setSelection and restore keep).
 	elementMemory.lastActiveDrawableId = copies.last()
 	commitStep(DrawableChange.Duplicate(copies), model = newModel, selection = newSelection)
+
 	return copies
 }

@@ -150,6 +150,7 @@ internal fun buildOutlinerTree(puppet: PuppetModel, rootLabel: String = "Armatur
  */
 internal fun filterOutliner(root: OutlinerNode, query: String, showParts: Boolean, showDrawables: Boolean, showDeformers: Boolean): OutlinerNode {
 	val kindRoot = kindFiltered(root, showParts, showDrawables, showDeformers).firstOrNull() ?: root.copy(children = emptyList())
+
 	return queryPruned(kindRoot, query.trim()) ?: kindRoot.copy(children = emptyList())
 }
 
@@ -171,6 +172,7 @@ internal fun outlinerRangeSelection(orderedTargets: List<SelectionTarget?>, curr
 	val low = minOf(anchorIndex, clickedIndex)
 	val high = maxOf(anchorIndex, clickedIndex)
 	val rangeTargets = orderedTargets.subList(low, high + 1).filterNotNull()
+
 	return Selection(current.targets + rangeTargets, clickedTarget)
 }
 
@@ -188,13 +190,17 @@ internal fun outlinerRangeSelection(orderedTargets: List<SelectionTarget?>, curr
  */
 private fun kindFiltered(node: OutlinerNode, showParts: Boolean, showDrawables: Boolean, showDeformers: Boolean): List<OutlinerNode> {
 	val isDeformerKind = node.icon == OutlinerIcon.Armature || node.icon == OutlinerIcon.WarpDeformer || node.icon == OutlinerIcon.RotationDeformer
+
 	if (!showDeformers && isDeformerKind) {
 		return emptyList()
 	}
+
 	if (!showDrawables && node.icon == OutlinerIcon.Drawable) {
 		return emptyList()
 	}
+
 	val keptChildren = node.children.flatMap { child -> kindFiltered(child, showParts, showDrawables, showDeformers) }
+
 	return if (!showParts && node.icon == OutlinerIcon.Part) {
 		keptChildren
 	} else {
@@ -217,8 +223,10 @@ private fun queryPruned(node: OutlinerNode, query: String): OutlinerNode? {
 	if (query.isEmpty()) {
 		return node
 	}
+
 	val selfMatches = node.label.contains(query, ignoreCase = true)
 	val keptChildren = node.children.mapNotNull { child -> queryPruned(child, query) }
+
 	return when {
 		selfMatches || keptChildren.isNotEmpty() -> node.copy(children = keptChildren)
 		node.icon == OutlinerIcon.PuppetRoot -> node.copy(children = emptyList())
@@ -252,6 +260,7 @@ private fun buildArmatureNode(puppet: PuppetModel, armatureLabel: String): Outli
 			} else {
 				emptyList()
 			}
+
 		return OutlinerNode(
 			id = "deformer:${deformer.id.raw}",
 			label = deformer.name,
@@ -264,6 +273,7 @@ private fun buildArmatureNode(puppet: PuppetModel, armatureLabel: String): Outli
 	}
 
 	val roots = childrenByParent[null].orEmpty().map { deformer -> deformerNode(deformer) }
+
 	return OutlinerNode(
 		id = "armature",
 		label = armatureLabel,

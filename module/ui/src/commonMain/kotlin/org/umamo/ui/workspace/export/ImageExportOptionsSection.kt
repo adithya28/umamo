@@ -137,6 +137,7 @@ internal fun ImageExportOptionsPane(
 				onSelect = { background -> edited = edited.copy(background = background) },
 			)
 		}
+
 		if (edited.background == ImageBackground.Solid) {
 			FieldRow(label = stringResource(Res.string.export_options_background_color)) {
 				HexColorField(

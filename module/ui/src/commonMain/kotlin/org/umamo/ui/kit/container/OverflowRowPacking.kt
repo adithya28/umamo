@@ -123,6 +123,7 @@ internal fun packOverflowRow(
 	// control cannot take room its successors have a claim on.  One spacing per pinned slot over-reserves
 	// by at most a single gap - an exact figure would need the placed set, which is what this decides.
 	val reservedWidthAfter = IntArray(slots.size + 1)
+
 	for (slotIndex in slots.indices.reversed()) {
 		val slot = slots[slotIndex]
 		val pinnedWidth = pinnedWidths[slotIndex] ?: 0
@@ -182,9 +183,11 @@ internal fun packOverflowRow(
 	var previousPlacedWasFlexible = false
 	placedIndices.forEachIndexed { placedIndex, slotIndex ->
 		val isFlexible = slots[slotIndex].kind == OverflowSlotKind.Flexible
+
 		if (placedIndex > 0 && !previousPlacedWasFlexible && !isFlexible) {
 			xPx += spacingPx
 		}
+
 		placements.add(OverflowPlacement(slotIndex = slotIndex, xPx = xPx, widthPx = placedWidths[placedIndex]))
 		xPx += placedWidths[placedIndex]
 		previousPlacedWasFlexible = isFlexible
@@ -197,6 +200,7 @@ internal fun packOverflowRow(
 			(availableWidthPx - overflowButtonWidthPx).coerceAtLeast(0)
 		}
 	val contentWidthPx = maxOf(xPx, overflowButtonXPx?.plus(overflowButtonWidthPx) ?: 0)
+
 	return OverflowRowPacking(
 		placements = placements,
 		collapsedSlotIndices = collapsedSlotIndices,
@@ -270,16 +274,20 @@ private fun walkStrip(
 			usedPx += slot.minWidthPx
 			previousWasFlexible = true
 			anythingPlaced = true
+
 			return@forEachIndexed
 		}
+
 		// Past the collapse point no further COLLAPSIBLE slot is even measured: composing a control only to
 		// hide it is the cost this packer exists to avoid.  A pinned slot still goes through - the latch
 		// governs what may be dropped, and a pinned slot may not.
 		if (slot.kind == OverflowSlotKind.Collapsible && (collapsing || slotIndex in preCollapsedSlotIndices)) {
 			collapsing = true
 			collapsedSlotIndices.add(slotIndex)
+
 			return@forEachIndexed
 		}
+
 		// A flexible gap IS the separation, so it suppresses spacing on both sides.
 		val leadingSpacingPx =
 			if (anythingPlaced && !previousWasFlexible) {
@@ -289,11 +297,14 @@ private fun walkStrip(
 			}
 		val roomPx = budgetPx - usedPx - leadingSpacingPx - reservedWidthAfter[slotIndex + 1]
 		val compressible = slot.kind == OverflowSlotKind.Collapsible && boundedWidth && slot.minWidthPx > 0
+
 		if (compressible && roomPx < slot.minWidthPx) {
 			collapsing = true
 			collapsedSlotIndices.add(slotIndex)
+
 			return@forEachIndexed
 		}
+
 		// A compressible slot is offered the room left AFTER the controls behind it, so it gives up width to
 		// keep them on the strip rather than taking its natural width and pushing them into the dropdown - a
 		// search box narrowing is a far better trade than a filter chip vanishing.  It never yields below its
@@ -306,20 +317,25 @@ private fun walkStrip(
 				OVERFLOW_WIDTH_UNBOUNDED
 			}
 		val width = pinnedWidths[slotIndex] ?: slotWidthPx(slotIndex, measureMaxPx)
+
 		if (width == 0) {
 			return@forEachIndexed
 		}
+
 		if (slot.kind == OverflowSlotKind.Collapsible && boundedWidth && !compressible && width > roomPx) {
 			collapsing = true
 			collapsedSlotIndices.add(slotIndex)
+
 			return@forEachIndexed
 		}
+
 		placedIndices.add(slotIndex)
 		placedWidths.add(width)
 		usedPx += leadingSpacingPx + width
 		previousWasFlexible = false
 		anythingPlaced = true
 	}
+
 	return StripWalk(placedIndices, placedWidths, collapsedSlotIndices, usedPx)
 }
 
@@ -345,16 +361,21 @@ private fun collapsibleTailWidthPx(
 	slotWidthPx: (slotIndex: Int, maxWidthPx: Int) -> Int,
 ): Int {
 	var tailPx = 0
+
 	for (laterIndex in slotIndex + 1 until slots.size) {
 		val later = slots[laterIndex]
+
 		if (later.kind != OverflowSlotKind.Collapsible || later.minWidthPx > 0 || laterIndex in preCollapsedSlotIndices) {
 			continue
 		}
+
 		val laterWidth = slotWidthPx(laterIndex, OVERFLOW_WIDTH_UNBOUNDED)
+
 		if (laterWidth > 0) {
 			tailPx += laterWidth + spacingPx
 		}
 	}
+
 	return tailPx
 }
 
@@ -377,14 +398,17 @@ private fun distributeFlexibleWidths(
 	if (leftoverPx <= 0) {
 		return
 	}
+
 	val flexiblePositions =
 		placedIndices.indices.filter { position ->
 			val slot = slots[placedIndices[position]]
 			slot.kind == OverflowSlotKind.Flexible && slot.weight > 0f
 		}
+
 	if (flexiblePositions.isEmpty()) {
 		return
 	}
+
 	val totalWeight = flexiblePositions.sumOf { position -> slots[placedIndices[position]].weight.toDouble() }
 	var assignedPx = 0
 	val fractions = DoubleArray(flexiblePositions.size)
@@ -401,6 +425,7 @@ private fun distributeFlexibleWidths(
 	val byLargestFraction = flexiblePositions.indices.sortedWith(compareByDescending<Int> { fractions[it] }.thenBy { it })
 	var remainderPx = leftoverPx - assignedPx
 	var cursor = 0
+
 	while (remainderPx > 0 && byLargestFraction.isNotEmpty()) {
 		val position = flexiblePositions[byLargestFraction[cursor % byLargestFraction.size]]
 		placedWidths[position] = placedWidths[position] + 1

@@ -79,6 +79,7 @@ class SupersampledSurface(
 		require(activeScale in 1..scale) { "activeScale must be in 1..$scale, got $activeScale" }
 		val drawWidth = width * activeScale
 		val drawHeight = height * activeScale
+
 		if (drawWidth > drawCapacityWidth || drawHeight > drawCapacityHeight) {
 			draw?.let { existing -> device.destroyRenderTarget(existing) }
 			drawCapacityWidth = max(drawWidth, drawCapacityWidth)
@@ -88,6 +89,7 @@ class SupersampledSurface(
 					RenderTargetSpec(drawCapacityWidth, drawCapacityHeight, TextureFormat.Rgba8, sampled = false),
 				)
 		}
+
 		if (width > resolveCapacityWidth || height > resolveCapacityHeight) {
 			resolve?.let { existing -> device.destroyRenderTarget(existing) }
 			resolveCapacityWidth = max(width, resolveCapacityWidth)
@@ -97,9 +99,11 @@ class SupersampledSurface(
 					RenderTargetSpec(resolveCapacityWidth, resolveCapacityHeight, TextureFormat.Rgba8, sampled = true),
 				)
 		}
+
 		usedWidth = width
 		usedHeight = height
 		usedScale = activeScale
+
 		return drawTarget
 	}
 

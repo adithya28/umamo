@@ -36,6 +36,7 @@ internal fun topologyCommands(
 	listOf(
 		Command("mesh.duplicate", title = Res.string.cmd_mesh_duplicate, availability = availability.hasDocument) {
 			val live = editorSession
+
 			if (live != null) {
 				// The duplicate itself needs no area - it is a model edit - so it runs wherever the pointer
 				// is.  Only the auto-grab needs a viewport, and it simply does not happen when the pointer

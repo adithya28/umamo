@@ -93,6 +93,7 @@ class TransformRowsScrubTest {
 		val square = floatArrayOf(450f, 450f, 550f, 450f, 550f, 550f, 450f, 550f)
 		val atRest = FloatArray(square.size)
 		val movedRight = FloatArray(square.size) { componentIndex -> if (componentIndex % 2 == 0) 100f else 0f }
+
 		return PuppetModel(
 			parameters = listOf(Parameter(parameterId, "Param", min = -1f, max = 1f, default = 0f)),
 			parts = emptyList(),
@@ -133,6 +134,7 @@ class TransformRowsScrubTest {
 	private fun sessionSelecting(target: SelectionTarget, pose: Pose = emptyMap()): EditorSession {
 		val session = EditorSession(model(), initialPose = pose)
 		session.setSelection(Selection(setOf(target), target))
+
 		return session
 	}
 
@@ -365,6 +367,7 @@ class TransformRowsScrubTest {
 					Column(modifier = Modifier.size(width = 400.dp, height = 200.dp).testTag(ROWS_TAG)) {
 						if (mounted.value) {
 							val context = PropertyContext(puppet, Selection(setOf(target), target), target, session)
+
 							for (row in TransformSection.rows(context)) {
 								row.content(context)
 							}
@@ -386,6 +389,7 @@ class TransformRowsScrubTest {
 	private fun ComposeUiTest.pointOfText(text: String, index: Int = 0): Offset {
 		val rows = onNodeWithTag(ROWS_TAG).fetchSemanticsNode().boundsInRoot
 		val field = onAllNodesWithText(text)[index].fetchSemanticsNode().boundsInRoot
+
 		return field.center - rows.topLeft
 	}
 
@@ -399,6 +403,7 @@ class TransformRowsScrubTest {
 			advanceEventTime(GESTURE_GAP_MILLIS)
 			moveTo(from)
 			press()
+
 			for (stepIndex in 1..SCRUB_STEPS) {
 				advanceEventTime(GESTURE_STEP_MILLIS)
 				moveTo(from + Offset(SCRUB_PIXELS * stepIndex / SCRUB_STEPS, 0f))

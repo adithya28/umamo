@@ -590,12 +590,14 @@ internal class RecordingRenderDevice : RenderDevice {
 	): GpuTexture {
 		val texture = RecordedTexture(nextSerial++, RecordedTextureKind.Image, width, height, pixels, wrap)
 		recordedResourceEvents.add(TextureCreated(texture))
+
 		return texture
 	}
 
 	override fun createFloatTexture(width: Int, height: Int, filter: TextureFilter, texels: FloatArray): GpuTexture {
 		val texture = RecordedTexture(nextSerial++, RecordedTextureKind.Float, width, height, pixels = null, wrap = null)
 		recordedResourceEvents.add(TextureCreated(texture))
+
 		return texture
 	}
 
@@ -615,6 +617,7 @@ internal class RecordingRenderDevice : RenderDevice {
 		}
 		val mesh = RecordedMesh(nextSerial++, spec)
 		recordedResourceEvents.add(MeshCreated(mesh))
+
 		return mesh
 	}
 
@@ -639,12 +642,14 @@ internal class RecordingRenderDevice : RenderDevice {
 			}
 		val target = RecordedTarget(nextSerial++, spec, sampledTexture)
 		recordedResourceEvents.add(TargetCreated(target))
+
 		return target
 	}
 
 	override fun createDeformedPositionStore(vertexCapacity: Int): DeformedPositionStore {
 		val store = RecordedStore(vertexCapacity)
 		recordedResourceEvents.add(StoreCreated(store))
+
 		return store
 	}
 
@@ -695,6 +700,7 @@ internal class RecordingRenderDevice : RenderDevice {
 		check(spec.faceFlags.size == spec.faceCorners.size / 3) { "one overlay face flag per triangle" }
 		val buffers = RecordedOverlayBuffers(nextSerial++, spec)
 		recordedResourceEvents.add(OverlayBuffersCreated(buffers))
+
 		return buffers
 	}
 
@@ -718,6 +724,7 @@ internal class RecordingRenderDevice : RenderDevice {
 	override fun beginFrame(): FrameEncoder {
 		check(!frameOpen) { "beginFrame while a frame is already open" }
 		frameOpen = true
+
 		return RecordingFrame()
 	}
 
@@ -748,11 +755,13 @@ internal class RecordingRenderDevice : RenderDevice {
 		val recordedSource = liveTarget(source, "resolveUsed")
 		val recordedDestination = liveTarget(destination, "resolveUsed")
 		check(recordedSource !== recordedDestination) { "a copy from target #${recordedSource.serial} onto itself" }
+
 		if (region != null) {
 			check(sourceUsedWidth == destinationUsedWidth && sourceUsedHeight == destinationUsedHeight) {
 				"a region copy between used sizes ${sourceUsedWidth}x$sourceUsedHeight and ${destinationUsedWidth}x$destinationUsedHeight"
 			}
 		}
+
 		recordedSteps.add(
 			RecordedResolve(
 				recordedSource,
@@ -768,16 +777,19 @@ internal class RecordingRenderDevice : RenderDevice {
 
 	override fun beginReadback(target: RenderTarget): ReadbackTicket {
 		val recorded = liveTarget(target, "beginReadback")
+
 		return RecordedTicket(recorded.spec.width, recorded.spec.height)
 	}
 
 	override fun beginReadback(target: RenderTarget, usedWidth: Int, usedHeight: Int): ReadbackTicket {
 		liveTarget(target, "beginReadback")
+
 		return RecordedTicket(usedWidth, usedHeight)
 	}
 
 	override fun pollReadback(ticket: ReadbackTicket): RasterImage {
 		val recorded = ticket as RecordedTicket
+
 		return blankImage(recorded.width, recorded.height)
 	}
 
@@ -787,11 +799,13 @@ internal class RecordingRenderDevice : RenderDevice {
 
 	override fun readPixels(target: RenderTarget): RasterImage {
 		val recorded = liveTarget(target, "readPixels")
+
 		return blankImage(recorded.spec.width, recorded.spec.height)
 	}
 
 	override fun readPixels(target: RenderTarget, usedWidth: Int, usedHeight: Int): RasterImage {
 		liveTarget(target, "readPixels")
+
 		return blankImage(usedWidth, usedHeight)
 	}
 
@@ -818,6 +832,7 @@ internal class RecordingRenderDevice : RenderDevice {
 	private fun liveTexture(texture: GpuTexture, operation: String): RecordedTexture {
 		val recorded = texture as RecordedTexture
 		check(!recorded.destroyed) { "$operation used texture #${recorded.serial} after it was freed" }
+
 		return recorded
 	}
 
@@ -831,6 +846,7 @@ internal class RecordingRenderDevice : RenderDevice {
 	private fun liveMesh(mesh: GpuMesh, operation: String): RecordedMesh {
 		val recorded = mesh as RecordedMesh
 		check(!recorded.destroyed) { "$operation used mesh #${recorded.serial} after it was freed" }
+
 		return recorded
 	}
 
@@ -844,6 +860,7 @@ internal class RecordingRenderDevice : RenderDevice {
 	private fun liveTarget(target: RenderTarget, operation: String): RecordedTarget {
 		val recorded = target as RecordedTarget
 		check(!recorded.destroyed) { "$operation used render target #${recorded.serial} after it was freed" }
+
 		return recorded
 	}
 
@@ -860,9 +877,11 @@ internal class RecordingRenderDevice : RenderDevice {
 		if (texture == null) {
 			return null
 		}
+
 		val recorded = liveTexture(texture, operation)
 		check(recorded !== pass.target.sampledTexture) { "$operation samples target #${pass.target.serial}, which its own pass is writing" }
 		check(recorded !== pass.drawOrderTarget?.sampledTexture) { "$operation samples the draw-order target its own pass is writing" }
+
 		return recorded
 	}
 
@@ -876,6 +895,7 @@ internal class RecordingRenderDevice : RenderDevice {
 	private fun liveStore(store: DeformedPositionStore, operation: String): RecordedStore {
 		val recorded = store as RecordedStore
 		check(!recorded.destroyed) { "$operation on a deformed-position store that was freed" }
+
 		return recorded
 	}
 
@@ -889,6 +909,7 @@ internal class RecordingRenderDevice : RenderDevice {
 	private fun liveOverlayBuffers(buffers: OverlayMeshBuffers, operation: String): RecordedOverlayBuffers {
 		val recorded = buffers as RecordedOverlayBuffers
 		check(!recorded.destroyed) { "$operation on overlay buffers #${recorded.serial} that were freed" }
+
 		return recorded
 	}
 
@@ -905,6 +926,7 @@ internal class RecordingRenderDevice : RenderDevice {
 			val pass = RecordedPass(spec)
 			recordedSteps.add(pass)
 			openPass = pass
+
 			return RecordingPass(pass)
 		}
 
@@ -914,6 +936,7 @@ internal class RecordingRenderDevice : RenderDevice {
 			val capture = RecordedCapturePass(liveStore(store, "beginDeformCapturePass"))
 			recordedSteps.add(capture)
 			openCapture = capture
+
 			return RecordingCapture(capture)
 		}
 
@@ -1150,6 +1173,7 @@ internal class RecordingRenderDevice : RenderDevice {
 			requireOpen(operation)
 			val pipeline = boundPipeline ?: error("$operation with no pipeline bound")
 			check(pipeline.spec.purpose == purpose) { "$operation with a ${pipeline.spec.purpose} pipeline bound" }
+
 			return pipeline.spec
 		}
 	}

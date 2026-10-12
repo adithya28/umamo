@@ -287,6 +287,7 @@ private fun NumberFieldCore(
 				keyState = keyState,
 			)
 		}
+
 		return
 	}
 
@@ -311,6 +312,7 @@ private fun NumberFieldCore(
 					// Latched whether or not a draft is live: a drag that outlives its cancel keeps delivering
 					// moves, and each must be ignored until the release resets it.
 					gesture.cancelled = true
+
 					if (dragValue != null) {
 						dragValue = null
 						currentSeam.release(gesture.cancel)
@@ -379,6 +381,7 @@ private fun NumberFieldCore(
 				} else {
 					dragValue?.let { finalValue -> onCommit(finalValue) }
 				}
+
 				dragValue = null
 				currentSeam.release(scrubGesture.cancel)
 			},
@@ -512,6 +515,7 @@ private fun NumberFieldDisplay(
 				drawRect(color = fillColor, size = Size(size.width * fillFraction, size.height))
 			}
 		}
+
 		Row(
 			// No vertical padding: the fixed-height box centers the single text line, so it is never clipped
 			// by an inner content height that would exceed the box (the cause of a padded row overflowing).
@@ -520,11 +524,13 @@ private fun NumberFieldDisplay(
 		) {
 			val textColor = if (enabled) colors.text else colors.textDisabled
 			Text(text = text, style = typography.bodySmall, color = textColor)
+
 			if (unitSuffix != null) {
 				Spacer(modifier = Modifier.width(2.dp))
 				Text(text = unitSuffix, style = typography.bodySmall, color = textColor)
 			}
 		}
+
 		if (hovered && enabled) {
 			StepChevron(
 				icon = LocalUmamoIcons.chevronLeft,
@@ -628,6 +634,7 @@ private fun NumberEntryField(
 			focusRequester.requestFocus()
 		}
 	}
+
 	// A field disposed while it holds focus (its host left the composition - the operation settings strip
 	// on the next edit) gets no focus-loss callback, so the cancel hook it parked would keep the shell
 	// yielding the keyboard to a field that no longer exists.  Release it here; the host's reclaim effect
@@ -692,11 +699,13 @@ private fun NumberEntryField(
 							} else if (focused) {
 								focused = false
 								controller.cancel = null
+
 								if (discarding) {
 									discarding = false
 								} else {
 									commit(text.text)
 								}
+
 								onFocusLost()
 							}
 						}

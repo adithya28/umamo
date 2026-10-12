@@ -47,6 +47,7 @@ internal fun labelMenuItemsFor(
 ): List<MenuItem> {
 	val target = projection.ownerByRowKey[row.key]?.let(::selectionTargetOf)
 	val ownerKind = projection.ownerKindByRowKey[row.key]
+
 	return if (session == null || target == null || ownerKind == null) {
 		emptyList()
 	} else {
@@ -92,11 +93,12 @@ internal fun laneMenuItemsFor(
 	val track = projection.tracksByRowKey[hit.row.key]
 	val hitMark = hit.mark
 	val summaryMembers = hitMark?.let { mark -> projection.summaryMembers(hit.row.key, mark.keyIndex) }
+
 	return when {
 		// A summary mark stands for several keys, so its menu removes them all in one step.  There is no
 		// Insert counterpart: a folded group cannot say which of its tracks a new key belongs on, and
 		// picking one would be a guess.
-		session != null && summaryMembers != null ->
+		session != null && summaryMembers != null -> {
 			listOf(
 				MenuItem.Action(
 					label = labels.deleteKey,
@@ -113,9 +115,13 @@ internal fun laneMenuItemsFor(
 					},
 				),
 			)
+		}
 
-		session == null || track == null -> emptyList()
-		hitMark != null ->
+		session == null || track == null -> {
+			emptyList()
+		}
+
+		hitMark != null -> {
 			listOf(
 				MenuItem.Action(
 					label = labels.deleteKey,
@@ -133,8 +139,9 @@ internal fun laneMenuItemsFor(
 					shortcut = keymap.chordFor("keyform.delete")?.let { chord -> formatAccelerator(chord) },
 				),
 			)
+		}
 
-		else ->
+		else -> {
 			listOf(
 				MenuItem.Action(
 					label = labels.insertKey,
@@ -154,6 +161,7 @@ internal fun laneMenuItemsFor(
 					shortcut = keymap.chordFor("keyform.insert")?.let { chord -> formatAccelerator(chord) },
 				),
 			)
+		}
 	}
 }
 

@@ -36,6 +36,7 @@ class GlueLayoutTest {
 	/** A drawable with [vertexCount] vertices; geometry values are irrelevant to addressing. */
 	private fun drawable(id: String, vertexCount: Int): Drawable {
 		val positions = FloatArray(vertexCount * 2)
+
 		return Drawable(
 			id = DrawableId(id),
 			name = id,

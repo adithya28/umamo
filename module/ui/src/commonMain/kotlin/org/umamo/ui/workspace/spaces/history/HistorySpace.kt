@@ -48,10 +48,13 @@ import org.umamo.ui.workspace.spaces.zebraFill
 @Composable
 fun HistorySpace(modifier: Modifier = Modifier) {
 	val session = LocalEditorSession.current
+
 	if (session == null) {
 		Box(modifier = modifier.fillMaxSize().zebraFill(rememberLazyListState(), ROW_HEIGHT, LocalUmamoColors.current.rowStripe))
+
 		return
 	}
+
 	val view by session.historyView.collectAsState()
 	val listState = rememberLazyListState()
 	// Keep the live step on screen as the cursor moves (a row click, an undo / redo from the keyboard),
@@ -60,6 +63,7 @@ fun HistorySpace(modifier: Modifier = Modifier) {
 		val visible = listState.layoutInfo.visibleItemsInfo
 		val firstVisible = visible.firstOrNull()?.index ?: 0
 		val lastVisible = visible.lastOrNull()?.index ?: 0
+
 		if (view.steps.isNotEmpty() && (view.cursor < firstVisible || view.cursor > lastVisible)) {
 			listState.animateScrollToItem(view.cursor)
 		}

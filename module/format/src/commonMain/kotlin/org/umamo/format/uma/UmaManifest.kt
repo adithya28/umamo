@@ -77,6 +77,7 @@ internal fun jsonTextNestsTooDeep(text: String): Boolean {
 	var depth = 0
 	var inString = false
 	var escaped = false
+
 	for (character in text) {
 		if (inString) {
 			when {
@@ -84,20 +85,29 @@ internal fun jsonTextNestsTooDeep(text: String): Boolean {
 				character == '\\' -> escaped = true
 				character == '"' -> inString = false
 			}
+
 			continue
 		}
+
 		when (character) {
-			'"' -> inString = true
+			'"' -> {
+				inString = true
+			}
+
 			'{', '[' -> {
 				depth++
+
 				if (depth > UMA_MAXIMUM_JSON_DEPTH) {
 					return true
 				}
 			}
 
-			'}', ']' -> depth--
+			'}', ']' -> {
+				depth--
+			}
 		}
 	}
+
 	return false
 }
 
@@ -117,14 +127,17 @@ internal fun jsonNestsTooDeep(tree: JsonElement, depth: Int = 1): Boolean {
 			is JsonArray -> tree
 			else -> return false
 		}
+
 	if (depth > UMA_MAXIMUM_JSON_DEPTH) {
 		return true
 	}
+
 	for (child in children) {
 		if (child !is JsonPrimitive && jsonNestsTooDeep(child, depth + 1)) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -192,15 +205,18 @@ internal fun parseUmaManifest(bytes: ByteArray): UmaParsedManifest {
 
 	// UMA §3.1: `format` must be "uma".
 	val format = tree[FORMAT_KEY]
+
 	if (format !is JsonPrimitive || !format.isString || format.content != UmaContainer.FORMAT_NAME) {
 		throw UmaFormatException(UmaReadFailure.NotUma("the manifest's format is ${format ?: "absent"}, not \"${UmaContainer.FORMAT_NAME}\""))
 	}
 
 	// UMA §3.1: a container version this reader does not know refuses the whole file.
 	val containerVersion = jsonIntegerOrNull(tree[CONTAINER_VERSION_KEY]) ?: malformedManifest("containerVersion is missing or not an integer")
+
 	if (containerVersion > UmaContainer.CONTAINER_VERSION) {
 		throw UmaFormatException(UmaReadFailure.UnsupportedContainerVersion(containerVersion, UmaContainer.CONTAINER_VERSION))
 	}
+
 	if (containerVersion < 1) {
 		malformedManifest("containerVersion $containerVersion is below 1")
 	}
@@ -218,6 +234,7 @@ internal fun parseUmaManifest(bytes: ByteArray): UmaParsedManifest {
 	val records = ArrayList<UmaManifestRecord>(entriesArray.size)
 	val seenPaths = HashSet<String>()
 	val seenKnownKinds = HashSet<UmaEntryKind>()
+
 	for ((recordIndex, element) in entriesArray.withIndex()) {
 		val record = element as? JsonObject ?: malformedManifest("entries[$recordIndex] is not an object")
 		val path = jsonStringOrNull(record[PATH_KEY]) ?: malformedManifest("entries[$recordIndex].path is missing or not a string")
@@ -225,16 +242,20 @@ internal fun parseUmaManifest(bytes: ByteArray): UmaParsedManifest {
 		val version = jsonIntegerOrNull(record[VERSION_KEY]) ?: malformedManifest("entries[$recordIndex].version is missing or not an integer")
 		val minVersion = jsonIntegerOrNull(record[MIN_VERSION_KEY]) ?: malformedManifest("entries[$recordIndex].minVersion is missing or not an integer")
 		val required = jsonBooleanOrNull(record[REQUIRED_KEY]) ?: malformedManifest("entries[$recordIndex].required is missing or not a boolean")
+
 		// UMA §3.1: record rules.
 		if (path.isEmpty() || path.endsWith('/') || UmaContainer.isReservedPath(path)) {
 			malformedManifest("entries[$recordIndex] names '$path', which cannot hold a domain entry")
 		}
+
 		if (!seenPaths.add(path)) {
 			malformedManifest("'$path' is listed twice")
 		}
+
 		if (minVersion < 1 || minVersion > version) {
 			malformedManifest("'$path' declares minVersion $minVersion against version $version")
 		}
+
 		UmaEntryKind.ofWireName(kind)?.let { knownKind ->
 			if (!seenKnownKinds.add(knownKind)) {
 				malformedManifest("the ${knownKind.wireName} kind is listed twice")
@@ -242,6 +263,7 @@ internal fun parseUmaManifest(bytes: ByteArray): UmaParsedManifest {
 		}
 		records += UmaManifestRecord(path, kind, version, minVersion, required, record)
 	}
+
 	return UmaParsedManifest(writer, records, tree)
 }
 
@@ -260,6 +282,7 @@ internal fun emitUmaManifest(model: UmaModel): ByteArray {
 	manifest[FORMAT_KEY] = JsonPrimitive(UmaContainer.FORMAT_NAME)
 	manifest[CONTAINER_VERSION_KEY] = JsonPrimitive(UmaContainer.CONTAINER_VERSION)
 	val writer = model.writer
+
 	if (writer == null) {
 		manifest.remove(WRITER_KEY)
 	} else {
@@ -268,11 +291,15 @@ internal fun emitUmaManifest(model: UmaModel): ByteArray {
 		writerRecord[WRITER_VERSION_KEY] = JsonPrimitive(writer.version)
 		manifest[WRITER_KEY] = JsonObject(writerRecord)
 	}
+
 	manifest[ENTRIES_KEY] =
 		JsonArray(
 			model.entries.map { entry ->
 				when (val content = entry.content) {
-					is UmaEntryContent.Preserved -> entry.record ?: error("a preserved entry always carries the record it was read with")
+					is UmaEntryContent.Preserved -> {
+						entry.record ?: error("a preserved entry always carries the record it was read with")
+					}
+
 					is UmaEntryContent.Live -> {
 						val record = LinkedHashMap<String, JsonElement>(entry.record ?: emptyMap())
 						record[PATH_KEY] = JsonPrimitive(entry.path)
@@ -285,6 +312,7 @@ internal fun emitUmaManifest(model: UmaModel): ByteArray {
 				}
 			},
 		)
+
 	return encodeUmaJson(JsonObject(manifest))
 }
 
@@ -303,15 +331,18 @@ internal fun parseJsonObject(bytes: ByteArray, failureOf: (String) -> UmaReadFai
 		} catch (failure: CharacterCodingException) {
 			throw UmaFormatException(failureOf("not valid UTF-8"), failure)
 		}
+
 	if (jsonTextNestsTooDeep(text)) {
 		throw UmaFormatException(failureOf("nested deeper than $UMA_MAXIMUM_JSON_DEPTH levels"))
 	}
+
 	val element =
 		try {
 			UmaJson.parseToJsonElement(text)
 		} catch (failure: SerializationException) {
 			throw UmaFormatException(failureOf("not valid JSON: ${failure.message}"), failure)
 		}
+
 	return element as? JsonObject ?: throw UmaFormatException(failureOf("not a JSON object"))
 }
 

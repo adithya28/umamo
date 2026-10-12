@@ -203,6 +203,7 @@ internal val RuntimeSection =
 					terms = listOf(Res.string.properties_runtime_restricted, Res.string.properties_runtime_no_restrictions),
 				) { _ ->
 					val restricted = puppet.runtimeTarget.restrictedFeatures()
+
 					if (restricted.isEmpty()) {
 						PropertyLine(stringResource(Res.string.properties_runtime_no_restrictions))
 					} else {

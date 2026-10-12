@@ -26,6 +26,7 @@ public data class ArtMeshKeyform(
 		hash = 31 * hash + drawOrder.hashCode()
 		hash = 31 * hash + (multiplyColor?.hashCode() ?: 0)
 		hash = 31 * hash + (screenColor?.hashCode() ?: 0)
+
 		return hash
 	}
 }

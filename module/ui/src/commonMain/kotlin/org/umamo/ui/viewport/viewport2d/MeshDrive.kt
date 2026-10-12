@@ -103,6 +103,7 @@ internal fun meshDriveJobs(
 ): List<MeshDriveJob> =
 	transform.entries.mapNotNull { entry ->
 		val geometry = geometryById[entry.drawableId] ?: return@mapNotNull null
+
 		if (wholeMeshes) {
 			MeshDriveJob(entry.drawableId, entry.positions, entry.groups, emptyMap(), entry.coveredIndices, geometry)
 		} else {
@@ -123,6 +124,7 @@ internal fun meshJobRest(job: MeshDriveJob, request: MeshDriveRequest): MeshRest
 	val transformedWorld =
 		if (request.operator == MeshOperatorKind.VertexSlide) {
 			val slide = request.slide
+
 			if (slide != null && slide.drawableId == job.drawableId) {
 				slideVertexByFactor(job.positions, slide.activeVertex, slide.landing.neighborIndex, slide.landing.factor)
 			} else {
@@ -131,6 +133,7 @@ internal fun meshJobRest(job: MeshDriveJob, request: MeshDriveRequest): MeshRest
 		} else {
 			applyOperator(request.operator, job.positions, job.groups, request.parameters, job.influence)
 		}
+
 	return job.geometry.worldToRest(transformedWorld, job.movedIndices)
 }
 
@@ -152,6 +155,7 @@ internal fun computeMeshDrive(request: MeshDriveRequest): MeshDriveResult = fold
  */
 internal suspend fun computeMeshDriveParallel(request: MeshDriveRequest, minChunkWeight: Int = DRIVE_MIN_CHUNK_WEIGHT): MeshDriveResult {
 	val rests = mapInBalancedChunks(request.jobs, { job -> job.movedIndices.size + 1 }, minChunkWeight) { job -> meshJobRest(job, request) }
+
 	return foldMeshDrive(request, rests)
 }
 
@@ -164,8 +168,10 @@ internal suspend fun computeMeshDriveParallel(request: MeshDriveRequest, minChun
  */
 private fun foldMeshDrive(request: MeshDriveRequest, rests: List<MeshRestPositions>): MeshDriveResult {
 	val preview = LinkedHashMap<DrawableId, MeshRestPositions>(request.jobs.size)
+
 	for ((jobIndex, job) in request.jobs.withIndex()) {
 		preview[job.drawableId] = rests[jobIndex]
 	}
+
 	return MeshDriveResult(preview, request.baseModel.withMeshPositions(preview))
 }

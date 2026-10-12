@@ -45,11 +45,14 @@ class UvOverlayLiveEngineTest {
 		val model = PuppetModel(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, atlas = PuppetAtlas(pages = listOf(AtlasPage(16, 16))))
 		val service = OffscreenPuppetService(model, PuppetTextures(listOf(solidBlueImage()), emptyMap(), false), LiveParams(emptyMap()))
 		service.start()
+
 		try {
 			val frames = service.registerUvScene("uv", UvSceneContent.AtlasPage(0), null)
 			service.resize("uv", 100, 100)
+
 			if (!awaitFrame(frames) { sample -> isPageBlue(sample) }) {
 				println("[uv-overlay-live] no GL frame arrived; skipping (context unavailable, or the page never rendered)")
+
 				return
 			}
 
@@ -96,6 +99,7 @@ class UvOverlayLiveEngineTest {
 				activeEdge = null,
 				activeFace = null,
 			)
+
 		return DirectMeshOverlay(
 			MeshOverlay(MeshOverlayKind.Edit, MeshOverlaySelectMode.Edge, listOf(mesh), MeshOverlaySizes(3.5f, 1f, 2.5f)),
 			mapOf(pageId to floatArrayOf(0f, 0f, 16f, 0f, 0f, 16f, 16f, 16f)),
@@ -120,13 +124,17 @@ class UvOverlayLiveEngineTest {
 	 */
 	private fun awaitFrame(frames: StateFlow<RenderedFrame?>, accept: (Color) -> Boolean): Boolean {
 		val start = System.currentTimeMillis()
+
 		while (System.currentTimeMillis() - start < 5_000) {
 			val frame = frames.value
+
 			if (frame != null && accept(sampleOf(frame.bitmap.toPixelMap()))) {
 				return true
 			}
+
 			Thread.sleep(20)
 		}
+
 		return false
 	}
 
@@ -146,10 +154,12 @@ class UvOverlayLiveEngineTest {
 	private fun solidBlueImage(): DecodedImage {
 		val size = 16
 		val rgba = ByteArray(size * size * 4)
+
 		for (pixel in rgba.indices step 4) {
 			rgba[pixel + 2] = 0xFF.toByte()
 			rgba[pixel + 3] = 0xFF.toByte()
 		}
+
 		return DecodedImage(rgba, size, size)
 	}
 }

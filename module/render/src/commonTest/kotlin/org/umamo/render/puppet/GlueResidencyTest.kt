@@ -227,6 +227,7 @@ class GlueResidencyTest {
 		val target = device.createRenderTarget(RenderTargetSpec(viewportSize, viewportSize, TextureFormat.Rgba8, sampled = true)) as RecordedTarget
 		renderAt(device, renderer, target)
 		device.clearLog()
+
 		return Triple(device, renderer, target)
 	}
 

@@ -25,52 +25,67 @@ internal fun assertDelaunayTriangulation(points: DoubleArray, result: Triangulat
 	val distinct = (0 until pointCount).filter { canonical[it] == it }
 	val triangles = result.triangles
 	assertEquals(0, triangles.size % 3, "triangles come in triples")
+
 	if (triangles.isEmpty()) {
 		assertTrue(distinct.size < 3 || allCollinear(points, distinct), "an empty result needs fewer than three distinct points or all of them collinear")
+
 		return
 	}
 
 	val directedEdges = HashSet<Long>()
+
 	for (triangleIndex in 0 until result.triangleCount) {
 		val first = triangles[3 * triangleIndex]
 		val second = triangles[3 * triangleIndex + 1]
 		val third = triangles[3 * triangleIndex + 2]
+
 		for (vertex in intArrayOf(first, second, third)) {
 			assertTrue(vertex in 0 until pointCount && canonical[vertex] == vertex, "triangle $triangleIndex uses non-canonical vertex $vertex")
 		}
+
 		assertTrue(orientOf(points, first, second, third) > 0.0, "triangle $triangleIndex ($first, $second, $third) is not positively oriented")
+
 		for ((start, end) in listOf(first to second, second to third, third to first)) {
 			assertTrue(directedEdges.add(edgeKey(start, end)), "directed edge $start->$end appears twice")
 		}
 	}
 
 	val used = HashSet<Int>()
+
 	for (vertex in triangles) {
 		used.add(vertex)
 	}
+
 	assertEquals(distinct.toSet(), used, "every distinct point is a vertex")
 
 	var boundaryEdges = 0
+
 	for (key in directedEdges) {
 		val start = (key ushr 32).toInt()
 		val end = key.toInt()
 		val isBoundary = edgeKey(end, start) !in directedEdges
+
 		for (other in distinct) {
 			if (other == start || other == end) {
 				continue
 			}
+
 			val side = orientOf(points, start, end, other)
+
 			if (side == 0.0 && strictlyBetween(points, start, end, other)) {
 				fail("point $other lies on the open segment of edge $start->$end")
 			}
+
 			if (isBoundary) {
 				assertTrue(side >= 0.0, "point $other lies outside boundary edge $start->$end")
 			}
 		}
+
 		if (isBoundary) {
 			boundaryEdges++
 		}
 	}
+
 	assertEquals(2 * distinct.size - 2 - boundaryEdges, result.triangleCount, "Euler's count T = 2n - 2 - h")
 
 	if (checkEmptyCircles) {
@@ -78,10 +93,12 @@ internal fun assertDelaunayTriangulation(points: DoubleArray, result: Triangulat
 			val first = triangles[3 * triangleIndex]
 			val second = triangles[3 * triangleIndex + 1]
 			val third = triangles[3 * triangleIndex + 2]
+
 			for (other in distinct) {
 				if (other == first || other == second || other == third) {
 					continue
 				}
+
 				val inside =
 					incircle(
 						points[2 * first],
@@ -108,11 +125,13 @@ internal fun assertDelaunayTriangulation(points: DoubleArray, result: Triangulat
  */
 internal fun normalizedTriangleSet(triangles: IntArray): Set<List<Int>> {
 	val normalized = HashSet<List<Int>>()
+
 	for (triangleIndex in 0 until triangles.size / 3) {
 		val corners = listOf(triangles[3 * triangleIndex], triangles[3 * triangleIndex + 1], triangles[3 * triangleIndex + 2])
 		val lowest = corners.indexOf(corners.min())
 		normalized.add(List(3) { corners[(lowest + it) % 3] })
 	}
+
 	return normalized
 }
 
@@ -160,6 +179,7 @@ internal fun strictlyBetween(points: DoubleArray, start: Int, end: Int, query: I
 	val endY = points[2 * end + 1]
 	val queryX = points[2 * query]
 	val queryY = points[2 * query + 1]
+
 	// Collinear, so comparing along any axis the segment spans decides it exactly.
 	return if (startX != endX) {
 		(queryX > minOf(startX, endX)) && (queryX < maxOf(startX, endX))
@@ -179,8 +199,10 @@ private fun allCollinear(points: DoubleArray, vertices: List<Int>): Boolean {
 	if (vertices.size < 3) {
 		return true
 	}
+
 	val first = vertices[0]
 	val second = vertices[1]
+
 	return vertices.drop(2).all { orientOf(points, first, second, it) == 0.0 }
 }
 

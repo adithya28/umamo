@@ -83,18 +83,22 @@ fun distanceToSegment(pointX: Float, pointY: Float, startX: Float, startY: Float
 	val segmentX = endX - startX
 	val segmentY = endY - startY
 	val lengthSquared = segmentX * segmentX + segmentY * segmentY
+
 	// A degenerate (zero-length) segment measures as the distance to its single point.
 	if (lengthSquared <= 1e-6f) {
 		val deltaX = pointX - startX
 		val deltaY = pointY - startY
+
 		return sqrt(deltaX * deltaX + deltaY * deltaY)
 	}
+
 	val projection = ((pointX - startX) * segmentX + (pointY - startY) * segmentY) / lengthSquared
 	val clamped = projection.coerceIn(0f, 1f)
 	val nearestX = startX + segmentX * clamped
 	val nearestY = startY + segmentY * clamped
 	val deltaX = pointX - nearestX
 	val deltaY = pointY - nearestY
+
 	return sqrt(deltaX * deltaX + deltaY * deltaY)
 }
 
@@ -122,17 +126,20 @@ fun hitTestVertex(
 	var best = -1
 	var bestDistance = hitRadiusPx
 	val vertexCount = positions.size / 2
+
 	for (vertexIndex in 0 until vertexCount) {
 		val screenX = worldToScreenX(positions[vertexIndex * 2], camera, viewportWidth)
 		val screenY = worldToScreenY(positions[vertexIndex * 2 + 1], camera, viewportHeight)
 		val deltaX = screenX - pointerX
 		val deltaY = screenY - pointerY
 		val distance = sqrt(deltaX * deltaX + deltaY * deltaY)
+
 		if (distance <= bestDistance) {
 			bestDistance = distance
 			best = vertexIndex
 		}
 	}
+
 	return if (best >= 0) best else null
 }
 
@@ -164,22 +171,27 @@ fun hitTestEdge(
 	var bestDistance = hitRadiusPx
 	val vertexCount = positions.size / 2
 	val edgeCount = edgeEndpoints.size / 2
+
 	for (edgeOrdinal in 0 until edgeCount) {
 		val endpointA = edgeEndpoints[edgeOrdinal * 2]
 		val endpointB = edgeEndpoints[edgeOrdinal * 2 + 1]
+
 		if (endpointA >= vertexCount || endpointB >= vertexCount) {
 			continue
 		}
+
 		val startX = worldToScreenX(positions[endpointA * 2], camera, viewportWidth)
 		val startY = worldToScreenY(positions[endpointA * 2 + 1], camera, viewportHeight)
 		val endX = worldToScreenX(positions[endpointB * 2], camera, viewportWidth)
 		val endY = worldToScreenY(positions[endpointB * 2 + 1], camera, viewportHeight)
 		val distance = distanceToSegment(pointerX, pointerY, startX, startY, endX, endY)
+
 		if (distance <= bestDistance) {
 			bestDistance = distance
 			best = edgeOrdinal
 		}
 	}
+
 	return if (best >= 0) best else null
 }
 
@@ -210,32 +222,39 @@ fun hitTestFace(
 	var bestCentroidDistance = Float.MAX_VALUE
 	val vertexCount = positions.size / 2
 	val triangleCount = triangleIndices.size / 3
+
 	for (triangleOrdinal in 0 until triangleCount) {
 		val cornerA = triangleIndices[triangleOrdinal * 3]
 		val cornerB = triangleIndices[triangleOrdinal * 3 + 1]
 		val cornerC = triangleIndices[triangleOrdinal * 3 + 2]
+
 		if (cornerA >= vertexCount || cornerB >= vertexCount || cornerC >= vertexCount) {
 			continue
 		}
+
 		val screenAx = worldToScreenX(positions[cornerA * 2], camera, viewportWidth)
 		val screenAy = worldToScreenY(positions[cornerA * 2 + 1], camera, viewportHeight)
 		val screenBx = worldToScreenX(positions[cornerB * 2], camera, viewportWidth)
 		val screenBy = worldToScreenY(positions[cornerB * 2 + 1], camera, viewportHeight)
 		val screenCx = worldToScreenX(positions[cornerC * 2], camera, viewportWidth)
 		val screenCy = worldToScreenY(positions[cornerC * 2 + 1], camera, viewportHeight)
+
 		if (!pointInTriangle(pointerX, pointerY, screenAx, screenAy, screenBx, screenBy, screenCx, screenCy)) {
 			continue
 		}
+
 		val centroidX = (screenAx + screenBx + screenCx) / 3f
 		val centroidY = (screenAy + screenBy + screenCy) / 3f
 		val deltaX = pointerX - centroidX
 		val deltaY = pointerY - centroidY
 		val centroidDistance = sqrt(deltaX * deltaX + deltaY * deltaY)
+
 		if (centroidDistance < bestCentroidDistance) {
 			bestCentroidDistance = centroidDistance
 			best = triangleOrdinal
 		}
 	}
+
 	return if (best >= 0) best else null
 }
 
@@ -269,13 +288,16 @@ fun verticesInBox(
 	val maxY = max(cornerAy, cornerBy)
 	val result = HashSet<Int>()
 	val vertexCount = positions.size / 2
+
 	for (vertexIndex in 0 until vertexCount) {
 		val screenX = worldToScreenX(positions[vertexIndex * 2], camera, viewportWidth)
 		val screenY = worldToScreenY(positions[vertexIndex * 2 + 1], camera, viewportHeight)
+
 		if (screenX in minX..maxX && screenY in minY..maxY) {
 			result.add(vertexIndex)
 		}
 	}
+
 	return result
 }
 
@@ -307,11 +329,13 @@ fun edgesInBox(
 	val insideVertices = verticesInBox(positions, cornerAx, cornerAy, cornerBx, cornerBy, camera, viewportWidth, viewportHeight)
 	val result = HashSet<Int>()
 	val edgeCount = edgeEndpoints.size / 2
+
 	for (edgeOrdinal in 0 until edgeCount) {
 		if (edgeEndpoints[edgeOrdinal * 2] in insideVertices && edgeEndpoints[edgeOrdinal * 2 + 1] in insideVertices) {
 			result.add(edgeOrdinal)
 		}
 	}
+
 	return result
 }
 
@@ -348,13 +372,16 @@ fun facesInBox(
 	val result = HashSet<Int>()
 	val vertexCount = positions.size / 2
 	val triangleCount = triangleIndices.size / 3
+
 	for (triangleOrdinal in 0 until triangleCount) {
 		val cornerA = triangleIndices[triangleOrdinal * 3]
 		val cornerB = triangleIndices[triangleOrdinal * 3 + 1]
 		val cornerC = triangleIndices[triangleOrdinal * 3 + 2]
+
 		if (cornerA >= vertexCount || cornerB >= vertexCount || cornerC >= vertexCount) {
 			continue
 		}
+
 		val centroidX =
 			(
 				worldToScreenX(positions[cornerA * 2], camera, viewportWidth) +
@@ -367,10 +394,12 @@ fun facesInBox(
 					worldToScreenY(positions[cornerB * 2 + 1], camera, viewportHeight) +
 					worldToScreenY(positions[cornerC * 2 + 1], camera, viewportHeight)
 			) / 3f
+
 		if (centroidX in minX..maxX && centroidY in minY..maxY) {
 			result.add(triangleOrdinal)
 		}
 	}
+
 	return result
 }
 
@@ -398,13 +427,16 @@ fun verticesInCircle(
 ): Set<Int> {
 	val result = HashSet<Int>()
 	val vertexCount = positions.size / 2
+
 	for (vertexIndex in 0 until vertexCount) {
 		val deltaX = worldToScreenX(positions[vertexIndex * 2], camera, viewportWidth) - centerX
 		val deltaY = worldToScreenY(positions[vertexIndex * 2 + 1], camera, viewportHeight) - centerY
+
 		if (sqrt(deltaX * deltaX + deltaY * deltaY) <= radiusPx) {
 			result.add(vertexIndex)
 		}
 	}
+
 	return result
 }
 
@@ -435,20 +467,25 @@ fun edgesInCircle(
 	val vertexCount = positions.size / 2
 	val result = HashSet<Int>()
 	val edgeCount = edgeEndpoints.size / 2
+
 	for (edgeOrdinal in 0 until edgeCount) {
 		val endpointA = edgeEndpoints[edgeOrdinal * 2]
 		val endpointB = edgeEndpoints[edgeOrdinal * 2 + 1]
+
 		if (endpointA >= vertexCount || endpointB >= vertexCount) {
 			continue
 		}
+
 		val startX = worldToScreenX(positions[endpointA * 2], camera, viewportWidth)
 		val startY = worldToScreenY(positions[endpointA * 2 + 1], camera, viewportHeight)
 		val endX = worldToScreenX(positions[endpointB * 2], camera, viewportWidth)
 		val endY = worldToScreenY(positions[endpointB * 2 + 1], camera, viewportHeight)
+
 		if (distanceToSegment(centerX, centerY, startX, startY, endX, endY) <= radiusPx) {
 			result.add(edgeOrdinal)
 		}
 	}
+
 	return result
 }
 
@@ -480,13 +517,16 @@ fun facesInCircle(
 	val result = HashSet<Int>()
 	val vertexCount = positions.size / 2
 	val triangleCount = triangleIndices.size / 3
+
 	for (triangleOrdinal in 0 until triangleCount) {
 		val cornerA = triangleIndices[triangleOrdinal * 3]
 		val cornerB = triangleIndices[triangleOrdinal * 3 + 1]
 		val cornerC = triangleIndices[triangleOrdinal * 3 + 2]
+
 		if (cornerA >= vertexCount || cornerB >= vertexCount || cornerC >= vertexCount) {
 			continue
 		}
+
 		val centroidX =
 			(
 				worldToScreenX(positions[cornerA * 2], camera, viewportWidth) +
@@ -501,9 +541,11 @@ fun facesInCircle(
 			) / 3f
 		val deltaX = centroidX - centerX
 		val deltaY = centroidY - centerY
+
 		if (sqrt(deltaX * deltaX + deltaY * deltaY) <= radiusPx) {
 			result.add(triangleOrdinal)
 		}
 	}
+
 	return result
 }

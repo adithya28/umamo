@@ -54,6 +54,7 @@ internal suspend fun collectEditGizmoRequests(
 				if (request.areaId != areaId) {
 					return@collect
 				}
+
 				val editable = editableGeometryOrNotice(session, geometries.value, "notice.edit.noEditableGeometry") ?: return@collect
 				handleSelectLinkedRequest(
 					session,
@@ -73,6 +74,7 @@ internal suspend fun collectEditGizmoRequests(
 				if (requestedAreaId != areaId) {
 					return@collect
 				}
+
 				handleSwitchEditDrawableRequest(session, service, areaId, areaPointer.value, onOverlapRequest)
 			}
 		}
@@ -82,6 +84,7 @@ internal suspend fun collectEditGizmoRequests(
 				if (requestedAreaId != areaId) {
 					return@collect
 				}
+
 				val editable = editableGeometryOrNotice(session, geometries.value, "notice.edit.noEditableGeometry") ?: return@collect
 				handleRipRequest(session, editable, areaId, areaPointer.value, camera.value, size.value)
 			}
@@ -94,6 +97,7 @@ internal suspend fun collectEditGizmoRequests(
 				if (request.areaId != areaId) {
 					return@collect
 				}
+
 				val editable = editableGeometryOrNotice(session, geometries.value, "notice.edit.noEditableGeometry") ?: return@collect
 				handleEditSnapRequest(session, editable, request.kind, (overlays?.grid ?: GridConfig()).snapStep)
 			}

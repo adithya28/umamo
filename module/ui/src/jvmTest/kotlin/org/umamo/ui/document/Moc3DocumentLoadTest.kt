@@ -63,6 +63,7 @@ class Moc3DocumentLoadTest {
 			if (reference.endsWith(".model3.json")) {
 				requestedManifest = reference
 			}
+
 			null
 		}
 		assertEquals("PUPPET.model3.json", requestedManifest)
@@ -82,10 +83,13 @@ class Moc3DocumentLoadTest {
 	@Test
 	fun missingTextureFailsAsMissingTexture() {
 		val mocFile = sample
+
 		if (mocFile == null) {
 			println("moc3.sample not present; skipping missing-texture test")
+
 			return
 		}
+
 		// A real decodable moc whose manifest lists a texture the reader cannot resolve.
 		val load =
 			buildMoc3Document(mocFile.path, mocFile.name, mocFile.readBytes()) { reference ->
@@ -98,10 +102,13 @@ class Moc3DocumentLoadTest {
 	@Test
 	fun undecodableTextureFailsAsMissingTexture() {
 		val mocFile = sample
+
 		if (mocFile == null) {
 			println("moc3.sample not present; skipping undecodable-texture test")
+
 			return
 		}
+
 		val load =
 			buildMoc3Document(mocFile.path, mocFile.name, mocFile.readBytes()) { reference ->
 				when {
@@ -117,10 +124,13 @@ class Moc3DocumentLoadTest {
 	@Test
 	fun loadsCorpusFamilyAndDegradesWithoutCdi3() {
 		val mocFile = sample
+
 		if (mocFile == null) {
 			println("moc3.sample not present; skipping corpus load test")
+
 			return
 		}
+
 		val directory = mocFile.parentFile
 
 		fun readRelative(reference: String): ByteArray? = directory.resolve(reference).takeIf { it.isFile }?.readBytes()

@@ -54,6 +54,7 @@ class EditModalTransformTest {
 	 */
 	private fun rigOver(session: EditorSession): Rig {
 		val pushed = ArrayList<PuppetModel>()
+
 		return Rig(session, EditModalTransform(LEFT_AREA_ID, session, { model -> pushed.add(model) }), pushed)
 	}
 
@@ -187,6 +188,7 @@ class EditModalTransformTest {
 			val session = gizmoEditSession(elements = listOf(MeshElement.Vertex(0)))
 			session.setProportionalEdit(ProportionalEditState(ProportionalFalloff.Linear, 10f))
 			val rig = rigOver(session)
+
 			if (suppressed) {
 				rig.latch(MeshOperatorKind.Grab, suppressProportional = true)
 			} else {
@@ -204,6 +206,7 @@ class EditModalTransformTest {
 	@Test
 	fun aMidGestureProportionalChangeWeightsOnlyAWeightedGesture() {
 		val halo = ProportionalEditState(ProportionalFalloff.Linear, 30f)
+
 		for ((kind, suppressed, weighted) in listOf(
 			Triple(MeshOperatorKind.Grab, false, true),
 			Triple(MeshOperatorKind.VertexSlide, false, false),

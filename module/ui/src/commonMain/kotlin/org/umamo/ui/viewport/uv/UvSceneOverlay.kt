@@ -200,30 +200,42 @@ internal class UvEditOverlayProducer {
 	fun produce(mode: EditorMode, selection: MeshSelection, scene: UvShownScene, sizes: MeshOverlaySizes): DirectMeshOverlay? {
 		if (mode != EditorMode.Edit) {
 			lastDirect = null
+
 			return null
 		}
+
 		val geometryById = HashMap<DrawableId, GizmoMeshGeometry>(scene.geometries.size)
+
 		for (geometry in scene.geometries) {
 			geometryById[geometry.drawableId] = geometry
 		}
+
 		val overlay = meshes.produce(mode, selection, scene.model, sizes, geometryById.keys)
+
 		if (overlay == null) {
 			lastDirect = null
+
 			return null
 		}
+
 		val previous = lastDirect
+
 		if (previous != null && previous.overlay === overlay && pairsUnchanged(previous, geometryById)) {
 			return previous
 		}
+
 		val positionsById = HashMap<DrawableId, FloatArray>(overlay.meshes.size)
 		val triangleIndicesById = HashMap<DrawableId, IntArray>(overlay.meshes.size)
+
 		for (mesh in overlay.meshes) {
 			val geometry = geometryById[mesh.drawableId] ?: continue
 			positionsById[mesh.drawableId] = geometry.positions
 			triangleIndicesById[mesh.drawableId] = geometry.indices
 		}
+
 		val direct = DirectMeshOverlay(overlay, positionsById, triangleIndicesById)
 		lastDirect = direct
+
 		return direct
 	}
 

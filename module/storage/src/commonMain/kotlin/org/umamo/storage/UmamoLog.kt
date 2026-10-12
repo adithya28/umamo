@@ -92,6 +92,7 @@ object UmamoLog {
 	 */
 	fun addSink(sink: LogSink): () -> Unit {
 		sinks.update { attached -> attached + sink }
+
 		return { sinks.update { attached -> attached - sink } }
 	}
 
@@ -140,12 +141,15 @@ object UmamoLog {
 	 */
 	private fun emit(level: LogLevel, composed: String, cause: Throwable?) {
 		val attached = sinks.value
+
 		if (attached.isNotEmpty()) {
 			val logged = LogRecord(Clock.System.now(), level, composed, cause)
+
 			for (sink in attached) {
 				sink.write(logged)
 			}
 		}
+
 		println("[Umamo] $composed")
 		record(level, composed)
 	}

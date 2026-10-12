@@ -58,6 +58,7 @@ fun AreaHeader(area: LeafArea, scope: AreaScope, onCommand: (AreaCommand) -> Uni
 		) {
 			AreaTypeDropdown(area = area, onCommand = onCommand)
 			val headerContent = LocalSpaceRegistry.current.descriptor(area.space).headerContent
+
 			if (headerContent != null) {
 				Spacer(modifier = Modifier.width(8.dp))
 				// The slot owns the flexible middle: an OverflowRow over the whole region, so a space's own

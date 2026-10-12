@@ -279,6 +279,7 @@ internal fun rememberShellControllers(
 	// close over these overlays.
 	val quickSetup = LocalQuickSetup.current
 	val appAlerts = LocalAppAlerts.current
+
 	return remember {
 		ShellControllers(
 			initialLayout = initialLayout,

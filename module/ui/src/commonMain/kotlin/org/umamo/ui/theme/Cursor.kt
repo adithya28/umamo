@@ -160,9 +160,11 @@ private fun layer(
 	evenOdd: Boolean = false,
 ): CursorLayer {
 	val path = PathParser().parsePathString(pathData).toPath()
+
 	if (evenOdd) {
 		path.fillType = PathFillType.EvenOdd
 	}
+
 	return CursorLayer(path = path, fill = fill, stroke = stroke)
 }
 
@@ -186,6 +188,7 @@ private fun cursor(
 	var top = Float.MAX_VALUE
 	var right = -Float.MAX_VALUE
 	var bottom = -Float.MAX_VALUE
+
 	for (layer in layers) {
 		val layerBounds = layer.path.getBounds()
 		left = min(left, layerBounds.left)
@@ -193,6 +196,7 @@ private fun cursor(
 		right = max(right, layerBounds.right)
 		bottom = max(bottom, layerBounds.bottom)
 	}
+
 	return UmamoCursor(
 		layers = layers.toList(),
 		viewportWidth = viewportWidth,
@@ -1224,10 +1228,13 @@ fun DrawScope.drawCursor(cursor: UmamoCursor, anchor: Offset, pixelSize: Float =
 	}) {
 		for (layer in cursor.layers) {
 			val fillColor = layer.fill
+
 			if (fillColor != null) {
 				drawPath(path = layer.path, color = fillColor, style = Fill)
 			}
+
 			val stroke = layer.stroke
+
 			if (stroke != null) {
 				drawPath(
 					path = layer.path,

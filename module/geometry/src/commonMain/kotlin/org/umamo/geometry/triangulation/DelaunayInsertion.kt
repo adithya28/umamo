@@ -45,6 +45,7 @@ internal fun buildDelaunay(points: DoubleArray, plan: InsertionPlan, afterEachIn
 	}
 
 	val thirdVertex = order[thirdPosition]
+
 	if (triangulation.orient(firstVertex, secondVertex, thirdVertex) > 0.0) {
 		triangulation.bootstrap(firstVertex, secondVertex, thirdVertex)
 	} else {
@@ -58,6 +59,7 @@ internal fun buildDelaunay(points: DoubleArray, plan: InsertionPlan, afterEachIn
 		if (position == thirdPosition) {
 			continue
 		}
+
 		inserter.insert(order[position])
 		afterEachInsertion?.invoke(triangulation)
 	}
@@ -125,6 +127,7 @@ internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation
 
 			if (steps > stepLimit) {
 				locateByScan(vertex)
+
 				return
 			}
 
@@ -145,13 +148,17 @@ internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation
 				if (side < 0.0) {
 					val across = triangulation.twin[halfEdge]
 					val acrossTriangle = across / 3
+
 					if (triangulation.isGhostTriangle(acrossTriangle)) {
 						locatedKind = LOCATED_OUTSIDE
 						locatedAt = acrossTriangle
+
 						return
 					}
+
 					triangle = acrossTriangle
 					entered = across
+
 					continue@walk
 				}
 
@@ -160,7 +167,9 @@ internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation
 					zeroEdge = halfEdge
 				}
 			}
+
 			recordContainment(triangle, zeroCount, zeroEdge, vertex)
+
 			return
 		}
 	}
@@ -187,6 +196,7 @@ internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation
 
 				if (side < 0.0) {
 					outside = true
+
 					break
 				}
 
@@ -198,6 +208,7 @@ internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation
 
 			if (!outside) {
 				recordContainment(triangle, zeroCount, zeroEdge, vertex)
+
 				return
 			}
 		}
@@ -213,6 +224,7 @@ internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation
 			if (triangulation.orient(triangulation.origin[hullEdge], triangulation.destination(hullEdge), vertex) > 0.0) {
 				locatedKind = LOCATED_OUTSIDE
 				locatedAt = triangle
+
 				return
 			}
 		}
@@ -234,11 +246,15 @@ internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation
 				locatedKind = LOCATED_INSIDE
 				locatedAt = triangle
 			}
+
 			1 -> {
 				locatedKind = LOCATED_ON_EDGE
 				locatedAt = zeroEdge
 			}
-			else -> error("vertex $vertex coincides with a corner of triangle $triangle; duplicates must be aliased first")
+
+			else -> {
+				error("vertex $vertex coincides with a corner of triangle $triangle; duplicates must be aliased first")
+			}
 		}
 	}
 
@@ -282,6 +298,7 @@ internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation
 			if (far == ghost) {
 				return false
 			}
+
 			return triangulation.inCircle(start, end, inserted, far) > 0.0
 		}
 

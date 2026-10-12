@@ -155,6 +155,7 @@ object Moc3Export {
 						)
 					},
 			)
+
 		return Lowered(document, noticeSink.report(), ids.writtenIds())
 	}
 
@@ -173,6 +174,7 @@ object Moc3Export {
 		options: Moc3ExportOptions = Moc3ExportOptions.Default,
 	): Pair<ByteArray, ExportReport> {
 		val lowered = toMocDocument(puppet, version, options)
+
 		return Moc3.write(lowered.document) to lowered.report
 	}
 
@@ -200,6 +202,7 @@ object Moc3Export {
 	 */
 	fun mocPixelsPerUnitFor(puppet: PuppetModel): Float {
 		puppet.pixelsPerUnit?.let { recorded -> return recorded }
+
 		return puppet.canvasWidth.takeIf { width -> width > 0f } ?: 1f
 	}
 }

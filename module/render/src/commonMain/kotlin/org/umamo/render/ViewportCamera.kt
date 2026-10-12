@@ -49,6 +49,7 @@ data class ViewportCamera(val centerX: Float, val centerY: Float, val zoom: Floa
 	fun worldToNdc(viewportWidth: Int, viewportHeight: Int): FloatArray {
 		val scaleX = 2f * zoom / viewportWidth
 		val scaleY = 2f * zoom / viewportHeight
+
 		return floatArrayOf(scaleX, scaleY, -centerX * scaleX, -centerY * scaleY)
 	}
 
@@ -83,6 +84,7 @@ data class ViewportCamera(val centerX: Float, val centerY: Float, val zoom: Floa
 		val halfHeight = viewportHeight / 2f
 		val worldX = centerX + (cursorXpx - halfWidth) / zoom
 		val worldZ = centerY + (halfHeight - cursorYpx) / zoom
+
 		return ViewportCamera(
 			worldX - (cursorXpx - halfWidth) / newZoom,
 			worldZ - (halfHeight - cursorYpx) / newZoom,
@@ -112,6 +114,7 @@ data class ViewportCamera(val centerX: Float, val centerY: Float, val zoom: Floa
 	private fun snappedZoom(deltaPercent: Float, stepPercent: Float): Float {
 		val targetPercent = zoom * 100f + deltaPercent
 		val snappedPercent = (targetPercent / stepPercent).roundToInt() * stepPercent
+
 		return (snappedPercent / 100f).coerceIn(MIN_ZOOM, MAX_ZOOM)
 	}
 
@@ -153,6 +156,7 @@ data class ViewportCamera(val centerX: Float, val centerY: Float, val zoom: Floa
 		// same affine worldToNdc applies, so the box center lands at the viewport center under the new camera.
 		val worldCenterX = centerX + (rectCenterXpx - viewportWidth / 2f) / zoom
 		val worldCenterZ = centerY + (viewportHeight / 2f - rectCenterYpx) / zoom
+
 		return ViewportCamera(worldCenterX, worldCenterZ, newZoom)
 	}
 
@@ -177,6 +181,7 @@ data class ViewportCamera(val centerX: Float, val centerY: Float, val zoom: Floa
 			val zoom =
 				(FIT_MARGIN * minOf(viewportWidth.toFloat() / content.width, viewportHeight.toFloat() / content.height))
 					.coerceIn(MIN_ZOOM, MAX_ZOOM)
+
 			return ViewportCamera(content.minX + content.width / 2f, content.minY + content.height / 2f, zoom)
 		}
 	}

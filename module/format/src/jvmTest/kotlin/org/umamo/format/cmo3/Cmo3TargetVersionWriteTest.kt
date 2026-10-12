@@ -24,12 +24,14 @@ class Cmo3TargetVersionWriteTest {
 		val file =
 			sample ?: run {
 				println("cmo3.sample not present; skipping targetVersionNo write test")
+
 				return
 			}
 		val model = Cmo3.read(file)
 		val existing =
 			model.targetVersionNo ?: run {
 				println("sample carries no targetVersionNo; skipping byte-identity pin")
+
 				return
 			}
 		model.setTargetVersionNo(existing)

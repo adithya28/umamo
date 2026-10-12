@@ -99,12 +99,16 @@ internal fun diffModel(
 	val oldWarpIds = model.deformers.filterIsInstance<Deformer.Warp>().mapTo(HashSet()) { it.id }
 	val newWarpIds = newModel.deformers.filterIsInstance<Deformer.Warp>().mapTo(HashSet()) { it.id }
 	val actions = ArrayList<DrawableAction>(newModel.drawables.size)
+
 	for (drawable in newModel.drawables) {
 		val residentVertexCount = residentVertexCountById[drawable.id]
+
 		if (residentVertexCount == null) {
 			actions.add(DrawableAction.Upload(drawable))
+
 			continue
 		}
+
 		val newMesh = drawable.mesh
 		val oldDrawable = oldDrawableById[drawable.id]
 		val oldMesh = oldDrawable?.mesh
@@ -123,14 +127,19 @@ internal fun diffModel(
 								drawable.blendShapes !== oldDrawable?.blendShapes
 						)
 				)
+
 		if (remeshed) {
 			actions.add(DrawableAction.Reupload(drawable))
+
 			continue
 		}
+
 		if (newMesh == null || oldMesh == null) {
 			actions.add(DrawableAction.Keep(drawable, positions = null, uvs = null))
+
 			continue
 		}
+
 		// The GPU holds the keyform-space base only, so a change to the canvas editable mesh alone is no buffer work.
 		val positions = newMesh.localPositions.takeIf { it !== oldMesh.localPositions }
 		// The length guard is defensive: the copy-on-write UV edit never changes the array length, so a
@@ -138,10 +147,12 @@ internal fun diffModel(
 		val uvs = newMesh.uvs.takeIf { it !== oldMesh.uvs && it.size == residentVertexCount * 2 }
 		actions.add(DrawableAction.Keep(drawable, positions, uvs))
 	}
+
 	// Anything resident with no action is gone from the model. A Reupload is an ACTION, so a drawable that
 	// is freed and then fails to re-upload cannot also appear here - which is what stops the free happening
 	// twice, and with it the chance of the second free hitting a GL name the driver has since recycled.
 	val actioned = actions.mapTo(HashSet(actions.size)) { it.drawableId }
 	val removed = residentVertexCountById.keys.filter { it !in actioned }
+
 	return ModelDiff(actions, removed)
 }

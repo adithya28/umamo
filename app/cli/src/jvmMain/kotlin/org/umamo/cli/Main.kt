@@ -91,6 +91,7 @@ Commands:
  */
 fun main(args: Array<String>) {
 	val exitCode = runCli(args.toList())
+
 	if (exitCode != 0) {
 		exitProcess(exitCode)
 	}
@@ -105,16 +106,36 @@ fun main(args: Array<String>) {
 internal fun runCli(arguments: List<String>): Int {
 	if (arguments.isEmpty() || arguments[0] == "help" || arguments[0] == "--help") {
 		println(USAGE)
+
 		return if (arguments.isEmpty()) 2 else 0
 	}
+
 	return try {
 		when (arguments[0]) {
-			"dump" -> runDump(arguments.drop(1))
-			"extract" -> runExtract(arguments.drop(1))
-			"atlas" -> runAtlas(arguments.drop(1))
-			"mesh" -> runMesh(arguments.drop(1))
-			"convert" -> runConvert(arguments.drop(1))
-			"diff" -> runDiff(arguments.drop(1))
+			"dump" -> {
+				runDump(arguments.drop(1))
+			}
+
+			"extract" -> {
+				runExtract(arguments.drop(1))
+			}
+
+			"atlas" -> {
+				runAtlas(arguments.drop(1))
+			}
+
+			"mesh" -> {
+				runMesh(arguments.drop(1))
+			}
+
+			"convert" -> {
+				runConvert(arguments.drop(1))
+			}
+
+			"diff" -> {
+				runDiff(arguments.drop(1))
+			}
+
 			else -> {
 				System.err.println("unknown command '${arguments[0]}'")
 				System.err.println(USAGE)

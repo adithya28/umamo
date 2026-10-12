@@ -197,6 +197,7 @@ class MeshOverlayRenderTest {
 	 */
 	private fun RasterImage.at(column: Int, row: Int, width: Int = viewportSize): List<Int> {
 		val offset = (row * width + column) * 4
+
 		return (0 until 4).map { channelIndex -> rgba[offset + channelIndex].toInt() and 0xFF }
 	}
 
@@ -210,6 +211,7 @@ class MeshOverlayRenderTest {
 	 */
 	private fun blend(under: List<Int>, color: OverlayColor): List<Int> {
 		val keep = 1f - color.alpha
+
 		return listOf(
 			(color.red * color.alpha * 255f + under[0] * keep).roundToInt(),
 			(color.green * color.alpha * 255f + under[1] * keep).roundToInt(),
@@ -259,6 +261,7 @@ class MeshOverlayRenderTest {
 		fun render(size: Int = viewportSize, overlays: FrameOverlays = FrameOverlays()): RasterImage {
 			val frameTarget = targetOf(size)
 			renderer.render(frameTarget, size, size, overlays = overlays)
+
 			return device.readPixels(frameTarget)
 		}
 
@@ -270,13 +273,16 @@ class MeshOverlayRenderTest {
 		 */
 		private fun targetOf(size: Int): RenderTarget {
 			val current = target
+
 			if (current != null && targetSize == size) {
 				return current
 			}
+
 			current?.let { stale -> device.destroyRenderTarget(stale) }
 			val fresh = device.createRenderTarget(RenderTargetSpec(size, size, TextureFormat.Rgba8, sampled = true))
 			target = fresh
 			targetSize = size
+
 			return fresh
 		}
 	}
@@ -298,6 +304,7 @@ class MeshOverlayRenderTest {
 				mesh = DrawableMesh.withLocalEqualToCanvas(positions, FloatArray(positions.size), quadIndices),
 				geometryGrid = KeyformGrid(listOf(KeyformAxis(paramA, floatArrayOf(0f))), listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(positions.size))))),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),

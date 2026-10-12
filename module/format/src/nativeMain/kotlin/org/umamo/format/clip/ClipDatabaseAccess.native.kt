@@ -33,6 +33,7 @@ internal actual fun <T> useClipDatabase(databaseBytes: ByteArray, block: (ClipDa
 	val directory = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
 	fileSystem.createDirectories(directory)
 	val databasePath = createTemporaryDatabase(fileSystem, directory, databaseBytes)
+
 	try {
 		val configuration =
 			DatabaseConfiguration(
@@ -46,6 +47,7 @@ internal actual fun <T> useClipDatabase(databaseBytes: ByteArray, block: (ClipDa
 				extendedConfig = DatabaseConfiguration.Extended(basePath = directory.toString()),
 			)
 		val driver = NativeSqliteDriver(configuration)
+
 		try {
 			return block(ClipDatabase(driver))
 		} finally {
@@ -53,6 +55,7 @@ internal actual fun <T> useClipDatabase(databaseBytes: ByteArray, block: (ClipDa
 		}
 	} finally {
 		fileSystem.delete(databasePath, mustExist = false)
+
 		// SQLite may leave journal/WAL sidecars beside the database; take them with it.
 		for (suffix in listOf("-wal", "-shm", "-journal")) {
 			fileSystem.delete("$databasePath$suffix".toPath(), mustExist = false)
@@ -89,11 +92,13 @@ private fun createTemporaryDatabase(fileSystem: FileSystem, directory: Path, dat
 				// rather than clobber a file another reader is holding open.
 				continue
 			}
+
 		try {
 			handle.write(0L, databaseBytes, 0, databaseBytes.size)
 		} finally {
 			handle.close()
 		}
+
 		return candidate
 	}
 }

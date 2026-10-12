@@ -29,13 +29,18 @@ fun desktopAppStorage(applicationName: String): AppStorage =
 private fun desktopBaseDirectory(config: Boolean): File {
 	val home = System.getProperty("user.home") ?: "."
 	val os = System.getProperty("os.name").orEmpty().lowercase()
+
 	return when {
 		os.contains("win") -> {
 			val variable = if (config) "APPDATA" else "LOCALAPPDATA"
 			val fallback = if (config) "$home\\AppData\\Roaming" else "$home\\AppData\\Local"
 			File(System.getenv(variable) ?: fallback)
 		}
-		os.contains("mac") || os.contains("darwin") -> File("$home/Library/Application Support")
+
+		os.contains("mac") || os.contains("darwin") -> {
+			File("$home/Library/Application Support")
+		}
+
 		else -> {
 			val variable = if (config) "XDG_CONFIG_HOME" else "XDG_DATA_HOME"
 			val fallback = if (config) "$home/.config" else "$home/.local/share"

@@ -81,6 +81,7 @@ class PuppetSnapshotRenderTest {
 	 */
 	private fun quad(id: DrawableId, low: Float, high: Float, opacity: Float = 1f): Drawable {
 		val positions = floatArrayOf(low, -low, high, -low, low, -high, high, -high)
+
 		return Drawable(
 			id = id,
 			name = id.raw,
@@ -133,6 +134,7 @@ class PuppetSnapshotRenderTest {
 		renderer.setSelectionHighlightColor(0f, 0f, 1f)
 		renderer.setActiveSelectionHighlightColor(0f, 0f, 1f)
 		renderer.setPose(emptyMap())
+
 		return renderer
 	}
 
@@ -146,6 +148,7 @@ class PuppetSnapshotRenderTest {
 	 */
 	private fun pixelAt(image: RasterImage, column: Int, row: Int): List<Int> {
 		val offset = (row * image.width + column) * 4
+
 		return (0 until 4).map { channel -> image.rgba[offset + channel].toInt() and 0xFF }
 	}
 
@@ -177,20 +180,25 @@ class PuppetSnapshotRenderTest {
 		var worst = 0
 		var worstAt = 0
 		var overTolerance = 0
+
 		for (pixel in 0 until whole.rgba.size / 4) {
 			var pixelWorst = 0
+
 			for (channel in 0 until 4) {
 				val byteIndex = pixel * 4 + channel
 				pixelWorst = maxOf(pixelWorst, abs((whole.rgba[byteIndex].toInt() and 0xFF) - (tiled.rgba[byteIndex].toInt() and 0xFF)))
 			}
+
 			if (pixelWorst > tolerance) {
 				overTolerance++
 			}
+
 			if (pixelWorst > worst) {
 				worst = pixelWorst
 				worstAt = pixel
 			}
 		}
+
 		val worstPlace = "pixel (${worstAt % whole.width}, ${worstAt / whole.width})"
 		assertTrue(
 			worst <= EDGE_SAMPLE_DIFFERENCE,
@@ -347,10 +355,13 @@ class PuppetSnapshotRenderTest {
 				?.takeIf { directory -> directory.isDirectory }
 				?.walkTopDown()
 				?.firstOrNull { candidate -> candidate.name == "modelA.moc3" }
+
 		if (mocFile == null) {
 			println("modelA.moc3 not present; skipping the corpus tiled-capture check")
+
 			return
 		}
+
 		requireHeadlessGl("[snapshot-corpus-tiles]")
 		val puppet = restMeshesToCanvasSpace(Moc3Import.fromMocDocument(Moc3.read(mocFile.readBytes()), null))
 		val renderer = PuppetRenderer(puppet, PuppetTextures(emptyList(), emptyMap(), premultipliedAlpha = false), GlRenderDevice())

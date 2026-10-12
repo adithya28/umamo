@@ -92,10 +92,13 @@ class EditGrabPerfProbeTest {
 	@Test
 	fun probeWholeSelectionGrabStages() {
 		val mocFile = sample
+
 		if (mocFile == null) {
 			println("moc3.perfSample not present; skipping perf probe")
+
 			return
 		}
+
 		val loadStart = System.nanoTime()
 		val model = restMeshesToCanvasSpace(Moc3Import.fromMocDocument(Moc3.read(mocFile.readBytes()), null))
 		report("load ${mocFile.name}: ${millisSince(loadStart)} ms")
@@ -121,18 +124,24 @@ class EditGrabPerfProbeTest {
 	@Test
 	fun probeUvSceneDerive() {
 		val mocFile = sample
+
 		if (mocFile == null) {
 			println("moc3.perfSample not present; skipping perf probe")
+
 			return
 		}
+
 		val model = restMeshesToCanvasSpace(Moc3Import.fromMocDocument(Moc3.read(mocFile.readBytes()), null))
 		val session = EditorSession(model)
 		session.selectAllObjects()
 		session.setMode(EditorMode.Edit)
+
 		if (session.mode.value != EditorMode.Edit) {
 			report("could not enter Edit mode; skipping the UV rows")
+
 			return
 		}
+
 		session.selectAllMeshElements()
 		val selection = session.meshSelection.value
 		val shown = shownSurfaceDrawables(model, EditorMode.Edit, selection) { true }
@@ -151,6 +160,7 @@ class EditGrabPerfProbeTest {
 		 */
 		fun geometriesOf(cache: UvGizmoGeometryCache, source: PuppetModel): List<GizmoMeshGeometry> {
 			val drawables = shownSurfaceDrawables(source, EditorMode.Edit, selection) { true }
+
 			return cache.geometries(drawables, cache.surfaceUvs(drawables, source, null), side, side)
 		}
 
@@ -218,15 +228,19 @@ class EditGrabPerfProbeTest {
 	private fun probeObjectMode(session: EditorSession, camera: ViewportCamera, size: IntSize, pushed: MutableList<PuppetModel>) {
 		session.selectAllObjects()
 		session.beginObjectOperator(MeshOperatorKind.Grab, PROBE_AREA_ID)
+
 		if (session.activeObjectOperator.value?.areaId != PROBE_AREA_ID) {
 			report("Object-mode Grab did not latch; skipping the O rows")
+
 			return
 		}
+
 		val objectTransform = ObjectModalTransform(PROBE_AREA_ID, session) { folded -> pushed.add(folded) }
 		timed("O1 ObjectModalTransform.begin (captureDrawableWorld per eligible drawable) [once per gesture]", 1) {
 			objectTransform.begin(MeshOperatorKind.Grab)
 		}
 		val capture = objectTransform.gesture.capture
+
 		if (capture == null) {
 			report("Object-mode capture is empty; skipping O2")
 		} else {
@@ -239,6 +253,7 @@ class EditGrabPerfProbeTest {
 			val jobs = meshDriveJobs(capture.transform, capture.geometryById, wholeMeshes = true)
 			probeComputes("O2", MeshDriveRequest(MeshOperatorKind.Grab, grabParameters(capture.transform, camera, size), jobs, null, session.model.value))
 		}
+
 		session.clearObjectOperator()
 		objectTransform.end()
 	}
@@ -255,10 +270,13 @@ class EditGrabPerfProbeTest {
 	 */
 	private fun probeEditMode(session: EditorSession, model: PuppetModel, camera: ViewportCamera, size: IntSize, pushed: MutableList<PuppetModel>) {
 		session.setMode(EditorMode.Edit)
+
 		if (session.mode.value != EditorMode.Edit) {
 			report("could not enter Edit mode; skipping the Edit rows")
+
 			return
 		}
+
 		session.selectAllMeshElements()
 		val meshSelection = session.meshSelection.value
 		val drawableIds = meshSelection.drawableIds
@@ -271,11 +289,14 @@ class EditGrabPerfProbeTest {
 		session.beginMeshOperator(MeshOperatorKind.Grab, PROBE_AREA_ID)
 		timed("B1 EditModalTransform.begin [once per gesture]", 1) { modalTransform.begin(MeshOperatorKind.Grab, liveGeometry, meshSelection) }
 		val capture = modalTransform.gesture.capture
+
 		if (capture == null) {
 			report("Edit-mode capture is empty; skipping the drive rows")
 			session.clearMeshOperator()
+
 			return
 		}
+
 		report("capture: entries=${capture.transform.entries.size} groups=${capture.transform.entries.sumOf { entry -> entry.groups.size }} pivotMode=${session.pivotMode.value}")
 
 		val firstPreview = pushed.size
@@ -286,11 +307,14 @@ class EditGrabPerfProbeTest {
 		}
 		val jobs = meshDriveJobs(capture.transform, capture.geometryById, wholeMeshes = false)
 		probeComputes("C1", MeshDriveRequest(MeshOperatorKind.Grab, grabParameters(capture.transform, camera, size), jobs, null, model))
+
 		if (previews.isEmpty()) {
 			report("no preview was pushed; skipping the per-push and per-frame rows")
 			session.clearMeshOperator()
+
 			return
 		}
+
 		probeDriveHalves(capture.transform, capture.geometryById, model, camera, size)
 		probePushRebuilds(model, previews)
 		probeFrameImage()
@@ -333,9 +357,11 @@ class EditGrabPerfProbeTest {
 		}
 		timed("C1c   withMeshPositions fold over every entry, one drawable at a time") {
 			var working = model
+
 			for (entry in transform.entries) {
 				working = working.withMeshPositions(entry.drawableId, newBaseById.getValue(entry.drawableId))
 			}
+
 			working
 		}
 		timed("C1c'  withMeshPositions batch fold over every entry (the drive's fold)") { model.withMeshPositions(newBaseById) }
@@ -366,6 +392,7 @@ class EditGrabPerfProbeTest {
 	 */
 	private fun grabParameters(transform: ModalTransformCapture, camera: ViewportCamera, size: IntSize): TransformGestureParameters {
 		val frame = TransformGestureFrame(transform.anchor, Offset.Zero, Offset(40f, 20f), null, camera, size)
+
 		return gestureParameters(MeshOperatorKind.Grab, frame, RotationAngleTracker())
 	}
 
@@ -384,6 +411,7 @@ class EditGrabPerfProbeTest {
 		val uiDispatcher = StandardTestDispatcher(scheduler)
 		val job = CoroutineScope(uiDispatcher).launch { worker.run(uiDispatcher) }
 		scheduler.runCurrent()
+
 		try {
 			timed(label) { round -> drive(round) }
 		} finally {
@@ -491,9 +519,11 @@ class EditGrabPerfProbeTest {
 		var minWorldY = Float.MAX_VALUE
 		var maxX = -Float.MAX_VALUE
 		var maxWorldY = -Float.MAX_VALUE
+
 		for (drawable in model.drawables) {
 			val positions = drawable.mesh?.positions ?: continue
 			var slot = 0
+
 			while (slot + 1 < positions.size) {
 				val worldY = -positions[slot + 1]
 				minX = minOf(minX, positions[slot])
@@ -503,6 +533,7 @@ class EditGrabPerfProbeTest {
 				slot += 2
 			}
 		}
+
 		return ViewportCamera.fit(ContentBounds(minX, minWorldY, maxX - minX, maxWorldY - minWorldY), areaWidth, areaHeight)
 	}
 
@@ -527,12 +558,15 @@ class EditGrabPerfProbeTest {
 		var start = System.nanoTime()
 		var last = block(0)
 		times.add(System.nanoTime() - start)
+
 		for (round in 1 until count) {
 			start = System.nanoTime()
 			last = block(round)
 			times.add(System.nanoTime() - start)
 		}
+
 		stats(label, times)
+
 		return last
 	}
 
@@ -545,8 +579,10 @@ class EditGrabPerfProbeTest {
 	private fun stats(label: String, nanos: List<Long>) {
 		if (nanos.isEmpty()) {
 			report("%-${LABEL_WIDTH}s (n=0)".format(label))
+
 			return
 		}
+
 		val sorted = nanos.sorted()
 		report(
 			"%-${LABEL_WIDTH}s min %8.1f ms  median %8.1f ms  max %8.1f ms  (n=%d)".format(

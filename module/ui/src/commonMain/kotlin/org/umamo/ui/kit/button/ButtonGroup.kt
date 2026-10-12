@@ -102,13 +102,15 @@ data class ButtonGroupItem(
 @Composable
 fun ButtonGroup(items: List<ButtonGroupItem>, modifier: Modifier = Modifier, axis: StackAxis = StackAxis.Horizontal) {
 	val shapes = LocalUmamoShapes.current
+
 	when (axis) {
-		StackAxis.Horizontal ->
+		StackAxis.Horizontal -> {
 			Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
 				items.forEachIndexed { segmentIndex, item ->
 					if (segmentIndex > 0) {
 						Spacer(modifier = Modifier.width(SEGMENT_GAP))
 					}
+
 					ButtonGroupSegment(
 						item = item,
 						shape = segmentShape(shapes.small, segmentIndex, items.size, axis),
@@ -116,8 +118,9 @@ fun ButtonGroup(items: List<ButtonGroupItem>, modifier: Modifier = Modifier, axi
 					)
 				}
 			}
+		}
 
-		StackAxis.Vertical ->
+		StackAxis.Vertical -> {
 			// IntrinsicSize.Max sizes the column to its widest segment, and each segment fills it, so the rows
 			// line up as one block; a caller's own width wins over the intrinsic one.
 			Column(modifier = modifier.width(IntrinsicSize.Max)) {
@@ -125,6 +128,7 @@ fun ButtonGroup(items: List<ButtonGroupItem>, modifier: Modifier = Modifier, axi
 					if (segmentIndex > 0) {
 						Spacer(modifier = Modifier.height(SEGMENT_GAP))
 					}
+
 					ButtonGroupSegment(
 						item = item,
 						shape = segmentShape(shapes.small, segmentIndex, items.size, axis),
@@ -132,6 +136,7 @@ fun ButtonGroup(items: List<ButtonGroupItem>, modifier: Modifier = Modifier, axi
 					)
 				}
 			}
+		}
 	}
 }
 

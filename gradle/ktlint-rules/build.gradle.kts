@@ -1,0 +1,47 @@
+// Build script for Umamo's ktlint rule set.
+//
+// The jar runs INSIDE the ktlint engine's worker, on the engine's own classpath: the engine supplies the
+// rule API and the Kotlin standard library at runtime, so both are compile-only here and the jar carries
+// nothing but the rules (gradle.properties turns off the Kotlin plugin's implicit stdlib dependency).
+// The API level is held to the engine's Kotlin, so a newer compiler can never emit a call into a stdlib
+// function the engine's older stdlib does not have.
+
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+
+plugins {
+	alias(libs.plugins.kotlinJvm)
+}
+
+// The coordinate the root build's `ktlintRuleset("org.umamo:ktlint-rules")` names; the included-build
+// substitution matches on group and project name.
+group = "org.umamo"
+
+kotlin {
+	jvmToolchain(21)
+
+	compilerOptions {
+		// ktlint 1.8.0 embeds Kotlin 2.2.
+		apiVersion.set(KotlinVersion.KOTLIN_2_2)
+		languageVersion.set(KotlinVersion.KOTLIN_2_2)
+	}
+}
+
+dependencies {
+	compileOnly(kotlin("stdlib"))
+	compileOnly(libs.ktlintRuleEngineCore)
+	compileOnly(libs.ktlintCliRulesetCore)
+
+	testImplementation(kotlin("test"))
+	testImplementation(libs.ktlintRuleEngine)
+	testImplementation(libs.ktlintCliRulesetCore)
+	testRuntimeOnly(libs.slf4jNop)
+}
+
+tasks.test {
+	useJUnitPlatform()
+
+	testLogging {
+		events("passed", "skipped", "failed")
+		exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+	}
+}

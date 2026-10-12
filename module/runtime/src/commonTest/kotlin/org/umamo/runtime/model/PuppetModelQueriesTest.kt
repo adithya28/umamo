@@ -57,6 +57,7 @@ class PuppetModelQueriesTest {
 	 */
 	private fun model(): PuppetModel {
 		val facePart = Part(PartId("face"), "Face", children = listOf(OrgChild.Drawable(meshedId)))
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = listOf(facePart),

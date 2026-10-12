@@ -78,14 +78,17 @@ internal fun buildLinkInfo(puppet: PuppetModel): LinkInfo {
 	val verticalByHorizontal = HashMap<ParameterId, ParameterId>()
 	val verticalMembers = HashSet<ParameterId>()
 	val linkMemberIds = HashSet<ParameterId>()
+
 	for (link in puppet.parameterLinks) {
 		linkMemberIds.add(link.horizontal)
 		linkMemberIds.add(link.vertical)
+
 		if (link.horizontal in animatableIds && link.vertical in animatableIds) {
 			verticalByHorizontal[link.horizontal] = link.vertical
 			verticalMembers.add(link.vertical)
 		}
 	}
+
 	return LinkInfo(animatableIds, verticalByHorizontal, verticalMembers, linkMemberIds)
 }
 
@@ -145,6 +148,7 @@ internal fun visibleParameterIds(
 			queryFilter == null -> selectedFilter
 			else -> selectedFilter intersect queryFilter
 		}
+
 	return if (filtered == null || namingParameterId == null) {
 		filtered
 	} else {
@@ -174,10 +178,17 @@ internal fun indexOfRenamedRow(rows: List<ParameterRow>, renamingGroupId: Parame
  */
 internal fun isBeingNamed(row: ParameterRow, renamingGroupId: ParameterGroupId?, renamingParameterId: ParameterId?): Boolean =
 	when (row) {
-		is ParameterRow.GroupHeader -> renamingGroupId != null && row.groupId == renamingGroupId
-		is ParameterRow.Single -> renamingParameterId != null && row.parameter.id == renamingParameterId
-		is ParameterRow.Pair2D ->
+		is ParameterRow.GroupHeader -> {
+			renamingGroupId != null && row.groupId == renamingGroupId
+		}
+
+		is ParameterRow.Single -> {
+			renamingParameterId != null && row.parameter.id == renamingParameterId
+		}
+
+		is ParameterRow.Pair2D -> {
 			renamingParameterId != null && (row.horizontal.id == renamingParameterId || row.vertical.id == renamingParameterId)
+		}
 	}
 
 /**
@@ -212,10 +223,13 @@ internal fun buildParameterRows(
 	namingGroupId: ParameterGroupId? = null,
 ): List<ParameterRow> {
 	val rows = ArrayList<ParameterRow>()
+
 	if (puppet.parameterTree.isEmpty()) {
 		rows += pairRun(puppet.parameters, depth = 0, linkInfo = linkInfo, parameterById = parameterById, visibleParamIds = visibleParamIds)
+
 		return rows
 	}
+
 	walkParameterNodes(
 		puppet.parameterTree,
 		depth = 0,
@@ -227,6 +241,7 @@ internal fun buildParameterRows(
 		namingGroupId = namingGroupId,
 		out = rows,
 	)
+
 	return rows
 }
 
@@ -257,6 +272,7 @@ private fun walkParameterNodes(
 	out: MutableList<ParameterRow>,
 ) {
 	val run = ArrayList<Parameter>()
+
 	for (node in nodes) {
 		when (node) {
 			is ParameterNode.Param -> {
@@ -268,6 +284,7 @@ private fun walkParameterNodes(
 					out += pairRun(run, depth, linkInfo, parameterById, visibleParamIds)
 					run.clear()
 				}
+
 				// While filtering, drop a group whose subtree holds no visible parameter (no empty headers) -
 				// checked independent of expansion, since a collapsed group must still vanish when it is empty.
 				// The group being named stays, and so does every group on the way down to it.
@@ -278,8 +295,10 @@ private fun walkParameterNodes(
 				) {
 					continue
 				}
+
 				val isExpanded = forceExpanded || (expanded[node.id] ?: node.initiallyOpen)
 				out += ParameterRow.GroupHeader(node.id, node.name, depth, isExpanded)
+
 				if (isExpanded) {
 					walkParameterNodes(
 						node.children,
@@ -296,6 +315,7 @@ private fun walkParameterNodes(
 			}
 		}
 	}
+
 	if (run.isNotEmpty()) {
 		out += pairRun(run, depth, linkInfo, parameterById, visibleParamIds)
 	}
@@ -314,17 +334,20 @@ private fun walkParameterNodes(
 private fun groupHasVisibleParam(group: ParameterNode.Group, linkInfo: LinkInfo, visible: Set<ParameterId>): Boolean {
 	for (child in group.children) {
 		when (child) {
-			is ParameterNode.Param ->
+			is ParameterNode.Param -> {
 				if (child.id in visible && child.id in linkInfo.animatableIds) {
 					return true
 				}
+			}
 
-			is ParameterNode.Group ->
+			is ParameterNode.Group -> {
 				if (groupHasVisibleParam(child, linkInfo, visible)) {
 					return true
 				}
+			}
 		}
 	}
+
 	return false
 }
 
@@ -339,9 +362,11 @@ private fun groupHoldsGroup(group: ParameterNode.Group, groupId: ParameterGroupI
 	if (groupId == null) {
 		return false
 	}
+
 	if (group.id == groupId) {
 		return true
 	}
+
 	return group.children.any { child -> child is ParameterNode.Group && groupHoldsGroup(child, groupId) }
 }
 
@@ -378,11 +403,14 @@ private fun pairRun(
 			if (parameter.id !in linkInfo.animatableIds) {
 				continue
 			}
+
 			if (parameter.id in linkInfo.verticalMembers) {
 				continue
 			}
+
 			val verticalId = linkInfo.verticalByHorizontal[parameter.id]
 			val vertical = verticalId?.let { parameterById[it] }
+
 			if (vertical != null) {
 				// A pad is one control over two axes, so it survives the filter if either axis is visible.
 				if (visibleParamIds == null || parameter.id in visibleParamIds || vertical.id in visibleParamIds) {
@@ -419,11 +447,17 @@ private fun pairRun(
  */
 internal fun parameterSelectionOf(row: ParameterRow): ParameterSelection? =
 	when (row) {
-		is ParameterRow.Single -> ParameterSelection.of(row.parameter.id)
-		is ParameterRow.Pair2D ->
-			ParameterSelection(setOf(row.horizontal.id, row.vertical.id), row.horizontal.id)
+		is ParameterRow.Single -> {
+			ParameterSelection.of(row.parameter.id)
+		}
 
-		is ParameterRow.GroupHeader -> null
+		is ParameterRow.Pair2D -> {
+			ParameterSelection(setOf(row.horizontal.id, row.vertical.id), row.horizontal.id)
+		}
+
+		is ParameterRow.GroupHeader -> {
+			null
+		}
 	}
 
 /**
@@ -436,6 +470,7 @@ internal fun parameterSelectionOf(row: ParameterRow): ParameterSelection? =
  */
 internal fun draggedRowLabel(rows: List<ParameterRow>, draggingKey: String?): String {
 	val row = rows.firstOrNull { candidate -> rowKey(candidate) == draggingKey } ?: return ""
+
 	return when (row) {
 		is ParameterRow.Single -> row.parameter.name
 		is ParameterRow.Pair2D -> row.horizontal.name

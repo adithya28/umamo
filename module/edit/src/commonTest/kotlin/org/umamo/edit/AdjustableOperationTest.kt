@@ -49,6 +49,7 @@ class AdjustableOperationTest {
 	private fun runOperation(session: EditorSession, width: Int): AdjustableOperation {
 		session.mutate(PartChange.Rename(partId, "w$width")) { current -> current.renamed("w$width") }
 		val committed = session.model.value
+
 		return assertNotNull(
 			session.registerAdjustableOperation(committed, areaId = "area-1", parameters = parameters(width)) { record ->
 				val newWidth = record.parameters.intValue(widthKey, -1)

@@ -77,16 +77,22 @@ internal fun uvCommands(
 	 */
 	fun setPins(pinned: Boolean) {
 		val session = editorSession ?: return
+
 		if (routing.areaOf(SpaceKind.UvEditor) == null) {
 			return
 		}
+
 		val tileIds = session.model.value.placementSelectedTileIds(session.selection.value)
+
 		if (tileIds.isEmpty()) {
 			session.emitNotice("notice.uv.placement.noPlacedArt", NoticePlacement.NearCursor)
+
 			return
 		}
+
 		session.setAtlasPins(tileIds, pinned)
 	}
+
 	return listOf(
 		// Mirror UVs (the duplicated-and-flipped texture regions workflow, e.g. both eyes sampling one
 		// eye texture): axis-aligned reflections about the transform pivot, palette-discoverable and

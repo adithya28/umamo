@@ -31,12 +31,14 @@ class SourceTileThumbnailsTest {
 	private fun solid(width: Int, height: Int, color: Color): DecodedImage {
 		val rgba = ByteArray(width * height * 4)
 		val argb = color.toArgb()
+
 		for (pixelIndex in 0 until width * height) {
 			rgba[pixelIndex * 4] = (argb shr 16).toByte()
 			rgba[pixelIndex * 4 + 1] = (argb shr 8).toByte()
 			rgba[pixelIndex * 4 + 2] = argb.toByte()
 			rgba[pixelIndex * 4 + 3] = (argb ushr 24).toByte()
 		}
+
 		return DecodedImage(rgba, width, height)
 	}
 

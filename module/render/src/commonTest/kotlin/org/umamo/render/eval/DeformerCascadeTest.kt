@@ -26,6 +26,7 @@ class DeformerCascadeTest {
 
 	private fun values(vararg pairs: Pair<ParameterId, Float>): (ParameterId) -> Float {
 		val map = pairs.toMap()
+
 		return { map[it] ?: 0f }
 	}
 
@@ -33,11 +34,13 @@ class DeformerCascadeTest {
 
 	private fun warp(id: String, parent: String?, cols: Int, rows: Int, bilinear: Boolean, cp: FloatArray): Deformer.Warp {
 		val grid = KeyformGrid(singleKeyAxis(), listOf(KeyformCell(intArrayOf(0), WarpLatticeForm(cp))))
+
 		return Deformer.Warp(DeformerId(id), id, parent?.let(::DeformerId), null, rows, cols, bilinear, grid)
 	}
 
 	private fun rotation(id: String, baseAngle: Float, originX: Float, originY: Float, angle: Float, scale: Float): Deformer.Rotation {
 		val grid = KeyformGrid(singleKeyAxis(), listOf(KeyformCell(intArrayOf(0), RotationPivotForm(originX, originY, angle, scale))))
+
 		return Deformer.Rotation(DeformerId(id), id, null, null, baseAngle, grid)
 	}
 
@@ -92,6 +95,7 @@ class DeformerCascadeTest {
 		// hand-assembling tracks that could drift from what an importer actually produces.
 		val form = WarpForm(floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f), opacity, multiplyColor, screenColor)
 		val fanned = KeyformGrid(singleKeyAxis(), listOf(KeyformCell(intArrayOf(0), form))).fanOutWarp()
+
 		return Deformer.Warp(DeformerId(id), id, parent?.let(::DeformerId), null, 1, 1, true, fanned.geometry, fanned.channels)
 	}
 

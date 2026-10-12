@@ -76,6 +76,7 @@ class UmaCmo3HopCorpusTest {
 		val pages =
 			resolved.pages.mapIndexed { pageIndex, bytes ->
 				val modelPage = puppet.atlas.pages.getOrNull(pageIndex)
+
 				if (modelPage != null) {
 					Cmo3Conversion.AtlasPage(bytes, modelPage.width, modelPage.height)
 				} else {
@@ -83,6 +84,7 @@ class UmaCmo3HopCorpusTest {
 					Cmo3Conversion.AtlasPage(bytes, decoded.width, decoded.height, decoded)
 				}
 			}
+
 		return ModelOrderPages(pages, resolved.pageIndexByDrawableId)
 	}
 
@@ -146,6 +148,7 @@ class UmaCmo3HopCorpusTest {
 			if (expected.size != actual.size) {
 				return 0
 			}
+
 			return expected.indices.firstOrNull { componentIndex ->
 				val bound = Math.ulp(maxOf(abs(expected[componentIndex]), abs(originalBase.getOrElse(componentIndex) { 0f }), abs(backBase.getOrElse(componentIndex) { 0f })))
 				abs(expected[componentIndex] - actual[componentIndex]) > bound
@@ -163,17 +166,22 @@ class UmaCmo3HopCorpusTest {
 			if (expected.size != actual.size) {
 				return 0
 			}
+
 			var count = 0
+
 			for (triangleIndex in 0 until indices.size / 3) {
 				val expectedArea = signedArea(expected, indices, triangleIndex)
+
 				if (expectedArea != 0.0 && expectedArea * signedArea(actual, indices, triangleIndex) < 0.0) {
 					count++
 				}
 			}
+
 			return count
 		}
 		val originalGrid = original.geometryGrid
 		val backGrid = back.geometryGrid
+
 		if (originalGrid != null) {
 			backGrid ?: return KeyformComparison("$label lost its keyform grid", 0, 0)
 			val expectedByKeys =
@@ -181,9 +189,11 @@ class UmaCmo3HopCorpusTest {
 					originalGrid.axes.mapIndexed { axisIndex, axis -> axis.keys[cell.coordinate[axisIndex]] } to positionsFromDeltas(originalBase, cell.form.positionDeltas)
 				}
 			val backAxisIndices = originalGrid.axes.map { axis -> backGrid.axes.indexOfFirst { backAxis -> backAxis.parameterId == axis.parameterId } }
+
 			if (backAxisIndices.any { axisIndex -> axisIndex < 0 }) {
 				return KeyformComparison("$label lost a keyform axis", 0, 0)
 			}
+
 			for (cell in backGrid.cells) {
 				val keys = backAxisIndices.map { axisIndex -> backGrid.axes[axisIndex].keys[cell.coordinate[axisIndex]] }
 				val expected = expectedByKeys[keys] ?: continue
@@ -195,9 +205,12 @@ class UmaCmo3HopCorpusTest {
 				compared++
 			}
 		}
+
 		val backBindings = back.blendShapes.associateBy { binding -> binding.parameterId }
+
 		for (binding in original.blendShapes) {
 			val backBinding = backBindings[binding.parameterId] ?: return KeyformComparison("$label lost its blend shape on ${binding.parameterId.raw}", compared, flipped)
+
 			for ((keyIndex, form) in binding.forms.withIndex()) {
 				form ?: continue
 				val backKeyIndex = backBinding.keys.indexOfFirst { key -> key == binding.keys[keyIndex] }
@@ -210,6 +223,7 @@ class UmaCmo3HopCorpusTest {
 				compared++
 			}
 		}
+
 		return KeyformComparison(null, compared, flipped)
 	}
 
@@ -225,23 +239,30 @@ class UmaCmo3HopCorpusTest {
 		val first = indices[triangleIndex * 3] * 2
 		val second = indices[triangleIndex * 3 + 1] * 2
 		val third = indices[triangleIndex * 3 + 2] * 2
+
 		if (maxOf(first, second, third) + 1 >= positions.size) {
 			return 0.0
 		}
+
 		val firstX = positions[first].toDouble()
 		val firstY = positions[first + 1].toDouble()
+
 		return (positions[second] - firstX) * (positions[third + 1] - firstY) - (positions[second + 1] - firstY) * (positions[third] - firstX)
 	}
 
 	@Test
 	fun everyCorpusCmo3SurvivesTheHopThroughUma() {
 		val samples = System.getProperty("cmo3.probe")?.split(',')?.map(::File)?.filter { file -> file.isFile }?.sortedBy { file -> file.name }.orEmpty()
+
 		if (samples.isEmpty()) {
 			println("no cmo3.probe samples; skipping the CMO3 hop through UMA")
+
 			return
 		}
+
 		exportDirectory.mkdirs()
 		var unplacedDrawableCount = 0
+
 		for (sample in samples) {
 			try {
 				unplacedDrawableCount += hop(sample)
@@ -251,6 +272,7 @@ class UmaCmo3HopCorpusTest {
 				failures += "${sample.name}: ${failure::class.simpleName}: ${failure.message}"
 			}
 		}
+
 		assertTrue(failures.isEmpty(), "${failures.size} samples failed the hop:\n${failures.joinToString("\n") { failure -> failure.take(800) }}")
 		assertTrue(unplacedDrawableCount > 0, "the corpus met no drawable over never-packed art, so the case this gate exists for went untested")
 		println("uma cmo3 hop: ${samples.size} samples, $unplacedDrawableCount drawables over never-packed art")
@@ -273,6 +295,7 @@ class UmaCmo3HopCorpusTest {
 		val reopened = UmaDocumentBridge.modelOf(document)
 		// The .uma keeps every mesh array and delta bit for bit (UMA §4.10, §4.11).
 		val reopenedById = reopened.drawables.associateBy { drawable -> drawable.id }
+
 		for (drawable in imported.puppet.drawables) {
 			val reopenedDrawable = reopenedById[drawable.id] ?: continue
 			val label = "${drawable.name} (${drawable.id.raw})"
@@ -285,6 +308,7 @@ class UmaCmo3HopCorpusTest {
 				assertTrue(reopenedCells.getOrNull(cellIndex)?.form?.positionDeltas?.contentEquals(cell.form.positionDeltas) == true, "$label's deltas changed in the .uma")
 			}
 		}
+
 		val documentPages = UmaDocumentBridge.pagesOf(document)
 		val pageSet = documentPages.pageSet ?: error("the render pages did not come back")
 		val conversion = conversionPagesOf(reopened, pageSet.pageBytes, pageSet.atlasIndexByDrawableId)
@@ -325,6 +349,7 @@ class UmaCmo3HopCorpusTest {
 		var flippedTriangles = 0
 		val comparedByDrawable = HashMap<DrawableId, Int>()
 		val originalById = imported.puppet.drawables.associateBy { drawable -> drawable.id }
+
 		for (drawable in expected.drawables) {
 			val label = "${drawable.name} (${drawable.id.raw})"
 			val backDrawable = backDrawableById[drawable.id] ?: error("$label is missing from the export")
@@ -337,10 +362,13 @@ class UmaCmo3HopCorpusTest {
 			}
 			val tile = drawable.atlasTileId?.let(expected.atlas.tileById::get) ?: continue
 			val backTile = backDrawable.atlasTileId?.let(back.puppet.atlas.tileById::get) ?: error("$label lost its tile")
+
 			if (tile.placement == null) {
 				unplaced++
 			}
+
 			val source = tile.source
+
 			if (source != null) {
 				val backSource = backTile.source ?: error("$label lost its layer binding")
 				val shared = (tilesPerBinding[source.sourceId to source.layerKey] ?: 0) > 1
@@ -348,10 +376,12 @@ class UmaCmo3HopCorpusTest {
 				assertTrue(sourceNameById[source.sourceId] == backSourceNameById[backSource.sourceId] && sameKey, "$label is bound to ${backSource.layerKey}, not ${source.layerKey}")
 				val raster = documentPages.tilePng(tile.id)?.let(PngCodec::read)
 				val backPng = back.atlasIngest.imageResourceByTile[backTile.id]?.let(exported::extractLayerPng)
+
 				if (raster != null) {
 					assertTrue(backPng != null && PngCodec.read(backPng).rgba.contentEquals(raster.rgba), "$label's layer pixels changed")
 				}
 			}
+
 			val placement = tile.placement
 			val backPlacement = backTile.placement
 			assertTrue(
@@ -364,11 +394,15 @@ class UmaCmo3HopCorpusTest {
 			val worst = uvs.indices.maxOfOrNull { componentIndex -> abs(uvs[componentIndex] - backUvs[componentIndex]) } ?: 0f
 			assertTrue(worst <= 1e-4f, "$label's uvs moved by $worst")
 		}
+
 		assertTrue(flippedTriangles == 0, "$flippedTriangles triangles turned over in the export's keyforms")
+
 		if (sample.nameWithoutExtension == "modelA") {
 			assertTrue((comparedByDrawable[DrawableId("ArtMesh193")] ?: 0) > 0, "modelA's ArtMesh193, the drawable Cubism reported folding, had no keyform compared")
 		}
+
 		println("uma cmo3 hop: ${sample.name} -> ${expected.drawables.size} drawables, $unplaced unplaced, $atlasCount atlases, $comparedKeyforms keyforms within their space's precision, $flippedTriangles triangles flipped")
+
 		return unplaced
 	}
 }

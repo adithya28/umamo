@@ -112,16 +112,19 @@ private fun UvTextureSelectorDropdown(viewState: UvEditorViewState) {
 	val meshedCountByPage =
 		remember(model, textures) {
 			val counts = IntArray(atlases.size)
+
 			if (textures != null) {
 				for (drawable in model.drawables) {
 					if (drawable.mesh != null) {
 						val pageIndex = atlasPageIndexFor(drawable, textures)
+
 						if (pageIndex != null && pageIndex in counts.indices) {
 							counts[pageIndex] = counts[pageIndex] + 1
 						}
 					}
 				}
 			}
+
 			counts
 		}
 	var expanded by remember { mutableStateOf(false) }
@@ -183,6 +186,7 @@ private fun UvTextureSelectorDropdown(viewState: UvEditorViewState) {
 private fun uvProportionalSizeField(radii: UvProportionalRadii): ProportionalSizeField? {
 	val surface = radii.shownSurface ?: return null
 	val radiusState = radii.stateFor(surface)
+
 	return ProportionalSizeField(
 		value = radiusState.value ?: uvProportionalRadiusSeed(surface.displayWidth, surface.displayHeight),
 		onValueChange = { radius -> radiusState.value = radius },

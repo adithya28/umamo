@@ -27,10 +27,13 @@ class RotationAngleTracker {
 	 */
 	fun advance(pointerAngle: Float): Float {
 		val previous = previousPointerAngle
+
 		if (previous != null) {
 			totalAngle += wrapAngle(pointerAngle - previous)
 		}
+
 		previousPointerAngle = pointerAngle
+
 		return totalAngle
 	}
 }

@@ -101,6 +101,7 @@ class KeybindingReassignKeysTest {
 						if (overlays.settingsVisible) {
 							KeybindingsEditor()
 						}
+
 						overlays.pendingConfirm?.let {
 							ConfirmDialog(
 								message = "reassign?",
@@ -114,6 +115,7 @@ class KeybindingReassignKeysTest {
 				}
 			}
 		}
+
 		return settings
 	}
 

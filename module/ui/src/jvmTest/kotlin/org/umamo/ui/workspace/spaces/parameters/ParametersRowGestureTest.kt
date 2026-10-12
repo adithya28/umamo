@@ -399,6 +399,7 @@ class ParametersRowGestureTest {
 			assertTrue(harness.rootFocused, "a name must not take focus")
 			clickAt(panelBoundsOfText(PanelNames.BODY).center)
 			assertTrue(harness.rootFocused, "a group header must not take focus")
+
 			for (description in descriptions) {
 				val glyph = onAllNodesWithContentDescription(description, useUnmergedTree = true)[0]
 				clickAt(panelBoundsOf(glyph).center)

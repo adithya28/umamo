@@ -120,9 +120,11 @@ class UmaTexturesEntryTest {
 		assertEquals(UmaThumbnail(8, 6, "thumbnail.png"), textures.thumbnail, "the thumbnail's size comes from its PNG")
 		assertEquals(UmaRenderPages(listOf(UmaRenderPage(16, 16, "textures/page-0.png")), mapOf("ArtMesh1" to 0, "ArtMesh2" to 0)), textures.renderPages)
 		assertEquals(listOf("textures/tile-0.png", "textures/tile-1.png", "textures/tile-2.png"), textures.tiles!!.map { tile -> tile.path })
+
 		for (tile in textures.tiles) {
 			assertContentEquals(samplePngs.getValue(tile.id), reopened.payloadBytes(tile.path!!), "${tile.id}'s pixels")
 		}
+
 		assertContentEquals(pagePng, reopened.payloadBytes("textures/page-0.png"))
 		assertContentEquals(thumbnailPng, reopened.payloadBytes("thumbnail.png"))
 
@@ -132,9 +134,11 @@ class UmaTexturesEntryTest {
 			archive.entries.map { entry -> entry.name },
 			"new pixel entries follow the index: tiles, render pages, thumbnail",
 		)
+
 		for (entry in archive.entries.filter { entry -> entry.name.endsWith(".png") }) {
 			assertEquals(ZipRecords.METHOD_STORED, entry.method, "${entry.name} is stored")
 		}
+
 		assertContentEquals(bytes, Uma.write(reopened), "an unedited reopen rewrites byte for byte")
 	}
 
@@ -166,6 +170,7 @@ class UmaTexturesEntryTest {
 					if (id != "C") {
 						fail("the pixels of $id, which the file holds, were asked for")
 					}
+
 					newPng
 				},
 				UmaRenderPagePixels.Derived,
@@ -390,6 +395,7 @@ class UmaTexturesEntryTest {
 					manifestJson(listOf(recordJson(indexPath, "textures", required = true))),
 					listOf(TestEntry(indexPath, index.encodeToByteArray())) + pixels.map { (path, bytes) -> TestEntry(path, bytes, deflated = false) },
 				)
+
 			return assertFailsWith<UmaFormatException> { Uma.read(file) }.failure
 		}
 

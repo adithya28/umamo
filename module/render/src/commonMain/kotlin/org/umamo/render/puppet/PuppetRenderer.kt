@@ -296,6 +296,7 @@ class PuppetRenderer(
 		for (scene in uvScenes.values) {
 			scene.dispose()
 		}
+
 		uvScenes.clear()
 		overlayResidency.dispose()
 		residency.dispose()
@@ -345,9 +346,11 @@ class PuppetRenderer(
 				flattenEnabled = compositeFlattenEnabled,
 				boundsScissorEnabled = compositeBoundsScissorEnabled,
 			)
+
 		if (resolved.drawOrder != lastDrawnOrder) {
 			drawOrderIndex = null
 		}
+
 		lastDrawnOrder = resolved.drawOrder // publish the resolved back-to-front order for picking
 	}
 
@@ -444,6 +447,7 @@ class PuppetRenderer(
 			// The bbox skips hidden drawables, so a visibility change invalidates the cached framing.
 			bboxReady = false
 		}
+
 		shownDrawableIds = ids
 	}
 
@@ -486,9 +490,11 @@ class PuppetRenderer(
 		// document displays from - otherwise an edit silently drops that drawable back to the atlas.
 		art.applySourceLayerDisplay()
 		bboxReady = false
+
 		if (!positionsOnly) {
 			return ModelUpdateKind.Structural
 		}
+
 		// The two pose-derived things that read positions: pass 1 deforms the mesh buffers into the glue
 		// store, and the composite scissors walk each resident's rest bounds.
 		residency.glueStoreStale = true
@@ -501,6 +507,7 @@ class PuppetRenderer(
 				flattenEnabled = compositeFlattenEnabled,
 				boundsScissorEnabled = compositeBoundsScissorEnabled,
 			)
+
 		return ModelUpdateKind.PositionsOnly
 	}
 
@@ -535,6 +542,7 @@ class PuppetRenderer(
 	 */
 	fun pickGeometry(): DeformedGeometry? {
 		val inputs = lastPoseInputs ?: return null
+
 		return applyCpuDeform(currentModel, inputs)
 	}
 
@@ -553,6 +561,7 @@ class PuppetRenderer(
 	fun posedContentBounds(shownIds: Set<DrawableId>): ContentBounds? {
 		val geometry = pickGeometry() ?: return null
 		val drawnIds = shownIds.filterTo(HashSet()) { drawableId -> (geometry.opacity[drawableId] ?: 0f) >= MINIMUM_DRAWN_OPACITY }
+
 		return contentBoundsOf(geometry, drawnIds)
 	}
 
@@ -572,6 +581,7 @@ class PuppetRenderer(
 	 */
 	fun contentBounds(): ContentBounds {
 		ensureContentBounds()
+
 		return ContentBounds(minX, minY, spanX, spanY)
 	}
 
@@ -663,6 +673,7 @@ class PuppetRenderer(
 		val frame = device.beginFrame()
 
 		planEncoder.encodeGlueCapture(frame)
+
 		if (overlay != null) {
 			overlayEncoder.encodeCapture(frame)
 		}
@@ -703,7 +714,7 @@ class PuppetRenderer(
 					gridPass
 				}
 
-				is FrameBackdrop.Clear ->
+				is FrameBackdrop.Clear -> {
 					frame.beginRenderPass(
 						passSpec(
 							target,
@@ -718,16 +729,20 @@ class PuppetRenderer(
 							clearDrawOrder = true,
 						),
 					)
+				}
 			}
 		pass = planEncoder.encodePlan(frame, inputs, currentPlan, target, pass)
+
 		if (overlay != null) {
 			if (orderTarget != null) {
 				// The edges sample the order, so they draw in a pass that no longer has it attached.
 				pass.end()
 				pass = frame.beginRenderPass(passSpec(target, LoadAction.Load, viewportWidth, viewportHeight))
 			}
+
 			overlayEncoder.encodeDraws(pass, inputs)
 		}
+
 		pass.end()
 		frame.endFrame()
 	}
@@ -778,6 +793,7 @@ class PuppetRenderer(
 	): RasterImage? {
 		val previousCapacityWidth = sideTargets.capacityWidth
 		val previousCapacityHeight = sideTargets.capacityHeight
+
 		try {
 			return captureSnapshot(device, camera, width, height, tileEdge, shouldContinue) { tileTarget, tileCamera, tileWidth, tileHeight ->
 				renderFrame(
@@ -890,8 +906,10 @@ class PuppetRenderer(
 	 */
 	fun retainUvScenes(keep: (String) -> Boolean) {
 		val entries = uvScenes.entries.iterator()
+
 		while (entries.hasNext()) {
 			val entry = entries.next()
+
 			if (!keep(entry.key)) {
 				entry.value.dispose()
 				entries.remove()
@@ -971,6 +989,7 @@ class PuppetRenderer(
 		val pass = frame.beginRenderPass(passSpec(target, LoadAction.DontCare, viewportWidth, viewportHeight))
 		backdrop.encodeUnderlay(pass, image, handle, grid)
 		scene?.placement?.let { resolved -> backdrop.encodePlacement(pass, resolved, grid) }
+
 		if (scene != null && overlays.meshOverlay) {
 			overlayEncoder.encodeDirectDraws(
 				pass,
@@ -978,6 +997,7 @@ class PuppetRenderer(
 				OverlayFrame(affine, viewportWidth, viewportHeight, gridPixelScale, palette, viewportWidth, viewportHeight, overlays.wireframe, overlays.wireframeOpacity),
 			)
 		}
+
 		pass.end()
 		frame.endFrame()
 	}
@@ -1009,6 +1029,7 @@ class PuppetRenderer(
 				if (overlays.gridLines) gridColors else gridColors.withoutLines(),
 			),
 		)
+
 		if (overlays.axes) {
 			backdrop.encodeWorldAxes(pass, affine, currentModel.worldOriginX, currentModel.worldOriginZ)
 		}
@@ -1035,6 +1056,7 @@ class PuppetRenderer(
 		if (bboxReady) {
 			return
 		}
+
 		val bounds =
 			contentBoundsOf(applyCpuDeform(currentModel, preparePose(currentModel, emptyMap())), shownDrawableIds)
 				?: emptyContentBoundsOf(currentModel)

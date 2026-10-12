@@ -71,6 +71,7 @@ internal fun commandFixtureSession(mode: EditorMode): EditorSession {
 	// A case reading the mode through a command's availability would pass its "is hidden" half against a
 	// fixture that quietly stayed in Object mode, while testing nothing.
 	assertEquals(mode, session.mode.value, "the fixture must really be in the mode the case names")
+
 	return session
 }
 
@@ -113,6 +114,7 @@ internal fun inMemorySettings(): Settings {
 	val configDirectory = "/config".toPath()
 	val fileSystem = FakeFileSystem()
 	fileSystem.createDirectories(configDirectory)
+
 	return Settings.load(OkioAppStorage(fileSystem, configDirectory, "/data".toPath()), "{}")
 }
 
@@ -149,6 +151,7 @@ internal fun shellCommandTables(session: EditorSession? = null): List<Command> {
 	val availability = SessionAvailability(session)
 	val sheets = KeyformSheetViews()
 	val handles = session?.let { live -> SessionHandles(live) }
+
 	return chromeCommands(overlays, AreaDragController(), SplitterDragCancelController(), RowDragCancelController(), workspaces) {} +
 		workspaceCommands(workspaces, overlays) { "Workspace" } +
 		documentCommands(overlays) +

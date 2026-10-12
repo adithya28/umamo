@@ -174,6 +174,7 @@ internal fun sourcesFixtureModel(): PuppetModel {
 			fixtureDrawable(SourcesIds.browMeshRight, SourcesNames.BROW_MESH_RIGHT, SourcesIds.browArtRight),
 			fixtureDrawable(SourcesIds.looseMesh, SourcesNames.LOOSE_MESH, SourcesIds.looseArt),
 		)
+
 	return panelFixtureModel().copy(
 		drawables = drawables,
 		rootChildren = drawables.map { drawable -> OrgChild.Drawable(drawable.id) },
@@ -228,6 +229,7 @@ internal fun sourcesMergeModel(): PuppetModel {
 	// The quad an import mints over the Brow layer's frame: 4 x 4 at (12, 22), sampling the whole tile.
 	val birthQuad = DrawableMesh.withLocalEqualToCanvas(floatArrayOf(12f, 22f, 16f, 22f, 16f, 26f, 12f, 26f), floatArrayOf(0f, 0f, 1f, 0f, 1f, 1f, 0f, 1f), intArrayOf(0, 1, 2, 0, 2, 3))
 	val fresh = fixtureDrawable(SourcesIds.browMeshNew, SourcesNames.BROW_MESH_NEW, SourcesIds.browArtNew).copy(mesh = birthQuad)
+
 	return base.copy(
 		drawables = base.drawables + fresh,
 		rootChildren = base.rootChildren + OrgChild.Drawable(fresh.id),
@@ -267,6 +269,7 @@ internal fun sourcesFixtureArt(): SourceArtRasters {
 	val tileIds =
 		listOf(SourcesIds.hairArt, SourcesIds.eyeArt, SourcesIds.browArtLeft, SourcesIds.browArtRight, SourcesIds.browArtNew, SourcesIds.mouthArt, SourcesIds.looseArt)
 	val rasterByTile = tileIds.associateWith { DecodedImage(ByteArray(STUB_RASTER_EDGE * STUB_RASTER_EDGE * 4) { STUB_RASTER_VALUE }, STUB_RASTER_EDGE, STUB_RASTER_EDGE) }
+
 	return SourceArtRasters { tileId -> rasterByTile[tileId] }
 }
 
@@ -308,6 +311,7 @@ internal fun ComposeUiTest.mountSources(
 	harness.publishedSuggestions.value =
 		mapOf((SourcesIds.body to SourcesKeys.BROW_OLD) to LayerMatch(SourcesKeys.BROW, PROPOSAL_SCORE, MatchSignals(1f, 1f, 1f, 1f, null, hashEqual = false)))
 	mountParametersPanel(harness)
+
 	return harness
 }
 
@@ -395,6 +399,7 @@ internal fun ComposeUiTest.sourcesRowBox(name: String): ControlBox {
 	val label = sourcesBoundsOfText(name)
 	val table = sourcesBox()
 	val halfRow = with(density) { FIXTURE_ROW_HEIGHT.toPx() / 2f }
+
 	return ControlBox(left = table.left, top = label.center.y - halfRow, right = table.right, bottom = label.center.y + halfRow)
 }
 
@@ -442,12 +447,15 @@ private fun ComposeUiTest.sourcesSlotBoxOrNull(description: String, rowName: Str
 	val row = sourcesRowBox(rowName)
 	val slots = onAllNodes(hasContentDescription(description) and inSources(), useUnmergedTree = true)
 	val count = slots.fetchSemanticsNodes().size
+
 	for (slotIndex in 0 until count) {
 		val bounds = panelBoundsOf(slots[slotIndex])
+
 		if (bounds.center.y >= row.top && bounds.center.y < row.bottom) {
 			return bounds
 		}
 	}
+
 	return null
 }
 

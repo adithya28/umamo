@@ -42,6 +42,7 @@ class MeshArrayEditsTest {
 		val serial = edits.entries.fold(model) { folded, (drawableId, rest) -> folded.withMeshPositions(drawableId, rest) }
 
 		assertEquals(serial.drawables.map { drawable -> drawable.id }, batch.drawables.map { drawable -> drawable.id })
+
 		for (drawableIndex in serial.drawables.indices) {
 			val serialMesh = serial.drawables[drawableIndex].mesh
 			val batchMesh = batch.drawables[drawableIndex].mesh
@@ -49,6 +50,7 @@ class MeshArrayEditsTest {
 			assertSame(serialMesh?.localPositions, batchMesh?.localPositions, "and its base")
 			assertSame(serialMesh?.uvs, batchMesh?.uvs, "and its uvs")
 		}
+
 		assertSame(model.drawables[1], batch.drawables[1], "an untouched drawable is shared")
 	}
 

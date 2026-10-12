@@ -22,10 +22,13 @@ class MocRoundTripTest {
 	@Test
 	fun samplesRoundTripByteIdentical() {
 		val files = samples()
+
 		if (files.isEmpty()) {
 			println("moc3.samples not present; skipping moc3 round-trip test")
+
 			return
 		}
+
 		for (file in files) {
 			val bytes = file.readBytes()
 			val model = MocCodec.read(bytes)
@@ -44,10 +47,13 @@ class MocRoundTripTest {
 	@Test
 	fun typedAccessorsAreConsistent() {
 		val files = samples()
+
 		if (files.isEmpty()) {
 			println("moc3.samples not present; skipping moc3 typed-accessor test")
+
 			return
 		}
+
 		for (file in files) {
 			val model = MocCodec.read(file.readBytes())
 
@@ -56,6 +62,7 @@ class MocRoundTripTest {
 
 			val parameters = model.parameters()
 			assertEquals(model.parameterCount, parameters.size, "${file.name}: parameter count")
+
 			for (parameter in parameters) {
 				assertTrue(parameter.id.isNotEmpty(), "${file.name}: parameter id present")
 				assertTrue(
@@ -69,6 +76,7 @@ class MocRoundTripTest {
 
 			val drawables = model.drawables()
 			assertEquals(model.drawableCount, drawables.size, "${file.name}: drawable count")
+
 			for (drawable in drawables) {
 				assertTrue(drawable.id.isNotEmpty(), "${file.name}: drawable id present")
 				assertTrue(drawable.vertexCount > 0, "${file.name}: ${drawable.id} has vertices")

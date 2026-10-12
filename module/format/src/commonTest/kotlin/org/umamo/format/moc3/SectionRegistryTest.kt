@@ -29,11 +29,14 @@ class SectionRegistryTest {
 	fun noTwoSectionsShareAnIndexInAnyVersion() {
 		for (version in MocVersion.entries) {
 			val owners = HashMap<Int, Section>()
+
 			for (section in Section.entries) {
 				val index = section.indexIn(version)
+
 				if (index < 0) {
 					continue
 				}
+
 				val existing = owners.put(index, section)
 				assertEquals(null, existing, "${version.label}: index $index claimed by both $existing and $section")
 			}
@@ -76,18 +79,24 @@ class SectionRegistryTest {
 	@Test
 	fun sectionIndicesNeverMoveOnceIntroduced() {
 		val versions = MocVersion.entries.sortedBy { it.byteValue }
+
 		for (section in Section.entries) {
 			var introduced = -1
+
 			for (version in versions) {
 				val index = section.indexIn(version)
+
 				if (index < 0) {
 					// Absent after being present would mean the format REMOVED a section; none does.
 					assertTrue(introduced < 0, "$section disappears again at ${version.label}")
+
 					continue
 				}
+
 				if (introduced < 0) {
 					introduced = index
 				}
+
 				assertEquals(introduced, index, "$section moves from $introduced to $index at ${version.label}")
 			}
 		}

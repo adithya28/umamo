@@ -48,6 +48,7 @@ class UmaTreeMergeTest {
 			}
 		tree = withArray(tree, "deformers") { _, deformer -> withKey(deformer, "futureDeformer", plantedValue("Warp1")) }
 		tree = withArray(tree, "drawables") { _, drawable -> withKey(drawable, "futureDrawable", plantedValue((drawable["id"] as JsonPrimitive).content)) }
+
 		return Uma.read(Uma.write(saved.withLiveContent(UmaEntryKind.Puppet, tree)))
 	}
 

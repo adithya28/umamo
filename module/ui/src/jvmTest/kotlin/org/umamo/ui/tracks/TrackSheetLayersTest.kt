@@ -82,6 +82,7 @@ class TrackSheetLayersTest {
 	 */
 	private fun ComposeUiTest.wrapperHeight(): Dp {
 		val bounds = onNodeWithTag(SHEET_TAG).getUnclippedBoundsInRoot()
+
 		return bounds.bottom - bounds.top
 	}
 
@@ -96,9 +97,11 @@ class TrackSheetLayersTest {
 		onNodeWithTag(SHEET_TAG).performMouseInput {
 			moveTo(Offset(startX, y))
 			press()
+
 			for (x in through) {
 				moveTo(Offset(x, y))
 			}
+
 			release()
 		}
 		waitForIdle()

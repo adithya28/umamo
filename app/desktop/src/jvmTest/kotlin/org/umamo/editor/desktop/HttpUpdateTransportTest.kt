@@ -34,11 +34,13 @@ class HttpUpdateTransportTest {
 			for ((name, values) in exchange.requestHeaders) {
 				seenHeaders[name.lowercase()] = values.joinToString(",")
 			}
+
 			val bytes = body.toByteArray(Charsets.UTF_8)
 			exchange.sendResponseHeaders(status, bytes.size.toLong())
 			exchange.responseBody.use { output -> output.write(bytes) }
 		}
 		server.start()
+
 		try {
 			return block("http://127.0.0.1:${server.address.port}/repos/umamoorg/umamo/releases/latest") to seenHeaders
 		} finally {

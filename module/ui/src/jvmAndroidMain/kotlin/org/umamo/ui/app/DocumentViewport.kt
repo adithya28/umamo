@@ -86,7 +86,7 @@ internal fun DocumentViewport(
 	exportImage: ((viewportAreaId: String?) -> Unit)? = null,
 ) {
 	when (document) {
-		is PuppetDocument ->
+		is PuppetDocument -> {
 			key(document) {
 				// The session is created per-document by the host and is non-null for a puppet document;
 				// the fallback only guards a desync. Panels read LocalPuppet (a live projection of the session
@@ -172,8 +172,11 @@ internal fun DocumentViewport(
 					)
 				}
 			}
-		null ->
+		}
+
+		null -> {
 			// No document open: the shell renders with placeholder viewport areas (no host injected).
 			PersistentEditorShell(commandRegistry = commandRegistry, appMenu = appMenu, filePicker = filePicker)
+		}
 	}
 }

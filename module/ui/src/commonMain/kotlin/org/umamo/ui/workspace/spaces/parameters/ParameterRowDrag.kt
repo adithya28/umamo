@@ -91,17 +91,22 @@ internal fun ParameterGripHandle(
 							// and must never turn a press into a click.  The finally is what runs the cancel on
 							// cancellation, which awaitEachGesture itself gives no hook for.
 							var released = false
+
 							try {
 								while (true) {
 									val event = awaitPointerEvent()
 									val change = event.changes.firstOrNull { candidate -> candidate.id == down.id } ?: break
+
 									if (change.isConsumed) {
 										break
 									}
+
 									if (!change.pressed) {
 										released = true
+
 										break
 									}
+
 									if (!dragging && (change.position - down.position).getDistance() > touchSlop) {
 										dragging = true
 										dragController.start(
@@ -111,6 +116,7 @@ internal fun ParameterGripHandle(
 											(origin?.top ?: 0f) + down.position.y,
 										)
 									}
+
 									if (dragging) {
 										dragController.drag(
 											(origin?.left ?: 0f) + change.position.x,
@@ -122,8 +128,11 @@ internal fun ParameterGripHandle(
 							} finally {
 								when {
 									dragging && released -> latestDrop()
+
 									dragging -> dragController.end()
+
 									released -> latestSelect()
+
 									// A lost pointer id or a consumed press ends the gesture with no action.
 									else -> Unit
 								}
@@ -155,6 +164,7 @@ internal fun ParameterGripHandle(
 internal fun Modifier.parameterDropLine(band: RowDropBand?, accentColor: Color): Modifier =
 	this.drawWithContent {
 		drawContent()
+
 		if (band == RowDropBand.Before || band == RowDropBand.After) {
 			val strokeWidth = 2.5.dp.toPx()
 			val lineY =
@@ -189,11 +199,14 @@ internal fun performParameterDrop(
 	val subject = dragController.draggedPayload
 	val fraction = dragController.dropTargetFraction ?: 0.5f
 	dragController.end()
+
 	if (targetKey == null || subject == null || session == null) {
 		return
 	}
+
 	val drop = resolveParameterDrop(puppet, rows, subject, targetKey, fraction) ?: return
 	session.moveParameterRow(subject, drop.newParentGroupId, drop.before)
+
 	if (drop.expandsGroupId != null) {
 		onExpandGroup(drop.expandsGroupId)
 	}

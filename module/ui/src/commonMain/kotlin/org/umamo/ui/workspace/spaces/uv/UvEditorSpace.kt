@@ -139,8 +139,10 @@ internal fun UvEditorSpace(scope: AreaScope) {
 	// editing camera - as Viewport2DBody shows a plain backdrop with no host.
 	if (model == null || session == null || service == null) {
 		PlaceholderSpace("")
+
 		return
 	}
+
 	val mode by session.mode.collectAsState()
 	val meshSelection by session.meshSelection.collectAsState()
 	val objectSelection by session.selection.collectAsState()
@@ -174,6 +176,7 @@ internal fun UvEditorSpace(scope: AreaScope) {
 			if (request.areaId != scope.areaId) {
 				return@collect
 			}
+
 			viewState.textureSelection =
 				uvPageSelectionAfter(request.kind, viewState.textureSelection, liveEffectivePageIndex.value, livePageCount.value)
 		}
@@ -183,6 +186,7 @@ internal fun UvEditorSpace(scope: AreaScope) {
 	val pageIndex = resolvedPage?.pageIndex
 	val displayWidth = layerView?.width ?: resolvedPage?.pageWidth
 	val displayHeight = layerView?.height ?: resolvedPage?.pageHeight
+
 	if (displayWidth == null || displayHeight == null) {
 		return
 	}
@@ -597,9 +601,11 @@ private suspend fun PointerInputScope.uvEditorNavigation(
 ) {
 	awaitPointerEventScope {
 		var panAnchor: Offset? = null
+
 		while (true) {
 			val event = awaitPointerEvent()
 			val change = event.changes.firstOrNull() ?: continue
+
 			if (session.activeUvOperator.value?.areaId == areaId ||
 				session.activeSelectTool.value?.areaId == areaId ||
 				session.viewportGestureActive.value ||
@@ -607,6 +613,7 @@ private suspend fun PointerInputScope.uvEditorNavigation(
 			) {
 				continue
 			}
+
 			when (event.type) {
 				PointerEventType.Scroll -> {
 					val shiftHeld = event.keyboardModifiers.isShiftPressed
@@ -620,6 +627,7 @@ private suspend fun PointerInputScope.uvEditorNavigation(
 						} else {
 							0f
 						}
+
 					if (scrollSteps != 0f) {
 						// One step per notch (wheel up = negative = zoom in); Shift selects the coarse step.
 						service.zoomAtCursor(
@@ -636,12 +644,15 @@ private suspend fun PointerInputScope.uvEditorNavigation(
 				else -> {
 					if (event.buttons.isTertiaryPressed) {
 						val anchor = panAnchor
+
 						if (anchor != null) {
 							val delta = change.position - anchor
+
 							if (delta != Offset.Zero) {
 								service.pan(areaId, delta.x, delta.y)
 							}
 						}
+
 						panAnchor = change.position
 						change.consume()
 					} else {

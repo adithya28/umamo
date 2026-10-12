@@ -108,9 +108,11 @@ private fun StatusNotice() {
 	val session = LocalEditorSession.current ?: return
 	val notice by session.notice.collectAsState()
 	val current = notice ?: return
+
 	if (current.placement != NoticePlacement.StatusBar) {
 		return
 	}
+
 	// Auto-dismiss this notice after the visible window; keyed on the serial so a repeat of the same text
 	// restarts the timer, and clearNotice only clears if a newer notice has not replaced it meanwhile.
 	LaunchedEffect(current.serial) {
@@ -167,9 +169,11 @@ private fun ContextBindsZone() {
 				"$chordRun ${stringResource(hint.label)}"
 			}
 		}
+
 	if (entries.isEmpty()) {
 		return
 	}
+
 	Text(
 		text = entries.joinToString(separator = STAT_SEPARATOR),
 		style = LocalUmamoTypography.current.labelMedium,
@@ -191,11 +195,14 @@ private fun ContextBindsZone() {
 private fun SelectedItemZone() {
 	val puppet = LocalPuppet.current
 	val session = LocalEditorSession.current
+
 	if (puppet == null || session == null) {
 		return
 	}
+
 	val editorMode by session.mode.collectAsState()
 	val text: String?
+
 	if (editorMode == EditorMode.Edit) {
 		// The denominators sum over EVERY session mesh (multi-mesh edit), so "3/240 vertices" reads
 		// against everything the session can select.
@@ -210,14 +217,18 @@ private fun SelectedItemZone() {
 				null
 			} else {
 				when (meshSelection.selectMode) {
-					MeshSelectMode.Vertex ->
+					MeshSelectMode.Vertex -> {
 						stringResource(Res.string.status_mesh_vertices, meshSelection.size, sessionMeshes.sumOf { mesh -> mesh.vertexCount })
+					}
+
 					MeshSelectMode.Edge -> {
 						val totalEdges = remember(sessionMeshes) { sessionMeshes.sumOf { mesh -> MeshTopology.uniqueEdges(mesh.indices).size } }
 						stringResource(Res.string.status_mesh_edges, meshSelection.size, totalEdges)
 					}
-					MeshSelectMode.Face ->
+
+					MeshSelectMode.Face -> {
 						stringResource(Res.string.status_mesh_faces, meshSelection.size, sessionMeshes.sumOf { mesh -> mesh.triangleCount })
+					}
 				}
 			}
 	} else {
@@ -229,6 +240,7 @@ private fun SelectedItemZone() {
 				stringResource(Res.string.status_multi_selected, selection.size)
 			} else {
 				val target = selection.active ?: selection.targets.first()
+
 				when (target) {
 					is SelectionTarget.Part -> remember(puppet) { puppet.parts.associateBy { part -> part.id } }[target.id]?.name
 					is SelectionTarget.Drawable -> remember(puppet) { puppet.drawables.associateBy { drawable -> drawable.id } }[target.id]?.name
@@ -236,9 +248,11 @@ private fun SelectedItemZone() {
 				}
 			}
 	}
+
 	if (text == null) {
 		return
 	}
+
 	Text(
 		text = text,
 		style = LocalUmamoTypography.current.labelMedium,
@@ -265,8 +279,10 @@ private fun ModelStats() {
 	// The session meshes Edit mode scopes to (paired with their ids for per-mesh element lookups), or
 	// null in Object mode / no session; drives the denominator below.
 	var editedMeshes: List<Pair<DrawableId, DrawableMesh>>? = null
+
 	if (session != null) {
 		val editorMode by session.mode.collectAsState()
+
 		if (editorMode == EditorMode.Edit) {
 			val meshSelection by session.meshSelection.collectAsState()
 			val drawableById = remember(puppet) { puppet.drawables.associateBy { drawable -> drawable.id } }
@@ -275,26 +291,31 @@ private fun ModelStats() {
 					meshSelection.drawableIds.mapNotNull { drawableId -> drawableById[drawableId]?.mesh?.let { mesh -> drawableId to mesh } }
 				}
 			editedMeshes = sessionMeshes.takeIf { pairs -> pairs.isNotEmpty() }
+
 			if (sessionMeshes.isNotEmpty() && !meshSelection.isEmpty) {
 				selectedTotals =
 					remember(meshSelection, sessionMeshes) {
 						var coveredVertexTotal = 0
 						var coveredFaceTotal = 0
+
 						for ((drawableId, mesh) in sessionMeshes) {
 							val coveredVertexIndices = MeshTopology.coveredVertexIndices(meshSelection.elementsOf(drawableId), mesh.indices)
 							coveredVertexTotal += coveredVertexIndices.size
 							coveredFaceTotal += MeshTopology.facesWithAllVerticesSelected(mesh.indices, coveredVertexIndices).size
 						}
+
 						MeshTotals(vertexCount = coveredVertexTotal, triangleCount = coveredFaceTotal)
 					}
 			}
 		} else {
 			val selection = LocalSelection.current?.selection
+
 			if (selection != null && !selection.isEmpty) {
 				selectedTotals = remember(puppet, selection) { selectedMeshTotals(puppet, selection) }
 			}
 		}
 	}
+
 	// The stats denominator: in Edit mode the session meshes' own totals (so "3/240" reads against the
 	// meshes being edited, matching the selected-item zone), else the whole model's totals. A val for
 	// the smart-cast to survive into the remember lambda.

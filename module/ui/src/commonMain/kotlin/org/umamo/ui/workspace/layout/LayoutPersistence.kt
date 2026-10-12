@@ -77,11 +77,14 @@ fun decodeLayout(element: JsonElement): InterfaceLayout? =
  */
 fun loadLayout(settings: Settings): InterfaceLayout {
 	val stored = settings.get(INTERFACE_LAYOUT_KEY)?.let { element -> decodeLayout(element) }
+
 	if (stored != null) {
 		return stored
 	}
+
 	val seeded = defaultLayout()
 	saveLayout(settings, seeded)
+
 	return seeded
 }
 

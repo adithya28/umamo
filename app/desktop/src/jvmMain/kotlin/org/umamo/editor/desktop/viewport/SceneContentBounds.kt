@@ -24,13 +24,17 @@ internal fun sceneContentBounds(
 	pages: PuppetTextures,
 ): ContentBounds =
 	when (scene) {
-		RenderScene.Puppet2D -> puppetBounds()
-		RenderScene.UvScene ->
+		RenderScene.Puppet2D -> {
+			puppetBounds()
+		}
+
+		RenderScene.UvScene -> {
 			when (uvContent) {
 				is UvSceneContent.AtlasPage -> pageContentBounds(pages, uvContent.pageIndex)
 				is UvSceneContent.SourceLayer -> imageContentBounds(uvContent.image)
 				null -> pageContentBounds(pages, null)
 			}
+		}
 	}
 
 /**
@@ -57,6 +61,7 @@ internal fun imageContentBounds(image: DecodedImage?): ContentBounds =
  */
 internal fun pageContentBounds(pages: PuppetTextures, pageIndex: Int?): ContentBounds {
 	val page = pageIndex?.let { pages.atlases.getOrNull(it) }
+
 	return if (page != null) {
 		ContentBounds(0f, 0f, page.width.toFloat(), page.height.toFloat())
 	} else {

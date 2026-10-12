@@ -89,6 +89,7 @@ class PosePinTest {
 		editorSession.setSelection(Selection(setOf(target), target))
 		editorSession.setMode(EditorMode.Edit)
 		assertEquals(EditorMode.Edit, editorSession.mode.value, "the fixture must really be in Edit mode")
+
 		return editorSession
 	}
 
@@ -129,6 +130,7 @@ class PosePinTest {
 		editorSession.setSelection(Selection(setOf(target), target))
 		editorSession.setMode(EditorMode.Edit)
 		assertEquals(EditorMode.Edit, editorSession.mode.value, "the fixture must really be in Edit mode")
+
 		return editorSession
 	}
 
@@ -139,6 +141,7 @@ class PosePinTest {
 	 */
 	private fun EditorSession.opacityKeys(): List<Float> {
 		val grid = model.value.drawables.single().channelGrids[FormChannel.OPACITY]!!
+
 		return grid.axes[grid.axisIndexOf(angleX)].keys.toList()
 	}
 
@@ -149,6 +152,7 @@ class PosePinTest {
 	 */
 	private fun EditorSession.geometryKeys(): List<Float> {
 		val grid = model.value.drawables.single().geometryGrid!!
+
 		return grid.axes[grid.axisIndexOf(angleX)].keys.toList()
 	}
 
@@ -263,6 +267,7 @@ class PosePinTest {
 			val ruled = editorSession.mode.value.shownPose(editorSession.model.value, editorSession.pose.value)
 			assertEquals(editorSession.shownPose, ruled, "in ${editorSession.mode.value}")
 		}
+
 		assertSame(objectModePose, EditorMode.Object.shownPose(session().model.value, objectModePose), "Object mode shows the rig's own pose")
 	}
 

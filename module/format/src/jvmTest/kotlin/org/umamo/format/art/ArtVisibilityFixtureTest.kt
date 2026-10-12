@@ -34,13 +34,17 @@ class ArtVisibilityFixtureTest {
 	 */
 	private fun corpusFile(fileName: String): File? {
 		var directory: File? = File(System.getProperty("user.dir"))
+
 		while (directory != null) {
 			val corpus = File(directory, "test/corpus")
+
 			if (corpus.isDirectory) {
 				return corpus.walkTopDown().firstOrNull { candidate -> candidate.isFile && candidate.name == fileName }
 			}
+
 			directory = directory.parentFile
 		}
+
 		return null
 	}
 
@@ -52,10 +56,13 @@ class ArtVisibilityFixtureTest {
 	@Test
 	fun psdFixtureHasKnownHiddenFolderAndLayer() {
 		val file = corpusFile("EricaVisibilityTest.psd")
+
 		if (file == null) {
 			println("no EricaVisibilityTest.psd under test/corpus; skipping PSD visibility fixture test")
+
 			return
 		}
+
 		val art = PsdReader.read(file.readBytes())
 
 		// Folder-header flag: the "Front hair" folder was hidden, every other folder left shown.
@@ -92,10 +99,13 @@ class ArtVisibilityFixtureTest {
 	@Test
 	fun kraFixtureCascadesThroughNestedGroups() {
 		val file = corpusFile("KritaLayerVisibility.kra")
+
 		if (file == null) {
 			println("no KritaLayerVisibility.kra under test/corpus; skipping KRA visibility fixture test")
+
 			return
 		}
+
 		val art = KraReader.read(file.readBytes())
 
 		// Folder flags: the outer "Group 6" is hidden, the inner "Group 6/Group 7" is shown.
@@ -129,10 +139,13 @@ class ArtVisibilityFixtureTest {
 	@Test
 	fun clipFixtureHasKnownHiddenLayer() {
 		val file = corpusFile("Greyscale.clip")
+
 		if (file == null) {
 			println("no Greyscale.clip under test/corpus; skipping CLIP visibility fixture test")
+
 			return
 		}
+
 		val art = ClipReader.read(file.readBytes())
 
 		assertEquals(true, art.layers.single { layer -> layer.name == "Layer 1" }.visible, "Layer 1 shown")

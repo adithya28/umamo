@@ -55,6 +55,7 @@ internal class SplitterDragSession(
 		totalDragPx += deltaPx
 		val rewritten = dragSplitBoundary(startNode, totalDragPx, axisPx, minPx, splitterPx)
 		publishedNodes.add(rewritten)
+
 		return rewritten
 	}
 
@@ -74,6 +75,7 @@ internal class SplitterDragSession(
 		// The restored snapshot is a publish like any other, so ownsNode keeps recognizing this split
 		// as ours while the pointer is still down.
 		publishedNodes.add(startNode)
+
 		return startNode
 	}
 
@@ -91,13 +93,17 @@ internal class SplitterDragSession(
 		if (composedNode === startNode) {
 			return true
 		}
+
 		val matchIndex = publishedNodes.indexOfFirst { published -> published === composedNode }
+
 		if (matchIndex < 0) {
 			return false
 		}
+
 		if (matchIndex > 0) {
 			publishedNodes.subList(0, matchIndex).clear()
 		}
+
 		return true
 	}
 }

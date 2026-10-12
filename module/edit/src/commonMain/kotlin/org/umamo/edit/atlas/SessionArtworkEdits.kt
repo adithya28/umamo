@@ -58,6 +58,7 @@ fun EditorSession.deleteTile(tileId: AtlasTileId, ignoreLayer: Boolean = false) 
 	val marks = ignoreLayer && binding != null && !shared
 	mutate(DocumentChange.DeleteTile(tileId, ignoredLayer = marks)) { before ->
 		val deleted = before.withTileDeleted(tileId)
+
 		// marks already carries binding != null, and the compiler smart-casts through it.
 		if (marks && deleted !== before) {
 			deleted.withLayerIgnored(binding.sourceId, binding.layerKey, ignored = true)
@@ -94,6 +95,7 @@ fun EditorSession.setLayerIgnored(ref: SourceLayerRef, ignored: Boolean) {
  */
 fun EditorSession.commitArtworkAdded(sourceName: String, drawableCount: Int, added: PuppetModel): PuppetModel {
 	mutate(DocumentChange.AddArtwork(sourceName, drawableCount)) { added }
+
 	return added
 }
 
@@ -109,6 +111,7 @@ fun EditorSession.commitArtworkAdded(sourceName: String, drawableCount: Int, add
  */
 fun EditorSession.commitArtworkReloaded(change: DocumentChange.ReloadArtwork, reloaded: PuppetModel): PuppetModel {
 	mutate(change) { reloaded }
+
 	return reloaded
 }
 
@@ -122,6 +125,7 @@ fun EditorSession.commitArtworkReloaded(change: DocumentChange.ReloadArtwork, re
  */
 fun EditorSession.commitArtworkRelinked(tileId: AtlasTileId, relinked: PuppetModel): PuppetModel {
 	mutate(DocumentChange.RelinkArtwork(tileId)) { relinked }
+
 	return relinked
 }
 
@@ -135,6 +139,7 @@ fun EditorSession.commitArtworkRelinked(tileId: AtlasTileId, relinked: PuppetMod
  */
 fun EditorSession.commitArtworkMatched(change: DocumentChange.MatchArtwork, matched: PuppetModel): PuppetModel {
 	mutate(change) { matched }
+
 	return matched
 }
 
@@ -148,5 +153,6 @@ fun EditorSession.commitArtworkMatched(change: DocumentChange.MatchArtwork, matc
  */
 fun EditorSession.commitArtworkReplaced(change: DocumentChange.ReplaceArtwork, replaced: PuppetModel): PuppetModel {
 	mutate(change) { replaced }
+
 	return replaced
 }

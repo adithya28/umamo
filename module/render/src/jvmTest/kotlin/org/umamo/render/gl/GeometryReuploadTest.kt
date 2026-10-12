@@ -85,6 +85,7 @@ class GeometryReuploadTest {
 			FloatArray(quadPositions.size) { coordIndex ->
 				drawable.mesh!!.positions[coordIndex] + if (coordIndex % 2 == 0) shiftWorld else 0f
 			}
+
 		return source.copy(drawables = listOf(drawable.copy(mesh = DrawableMesh.withLocalEqualToCanvas(shifted, quadUvs, quadIndices))))
 	}
 
@@ -172,11 +173,13 @@ class GeometryReuploadTest {
 		var sum = 0f
 		var vertexCount = 0
 		var coordIndex = 0
+
 		while (coordIndex + 1 < positions.size) {
 			sum += positions[coordIndex]
 			vertexCount++
 			coordIndex += 2
 		}
+
 		return sum / vertexCount
 	}
 
@@ -189,12 +192,14 @@ class GeometryReuploadTest {
 		var sumX = 0.0
 		var sumY = 0.0
 		var count = 0
+
 		for (row in 0 until height) {
 			for (col in 0 until width) {
 				val pixel = (row * width + col) * 4
 				val deltaRed = abs((frame.get(pixel).toInt() and 0xFF) - (background.get(pixel).toInt() and 0xFF))
 				val deltaGreen = abs((frame.get(pixel + 1).toInt() and 0xFF) - (background.get(pixel + 1).toInt() and 0xFF))
 				val deltaBlue = abs((frame.get(pixel + 2).toInt() and 0xFF) - (background.get(pixel + 2).toInt() and 0xFF))
+
 				if (maxOf(deltaRed, deltaGreen, deltaBlue) > threshold) {
 					sumX += col
 					sumY += row
@@ -202,9 +207,11 @@ class GeometryReuploadTest {
 				}
 			}
 		}
+
 		if (count == 0) {
 			return Triple(0f, 0f, 0)
 		}
+
 		return Triple((sumX / count).toFloat(), (sumY / count).toFloat(), count)
 	}
 
@@ -212,6 +219,7 @@ class GeometryReuploadTest {
 	private fun readPixels(width: Int, height: Int): ByteBuffer {
 		val buffer = BufferUtils.createByteBuffer(width * height * 4)
 		GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer)
+
 		return buffer
 	}
 }

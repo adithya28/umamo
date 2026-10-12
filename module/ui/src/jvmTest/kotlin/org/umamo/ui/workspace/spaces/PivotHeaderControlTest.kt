@@ -49,9 +49,11 @@ class PivotHeaderControlTest {
 			clickDescribed(TITLE)
 
 			assertTrue(popupShows(TITLE), "the panel opens under its heading")
+
 			for (option in listOf(MEDIAN, INDIVIDUAL, ACTIVE, CURSOR)) {
 				assertTrue(popupShows(option), "the $option option")
 			}
+
 			option(MEDIAN).assertIsSelected()
 			option(ACTIVE).assertIsNotSelected()
 			clickMenuEntry(ACTIVE)

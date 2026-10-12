@@ -164,9 +164,11 @@ internal fun KeyformSheetSpace(scope: AreaScope) {
 				labelColumnWidth = viewState.labelColumnWidth,
 				modifier = Modifier.padding(end = SCROLLBAR_THICKNESS),
 			)
+
 			if (puppet == null || targetedParameters.isEmpty()) {
 				return@Box
 			}
+
 			// The filter is a projection INPUT, not a draw-time skip: a filtered-out track has to be absent
 			// from the row tree so an owner left with nothing loses its group row too, and so a summary mark
 			// never stands for a key the sheet is not showing.
@@ -180,6 +182,7 @@ internal fun KeyformSheetSpace(scope: AreaScope) {
 						parameter to keyformSheetRows(puppet, parameter.id, labels, filter)
 					}
 				}
+
 			if (!viewState.seeded) {
 				// In a SideEffect so it runs only for APPLIED compositions: an abandoned composition rolls back
 				// the snapshot write to expandedKeys but not the plain seeded gate, which would strand the sheet
@@ -192,11 +195,14 @@ internal fun KeyformSheetSpace(scope: AreaScope) {
 					}
 				}
 			}
+
 			if (projections.all { (_, projection) -> projection.rows.isEmpty() }) {
 				val everythingFiltered = projections.any { (_, projection) -> projection.hiddenByFilter }
 				EmptySheetNotice(emptySheetMessage(everythingFiltered), Modifier.fillMaxSize())
+
 				return@Box
 			}
+
 			// Dragging one mark of a multi-key selection drags the whole selection, which means resolving refs
 			// from EVERY section.  The section that owns the gesture sees only its own projection, so the drag
 			// runs here and is handed down as an action.  The projections are read through state as the drag
@@ -235,6 +241,7 @@ internal fun KeyformSheetSpace(scope: AreaScope) {
 									}
 							},
 						)
+
 						if (collapsed) {
 							// Folded: the header alone, so a linked pad's other axis is one click away.
 						} else if (projection.rows.isEmpty()) {

@@ -151,6 +151,7 @@ class DrawableWorldTransformTest {
 	private fun warpChildModel(canvas: FloatArray, local: FloatArray): PuppetModel {
 		val warpId = DeformerId("warp")
 		val lattice = floatArrayOf(100f, 100f, 300f, 100f, 100f, 300f, 300f, 300f)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(parameterId, "Param", min = -1f, max = 1f, default = 0f)),
 			parts = emptyList(),
@@ -200,6 +201,7 @@ class DrawableWorldTransformTest {
 		session.setDrawableWorldCenter(drawableId, before.centerX + 20f, before.centerY + 10f)
 
 		val mesh = session.model.value.drawables.single().mesh!!
+
 		for (vertexIndex in 0 until 4) {
 			assertEquals(canvas[vertexIndex * 2] + 20f, mesh.positions[vertexIndex * 2], 1e-3f, "vertex $vertexIndex canvas x")
 			assertEquals(canvas[vertexIndex * 2 + 1] - 10f, mesh.positions[vertexIndex * 2 + 1], 1e-3f, "vertex $vertexIndex canvas y")

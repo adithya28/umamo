@@ -219,6 +219,7 @@ private fun scoreSource(
 	// A candidate's pixels are read only when the matcher asks for them: a layer's raster can decode on first use
 	// (a CMO3's layers, the document's own tiles), and the matcher scores pixels for a few candidates, not all.
 	val layerByKey = art.layers.filter { layer -> layer.kind == SourceLayerKind.Raster }.associateBy { layer -> layer.id.raw }
+
 	return suggestionsAgainstRead(model, sourceId, inventory, tileRaster, { key -> layerByKey[key]?.raster }, InventoryLayerMatcher)
 }
 
@@ -235,11 +236,13 @@ suspend fun scoreSourceSuggestions(host: AtlasRepackHost, entries: List<ReloadEn
 		val model = host.session.model.value
 		val tileRaster = tileRasterLookup(host.artRasters)
 		val suggestions = LinkedHashMap<Pair<ArtSourceId, String>, LayerMatch>()
+
 		for (entry in entries) {
 			for ((lostKey, match) in scoreSource(model, entry.sourceId, entry.art, entry.inventory, tileRaster)) {
 				suggestions[entry.sourceId to lostKey] = match
 			}
 		}
+
 		suggestions
 	}
 
@@ -271,18 +274,22 @@ private fun matchOutcome(
 	val rebindings = ArrayList<Rebinding>()
 	var matched = 0
 	val tileRaster = tileRasterLookup(artRasters)
+
 	for (entry in request.entries) {
 		val suggestions = LinkedHashMap(scoreSource(model, entry.sourceId, entry.art, entry.inventory, tileRaster))
 		val retirable = standingMerges(model, entry, request.standing, suggestions)
 		val acceptedByLostKey = confidentMatches(suggestions, threshold)
+
 		for ((lostKey, match) in suggestions) {
 			if (lostKey !in acceptedByLostKey) {
 				remaining[entry.sourceId to lostKey] = match
 			}
 		}
+
 		if (acceptedByLostKey.isEmpty()) {
 			continue
 		}
+
 		// Every tile bound to an accepted lost key moves with it.
 		val accepted =
 			model.atlas.tiles.mapNotNull { tile ->
@@ -296,21 +303,28 @@ private fun matchOutcome(
 		// binds has none when the file is read from the document's own tiles - stays a suggestion for its row
 		// rather than vanishing from both the step and the review.
 		val rebound = plan?.reload?.replacedTiles?.mapTo(HashSet()) { replaced -> replaced.oldId }.orEmpty()
+
 		for ((tileId, _) in accepted) {
 			if (tileId in rebound) {
 				continue
 			}
+
 			val lostKey = model.atlas.tileById[tileId]?.source?.layerKey ?: continue
 			suggestions[lostKey]?.let { match -> remaining[entry.sourceId to lostKey] = match }
 		}
+
 		if (plan == null) {
 			continue
 		}
+
 		val next = model.withArtworkReloaded(plan.reload)
+
 		if (next === model) {
 			UmamoLog.error("match artwork: the plan for '${plan.reload.source.name}' collides with the document's ids; that file was skipped")
+
 			continue
 		}
+
 		// The rebound tiles are the ones the plan replaced; the log names them from the model before.
 		rebindings.addAll(reboundOf(accepted, rebound, model, suggestions, entry.art))
 		rebindings.addAll(rebindingsOf(plan, model, entry.art).filterIsInstance<Rebinding.Retired>())
@@ -320,10 +334,13 @@ private fun matchOutcome(
 		outgrown.addAll(plan.reload.outgrown)
 		matched += plan.reload.replacedTiles.size
 	}
+
 	if (model === base) {
 		return MatchOutcome.NothingApplied(remaining)
 	}
+
 	val change = DocumentChange.MatchArtwork(matched, remaining.size)
+
 	return packMatched(model, rasters.mapValues { (_, raster) -> request.decodedFor(raster) }, notices, artRasters, premultipliedAlpha) { packedModel, textures, packedNotices, decodedByTile ->
 		MatchOutcome.Applied(packedModel, textures, decodedByTile, packedNotices, outgrown, change, remaining, rebindings)
 	}
@@ -348,6 +365,7 @@ internal fun reboundOf(accepted: List<Pair<AtlasTileId, String>>, replaced: Set<
 		if (tileId !in replaced) {
 			return@mapNotNull null
 		}
+
 		val tile = model.atlas.tileById[tileId] ?: return@mapNotNull null
 		val score = tile.source?.layerKey?.let { lostKey -> suggestions[lostKey]?.score } ?: return@mapNotNull null
 		Rebinding.Rebound(tile.name, art.layers.firstOrNull { layer -> layer.id.raw == key }?.name ?: key, score)
@@ -367,23 +385,30 @@ internal fun reboundOf(accepted: List<Pair<AtlasTileId, String>>, replaced: Set<
 private fun standingMerges(model: PuppetModel, entry: ReloadEntry, standing: SourceSuggestions, suggestions: MutableMap<String, LayerMatch>): Map<String, List<AtlasTileId>> {
 	val retirable = HashMap<String, List<AtlasTileId>>()
 	val boundKeys = model.atlas.tiles.filter { tile -> tile.source?.sourceId == entry.sourceId }.mapNotNullTo(HashSet()) { tile -> tile.source?.layerKey }
+
 	for ((binding, match) in standing) {
 		val (sourceId, lostKey) = binding
+
 		if (sourceId != entry.sourceId || lostKey in suggestions || lostKey !in boundKeys || match.key !in boundKeys) {
 			continue
 		}
+
 		if (entry.inventory.none { row -> row.key == match.key && !row.empty }) {
 			continue
 		}
+
 		val tiles = model.atlas.tiles.filter { tile -> tile.source?.sourceId == sourceId && tile.source?.layerKey == match.key }.map { tile -> tile.id }
 		val retiring = retirableTiles(model, sourceId, match.key, except = emptySet())
+
 		if (retiring.size != tiles.size) {
 			// Rig work sits over the proposed layer now: the proposal no longer holds.
 			continue
 		}
+
 		suggestions[lostKey] = match
 		retirable[match.key] = retiring
 	}
+
 	return retirable
 }
 
@@ -413,15 +438,19 @@ private fun replaceOutcome(
 		ArtworkReloadPlanner.plan(base, request.sourceId, request.art, options, tileRaster, request.contentHash, replacement = request.descriptor, inventory = request.inventory, matchThreshold = threshold)
 			?: return MatchOutcome.NothingApplied(emptyMap())
 	val model = base.withArtworkReloaded(plan.reload)
+
 	if (model === base) {
 		UmamoLog.error("replace artwork: the plan for '${request.descriptor.name}' collides with the document's ids; nothing was applied")
+
 		return MatchOutcome.NothingApplied(emptyMap())
 	}
+
 	val suggestions = plan.leftovers.entries.associate { (lostKey, match) -> (request.sourceId to lostKey) to match }
 	val resolvedByKey = plan.report.results.count { result -> result is ReconcileResult.Matched }
 	val rebound = plan.report.results.count { result -> result is ReconcileResult.Rebound }
 	val change = DocumentChange.ReplaceArtwork(request.descriptor.name, resolvedByKey, rebound, plan.report.needsReview.size)
 	val rebindings = rebindingsOf(plan, base, request.art)
+
 	return packMatched(model, plan.rasterByTile.mapValues { (_, raster) -> request.decodedFor(raster) }, plan.notices, artRasters, premultipliedAlpha) { packedModel, textures, notices, decodedByTile ->
 		MatchOutcome.Applied(packedModel, textures, decodedByTile, notices, plan.reload.outgrown, change, suggestions, rebindings)
 	}
@@ -450,7 +479,9 @@ private inline fun packMatched(
 		// A replacement that resolved nothing by key mints no tile: the record and the flags land as they are.
 		return applied(model, null, notices, decodedByTile)
 	}
+
 	val decode: (AtlasTileId) -> DecodedImage? = { tileId -> decodedByTile[tileId] ?: artRasters.decodeRaster(tileId) }
+
 	return when (val packed = packNewTilesAround(model, decodedByTile.keys, decode, premultipliedAlpha, notices)) {
 		is PackAroundOutcome.Refused -> MatchOutcome.Refused(packed.refusals)
 		is PackAroundOutcome.Packed -> applied(packed.model, packed.textures, packed.notices, decodedByTile)
@@ -479,6 +510,7 @@ suspend fun runMatchArtwork(host: AtlasRepackHost, request: MatchArtworkRequest,
 		withContext(Dispatchers.Default) {
 			matchOutcome(modelAtStart, request, request.threshold, request.options, host.artRasters, host.premultipliedAlpha)
 		}
+
 	if (!landMatch(host, "match artwork", modelAtStart, outcome, publish) { model -> session.commitArtworkMatched(outcome.appliedChange<DocumentChange.MatchArtwork>(), model) }) {
 		if (outcome is MatchOutcome.NothingApplied) {
 			UmamoLog.info("match artwork: nothing was rebound at ${percentOf(request.threshold)}% across ${request.entries.size} file(s); ${outcome.suggestions.size} suggestion(s) published")
@@ -486,13 +518,16 @@ suspend fun runMatchArtwork(host: AtlasRepackHost, request: MatchArtworkRequest,
 			// work - which is a different thing to tell a person than a bar nothing reached.
 			session.emitNotice(if (outcome.suggestions.isEmpty()) "notice.match.noCandidates" else "notice.match.nothing", NoticePlacement.StatusBar)
 		}
+
 		return false
 	}
+
 	val change = (outcome as MatchOutcome.Applied).change as DocumentChange.MatchArtwork
 	session.emitNotice("notice.match.done", NoticePlacement.StatusBar, listOf(change.matchedCount.toString(), change.remainingCount.toString()))
 	session.registerAdjustableOperation(session.model.value, areaId, matchArtworkParameters(request.threshold, request.options)) { record ->
 		host.scope.launch { adjustMatchArtwork(host, record, request, publish) }
 	}
+
 	return true
 }
 
@@ -538,23 +573,33 @@ private suspend fun adjustMatch(
 ) {
 	val base = record.baseSnapshot.model
 	val outcome = withContext(Dispatchers.Default) { compute(base, record.parameters) }
+
 	when (outcome) {
 		is MatchOutcome.NothingApplied -> {
 			if (!host.session.amendLastCommit(record, base)) {
 				UmamoLog.info("$operation: the adjustment was superseded before it landed; nothing was applied")
+
 				return
 			}
+
 			UmamoLog.info("$operation: under the adjusted settings nothing applies; the step now holds the document as it was, with ${outcome.suggestions.size} suggestion(s) published")
 			publish(outcome.suggestions)
 		}
-		is MatchOutcome.Refused -> host.report(AtlasRepackReport(outcome.refusals))
+
+		is MatchOutcome.Refused -> {
+			host.report(AtlasRepackReport(outcome.refusals))
+		}
+
 		is MatchOutcome.Applied -> {
 			host.artRasters.addDecoded(outcome.decodedByTile)
 			prewarm(host, outcome.model, outcome.textures)
+
 			if (!host.session.amendLastCommit(record, outcome.model)) {
 				UmamoLog.info("$operation: the adjustment was superseded before it landed; nothing was applied")
+
 				return
 			}
+
 			publish(outcome.suggestions)
 			reportMatch(operation, outcome, outcome.model)
 		}
@@ -579,14 +624,17 @@ suspend fun runReplaceArtwork(host: AtlasRepackHost, request: ReplaceArtworkRequ
 		withContext(Dispatchers.Default) {
 			replaceOutcome(modelAtStart, request, request.options, request.threshold, host.artRasters, host.premultipliedAlpha)
 		}
+
 	if (!landMatch(host, "replace artwork", modelAtStart, outcome, publish) { model -> session.commitArtworkReplaced(outcome.appliedChange<DocumentChange.ReplaceArtwork>(), model) }) {
 		return false
 	}
+
 	val change = (outcome as MatchOutcome.Applied).change as DocumentChange.ReplaceArtwork
 	session.emitNotice("notice.replace.done", NoticePlacement.StatusBar, listOf(change.matchedCount.toString(), change.reboundCount.toString(), change.missingCount.toString()))
 	session.registerAdjustableOperation(session.model.value, areaId, matchArtworkParameters(request.threshold, request.options)) { record ->
 		host.scope.launch { adjustReplaceArtwork(host, record, request, publish) }
 	}
+
 	return true
 }
 
@@ -633,30 +681,42 @@ private inline fun landMatch(
 	commit: (PuppetModel) -> PuppetModel,
 ): Boolean {
 	val session = host.session
+
 	when (outcome) {
 		is MatchOutcome.NothingApplied -> {
 			publish(outcome.suggestions)
+
 			return false
 		}
+
 		is MatchOutcome.Refused -> {
 			for (refusal in outcome.refusals) {
 				UmamoLog.warn("$operation: the document's tile '${refusal.tileName}' could not be kept in place (${refusal.reason}); nothing was applied")
 			}
+
 			host.report(AtlasRepackReport(outcome.refusals))
+
 			return false
 		}
-		is MatchOutcome.Applied -> Unit
+
+		is MatchOutcome.Applied -> {
+			Unit
+		}
 	}
+
 	if (session.model.value !== modelAtStart) {
 		UmamoLog.warn("$operation: the document changed while its files were being read; nothing was applied")
 		session.emitNotice("notice.import.artworkSuperseded", NoticePlacement.StatusBar)
+
 		return false
 	}
+
 	host.artRasters.addDecoded(outcome.decodedByTile)
 	val committed = commit(outcome.model)
 	prewarm(host, committed, outcome.textures)
 	publish(outcome.suggestions)
 	reportMatch(operation, outcome, committed)
+
 	return true
 }
 
@@ -684,23 +744,33 @@ private fun reportMatch(operation: String, outcome: MatchOutcome.Applied, commit
 	for (notice in outcome.notices) {
 		UmamoLog.warn("$operation: ${describeImportNotice(notice)}")
 	}
+
 	for (drawableId in outcome.outgrown) {
 		val name = committed.drawables.firstOrNull { drawable -> drawable.id == drawableId }?.name ?: drawableId.raw
 		UmamoLog.warn("$operation: the new art of '$name' reaches past its edited mesh; re-mesh it or extend the mesh")
 	}
+
 	for ((binding, match) in outcome.suggestions) {
 		UmamoLog.info("$operation: '${binding.second}' in '${binding.first.raw}' left for review; best candidate '${match.key}' at ${percentOf(match.score)}%")
 	}
+
 	reportRebindings(operation, outcome.rebindings)
+
 	when (val change = outcome.change) {
-		is DocumentChange.MatchArtwork ->
+		is DocumentChange.MatchArtwork -> {
 			UmamoLog.info("$operation: ${change.matchedCount} tile(s) rebound, ${change.remainingCount} left for review; now ${committed.atlas.pages.size} page(s); ${outcome.notices.size} note(s)")
-		is DocumentChange.ReplaceArtwork ->
+		}
+
+		is DocumentChange.ReplaceArtwork -> {
 			UmamoLog.info(
 				"$operation: '${change.sourceName}' -> ${change.matchedCount} tile(s) reloaded by key, ${change.reboundCount} rebound by match," +
 					" ${change.missingCount} left for review; ${outcome.notices.size} note(s)",
 			)
-		else -> UmamoLog.info("$operation: landed")
+		}
+
+		else -> {
+			UmamoLog.info("$operation: landed")
+		}
 	}
 }
 

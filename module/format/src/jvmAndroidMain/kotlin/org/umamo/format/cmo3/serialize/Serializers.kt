@@ -77,6 +77,7 @@ internal class PrimitiveSerializer(
 		val element = Element(tag)
 		element.setFieldName(name)
 		element.text = value.toString()
+
 		return element
 	}
 
@@ -98,6 +99,7 @@ internal class ListSerializer(
 		element.setFieldName(name)
 		element.setAttribute(ATTR_COUNT, list.size.toString())
 		for (item in list) element.addContent(ctx.createElementFromObject(null, item))
+
 		return element
 	}
 
@@ -105,6 +107,7 @@ internal class ListSerializer(
 		val out = factory()
 		@Suppress("UNCHECKED_CAST")
 		for (child in element.children as List<Element>) out.add(ctx.createObjectFromElement(child))
+
 		return out
 	}
 }
@@ -190,6 +193,7 @@ internal class ReflectiveClassSerializer(
 	private fun newInstance(): Any {
 		val constructor = kClass.java.getDeclaredConstructor()
 		constructor.isAccessible = true
+
 		try {
 			return constructor.newInstance()
 		} catch (wrapped: InvocationTargetException) {
@@ -200,6 +204,7 @@ internal class ReflectiveClassSerializer(
 	@Suppress("UNCHECKED_CAST")
 	private fun buildProperties(): List<KMutableProperty1<Any, Any?>> {
 		val fieldOrder = kClass.java.declaredFields.map { it.name }
+
 		return kClass.declaredMemberProperties
 			.filterIsInstance<KMutableProperty1<Any, Any?>>()
 			.filter { it.findAnnotation<DontSerialize>() == null }
@@ -217,6 +222,7 @@ internal class ReflectiveClassSerializer(
 		// Attributes (on the tag): when this object was read, keep exactly the attributes it had; for a
 		// freshly built object fall back to dropping @DontSerializeIfDefault defaults.
 		val presentAttrs = ctx.presentAttrsFor(value, tag)
+
 		for (property in attributeProperties) {
 			val propertyValue = property.get(value)
 			val omit =
@@ -228,13 +234,15 @@ internal class ReflectiveClassSerializer(
 			if (omit) continue
 			if (propertyValue != null) element.setAttribute(attributeNameOf(property), propertyValue.toString())
 		}
+
 		// Child elements: replay the exact sequence read (order, presence and unknown children all
 		// preserved across schema versions); otherwise emit super + own fields in declaration order.
 		val order = ctx.childOrderFor(value, tag)
+
 		if (order != null) {
 			for (slot in order) {
 				when (slot) {
-					is ChildSlot.Super ->
+					is ChildSlot.Super -> {
 						superSerializer?.let {
 							element.addContent(
 								it.createElement(
@@ -244,27 +252,35 @@ internal class ReflectiveClassSerializer(
 								),
 							)
 						}
+					}
 
-					is ChildSlot.VerbatimChild -> element.addContent(slot.element.clone() as Element)
-					is ChildSlot.KnownField ->
+					is ChildSlot.VerbatimChild -> {
+						element.addContent(slot.element.clone() as Element)
+					}
+
+					is ChildSlot.KnownField -> {
 						childPropertiesByPropName[slot.propertyName]?.let { property ->
 							element.addContent(ctx.createElementFromObject(childNameOf(property), property.get(value)))
 						}
+					}
 				}
 			}
 		} else {
 			superSerializer?.let { element.addContent(it.createElement(NAME_SUPER, value, ctx)) }
+
 			for (property in childProperties) {
 				val propertyValue = property.get(value)
 				if (property.name in skipIfDefault && isDefaultValue(property, propertyValue)) continue
 				element.addContent(ctx.createElementFromObject(childNameOf(property), propertyValue))
 			}
 		}
+
 		return element
 	}
 
 	private fun isDefaultValue(property: KMutableProperty1<Any, Any?>, propertyValue: Any?): Boolean {
 		val default = defaultInstance ?: return false
+
 		return propertyValue == property.get(default)
 	}
 
@@ -276,24 +292,32 @@ internal class ReflectiveClassSerializer(
 			ctx.recordPresentAttr(instance, tag, property.name)
 			property.set(instance, parseScalar(raw, property))
 		}
+
 		@Suppress("UNCHECKED_CAST")
 		for (child in element.children as List<Element>) {
 			val fieldName = child.getAttributeValue(ATTR_NAME)
+
 			if (fieldName == NAME_SUPER) {
 				val superSerializer = this.superSerializer
+
 				if (superSerializer != null) {
 					superSerializer.setupInstance(child, instance, ctx)
 					ctx.recordSuperChild(instance, tag)
 				} else {
 					ctx.recordVerbatimChild(instance, tag, child) // unmodeled superclass - keep verbatim
 				}
+
 				continue
 			}
+
 			val property = childPropertiesByName[fieldName]
+
 			if (property == null) {
 				ctx.recordVerbatimChild(instance, tag, child) // a field newer than our schema - keep it
+
 				continue
 			}
+
 			ctx.recordKnownChild(instance, tag, property.name)
 			property.set(instance, ctx.createObjectFromElement(child))
 		}

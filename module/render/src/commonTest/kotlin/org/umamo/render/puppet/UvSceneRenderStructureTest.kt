@@ -581,6 +581,7 @@ class UvSceneRenderStructureTest {
 		renderer.initGl()
 		renderer.setCamera(ViewportCamera(8f, 8f, 2f))
 		val target = device.createRenderTarget(RenderTargetSpec(viewportSize, viewportSize, TextureFormat.Rgba8, sampled = true)) as RecordedTarget
+
 		return Triple(device, renderer, target)
 	}
 
@@ -613,6 +614,7 @@ class UvSceneRenderStructureTest {
 						listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(positions.size)))),
 					),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(parameterId, "A", -1f, 1f, 0f)),
 			parts = emptyList(),
@@ -677,6 +679,7 @@ class UvSceneRenderStructureTest {
 			styles.map { (id, style) ->
 				MeshOverlayMesh(DrawableId(id), 4, quadEdges, ByteArray(0), ByteArray(0), ByteArray(0), null, null, null, style)
 			}
+
 		return DirectMeshOverlay(
 			MeshOverlay(MeshOverlayKind.Islands, MeshOverlaySelectMode.Vertex, meshes, sizes),
 			positions.mapKeys { (id, _) -> DrawableId(id) },
@@ -725,6 +728,7 @@ class UvSceneRenderStructureTest {
 	 */
 	private fun quadRole(draw: RecordedQuadDraw): String {
 		val quad = draw.quadToWorld
+
 		return when {
 			draw.texture == null -> "scrim"
 			quad[1] == 0f && quad[2] == 0f && quad[3] == 0f && quad[5] == 0f -> "page"

@@ -97,6 +97,7 @@ internal fun islandStyleOf(
 			selected -> IslandEdgeRole.Selected
 			else -> IslandEdgeRole.Idle
 		}
+
 	return IslandStyle(if (selected) IslandFillRole.Selected else IslandFillRole.Idle, edge)
 }
 
@@ -153,6 +154,7 @@ internal class UvObjectOverlayProducer {
 			} else {
 				null
 			}
+
 		return UvObjectScene(islands, preview)
 	}
 
@@ -171,13 +173,16 @@ internal class UvObjectOverlayProducer {
 			endpointsById.clear()
 			meshById.clear()
 			lastIslands = null
+
 			return null
 		}
+
 		if (scene.model !== lastModel) {
 			lastModel = scene.model
 			lastTileByDrawable = tileIdsByDrawable(scene.model)
 			lastPinnedTileIds = pinnedTileIdsOf(scene.model)
 		}
+
 		val selectedIds = selection.targets.mapNotNullTo(HashSet()) { target -> (target as? SelectionTarget.Drawable)?.id }
 		val activeId = (selection.active as? SelectionTarget.Drawable)?.id
 		val collidingTileIds = drag?.result?.overlappingTileIds ?: emptySet()
@@ -185,6 +190,7 @@ internal class UvObjectOverlayProducer {
 		val meshes = ArrayList<MeshOverlayMesh>(ordered.size)
 		val positionsById = HashMap<DrawableId, FloatArray>(ordered.size)
 		val indicesById = HashMap<DrawableId, IntArray>(ordered.size)
+
 		for (geometry in ordered) {
 			val drawableId = geometry.drawableId
 			val style = islandStyleOf(drawableId, selectedIds, activeId, lastTileByDrawable[drawableId], collidingTileIds, lastPinnedTileIds)
@@ -192,15 +198,19 @@ internal class UvObjectOverlayProducer {
 			positionsById[drawableId] = drag?.previewPositionsById?.get(drawableId) ?: geometry.positions
 			indicesById[drawableId] = geometry.indices
 		}
+
 		val shownIds = positionsById.keys
 		endpointsById.keys.retainAll(shownIds)
 		meshById.keys.retainAll(shownIds)
 		val previous = lastIslands
+
 		if (previous != null && previous.overlay.sizes == sizes && sameIslands(previous, meshes, positionsById, indicesById)) {
 			return previous
 		}
+
 		val islands = DirectMeshOverlay(MeshOverlay(MeshOverlayKind.Islands, MeshOverlaySelectMode.Vertex, meshes, sizes), positionsById, indicesById)
 		lastIslands = islands
+
 		return islands
 	}
 
@@ -217,30 +227,39 @@ internal class UvObjectOverlayProducer {
 	private fun previewOf(scene: UvShownScene, drag: PlacementDragView?, ghost: PlacementGhost?): PlacementPreview? {
 		if (drag == null && ghost == null) {
 			lastPreview = null
+
 			return null
 		}
+
 		val previous = lastPreview
+
 		if (previous != null && drag === lastPreviewDrag && ghost === lastPreviewGhost && scene.scrimColor == lastPreviewScene?.scrimColor && scene.model === lastPreviewScene?.model) {
 			return previous
 		}
+
 		val scrimQuads = ArrayList<FloatArray>()
 		val crops = ArrayList<PlacementCropQuad>()
+
 		if (drag != null) {
 			val pageHeight = drag.gesture.pageHeight
+
 			for (mover in drag.gesture.movers) {
 				scrimQuads.add(trimQuadToDisplay(mover.placement, mover.trim, pageHeight))
 			}
+
 			for (mover in drag.gesture.movers) {
 				val placed = drag.result.placementByTile[mover.tileId] ?: continue
 				crops.add(cropQuadOf(scene.model, mover.tileId, mover.crop, mover.trim, placed, pageHeight))
 			}
 		}
+
 		val ghostCrops = ghost?.crops?.map { ghostCrop -> cropQuadOf(scene.model, ghostCrop.tileId, ghostCrop.crop, ghostCrop.trim, ghostCrop.placement, ghost.pageHeight) } ?: emptyList()
 		val preview = PlacementPreview(scene.scrimColor, scrimQuads, crops, ghost?.atlas, ghostCrops)
 		lastPreview = preview
 		lastPreviewDrag = drag
 		lastPreviewGhost = ghost
 		lastPreviewScene = scene
+
 		return preview
 	}
 
@@ -265,6 +284,7 @@ internal class UvObjectOverlayProducer {
 	): PlacementCropQuad {
 		val tile = model.atlas.tileById[tileId]
 		val sampleAffine = if (tile != null) trimSampleAffine(trim, tile.width, tile.height) else IDENTITY_SAMPLE
+
 		return PlacementCropQuad(tileId.raw, crop, trimQuadToDisplay(placement, trim, pageHeight), sampleAffine)
 	}
 
@@ -277,15 +297,20 @@ internal class UvObjectOverlayProducer {
 	 */
 	private fun endpointsOf(drawableId: DrawableId, edges: List<MeshElement.Edge>): IntArray {
 		val cached = endpointsById[drawableId]
+
 		if (cached != null && cached.edges === edges) {
 			return cached.endpoints
 		}
+
 		val endpoints = IntArray(edges.size * 2)
+
 		for ((edgeIndex, edge) in edges.withIndex()) {
 			endpoints[edgeIndex * 2] = edge.endpointLow
 			endpoints[edgeIndex * 2 + 1] = edge.endpointHigh
 		}
+
 		endpointsById[drawableId] = Endpoints(edges, endpoints)
+
 		return endpoints
 	}
 
@@ -301,11 +326,14 @@ internal class UvObjectOverlayProducer {
 	 */
 	private fun meshOf(drawableId: DrawableId, endpoints: IntArray, vertexCount: Int, style: IslandStyle): MeshOverlayMesh {
 		val cached = meshById[drawableId]
+
 		if (cached != null && cached.edgeEndpoints === endpoints && cached.vertexCount == vertexCount && cached.islandStyle == style) {
 			return cached
 		}
+
 		val mesh = MeshOverlayMesh(drawableId, vertexCount, endpoints, NO_FLAGS, NO_FLAGS, NO_FLAGS, null, null, null, style)
 		meshById[drawableId] = mesh
+
 		return mesh
 	}
 
@@ -325,11 +353,14 @@ internal class UvObjectOverlayProducer {
 		indicesById: Map<DrawableId, IntArray>,
 	): Boolean {
 		val previousMeshes = previous.overlay.meshes
+
 		if (previousMeshes.size != meshes.size) {
 			return false
 		}
+
 		for (meshIndex in meshes.indices) {
 			val mesh = meshes[meshIndex]
+
 			if (previousMeshes[meshIndex] !== mesh ||
 				previous.positionsById[mesh.drawableId] !== positionsById[mesh.drawableId] ||
 				previous.triangleIndicesById[mesh.drawableId] !== indicesById[mesh.drawableId]
@@ -337,6 +368,7 @@ internal class UvObjectOverlayProducer {
 				return false
 			}
 		}
+
 		return true
 	}
 }

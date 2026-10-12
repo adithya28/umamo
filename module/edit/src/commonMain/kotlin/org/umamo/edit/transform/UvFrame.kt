@@ -69,6 +69,7 @@ class UvFrame(private val toFrameAffine: FloatArray, private val fromFrameAffine
 	private fun applyAffine(uvs: FloatArray, affine: FloatArray): FloatArray {
 		val mapped = FloatArray(uvs.size)
 		var componentIndex = 0
+
 		while (componentIndex + 1 < uvs.size) {
 			val u = uvs[componentIndex]
 			val v = uvs[componentIndex + 1]
@@ -76,6 +77,7 @@ class UvFrame(private val toFrameAffine: FloatArray, private val fromFrameAffine
 			mapped[componentIndex + 1] = affine[3] * u + affine[4] * v + affine[5]
 			componentIndex += 2
 		}
+
 		return mapped
 	}
 }

@@ -35,6 +35,7 @@ import org.umamo.ui.action.CommandRegistry
  */
 internal fun CommandRegistry.registerAll(commands: List<Command>): () -> Unit {
 	commands.forEach { command -> register(command) }
+
 	return { commands.forEach { command -> unregister(command.id) } }
 }
 

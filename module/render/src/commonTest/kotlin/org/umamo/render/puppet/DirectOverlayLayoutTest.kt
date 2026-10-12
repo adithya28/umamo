@@ -56,6 +56,7 @@ class DirectOverlayLayoutTest {
 				"an index outside the mesh" to (FloatArray(6) to intArrayOf(0, 1, 3)),
 				"a negative index" to (FloatArray(6) to intArrayOf(0, -1, 2)),
 			)
+
 		for ((label, arrays) in cases) {
 			val layout =
 				planDirectOverlayLayout(

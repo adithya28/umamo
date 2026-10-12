@@ -155,6 +155,7 @@ class MeshTopologyTest {
 	fun uniqueEdgeEndpointsMatchesUniqueEdges() {
 		// A triangle listed twice, wound the other way the second time, adds no edges.
 		val repeatedIndices = intArrayOf(0, 1, 2, 2, 1, 0)
+
 		for (indices in listOf(stripIndices, spokeIndices, repeatedIndices, IntArray(0))) {
 			val expected = MeshTopology.uniqueEdges(indices).flatMap { edge -> listOf(edge.endpointLow, edge.endpointHigh) }
 			assertEquals(expected, MeshTopology.uniqueEdgeEndpoints(indices).toList(), "edges of ${indices.toList()}")

@@ -34,18 +34,24 @@ import org.umamo.runtime.model.withDerivedRenderRoot
  */
 fun PuppetModel.withTileSource(tileId: AtlasTileId, source: SourceLayerRef?): PuppetModel {
 	val tileIndex = atlas.tiles.indexOfFirst { tile -> tile.id == tileId }
+
 	if (tileIndex < 0) {
 		return this
 	}
+
 	if (source != null && sources.none { candidate -> candidate.id == source.sourceId }) {
 		return this
 	}
+
 	val tile = atlas.tiles[tileIndex]
+
 	if (tile.source == source) {
 		return this
 	}
+
 	val tiles = atlas.tiles.toMutableList()
 	tiles[tileIndex] = tile.copy(source = source)
+
 	return copy(atlas = atlas.copy(tiles = tiles))
 }
 
@@ -65,9 +71,11 @@ fun PuppetModel.withArtworkAdded(additions: ArtworkAdditions): PuppetModel {
 	if (sources.any { source -> source.id == additions.source.id }) {
 		return this
 	}
+
 	val existingTileIds = atlas.tiles.mapTo(HashSet()) { tile -> tile.id }
 	val existingDrawableIds = drawables.mapTo(HashSet()) { drawable -> drawable.id }
 	val existingPartIds = parts.mapTo(HashSet()) { part -> part.id }
+
 	if (additions.tiles.any { tile -> tile.id in existingTileIds } ||
 		additions.drawables.any { drawable -> drawable.id in existingDrawableIds } ||
 		additions.parts.any { part -> part.id in existingPartIds } ||
@@ -75,7 +83,9 @@ fun PuppetModel.withArtworkAdded(additions: ArtworkAdditions): PuppetModel {
 	) {
 		return this
 	}
+
 	val placed = placeInsertions(parts, rootChildren, additions.insertions)
+
 	return copy(
 		parts = placed.parts + additions.parts,
 		drawables = drawables + additions.drawables,
@@ -98,6 +108,7 @@ fun PuppetModel.withTileDeleted(tileId: AtlasTileId): PuppetModel {
 	if (atlas.tileById[tileId] == null || drawables.any { drawable -> drawable.atlasTileId == tileId }) {
 		return this
 	}
+
 	return copy(atlas = atlas.copy(tiles = atlas.tiles.filter { tile -> tile.id != tileId }))
 }
 
@@ -114,21 +125,27 @@ fun PuppetModel.withTileDeleted(tileId: AtlasTileId): PuppetModel {
  */
 fun PuppetModel.withLayerIgnored(sourceId: ArtSourceId, key: String, ignored: Boolean): PuppetModel {
 	val sourceIndex = sources.indexOfFirst { source -> source.id == sourceId }
+
 	if (sourceIndex < 0) {
 		return this
 	}
+
 	if (atlas.tiles.any { tile -> tile.source?.sourceId == sourceId && tile.source?.layerKey == key }) {
 		return this
 	}
+
 	val source = sources[sourceIndex]
 	val rowIndex = source.layers.indexOfFirst { row -> row.key == key }
+
 	if (rowIndex < 0 || source.layers[rowIndex].ignored == ignored) {
 		return this
 	}
+
 	val rows = source.layers.toMutableList()
 	rows[rowIndex] = rows[rowIndex].copy(ignored = ignored)
 	val updated = sources.toMutableList()
 	updated[sourceIndex] = source.copy(layers = rows)
+
 	return copy(sources = updated)
 }
 
@@ -157,24 +174,30 @@ private fun placeInsertions(parts: List<Part>, rootChildren: List<OrgChild>, ins
 	if (insertions.isEmpty()) {
 		return PlacedOrgTree(parts, rootChildren)
 	}
+
 	var root = rootChildren
 	val childrenByPart = LinkedHashMap<PartId, List<OrgChild>>()
+
 	for (part in parts) {
 		childrenByPart[part.id] = part.children
 	}
+
 	for (insertion in insertions) {
 		val container = insertion.container
+
 		if (container == null) {
 			root = root.withInserted(insertion.child, insertion.slot)
 		} else {
 			childrenByPart[container] = childrenByPart.getValue(container).withInserted(insertion.child, insertion.slot)
 		}
 	}
+
 	val placedParts =
 		parts.map { part ->
 			val children = childrenByPart.getValue(part.id)
 			if (children === part.children) part else part.copy(children = children)
 		}
+
 	return PlacedOrgTree(placedParts, root)
 }
 
@@ -195,6 +218,7 @@ private fun List<OrgChild>.withInserted(child: OrgChild, slot: OrgSlot): List<Or
 	val grown = ArrayList<OrgChild>(size + 1)
 	grown.addAll(this)
 	grown.add(index, child)
+
 	return grown
 }
 
@@ -224,19 +248,25 @@ fun PuppetModel.withArtworkReloaded(reload: ArtworkReload): PuppetModel {
 	if (sources.none { source -> source.id == reload.source.id }) {
 		return this
 	}
+
 	val existingTileIds = atlas.tiles.mapTo(HashSet()) { tile -> tile.id }
 	val replacedIds = reload.replacedTiles.mapTo(HashSet()) { replaced -> replaced.oldId }
+
 	if (replacedIds.size != reload.replacedTiles.size || replacedIds.any { oldId -> oldId !in existingTileIds }) {
 		return this
 	}
+
 	val retiredIds = reload.retiredTiles.toSet()
+
 	if (retiredIds.any { tileId -> tileId !in existingTileIds || tileId in replacedIds }) {
 		return this
 	}
+
 	val additions = reload.additions
 	val newTiles = reload.replacedTiles.map { replaced -> replaced.tile } + additions?.tiles.orEmpty()
 	val existingDrawableIds = drawables.mapTo(HashSet()) { drawable -> drawable.id }
 	val existingPartIds = parts.mapTo(HashSet()) { part -> part.id }
+
 	if (newTiles.any { tile -> tile.id in existingTileIds } ||
 		newTiles.mapTo(HashSet()) { tile -> tile.id }.size != newTiles.size ||
 		additions?.drawables.orEmpty().any { drawable -> drawable.id in existingDrawableIds } ||
@@ -245,12 +275,14 @@ fun PuppetModel.withArtworkReloaded(reload: ArtworkReload): PuppetModel {
 	) {
 		return this
 	}
+
 	val newTileByOldId = reload.replacedTiles.associate { replaced -> replaced.oldId to replaced.tile.id }
 	val movedDrawables =
 		drawables.map { drawable ->
 			val newTileId = drawable.atlasTileId?.let { tileId -> newTileByOldId[tileId] }
 			val mesh = reload.drawableMeshes[drawable.id]
 			val visible = reload.drawableVisibility[drawable.id]
+
 			if (newTileId == null && mesh == null && visible == null) {
 				drawable
 			} else {
@@ -269,5 +301,6 @@ fun PuppetModel.withArtworkReloaded(reload: ArtworkReload): PuppetModel {
 		)
 	// A retired tile's drawables leave with it, every reference scrubbed the way a delete scrubs them.
 	val retiredDrawables = reloaded.drawables.filter { drawable -> drawable.atlasTileId in retiredIds }.mapTo(HashSet()) { drawable -> drawable.id }
+
 	return reloaded.removingDrawables(retiredDrawables).withDerivedRenderRoot()
 }

@@ -53,6 +53,7 @@ class CompositeImportTest {
 
 	private fun importCmo3(file: File): PuppetModel {
 		val root = Cmo3.read(file).root as? CModelSource ?: error("${file.name}: root is not a CModelSource")
+
 		return Cmo3Import.fromModelSource(root)
 	}
 

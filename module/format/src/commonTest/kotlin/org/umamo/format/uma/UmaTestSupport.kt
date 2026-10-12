@@ -66,6 +66,7 @@ internal fun umaArchiveOf(manifest: String?, entries: List<TestEntry> = emptyLis
 	val writer = ZipWriter(ZipRecords.DOS_EPOCH_DATE_TIME)
 	mimetype?.let { content -> writer.addStored(UmaContainer.MIMETYPE_PATH, content.encodeToByteArray()) }
 	manifest?.let { content -> writer.addDeflated(UmaContainer.MANIFEST_PATH, content.encodeToByteArray()) }
+
 	for (entry in entries) {
 		if (entry.deflated) {
 			writer.addDeflated(entry.path, entry.contents)
@@ -73,6 +74,7 @@ internal fun umaArchiveOf(manifest: String?, entries: List<TestEntry> = emptyLis
 			writer.addStored(entry.path, entry.contents)
 		}
 	}
+
 	return writer.finish()
 }
 

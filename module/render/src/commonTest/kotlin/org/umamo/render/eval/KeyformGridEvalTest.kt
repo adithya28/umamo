@@ -20,6 +20,7 @@ class KeyformGridEvalTest {
 
 	private fun values(vararg pairs: Pair<ParameterId, Float>): (ParameterId) -> Float {
 		val map = pairs.toMap()
+
 		return { map[it] ?: 0f }
 	}
 

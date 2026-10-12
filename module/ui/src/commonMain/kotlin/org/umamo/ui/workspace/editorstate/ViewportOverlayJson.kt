@@ -35,21 +35,27 @@ internal fun ViewportOverlayState.overlaysJsonOrNull(): JsonElement {
 	if (isAtDefaults) {
 		return JsonNull
 	}
+
 	val carriesViewportOnlyKeys = surface == OverlaySurface.Viewport2D
+
 	return buildJsonObject {
 		// UMA § 7.3 `overlays`: every key's default is true except the wireframe's.
 		put("all", flagOrNull(showOverlays, defaultValue = true))
 		put("grid", flagOrNull(showGrid, defaultValue = true))
+
 		if (carriesViewportOnlyKeys) {
 			put("axes", flagOrNull(showAxes, defaultValue = true))
 		}
+
 		put("cursor", flagOrNull(showCursor, defaultValue = true))
 		put("info", flagOrNull(showInfo, defaultValue = true))
+
 		if (carriesViewportOnlyKeys) {
 			put("wireframe", flagOrNull(showWireframe, defaultValue = false))
 			put("selectionTint", flagOrNull(showSelectionTint, defaultValue = true))
 			put("wireframeCulling", flagOrNull(cullHiddenWireframe, defaultValue = true))
 		}
+
 		// UMA § 7.3 `wireframeOpacity`: the wireframe's (a UV editor's islands') alpha scale, 0 to 1, on both surfaces.
 		put("wireframeOpacity", if (wireframeOpacity == 1f) JsonNull else JsonPrimitive(wireframeOpacity))
 		// UMA § 7.3 `gridGeometry`: the area's own grid, the one shape under both surfaces.
@@ -75,19 +81,23 @@ internal fun ViewportOverlayState.overlaysJsonOrNull(): JsonElement {
  */
 internal fun ViewportOverlayState.restoreOverlays(tree: JsonObject?) {
 	reset()
+
 	if (tree == null) {
 		return
 	}
+
 	showOverlays = booleanOf(tree, "all") ?: true
 	showGrid = booleanOf(tree, "grid") ?: true
 	showCursor = booleanOf(tree, "cursor") ?: true
 	showInfo = booleanOf(tree, "info") ?: true
+
 	if (surface == OverlaySurface.Viewport2D) {
 		showAxes = booleanOf(tree, "axes") ?: true
 		showWireframe = booleanOf(tree, "wireframe") ?: false
 		showSelectionTint = booleanOf(tree, "selectionTint") ?: true
 		cullHiddenWireframe = booleanOf(tree, "wireframeCulling") ?: true
 	}
+
 	wireframeOpacity = finiteFloatOf(tree["wireframeOpacity"])?.takeIf { value -> value in 0f..1f } ?: 1f
 	gridGeometry = gridGeometryOf(tree["gridGeometry"] as? JsonObject)
 }
@@ -104,8 +114,10 @@ private fun gridGeometryOf(block: JsonObject?): GridConfig? {
 	if (block == null) {
 		return null
 	}
+
 	val subdivisions = intOf(block["subdivisions"])?.takeIf { value -> value >= 1 } ?: return null
 	val scale = finiteFloatOf(block["scale"])?.takeIf { value -> value > 0f } ?: return null
+
 	return GridConfig(scale, subdivisions)
 }
 

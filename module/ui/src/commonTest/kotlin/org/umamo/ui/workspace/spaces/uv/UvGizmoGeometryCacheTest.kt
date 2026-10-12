@@ -35,6 +35,7 @@ class UvGizmoGeometryCacheTest {
 		val again = pageGeometries(cache, model)
 
 		assertEquals(2, again.size)
+
 		for (geometryIndex in again.indices) {
 			assertSame(first[geometryIndex], again[geometryIndex], "${again[geometryIndex].drawableId} is kept whole")
 		}
@@ -97,6 +98,7 @@ class UvGizmoGeometryCacheTest {
 		val oneShot = uvGizmoGeometries(shown, shownSurfaceUvs(shown, model, null), pageSide, pageSide)
 
 		assertEquals(oneShot.map { geometry -> geometry.drawableId }, cached.map { geometry -> geometry.drawableId })
+
 		for (geometryIndex in oneShot.indices) {
 			assertContentEquals(oneShot[geometryIndex].positions, cached[geometryIndex].positions)
 			assertEquals(oneShot[geometryIndex].edges, cached[geometryIndex].edges)
@@ -136,6 +138,7 @@ class UvGizmoGeometryCacheTest {
 	 */
 	private fun pageGeometries(cache: UvGizmoGeometryCache, model: PuppetModel): List<GizmoMeshGeometry> {
 		val shown = shownOf(model)
+
 		return cache.geometries(shown, cache.surfaceUvs(shown, model, null), pageSide, pageSide)
 	}
 }

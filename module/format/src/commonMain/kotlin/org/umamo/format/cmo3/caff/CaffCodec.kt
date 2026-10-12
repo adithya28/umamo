@@ -51,14 +51,17 @@ public object CaffCodec {
 	 */
 	public fun isCaff(candidateBytes: ByteArray): Boolean {
 		val magic = CaffArchive.MAGIC.encodeToByteArray() // CAFF: magic @ +0x00, unobfuscated
+
 		if (candidateBytes.size < magic.size) {
 			return false
 		}
+
 		for (magicIndex in magic.indices) {
 			if (candidateBytes[magicIndex] != magic[magicIndex]) {
 				return false
 			}
 		}
+
 		return true
 	}
 
@@ -91,6 +94,7 @@ public object CaffCodec {
 		// --- FILE TABLE (obfuscated with obfuscateKey) - CMO3.md §1 ---
 		val count = reader.readInt32(obfuscateKey)
 		val metas = ArrayList<EntryMeta>(count)
+
 		for (entryIndex in 0 until count) {
 			val path = reader.readString(obfuscateKey)
 			val tag = reader.readString(obfuscateKey)
@@ -130,6 +134,7 @@ public object CaffCodec {
 		reader.seek(meta.offset)
 		val stored = reader.readBytes(meta.storedSize, if (meta.obfuscated) obfuscateKey else 0)
 		val content = if (meta.compression.isCompressed) CaffZip.unzipSingle(stored) else stored
+
 		return CaffEntry(meta.path, meta.tag, content, meta.compression, meta.obfuscated)
 	}
 
@@ -181,6 +186,7 @@ public object CaffCodec {
 		val reader = BinaryReader(bytes)
 		val parsed = readHeaderAndTable(reader)
 		val meta = parsed.metas.firstOrNull { it.tag == tag } ?: return null
+
 		return decodeEntry(reader, meta, parsed.obfuscateKey)
 	}
 
@@ -206,14 +212,17 @@ public object CaffCodec {
 
 		// Compute the table size so we know where blobs start, then assign sequential offsets.
 		var tableBytes = 4 // count
+
 		for (entry in archive.entries) {
 			tableBytes += varIntSize(entry.path.encodeToByteArray().size) + entry.path.encodeToByteArray().size
 			tableBytes += varIntSize(entry.tag.encodeToByteArray().size) + entry.tag.encodeToByteArray().size
 			tableBytes += 8 + 4 + 1 + 1 + 8 // startPos, fileSize, isObfuscated, compress, skip(8)
 		}
+
 		val blobStart = HEADER_AND_PREVIEW_BYTES + tableBytes
 		val offsets = IntArray(archive.entries.size)
 		var cursor = blobStart
+
 		for (index in storedBlobs.indices) {
 			offsets[index] = cursor
 			cursor += storedBlobs[index].size
@@ -231,6 +240,7 @@ public object CaffCodec {
 
 		// --- PREVIEW ---
 		val previewEntryIndex = archive.entries.indexOfFirst { it.tag == CaffArchive.TAG_PREVIEW }
+
 		if (archive.preview.present && previewEntryIndex >= 0) {
 			writer.writeU8(ImageType.PNG.typeNo, 0)
 			writer.writeU8(archive.preview.colorType.typeNo, 0)
@@ -253,6 +263,7 @@ public object CaffCodec {
 
 		// --- FILE TABLE ---
 		writer.writeInt32(archive.entries.size, key)
+
 		for (index in archive.entries.indices) {
 			val entry = archive.entries[index]
 			writer.writeString(entry.path, key)
@@ -289,6 +300,7 @@ public object CaffCodec {
 	private fun padFour(identifier: String): ByteArray {
 		val bytes = identifier.encodeToByteArray()
 		require(bytes.size == 4) { "format identifier must be 4 bytes: '$identifier'" }
+
 		return bytes
 	}
 }

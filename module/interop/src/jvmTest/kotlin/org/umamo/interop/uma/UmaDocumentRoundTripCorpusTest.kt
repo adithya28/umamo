@@ -87,16 +87,20 @@ class UmaDocumentRoundTripCorpusTest {
 		assertContentEquals(bytes, Uma.write(document), "$label: an unedited reopen rewrites byte for byte")
 
 		val documentPages = UmaDocumentBridge.pagesOf(document)
+
 		for (tile in model.atlas.tiles) {
 			assertContentEquals(pixels.tile(tile.id.raw), documentPages.tilePng(tile.id), "$label: tile ${tile.id.raw}'s PNG")
 			comparedPngCount++
 		}
+
 		if (expectedPages == null) {
 			assertEquals(null, documentPages.pageSet, "$label: derived pages store no page set")
 		} else {
 			assertSamePagesPerDrawable(label, expectedPages, assertNotNull(documentPages.pageSet, "$label: the render pages come back"))
 		}
+
 		assertEvaluationsMatch(label, model, reopened)
+
 		if (label in measuredSamples) {
 			println("[Umamo][uma] $label: ${"%.2f".format(bytes.size / (1024.0 * 1024.0))} MiB document, save ${writeNanos / 1_000_000} ms, open ${readNanos / 1_000_000} ms")
 		}
@@ -137,8 +141,10 @@ class UmaDocumentRoundTripCorpusTest {
 				expected.parameters.associate { parameter -> parameter.id to parameter.min },
 				expected.parameters.associate { parameter -> parameter.id to parameter.max },
 			) + List(8) { expected.parameters.associate { parameter -> parameter.id to parameter.min + random.nextFloat() * (parameter.max - parameter.min) } }
+
 		for ((poseIndex, pose) in poses.withIndex()) {
 			val expectedGeometry = evaluator.evaluate(expected, pose)
+
 			if (poseIndex == 0) {
 				// Two empty evaluations would match without comparing anything, so a model that draws something must
 				// evaluate to something.
@@ -147,6 +153,7 @@ class UmaDocumentRoundTripCorpusTest {
 				assertTrue(!drawsSomething || expectedGeometry.worldPositions.values.any { positions -> positions.isNotEmpty() }, "$label: the evaluation is not empty")
 				evaluatedPositionCount += expectedGeometry.worldPositions.values.sumOf { positions -> positions.size.toLong() }
 			}
+
 			assertSameGeometry("$label pose $poseIndex", expectedGeometry, evaluator.evaluate(actual, pose))
 		}
 	}
@@ -160,6 +167,7 @@ class UmaDocumentRoundTripCorpusTest {
 	 */
 	private fun assertSameGeometry(label: String, expected: DeformedGeometry, actual: DeformedGeometry) {
 		assertEquals(expected.worldPositions.keys, actual.worldPositions.keys, "$label: visible drawables")
+
 		for ((drawableId, positions) in expected.worldPositions) {
 			val reopenedPositions = actual.worldPositions.getValue(drawableId)
 			assertTrue(
@@ -202,10 +210,13 @@ class UmaDocumentRoundTripCorpusTest {
 	@Test
 	fun cmo3Corpus() {
 		val samples = System.getProperty("cmo3.probe")?.split(',')?.map(::File)?.filter { file -> file.isFile }.orEmpty()
+
 		if (samples.isEmpty()) {
 			println("no cmo3.probe samples; skipping the CMO3 document round trip")
+
 			return
 		}
+
 		for (sample in samples) {
 			recording(sample.name) {
 				val cmo3 = Cmo3.read(sample)
@@ -217,6 +228,7 @@ class UmaDocumentRoundTripCorpusTest {
 				assertRoundTrips(sample.name, imported.puppet, pixels, loaderPages)
 			}
 		}
+
 		assertNoFailures("CMO3")
 		println(
 			"[Umamo][uma] ${samples.size} CMO3 samples round-trip as documents ($comparedPngCount PNGs and " +
@@ -233,28 +245,36 @@ class UmaDocumentRoundTripCorpusTest {
 		val samples =
 			System.getProperty("moc3.samples")?.let(::File)?.takeIf { directory -> directory.isDirectory }
 				?.walkTopDown()?.filter { file -> file.isFile && file.extension == "moc3" }?.sortedBy { file -> file.path }?.toList().orEmpty()
+
 		if (samples.isEmpty()) {
 			println("no moc3.samples; skipping the MOC3 document round trip")
+
 			return
 		}
+
 		var pagedSamples = 0
+
 		for (sample in samples) {
 			recording(sample.name) {
 				val mocDocument = Moc3.read(sample.readBytes())
 				val model = Moc3Import.fromMocDocument(mocDocument, null)
 				val manifest = File(sample.parentFile, "${Moc3Sidecars.basenameFor(sample.name)}.model3.json").takeIf { file -> file.isFile }?.let { file -> Moc3.readModel3(file.readText()) }
 				val pageFiles = manifest?.fileReferences?.textures?.map { reference -> File(sample.parentFile, reference) }.orEmpty()
+
 				if (pageFiles.isEmpty() || pageFiles.any { file -> !file.isFile }) {
 					println("[Umamo][uma] ${sample.name}: its pages are not beside it, so only the model round-trips")
 					assertRoundTrips(sample.name, model, UmaPixelSource({ null }, UmaRenderPagePixels.Derived, null), null)
+
 					return@recording
 				}
+
 				pagedSamples++
 				val loaderPages = moc3AtlasPages(mocDocument, pageFiles.map { file -> file.readBytes() })
 				val pixels = UmaPixelSource({ null }, UmaRenderPagePixels.Stored(loaderPages.pageBytes, loaderPages.atlasIndexByDrawableId), null)
 				assertRoundTrips(sample.name, model, pixels, loaderPages)
 			}
 		}
+
 		assertNoFailures("MOC3")
 		assertTrue(pagedSamples > 0, "no MOC3 sample had its pages beside it, so the page leg compared nothing")
 		println("[Umamo][uma] ${samples.size} MOC3 samples round-trip as documents ($pagedSamples with pages; $comparedPngCount PNGs and $evaluatedPositionCount default-pose world floats compared)")
@@ -266,10 +286,13 @@ class UmaDocumentRoundTripCorpusTest {
 	@Test
 	fun artworkCorpus() {
 		val samples = locateArtworkSamples()
+
 		if (samples.isEmpty()) {
 			println("no test/corpus artwork samples; skipping the artwork document round trip")
+
 			return
 		}
+
 		for (sample in samples) {
 			recording(sample.name) {
 				val bytes = sample.readBytes()
@@ -281,6 +304,7 @@ class UmaDocumentRoundTripCorpusTest {
 				assertRoundTrips(sample.name, result.puppet, UmaPixelSource({ tileId -> pngByTile[tileId] }, UmaRenderPagePixels.Derived, null), null)
 			}
 		}
+
 		assertNoFailures("artwork")
 		println("[Umamo][uma] ${samples.size} artwork samples round-trip as documents ($comparedPngCount PNGs and $evaluatedPositionCount default-pose world floats compared)")
 	}
@@ -292,16 +316,20 @@ class UmaDocumentRoundTripCorpusTest {
 	 */
 	private fun locateArtworkSamples(): List<File> {
 		var directory: File? = File(System.getProperty("user.dir"))
+
 		while (directory != null) {
 			val corpus = File(directory, "test/corpus")
+
 			if (corpus.isDirectory) {
 				return listOf("psd", "clip", "krita")
 					.flatMap { folder -> File(corpus, folder).listFiles { file -> file.isFile }.orEmpty().toList() }
 					.filter { file -> file.extension.lowercase() in setOf("psd", "clip", "kra") }
 					.sortedBy { file -> file.name }
 			}
+
 			directory = directory.parentFile
 		}
+
 		return emptyList()
 	}
 }

@@ -48,6 +48,7 @@ fun SourceArt.placedBy(offset: CanvasOffset): SourceArt {
 	if (offset.isZero) {
 		return this
 	}
+
 	return PlacedSourceArt(this, offset)
 }
 

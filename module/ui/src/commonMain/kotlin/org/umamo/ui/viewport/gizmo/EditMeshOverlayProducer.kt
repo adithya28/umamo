@@ -139,6 +139,7 @@ internal class EditMeshOverlayProducer {
 		val editing = mode == EditorMode.Edit
 		val sessionIds = if (editing) selection.drawableIds.toSet() else emptySet()
 		val wireframeIds = wireframeOver.orEmpty()
+
 		// A drawable's edges are the same in the cage and in the wireframe, so its topology outlives a mode
 		// switch and is dropped only once the drawable leaves the model.  A model never changes under its
 		// identity, so the trim runs once per model rather than collecting every drawable's id per derive.
@@ -147,36 +148,47 @@ internal class EditMeshOverlayProducer {
 			topologyById.keys.retainAll(modelIds)
 			trimmedToModel = model
 		}
+
 		val meshById = HashMap<DrawableId, DrawableMesh>(sessionIds.size)
 		val wireframeEntries = ArrayList<MeshOverlayMesh>()
+
 		for (drawable in model.drawables) {
 			val mesh = drawable.mesh ?: continue
+
 			if (drawable.id in sessionIds) {
 				meshById[drawable.id] = mesh
 			} else if (drawable.id in wireframeIds && mesh.indices.isNotEmpty()) {
 				val topology = topologyOf(drawable.id, mesh)
+
 				if (topology.wellFormed) {
 					wireframeEntries.add(wireframeEntryOf(drawable.id, topology))
 				}
 			}
 		}
+
 		wireframeEntryById.keys.retainAll(wireframeIds)
+
 		if (!editing) {
 			return overlayOf(MeshOverlayKind.ObjectWireframe, MeshOverlaySelectMode.Vertex, wireframeEntries, sizes)
 		}
+
 		entryById.keys.retainAll(sessionIds)
 		val entries = ArrayList<MeshOverlayMesh>(wireframeEntries.size + selection.drawableIds.size)
 		entries.addAll(wireframeEntries)
+
 		for (drawableId in selection.drawableIds) {
 			if (shownIds != null && drawableId !in shownIds) {
 				continue
 			}
+
 			val mesh = meshById[drawableId] ?: continue
 			val topology = topologyOf(drawableId, mesh)
+
 			if (topology.wellFormed) {
 				entries.add(entryOf(drawableId, topology, selection))
 			}
 		}
+
 		return overlayOf(MeshOverlayKind.Edit, overlaySelectModeOf(selection.selectMode), entries, sizes)
 	}
 
@@ -194,12 +206,16 @@ internal class EditMeshOverlayProducer {
 		if (entries.isEmpty()) {
 			return null
 		}
+
 		val previous = lastOverlay
+
 		if (previous != null && previous.kind == kind && previous.selectMode == selectMode && previous.sizes == sizes && sameEntries(previous.meshes, entries)) {
 			return previous
 		}
+
 		val overlay = MeshOverlay(kind, selectMode, entries, sizes)
 		lastOverlay = overlay
+
 		return overlay
 	}
 
@@ -214,11 +230,14 @@ internal class EditMeshOverlayProducer {
 	 */
 	private fun wireframeEntryOf(drawableId: DrawableId, topology: Topology): MeshOverlayMesh {
 		val cached = wireframeEntryById[drawableId]
+
 		if (cached != null && cached.topology === topology) {
 			return cached.entry
 		}
+
 		val entry = MeshOverlayMesh(drawableId, topology.vertexCount, topology.edgeEndpoints, NO_FLAGS, NO_FLAGS, NO_FLAGS, null, null, null, wireframeOnly = true)
 		wireframeEntryById[drawableId] = WireframeEntry(topology, entry)
+
 		return entry
 	}
 
@@ -231,14 +250,17 @@ internal class EditMeshOverlayProducer {
 	 */
 	private fun topologyOf(drawableId: DrawableId, mesh: DrawableMesh): Topology {
 		val cached = topologyById[drawableId]
+
 		if (cached != null && cached.indices === mesh.indices && cached.vertexCount == mesh.vertexCount) {
 			return cached
 		}
+
 		val vertexCount = mesh.vertexCount
 		val wellFormed = mesh.indices.size % 3 == 0 && mesh.indices.all { index -> index in 0 until vertexCount }
 		val edgeEndpoints = if (wellFormed) MeshTopology.uniqueEdgeEndpoints(mesh.indices) else IntArray(0)
 		val topology = Topology(mesh.indices, vertexCount, edgeEndpoints, wellFormed)
 		topologyById[drawableId] = topology
+
 		return topology
 	}
 
@@ -255,11 +277,14 @@ internal class EditMeshOverlayProducer {
 		val elements = selection.elementsOf(drawableId)
 		val active = selection.activeElement?.takeIf { activeElement -> activeElement.drawableId == drawableId }?.element
 		val cached = entryById[drawableId]
+
 		if (cached != null && cached.elements === elements && cached.active == active && cached.selectMode == selection.selectMode && cached.topology === topology) {
 			return cached.entry
 		}
+
 		val entry = buildEntry(drawableId, topology, elements, active, selection.selectMode)
 		entryById[drawableId] = Entry(elements, active, selection.selectMode, topology, entry)
+
 		return entry
 	}
 
@@ -284,9 +309,11 @@ internal class EditMeshOverlayProducer {
 	): MeshOverlayMesh {
 		val vertexCount = topology.vertexCount
 		val edgeEndpoints = topology.edgeEndpoints
+
 		if (elements.isEmpty() && active == null) {
 			return MeshOverlayMesh(drawableId, vertexCount, edgeEndpoints, NO_FLAGS, NO_FLAGS, NO_FLAGS, null, null, null)
 		}
+
 		val triangleCount = topology.indices.size / 3
 		// A selection can name elements of an older shape of this mesh (the selection and the model reach the
 		// derive from different commits for a moment), and the highlight derive indexes the triangle list
@@ -297,10 +324,13 @@ internal class EditMeshOverlayProducer {
 		val highlight = buildHighlightSets(meshElements, meshActive, selectMode, topology.indices)
 
 		val vertexFlags = ByteArray(vertexCount)
+
 		for (vertexIndex in highlight.selectedVertexIndices) {
 			vertexFlags[vertexIndex] = OVERLAY_FLAG_SELECTED
 		}
+
 		val activeVertex = highlight.activeVertexIndex
+
 		if (activeVertex != null) {
 			vertexFlags[activeVertex] = OVERLAY_FLAG_ACTIVE
 		}
@@ -310,9 +340,11 @@ internal class EditMeshOverlayProducer {
 		val selectedEdges = highlight.selectedEdges
 		val activeEdgeElement = highlight.activeEdge
 		var activeEdge: Int? = null
+
 		if (selectedEdges.isNotEmpty() || activeEdgeElement != null) {
 			for (edgeOrdinal in 0 until edgeCount) {
 				val edge = MeshElement.Edge(edgeEndpoints[edgeOrdinal * 2], edgeEndpoints[edgeOrdinal * 2 + 1])
+
 				if (edge == activeEdgeElement) {
 					edgeFlags[edgeOrdinal] = OVERLAY_FLAG_ACTIVE
 					activeEdge = edgeOrdinal
@@ -323,13 +355,17 @@ internal class EditMeshOverlayProducer {
 		}
 
 		val faceFlags = ByteArray(triangleCount)
+
 		for (faceIndex in highlight.selectedFaceIndices) {
 			faceFlags[faceIndex] = OVERLAY_FLAG_SELECTED
 		}
+
 		val activeFace = highlight.activeFaceIndex
+
 		if (activeFace != null) {
 			faceFlags[activeFace] = OVERLAY_FLAG_ACTIVE
 		}
+
 		return MeshOverlayMesh(drawableId, vertexCount, edgeEndpoints, vertexFlags, edgeFlags, faceFlags, activeVertex, activeEdge, activeFace)
 	}
 

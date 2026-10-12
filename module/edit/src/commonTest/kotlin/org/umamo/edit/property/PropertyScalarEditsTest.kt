@@ -203,14 +203,18 @@ class PropertyScalarEditsTest {
 			if (node !is RenderGroup) {
 				return null
 			}
+
 			if (node.partId == id) {
 				return node
 			}
+
 			for (child in node.children) {
 				search(child)?.let { return it }
 			}
+
 			return null
 		}
+
 		return search(model.renderRoot)
 	}
 
@@ -461,6 +465,7 @@ class PropertyScalarEditsTest {
 	@Test
 	fun deformerRenderStaticBuildersCoverBothSubtypes() {
 		val base = model()
+
 		for (id in listOf(rotationId, warpId)) {
 			val faded = base.withDeformerOpacity(id, 0.5f)
 			assertEquals(0.5f, faded.deformerNamed(id).opacity, "opacity on $id")
@@ -471,6 +476,7 @@ class PropertyScalarEditsTest {
 
 			assertSame(base, base.withDeformerOpacity(id, 1f), "the default opacity is already 1")
 		}
+
 		assertSame(base, base.withDeformerOpacity(DeformerId("missing"), 0.5f))
 	}
 

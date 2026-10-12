@@ -57,16 +57,21 @@ fun restMeshesToCanvasSpace(model: PuppetModel): PuppetModel {
 				defaultPose.worldPositions[drawable.id]
 					?: clampedPose?.worldPositions?.get(drawable.id)
 					?: return@map drawable
+
 			if (worldPositions.size != mesh.positions.size) {
 				return@map drawable
 			}
+
 			val canvas = worldToCanvas(worldPositions)
+
 			// A drawable with no deformer whose rest shape is its base keeps the one shared array.
 			if (canvas.contentEquals(mesh.positions)) {
 				return@map drawable
 			}
+
 			drawable.copy(mesh = DrawableMesh(positions = canvas, localPositions = mesh.localPositions, uvs = mesh.uvs, indices = mesh.indices))
 		}
+
 	return model.copy(drawables = drawables)
 }
 
@@ -101,9 +106,11 @@ private fun defaultPoseFallbackFor(model: PuppetModel, defaultPose: DeformedGeom
 		model.drawables.filter { drawable ->
 			drawable.mesh != null && defaultPose.worldPositions[drawable.id] == null
 		}.map { drawable -> drawable.id }
+
 	if (hiddenAtDefault.isEmpty()) {
 		return null
 	}
+
 	return DefaultPoseFallback(hiddenAtDefault.toSet(), clampedDefaultsFor(model, hiddenAtDefault))
 }
 
@@ -199,6 +206,7 @@ private fun clampedDefaultsFor(model: PuppetModel, hiddenIds: List<DrawableId>):
 			if (axis.keys.isEmpty()) {
 				continue
 			}
+
 			val firstKey = axis.keys.first()
 			val lastKey = axis.keys.last()
 			lowerByParameter[axis.parameterId] = max(lowerByParameter[axis.parameterId] ?: firstKey, firstKey)
@@ -211,14 +219,17 @@ private fun clampedDefaultsFor(model: PuppetModel, hiddenIds: List<DrawableId>):
 		addAxes(drawable.geometryGrid)
 		var parentId = drawable.parentDeformerId
 		var chainSteps = 0
+
 		while (parentId != null && chainSteps <= model.deformers.size) {
 			val deformer = deformerById[parentId] ?: break
+
 			// Geometry AND channel tracks: a deformer keyed only on, say, opacity still constrains which
 			// parameters have to be clamped for the second-chance default-pose evaluation.
 			when (deformer) {
 				is Deformer.Warp -> addAxes(deformer.geometryGrid)
 				is Deformer.Rotation -> addAxes(deformer.geometryGrid)
 			}
+
 			deformer.channelGrids.gridsByChannel.values.forEach { track: KeyformGrid<*> -> addAxes(track) }
 			parentId = deformer.parent
 			chainSteps++
@@ -226,6 +237,7 @@ private fun clampedDefaultsFor(model: PuppetModel, hiddenIds: List<DrawableId>):
 	}
 
 	val defaultByParameter = model.parameters.associate { parameter -> parameter.id to parameter.default }
+
 	return buildMap {
 		for ((parameterId, lowerBound) in lowerByParameter) {
 			val upperBound = upperByParameter[parameterId] ?: lowerBound

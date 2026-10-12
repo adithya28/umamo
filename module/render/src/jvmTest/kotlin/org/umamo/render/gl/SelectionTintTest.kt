@@ -72,6 +72,7 @@ class SelectionTintTest {
 	private fun twoQuadModel(): PuppetModel {
 		val left = quad(leftId, leftPositions)
 		val right = quad(rightId, rightPositions)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),
@@ -229,6 +230,7 @@ class SelectionTintTest {
 		var sumGreen = 0L
 		var sumBlue = 0L
 		var count = 0
+
 		for (row in (centerRow - 5)..(centerRow + 5)) {
 			for (col in (centerCol - 5)..(centerCol + 5)) {
 				val pixel = (row * viewportSize + col) * 4
@@ -238,6 +240,7 @@ class SelectionTintTest {
 				count++
 			}
 		}
+
 		return Triple((sumRed / count).toInt(), (sumGreen / count).toInt(), (sumBlue / count).toInt())
 	}
 
@@ -245,6 +248,7 @@ class SelectionTintTest {
 	private fun readPixels(width: Int, height: Int): ByteBuffer {
 		val buffer = BufferUtils.createByteBuffer(width * height * 4)
 		GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer)
+
 		return buffer
 	}
 
@@ -258,6 +262,7 @@ class SelectionTintTest {
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR)
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR)
 		GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, colorTexture, 0)
+
 		return framebuffer
 	}
 }

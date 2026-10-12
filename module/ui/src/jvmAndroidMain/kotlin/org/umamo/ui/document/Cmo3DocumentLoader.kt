@@ -62,10 +62,13 @@ class Cmo3Document(
  */
 internal fun buildCmo3Document(cmo3: Cmo3Model, name: String, path: String): DocumentLoad {
 	val root = cmo3.root as? CModelSource
+
 	if (root == null) {
 		UmamoLog.error("failed to open $path: the CMO3 has no model source")
+
 		return DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.ParseFailed, name))
 	}
+
 	val imported = Cmo3Import.importModelSource(root)
 	val puppet = imported.puppet
 	// The atlas walk takes the root plus a pixel lookup rather than the Cmo3Model itself, which is what
@@ -90,5 +93,6 @@ internal fun buildCmo3Document(cmo3: Cmo3Model, name: String, path: String): Doc
 	val tileResources = imported.atlasIngest.imageResourceByTile
 	val tilePng: (AtlasTileId) -> ByteArray? = { tileId -> tileResources[tileId]?.let(cmo3::extractLayerPng) }
 	val artRasters = SourceArtRasters.fromPng(tilePng)
+
 	return DocumentLoad.Loaded(Cmo3Document(path, cmo3, puppet, textures, artRasters, initialLiveParams(puppet), pageSet, tilePng))
 }

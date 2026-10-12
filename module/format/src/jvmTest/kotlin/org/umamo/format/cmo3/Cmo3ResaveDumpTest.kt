@@ -16,8 +16,10 @@ class Cmo3ResaveDumpTest {
 			System.getProperty("cmo3.resave")
 				?: run {
 					println("cmo3.resave not present; skipping resave dump")
+
 					return
 				}
+
 		for (file in spec.split(',').map { File(it.trim()) }.filter { it.isFile }) {
 			val resaved = Cmo3.write(Cmo3.read(file.readBytes()))
 			val target = File("build/resave-${file.name}")

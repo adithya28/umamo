@@ -134,10 +134,13 @@ fun <TGeometry> lowerObjectKeyforms(
 			requireGeometry,
 			OutOfSpanPolicy.DemoteChannel,
 		)
+
 	if (result !is KeyformBundleResult.Bundled) {
 		return null
 	}
+
 	val bundle = result.bundle
+
 	return Moc3ObjectKeyforms(pool.indexOf(bundle), bundle)
 }
 
@@ -190,7 +193,9 @@ fun colorOf(
 	if (!enabled) {
 		return null
 	}
+
 	val value =
 		(bundle?.cells?.getOrNull(cellIndex)?.channels?.get(channel) as? ChannelValue.Color)?.color ?: fallback
+
 	return Rgb(value.red, value.green, value.blue)
 }

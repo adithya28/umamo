@@ -33,6 +33,7 @@ internal fun <TForm : Any> gridOf(
 	if (binding == null) {
 		return null
 	}
+
 	// MOC3 §5.6: axes are in stride order (first = fastest varying), matching the runtime grid's
 	// stride folding, so keyIndices(gridIndex) is the cell coordinate as-is.
 	val axes =
@@ -46,6 +47,7 @@ internal fun <TForm : Any> gridOf(
 		(0 until binding.gridSize).mapNotNull { gridIndex ->
 			formAt(gridIndex)?.let { form -> KeyformCell(binding.keyIndices(gridIndex), form) }
 		}
+
 	return KeyformGrid(axes, cells)
 }
 
@@ -74,18 +76,23 @@ internal fun defaultCellIndexOf(
 	if (binding == null) {
 		return 0
 	}
+
 	var linearIndex = 0
 	var stride = 1
+
 	for (axis in binding.axes) {
 		val defaultValue = context.defaultValueAt(axis.parameterIndex)
 		var nearestKey = 0
+
 		for (keyIndex in axis.keyPositions.indices) {
 			if (abs(axis.keyPositions[keyIndex] - defaultValue) < abs(axis.keyPositions[nearestKey] - defaultValue)) {
 				nearestKey = keyIndex
 			}
 		}
+
 		linearIndex += nearestKey * stride
 		stride *= axis.keyCount
 	}
+
 	return linearIndex
 }

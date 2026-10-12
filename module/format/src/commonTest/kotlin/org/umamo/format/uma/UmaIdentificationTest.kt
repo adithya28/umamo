@@ -26,12 +26,15 @@ class UmaIdentificationTest {
 	 */
 	private fun archiveStartingWith(name: String, contents: ByteArray, deflated: Boolean = false): ByteArray {
 		val writer = ZipWriter(ZipRecords.DOS_EPOCH_DATE_TIME)
+
 		if (deflated) {
 			writer.addDeflated(name, contents)
 		} else {
 			writer.addStored(name, contents)
 		}
+
 		writer.addDeflated("second.json", "{}".encodeToByteArray())
+
 		return writer.finish()
 	}
 

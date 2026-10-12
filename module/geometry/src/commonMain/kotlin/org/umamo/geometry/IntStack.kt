@@ -35,6 +35,7 @@ internal class IntStack {
 	 */
 	fun pop(): Int {
 		size--
+
 		return storage[size]
 	}
 

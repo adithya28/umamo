@@ -78,37 +78,54 @@ class KeyformPrecisionProofProbe {
 		var keyformsWithFlips = 0L
 		var flippedTriangles = 0L
 		var meshesWithFlips = 0
+
 		for (mesh in original.artMeshes) {
 			val parent = original.deformers.getOrNull(mesh.parentDeformerIndex) ?: continue
 			val exportedMesh = exportedById[mesh.id] ?: continue
+
 			if (exportedMesh.keyforms.size != mesh.keyforms.size) {
 				continue
 			}
+
 			val indices = IntArray(mesh.triangleIndices.size) { index -> mesh.triangleIndices[index].toInt() and 0xFFFF }
 			var meshFlipped = false
+
 			for ((keyformIndex, keyform) in mesh.keyforms.withIndex()) {
 				val expected = keyform.vertexPositions
 				val actual = exportedMesh.keyforms[keyformIndex].vertexPositions
+
 				if (expected.size != actual.size) {
 					continue
 				}
+
 				keyformsCompared++
+
 				for (componentIndex in expected.indices) {
 					when (parent) {
-						is WarpDeformer -> warpComponents++
-						is RotationDeformer -> rotationComponents++
+						is WarpDeformer -> {
+							warpComponents++
+						}
+
+						is RotationDeformer -> {
+							rotationComponents++
+						}
+
 						else -> {}
 					}
+
 					if (expected[componentIndex].toRawBits() != actual[componentIndex].toRawBits()) {
 						mismatched++
 						val error = abs(expected[componentIndex].toDouble() - actual[componentIndex].toDouble())
+
 						if (error > largestError) {
 							largestError = error
 							largestErrorAt = "${mesh.id} keyform $keyformIndex component $componentIndex"
 						}
 					}
 				}
+
 				var flipsHere = 0
+
 				for (triangle in 0 until indices.size / 3) {
 					val first = indices[triangle * 3]
 					val second = indices[triangle * 3 + 1]
@@ -125,16 +142,19 @@ class KeyformPrecisionProofProbe {
 							(points[2 * third] - points[2 * first].toDouble()) * (points[2 * second + 1] - points[2 * first + 1].toDouble())
 					val before = area(expected)
 					val after = area(actual)
+
 					if (before != 0.0 && (after == 0.0 || (before > 0) != (after > 0))) {
 						flipsHere++
 					}
 				}
+
 				if (flipsHere > 0) {
 					keyformsWithFlips++
 					flippedTriangles += flipsHere
 					meshFlipped = true
 				}
 			}
+
 			if (meshFlipped) {
 				meshesWithFlips++
 			}

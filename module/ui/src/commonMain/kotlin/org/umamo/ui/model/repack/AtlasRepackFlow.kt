@@ -175,25 +175,31 @@ internal fun buildRepackPackInput(
 	val fixedByKey = HashMap<String, AtlasPackFixed>()
 	val placedByKey = HashMap<String, AtlasPackFixed>()
 	val undecodable = HashSet<AtlasTileId>()
+
 	for (tile in model.atlas.tiles) {
 		if (tile.id !in boundTileIds && tile.placement == null) {
 			continue
 		}
+
 		val raster = decodeRaster(tile.id)
+
 		if (raster == null || raster.width != tile.width || raster.height != tile.height) {
 			undecodable.add(tile.id)
 		} else {
 			items.add(AtlasPackItem(tile.id.raw, raster.width, raster.height, raster.rgba, reserveByTile[tile.id]))
 			val placement = tile.placement
+
 			if (placement != null) {
 				val fixed = AtlasPackFixed(placement.pageIndex, placementAffine(placement))
 				placedByKey[tile.id.raw] = fixed
+
 				if (tile.pinned) {
 					fixedByKey[tile.id.raw] = fixed
 				}
 			}
 		}
 	}
+
 	return RepackPackInput(items, fixedByKey, placedByKey, undecodable, reserveByTile)
 }
 
@@ -216,6 +222,7 @@ internal fun repackRefusals(
 	val boundTileIds = model.drawables.mapNotNullTo(HashSet()) { drawable -> drawable.atlasTileId }
 	val skipReasonByTileId = packSkips.associateBy({ skip -> AtlasTileId(skip.key) }, { skip -> skip.reason })
 	val refusals = ArrayList<AtlasRepackRefusal>()
+
 	for (tile in model.atlas.tiles) {
 		if (tile.id !in boundTileIds) {
 			continue
@@ -223,6 +230,7 @@ internal fun repackRefusals(
 
 		if (tile.id in undecodableTileIds) {
 			refusals.add(AtlasRepackRefusal(tile.name, AtlasRepackRefusalReason.Undecodable))
+
 			continue
 		}
 
@@ -237,6 +245,7 @@ internal fun repackRefusals(
 					AtlasPackSkipReason.FixedOutsidePage -> AtlasRepackRefusalReason.PinnedOffPage
 				}
 			refusals.add(AtlasRepackRefusal(tile.name, reason))
+
 			continue
 		}
 
@@ -244,11 +253,13 @@ internal fun repackRefusals(
 			// The same mapping the re-derivation reads: the placement plus the page it names.  A page
 			// the model does not have counts as degenerate too - the mapping cannot be formed at all.
 			val storedToArt = model.atlas.storedToArtAffineForTile(tile.id)
+
 			if (storedToArt == null || invertUvAffine(storedToArt) == null) {
 				refusals.add(AtlasRepackRefusal(tile.name, AtlasRepackRefusalReason.DegeneratePlacement))
 			}
 		}
 	}
+
 	return refusals
 }
 
@@ -322,6 +333,7 @@ internal fun packAtlasOf(
 	freeKeys: Set<String> = emptySet(),
 ): PackedAtlas {
 	val input = buildRepackPackInput(model, decodeRaster)
+
 	return PackedAtlas(input, packAtlas(input.itemsFor(keepPinned, fixPlaced, freeKeys), options))
 }
 
@@ -358,6 +370,7 @@ internal fun lowerPack(atlas: PuppetAtlas, packResult: AtlasPackResult): Lowered
 	for (tile in atlas.tiles) {
 		if (tile.id.raw in keptKeys) {
 			placementsByTile[tile.id] = tile.placement
+
 			continue
 		}
 
@@ -455,6 +468,7 @@ suspend fun runAtlasRepack(
 		}
 
 		host.report(AtlasRepackReport(refusals))
+
 		return
 	}
 
@@ -463,9 +477,11 @@ suspend fun runAtlasRepack(
 	// Back on the UI thread, synchronously to the commit: a pack computed against one atlas value must
 	// not apply over another (an undo across a repack landing mid-pack, say).
 	val modelAtCommit = session.model.value
+
 	if (modelAtCommit.atlas !== modelAtStart.atlas) {
 		UmamoLog.warn("repack: the atlas changed while packing; nothing was applied")
 		session.emitNotice("notice.atlas.repackSuperseded", NoticePlacement.NearCursor)
+
 		return
 	}
 
@@ -479,6 +495,7 @@ suspend fun runAtlasRepack(
 			"repack: a mesh edit changed ${changedTileIds.size} tile reach(es) while packing (${changedTileIds.take(3).joinToString { tileId -> tileId.raw }}); nothing was applied",
 		)
 		session.emitNotice("notice.atlas.repackSuperseded", NoticePlacement.NearCursor)
+
 		return
 	}
 
@@ -487,6 +504,7 @@ suspend fun runAtlasRepack(
 	if (committed == null) {
 		UmamoLog.info("repack: the pack reproduced the current placements exactly; nothing to change")
 		session.emitNotice("notice.atlas.repackUnchanged", NoticePlacement.NearCursor)
+
 		return
 	}
 
@@ -571,6 +589,7 @@ internal suspend fun adjustAtlasRepack(
 			// The rows keep every value inside the packer's contract, so this is a bug, not a rigger's
 			// mistake - but a bug in an adjustment must not take the shell's scope down with it.
 			UmamoLog.error("repack: the adjusted options were refused by the packer (${exception.message}); the previous result stands")
+
 			return
 		}
 
@@ -580,7 +599,9 @@ internal suspend fun adjustAtlasRepack(
 		for (refusal in refusals) {
 			UmamoLog.warn("repack: tile '${refusal.tileName}' refused under the adjusted options (${refusal.reason}); the previous result stands")
 		}
+
 		host.report(AtlasRepackReport(refusals))
+
 		return
 	}
 
@@ -590,6 +611,7 @@ internal suspend fun adjustAtlasRepack(
 
 	if (!host.session.amendLastCommit(record, repacked)) {
 		UmamoLog.info("repack: the adjustment was superseded before it landed; nothing was applied")
+
 		return
 	}
 

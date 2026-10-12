@@ -36,6 +36,7 @@ internal fun restFrontRank(model: PuppetModel): Map<DrawableId, Float> {
 		} else {
 			renderOrder(model.renderRoot, drawOrderById)
 		}
+
 	return paintedBackToFront.withIndex().associate { (paintIndex, drawableId) -> drawableId to paintIndex.toFloat() }
 }
 
@@ -54,6 +55,7 @@ internal fun pageAlphaSampler(page: DecodedImage?): (DrawableId, Float, Float) -
 	if (page == null) {
 		return { _, _, _ -> 1f }
 	}
+
 	return { _, u, v ->
 		val texelX = (u * page.width).toInt().coerceIn(0, page.width - 1)
 		val texelY = (v * page.height).toInt().coerceIn(0, page.height - 1)

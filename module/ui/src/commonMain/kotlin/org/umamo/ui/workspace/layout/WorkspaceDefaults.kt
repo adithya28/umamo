@@ -50,13 +50,17 @@ fun cloneAreaTree(node: AreaNode): AreaNode =
  */
 fun uniqueWorkspaceName(base: String, existing: List<Workspace>): String {
 	val takenNames = existing.mapNotNull { workspace -> workspace.name }.toSet()
+
 	if (base !in takenNames) {
 		return base
 	}
+
 	var candidateSuffix = 2
+
 	while ("$base $candidateSuffix" in takenNames) {
 		candidateSuffix++
 	}
+
 	return "$base $candidateSuffix"
 }
 
@@ -143,6 +147,7 @@ fun defaultLayout(): InterfaceLayout {
 			id = "physics",
 			root = LeafArea(newAreaId(), SpaceKind.Viewport2D),
 		)
+
 	return InterfaceLayout(
 		activeWorkspaceId = "modelling",
 		workspaces = listOf(modelling, texture, physics),

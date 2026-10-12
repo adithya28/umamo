@@ -27,6 +27,7 @@ class FramebufferReadbackTest {
 	/** Reads a pixel out of a top-first [RasterImage]. Row 0 is the TOP row. */
 	private fun pixelAt(image: RasterImage, column: Int, row: Int): Triple<Int, Int, Int> {
 		val at = (row * image.width + column) * 4
+
 		return Triple(
 			image.rgba[at].toInt() and 0xFF,
 			image.rgba[at + 1].toInt() and 0xFF,

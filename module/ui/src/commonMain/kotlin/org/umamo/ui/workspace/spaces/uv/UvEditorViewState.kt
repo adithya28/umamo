@@ -152,6 +152,7 @@ internal fun resolveUvEditorPage(
 ): UvEditorPage? {
 	if (textureSelection is UvTextureSelection.PinnedPage) {
 		val pinnedPage = textures?.atlases?.getOrNull(textureSelection.pageIndex)
+
 		if (pinnedPage != null) {
 			return UvEditorPage(
 				pageIndex = textureSelection.pageIndex,
@@ -218,13 +219,16 @@ internal fun resolveUvEditorLayer(
 	if (model.atlas.tiles.isEmpty()) {
 		return null
 	}
+
 	val activeDrawable = activeUvDrawable(model, meshSelection, objectSelection) ?: return null
 	// The tile the drawable itself names: a session-created duplicate copies the field along with the
 	// rest of the drawable, so it finds its art natively rather than through its source.
 	val entry = activeDrawable.atlasTileId?.let { tileId -> model.atlas.tileById[tileId] } ?: return null
+
 	if (entry.width <= 0 || entry.height <= 0) {
 		return null
 	}
+
 	return UvEditorLayer(entry.id.raw, entry.width, entry.height)
 }
 
@@ -242,6 +246,7 @@ private fun activeUvDrawable(model: PuppetModel, meshSelection: MeshSelection, o
 		meshSelection.activeDrawableId
 			?: (objectSelection.active as? SelectionTarget.Drawable)?.id
 			?: model.drawables.firstOrNull { drawable -> drawable.mesh != null }?.id
+
 	return model.drawables.firstOrNull { drawable -> drawable.id == activeDrawableId }?.takeIf { it.mesh != null }
 }
 
@@ -310,19 +315,25 @@ internal fun uvPageSelectionAfter(
 	pageCount: Int,
 ): UvTextureSelection =
 	when (kind) {
-		UvPageKind.FollowSelection -> UvTextureSelection.FollowSelection
-		UvPageKind.NextPage ->
+		UvPageKind.FollowSelection -> {
+			UvTextureSelection.FollowSelection
+		}
+
+		UvPageKind.NextPage -> {
 			if (pageCount <= 0) {
 				currentSelection
 			} else {
 				UvTextureSelection.PinnedPage(((effectivePageIndex ?: -1) + 1).mod(pageCount))
 			}
-		UvPageKind.PreviousPage ->
+		}
+
+		UvPageKind.PreviousPage -> {
 			if (pageCount <= 0) {
 				currentSelection
 			} else {
 				UvTextureSelection.PinnedPage(((effectivePageIndex ?: 0) - 1 + pageCount).mod(pageCount))
 			}
+		}
 	}
 
 /**
@@ -384,6 +395,7 @@ internal fun shownSurfaceDrawables(
 			val shownIds = model.visibleDrawableIds()
 			model.drawables.filter { drawable -> drawable.id in shownIds }
 		}
+
 	return candidates.filter { drawable ->
 		val mesh = drawable.mesh
 		mesh != null && mesh.uvs.isNotEmpty() && mesh.uvs.size == mesh.positions.size && drawsOverSurface(drawable)
@@ -424,23 +436,29 @@ internal fun shownIslandExtent(geometries: List<GizmoMeshGeometry>): ContentBoun
 	var minY = Float.POSITIVE_INFINITY
 	var maxX = Float.NEGATIVE_INFINITY
 	var maxY = Float.NEGATIVE_INFINITY
+
 	for (geometry in geometries) {
 		val positions = geometry.positions
+
 		for (vertexIndex in 0 until positions.size / 2) {
 			val x = positions[vertexIndex * 2]
 			val y = positions[vertexIndex * 2 + 1]
+
 			// A mapping that is not a number frames nothing, and would poison every bound it touched.
 			if (!x.isFinite() || !y.isFinite()) {
 				continue
 			}
+
 			minX = minOf(minX, x)
 			minY = minOf(minY, y)
 			maxX = maxOf(maxX, x)
 			maxY = maxOf(maxY, y)
 		}
 	}
+
 	if (minX > maxX) {
 		return null
 	}
+
 	return ContentBounds(minX, minY, maxX - minX, maxY - minY)
 }

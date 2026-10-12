@@ -139,9 +139,11 @@ fun <TGeometry> buildKeyformBundle(
 			if (existing == null) axis.keys.copyOf() else mergedKeys(existing, axis.keys)
 	}
 	geometryGrid?.axes?.forEach(::mergeAxis)
+
 	for (grid in channels.gridsByChannel.values) {
 		grid.axes.forEach(::mergeAxis)
 	}
+
 	if (unionKeys.isEmpty()) {
 		// No parameter keys anywhere.  An axis-less grid (one static cell) is a real shape in both
 		// formats and keeps its single cell; a grid-less, channel-less owner is fully unkeyed (empty).
@@ -157,6 +159,7 @@ fun <TGeometry> buildKeyformBundle(
 				}
 			}
 		val staticCell = geometryGrid?.cells?.firstOrNull()
+
 		if (staticCell != null) {
 			return KeyformBundleResult.Bundled(
 				KeyformBundle(
@@ -165,6 +168,7 @@ fun <TGeometry> buildKeyformBundle(
 				),
 			)
 		}
+
 		// A geometry-less owner whose channels are all axis-less still has one cell's worth of values;
 		// emitting nothing would make the caller fall back to the same statics this just corrected.
 		if (channels.gridsByChannel.isNotEmpty()) {
@@ -172,6 +176,7 @@ fun <TGeometry> buildKeyformBundle(
 				KeyformBundle(emptyList(), listOf(KeyformBundleCell(IntArray(0), emptyMap(), null, channelValues))),
 			)
 		}
+
 		return KeyformBundleResult.Bundled(KeyformBundle(emptyList(), emptyList()))
 	}
 
@@ -180,16 +185,20 @@ fun <TGeometry> buildKeyformBundle(
 	// out-of-span key the bundle cannot represent without inventing values.
 	var axes: List<KeyformAxis>
 	var geometryByCoordinate: Map<List<Int>, TGeometry>
+
 	if (geometryGrid != null) {
 		val refined = geometryGrid.refinedToUnion(unionKeys, emptyMap(), geometryBlend)
+
 		for (axis in refined.axes) {
 			if (!axis.keys.contentEquals(unionKeys.getValue(axis.parameterId))) {
 				// Geometry is never demotable - it is the thing being exported.
 				return KeyformBundleResult.Unrepresentable(KeyformBundleRejection.KeysOutsideGeometrySpan)
 			}
 		}
+
 		axes = refined.axes
 		geometryByCoordinate = refined.cells.associate { cell -> cell.coordinate.toList() to cell.form }
+
 		// Replicate across parameters only channels key (the value is constant along them).
 		for ((parameterId, keys) in unionKeys) {
 			if (axes.none { it.parameterId == parameterId }) {
@@ -208,6 +217,7 @@ fun <TGeometry> buildKeyformBundle(
 		if (requireGeometry) {
 			return KeyformBundleResult.Unrepresentable(KeyformBundleRejection.ChannelKeysWithoutGeometry)
 		}
+
 		axes = unionKeys.map { (parameterId, keys) -> KeyformAxis(parameterId, keys) }
 		geometryByCoordinate = emptyMap()
 	}
@@ -217,20 +227,25 @@ fun <TGeometry> buildKeyformBundle(
 	val channelLookups = HashMap<FormChannel, (IntArray) -> ChannelValue?>()
 	val demotedChannels = ArrayList<FormChannel>()
 	val finalAxisPosition = axes.mapIndexed { position, axis -> axis.parameterId to position }.toMap()
+
 	for ((channel, track) in channels.gridsByChannel) {
 		val refined = track.refinedToUnion(unionKeys, emptyMap(), ChannelValueInterpolator)
 		val outOfSpan =
 			refined.axes.any { axis -> !axis.keys.contentEquals(unionKeys.getValue(axis.parameterId)) }
+
 		if (outOfSpan) {
 			if (outOfSpanPolicy == OutOfSpanPolicy.RejectOwner) {
 				return KeyformBundleResult.Unrepresentable(
 					KeyformBundleRejection.KeysOutsideChannelSpan(channel),
 				)
 			}
+
 			// Demoted: no lookup is registered, so every cell falls back to the channel's static below.
 			demotedChannels.add(channel)
+
 			continue
 		}
+
 		val subPositions =
 			refined.axes.map { axis -> finalAxisPosition.getValue(axis.parameterId) }.toIntArray()
 		channelLookups[channel] =
@@ -245,12 +260,15 @@ fun <TGeometry> buildKeyformBundle(
 	val totalCells = keyCounts.fold(1) { product, count -> product * count }
 	val cells = ArrayList<KeyformBundleCell>(totalCells)
 	val coordinate = IntArray(axes.size)
+
 	for (cellOrdinal in 0 until totalCells) {
 		var remainder = cellOrdinal
+
 		for (axisIndex in axes.indices) {
 			coordinate[axisIndex] = remainder % keyCounts[axisIndex]
 			remainder /= keyCounts[axisIndex]
 		}
+
 		val cellCoordinate = coordinate.copyOf()
 		val values =
 			buildMap {
@@ -268,6 +286,7 @@ fun <TGeometry> buildKeyformBundle(
 			KeyformBundleCell(cellCoordinate, values, geometryByCoordinate[cellCoordinate.toList()], channelValues),
 		)
 	}
+
 	return KeyformBundleResult.Bundled(KeyformBundle(axes, cells, demotedChannels))
 }
 
@@ -281,11 +300,13 @@ fun <TGeometry> buildKeyformBundle(
 private fun mergedKeys(first: FloatArray, second: FloatArray): FloatArray {
 	val sorted = (first + second).sortedArray()
 	val kept = ArrayList<Float>(sorted.size)
+
 	for (candidate in sorted) {
 		// The evaluator's own key-snap tolerance: two keys it cannot tell apart stay one key.
 		if (kept.isEmpty() || candidate - kept.last() >= EPS_KEY) {
 			kept.add(candidate)
 		}
 	}
+
 	return kept.toFloatArray()
 }

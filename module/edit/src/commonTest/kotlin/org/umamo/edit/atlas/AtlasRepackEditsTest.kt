@@ -87,11 +87,13 @@ class AtlasRepackEditsTest {
 	): FloatArray {
 		val binding = DrawableLayerBinding(tileId.raw, placed, page.width, page.height)
 		val storedToArt = assertNotNull(layerUvAffineOf(binding, tileSide, tileSide))
+
 		return applyUvAffine(artUvs, assertNotNull(invertUvAffine(storedToArt)))
 	}
 
 	private fun assertUvsClose(expected: FloatArray, actual: FloatArray, message: String) {
 		assertEquals(expected.size, actual.size, message)
+
 		for (componentIndex in expected.indices) {
 			assertTrue(
 				abs(expected[componentIndex] - actual[componentIndex]) < 1e-5f,

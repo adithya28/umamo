@@ -16,7 +16,9 @@ import org.umamo.edit.NoticePlacement
 internal fun <TGeometry> editableGeometryOrNotice(session: EditorSession, geometries: List<TGeometry>, messageKey: String): List<TGeometry>? {
 	if (geometries.isEmpty()) {
 		session.emitNotice(messageKey, NoticePlacement.NearCursor)
+
 		return null
 	}
+
 	return geometries
 }

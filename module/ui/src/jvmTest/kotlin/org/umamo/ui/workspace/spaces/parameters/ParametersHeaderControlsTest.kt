@@ -130,6 +130,7 @@ class ParametersHeaderControlsTest {
 			for (parameter in harness.session.model.value.parameters) {
 				assertEquals(parameter.default, harness.committed(parameter.id), "${parameter.name} has to be back on its default")
 			}
+
 			assertEquals(cursorBefore + 1, harness.historyCursor, "however many parameters moved, it is one step")
 			assertEquals(0, countOfDescription(harness.text.reset), "and no row is left with anything to reset")
 		}

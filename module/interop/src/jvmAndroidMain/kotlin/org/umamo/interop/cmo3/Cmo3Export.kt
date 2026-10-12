@@ -118,9 +118,11 @@ object Cmo3Export {
 		val modelSource = target.root as? CModelSource ?: error("CMO3 model root is not a CModelSource")
 		val baseline = Cmo3Import.fromModelSource(modelSource)
 		val diff = diffPuppetModels(baseline, edited)
+
 		if (diff.isEmpty) {
 			return ExportReport(ExportFormat.Cmo3, emptyList())
 		}
+
 		// Taken before any pass writes: a reload rewrite rebuilds a model image's cache, and every later
 		// pass must still know which textures were the editor's reduced copies.
 		val textureFrames = Cmo3TextureFrames(modelSource)
@@ -131,6 +133,7 @@ object Cmo3Export {
 		// an unedited document passes no pages, and the graph and archive are then never touched.
 		val webResult = Cmo3AtlasWebLowering(target, modelSource, baseline, edited, editor, tileRasters, nowMillis, textureFrames).reconcile(recomposedPages)
 		val pagesRecomposed = webResult.pagesRecomposed
+
 		// The model icons follow an edited export (the diff is non-empty here): the editor regenerates
 		// them on its own saves, and a thumbnail of the rest pose is what it shows for the file.
 		if (modelThumbnail != null) {
@@ -138,6 +141,7 @@ object Cmo3Export {
 				Cmo3RetainedLayerWeb(target, textureManager, editor, edited, tileRasters, nowMillis, textureFrames).replaceModelIcons(modelSource, modelThumbnail)
 			}
 		}
+
 		// A created drawable over art the reconcile minted binds through the binding it handed back;
 		// a caller's own binding for the same drawable (the fresh-graph path) outranks it.
 		val bindings =
@@ -170,6 +174,7 @@ object Cmo3Export {
 		 */
 		fun refreshedStructural(): Cmo3StructureLowering {
 			anyDeleted = anyDeleted || structural.deletedAnything
+
 			return Cmo3StructureLowering(
 				modelSource,
 				Cmo3GraphIndex(modelSource),
@@ -191,85 +196,130 @@ object Cmo3Export {
 		val synthesizedDeformers = HashSet<Any>()
 		val synthesizedDrawables = HashSet<Any>()
 		val synthesizedGlues = HashSet<Triple<Any, Any, Int>>()
+
 		for (entityDiff in diff.parameters) {
 			when (entityDiff) {
-				is EntityDiff.Created ->
+				is EntityDiff.Created -> {
 					editedParameterById[entityDiff.id]?.let { parameter ->
 						if (structural.synthesizeParameter(parameter)) {
 							synthesizedParameters.add(entityDiff.id)
 						}
 					}
+				}
 
-				is EntityDiff.Deleted -> structural.deleteParameter(entityDiff.id)
-				is EntityDiff.Changed -> Unit
+				is EntityDiff.Deleted -> {
+					structural.deleteParameter(entityDiff.id)
+				}
+
+				is EntityDiff.Changed -> {
+					Unit
+				}
 			}
 		}
+
 		for (entityDiff in diff.parameterGroups) {
 			when (entityDiff) {
-				is EntityDiff.Created ->
+				is EntityDiff.Created -> {
 					if (structural.synthesizeParameterGroup(entityDiff.id)) {
 						synthesizedGroups.add(entityDiff.id)
 					}
+				}
 
-				is EntityDiff.Deleted -> structural.deleteParameterGroup(entityDiff.id)
-				is EntityDiff.Changed -> Unit
+				is EntityDiff.Deleted -> {
+					structural.deleteParameterGroup(entityDiff.id)
+				}
+
+				is EntityDiff.Changed -> {
+					Unit
+				}
 			}
 		}
+
 		for (entityDiff in diff.parts) {
 			when (entityDiff) {
-				is EntityDiff.Created ->
+				is EntityDiff.Created -> {
 					editedPartById[entityDiff.id]?.let { part ->
 						if (structural.synthesizePart(part)) {
 							synthesizedParts.add(entityDiff.id)
 						}
 					}
+				}
 
-				is EntityDiff.Deleted -> structural.deletePart(entityDiff.id.raw)
-				is EntityDiff.Changed -> Unit
+				is EntityDiff.Deleted -> {
+					structural.deletePart(entityDiff.id.raw)
+				}
+
+				is EntityDiff.Changed -> {
+					Unit
+				}
 			}
 		}
+
 		for (entityDiff in diff.deformers) {
 			when (entityDiff) {
-				is EntityDiff.Created ->
+				is EntityDiff.Created -> {
 					editedDeformerById[entityDiff.id]?.let { deformer ->
 						if (structural.synthesizeDeformer(deformer)) {
 							synthesizedDeformers.add(entityDiff.id)
 						}
 					}
+				}
 
-				is EntityDiff.Deleted -> structural.deleteDeformer(entityDiff.id.raw)
-				is EntityDiff.Changed -> Unit
+				is EntityDiff.Deleted -> {
+					structural.deleteDeformer(entityDiff.id.raw)
+				}
+
+				is EntityDiff.Changed -> {
+					Unit
+				}
 			}
 		}
+
 		structural = refreshedStructural()
+
 		for (entityDiff in diff.drawables) {
 			when (entityDiff) {
-				is EntityDiff.Created ->
+				is EntityDiff.Created -> {
 					editedDrawableById[entityDiff.id]?.let { drawable ->
 						if (structural.synthesizeDrawable(drawable)) {
 							synthesizedDrawables.add(entityDiff.id)
 						}
 					}
+				}
 
-				is EntityDiff.Deleted -> structural.deleteDrawable(entityDiff.id)
-				is EntityDiff.Changed -> Unit
+				is EntityDiff.Deleted -> {
+					structural.deleteDrawable(entityDiff.id)
+				}
+
+				is EntityDiff.Changed -> {
+					Unit
+				}
 			}
 		}
+
 		structural = refreshedStructural()
 		val editedGluesByPair = edited.glues.groupBy { glue -> glue.meshA to glue.meshB }
+
 		for (glueDiff in diff.glues) {
 			when (glueDiff) {
-				is GlueDiff.Created ->
+				is GlueDiff.Created -> {
 					editedGluesByPair[glueDiff.meshA to glueDiff.meshB]?.getOrNull(glueDiff.ordinal)?.let { glue ->
 						if (structural.synthesizeGlue(glue, glueDiff.ordinal)) {
 							synthesizedGlues.add(Triple(glueDiff.meshA, glueDiff.meshB, glueDiff.ordinal))
 						}
 					}
+				}
 
-				is GlueDiff.Deleted -> structural.deleteGlue(glueDiff.meshA, glueDiff.meshB, glueDiff.ordinal)
-				is GlueDiff.Changed -> Unit
+				is GlueDiff.Deleted -> {
+					structural.deleteGlue(glueDiff.meshA, glueDiff.meshB, glueDiff.ordinal)
+				}
+
+				is GlueDiff.Changed -> {
+					Unit
+				}
 			}
 		}
+
 		anyDeleted = anyDeleted || structural.deletedAnything
 
 		// Deletions are done; synthesized creations become Changed-with-every-field so their shells
@@ -279,17 +329,23 @@ object Cmo3Export {
 				parameters =
 					diff.parameters.mapNotNull { entityDiff ->
 						when {
-							entityDiff is EntityDiff.Created && entityDiff.id in synthesizedParameters ->
+							entityDiff is EntityDiff.Created && entityDiff.id in synthesizedParameters -> {
 								EntityDiff.Changed(entityDiff.id, setOf(ParameterField.NAME, ParameterField.RANGE))
+							}
 
-							entityDiff is EntityDiff.Deleted -> null
-							else -> entityDiff
+							entityDiff is EntityDiff.Deleted -> {
+								null
+							}
+
+							else -> {
+								entityDiff
+							}
 						}
 					},
 				parameterGroups =
 					diff.parameterGroups.mapNotNull { entityDiff ->
 						when {
-							entityDiff is EntityDiff.Created && entityDiff.id in synthesizedGroups ->
+							entityDiff is EntityDiff.Created && entityDiff.id in synthesizedGroups -> {
 								EntityDiff.Changed(
 									entityDiff.id,
 									setOf(
@@ -298,42 +354,66 @@ object Cmo3Export {
 										ParameterGroupField.CHILDREN,
 									),
 								)
+							}
 
-							entityDiff is EntityDiff.Deleted -> null
-							else -> entityDiff
+							entityDiff is EntityDiff.Deleted -> {
+								null
+							}
+
+							else -> {
+								entityDiff
+							}
 						}
 					},
 				parts =
 					diff.parts.mapNotNull { entityDiff ->
 						when {
-							entityDiff is EntityDiff.Created && entityDiff.id in synthesizedParts ->
+							entityDiff is EntityDiff.Created && entityDiff.id in synthesizedParts -> {
 								EntityDiff.Changed(entityDiff.id, ALL_PART_FIELDS)
+							}
 
-							entityDiff is EntityDiff.Deleted -> null
-							else -> entityDiff
+							entityDiff is EntityDiff.Deleted -> {
+								null
+							}
+
+							else -> {
+								entityDiff
+							}
 						}
 					},
 				deformers =
 					diff.deformers.mapNotNull { entityDiff ->
 						when {
-							entityDiff is EntityDiff.Created && entityDiff.id in synthesizedDeformers ->
+							entityDiff is EntityDiff.Created && entityDiff.id in synthesizedDeformers -> {
 								EntityDiff.Changed(
 									entityDiff.id,
 									if (editedDeformerById[entityDiff.id] is Deformer.Warp) ALL_WARP_FIELDS else ALL_ROTATION_FIELDS,
 								)
+							}
 
-							entityDiff is EntityDiff.Deleted -> null
-							else -> entityDiff
+							entityDiff is EntityDiff.Deleted -> {
+								null
+							}
+
+							else -> {
+								entityDiff
+							}
 						}
 					},
 				drawables =
 					diff.drawables.mapNotNull { entityDiff ->
 						when {
-							entityDiff is EntityDiff.Created && entityDiff.id in synthesizedDrawables ->
+							entityDiff is EntityDiff.Created && entityDiff.id in synthesizedDrawables -> {
 								EntityDiff.Changed(entityDiff.id, ALL_DRAWABLE_FIELDS)
+							}
 
-							entityDiff is EntityDiff.Deleted -> null
-							else -> entityDiff
+							entityDiff is EntityDiff.Deleted -> {
+								null
+							}
+
+							else -> {
+								entityDiff
+							}
 						}
 					},
 				glues =
@@ -344,11 +424,17 @@ object Cmo3Export {
 									glueDiff.meshA,
 									glueDiff.meshB,
 									glueDiff.ordinal,
-								) in synthesizedGlues ->
+								) in synthesizedGlues -> {
 								GlueDiff.Changed(glueDiff.meshA, glueDiff.meshB, glueDiff.ordinal, ALL_GLUE_FIELDS)
+							}
 
-							glueDiff is GlueDiff.Deleted -> null
-							else -> glueDiff
+							glueDiff is GlueDiff.Deleted -> {
+								null
+							}
+
+							else -> {
+								glueDiff
+							}
 						}
 					},
 				// Tiles have no structural pass: art arrives and leaves with an import, never with a pack,
@@ -386,6 +472,7 @@ object Cmo3Export {
 		if (anyDeleted) {
 			editor.pruneUnreachableShared()
 		}
+
 		return ExportReport(ExportFormat.Cmo3, notices)
 	}
 }

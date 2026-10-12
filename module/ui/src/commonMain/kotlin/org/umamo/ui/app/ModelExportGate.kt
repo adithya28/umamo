@@ -40,6 +40,7 @@ internal class ModelExportGate {
 		if (isBusy) {
 			return false
 		}
+
 		// Started lazily so the gate holds the job before any of it can run, and so before it can complete.
 		val export = scope.launch(start = CoroutineStart.LAZY) { work() }
 		running = export
@@ -49,6 +50,7 @@ internal class ModelExportGate {
 			}
 		}
 		export.start()
+
 		return true
 	}
 
@@ -64,17 +66,22 @@ internal class ModelExportGate {
 	 */
 	fun afterPendingExport(scope: CoroutineScope, onWaiting: () -> Unit = {}, action: () -> Unit) {
 		val pending = running
+
 		if (pending == null || pending.isCompleted) {
 			action()
+
 			return
 		}
+
 		onWaiting()
 		scope.launch {
 			var waitingOn: Job? = pending
+
 			while (waitingOn != null) {
 				waitingOn.join()
 				waitingOn = running?.takeUnless { job -> job.isCompleted }
 			}
+
 			action()
 		}
 	}

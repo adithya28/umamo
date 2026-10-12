@@ -17,10 +17,13 @@ class JsonRoundTripTest {
 
 	private fun checkRoundTrip(suffix: String, roundTrip: (String) -> String) {
 		val files = fixtures(suffix)
+
 		if (files.isEmpty()) {
 			println("no *$suffix fixtures present; skipping")
+
 			return
 		}
+
 		for (file in files) {
 			val text = file.readText(Charsets.UTF_8)
 			assertEquals(text, roundTrip(text), "${file.name}: exact-string round-trip")

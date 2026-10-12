@@ -104,6 +104,7 @@ internal class SampledRing(private val dense: DoubleArray) {
 
 				if (between.isEmpty() || accepts.accepts(this, startArc, endArc, between)) {
 					chord++
+
 					continue
 				}
 

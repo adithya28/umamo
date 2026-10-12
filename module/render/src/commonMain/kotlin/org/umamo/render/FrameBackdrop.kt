@@ -58,10 +58,12 @@ fun RasterImage.capturedOver(backdrop: FrameBackdrop): RasterImage {
 			FrameBackdrop.Grid -> true
 			is FrameBackdrop.Clear -> backdrop.alpha >= 1f
 		}
+
 	if (opaque) {
 		setOpaqueAlphaInPlace()
 	} else {
 		unpremultiplyInPlace()
 	}
+
 	return this
 }

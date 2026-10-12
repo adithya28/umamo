@@ -75,6 +75,7 @@ internal class ViewportPicker(
 		if (next === textures) {
 			return
 		}
+
 		textures = next
 		thumbnailer.setTextures(next)
 	}
@@ -97,6 +98,7 @@ internal class ViewportPicker(
 			drawableNameByDrawableId = model.drawableNameByDrawable()
 			atlasKeyByDrawableId = model.atlasKeyByDrawable()
 		}
+
 		thumbnailer.updateModel(model)
 	}
 
@@ -117,10 +119,12 @@ internal class ViewportPicker(
 		if (width <= 0 || height <= 0) {
 			return null
 		}
+
 		val geometry = renderer.pickGeometry() ?: return null
 		// Screen (y-down) to world (y-up), the inverse of the camera's worldToNdc - see ScreenSpacePick.
 		val worldX = screenToWorldX(cursorXpx, camera, width)
 		val worldZ = screenToWorldZ(cursorYpx, camera, height)
+
 		return pickDrawable(
 			worldX,
 			worldZ,
@@ -153,9 +157,11 @@ internal class ViewportPicker(
 		if (width <= 0 || height <= 0) {
 			return emptyList()
 		}
+
 		val geometry = renderer.pickGeometry() ?: return emptyList()
 		val worldX = screenToWorldX(cursorXpx, camera, width)
 		val worldZ = screenToWorldZ(cursorYpx, camera, height)
+
 		return pickAllDrawables(
 			worldX,
 			worldZ,
@@ -177,6 +183,7 @@ internal class ViewportPicker(
 	 */
 	fun drawableWorldCentroids(): Map<DrawableId, FloatArray> {
 		val geometry = renderer.pickGeometry() ?: return emptyMap()
+
 		return drawableCentroids(geometry.worldPositions)
 	}
 
@@ -235,12 +242,15 @@ internal class ViewportPicker(
 	private fun sampleTexelAlpha(id: DrawableId, u: Float, v: Float): Float {
 		val atlasIndex = textures.atlasIndexByDrawableId[atlasKeyByDrawableId[id] ?: id.raw] ?: return 1f
 		val image = textures.atlases.getOrNull(atlasIndex) ?: return 1f
+
 		if (!(u >= 0f && u < 1f && v >= 0f && v < 1f)) {
 			return 0f
 		}
+
 		val px = (u * image.width).toInt().coerceAtMost(image.width - 1)
 		val py = (v * image.height).toInt().coerceAtMost(image.height - 1)
 		val alpha = image.rgba[(py * image.width + px) * 4 + 3].toInt() and 0xFF
+
 		return alpha / 255f
 	}
 }

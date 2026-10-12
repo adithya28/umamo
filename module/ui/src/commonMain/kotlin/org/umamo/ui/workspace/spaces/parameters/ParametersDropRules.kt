@@ -32,6 +32,7 @@ internal fun parameterDropBandFor(
 	fraction: Float,
 ): RowDropBand? {
 	val draggingGroup = dragged is ParameterMoveSubject.Group
+
 	return when (targetRow) {
 		is ParameterRow.GroupHeader -> {
 			if (draggingGroup) {
@@ -44,6 +45,7 @@ internal fun parameterDropBandFor(
 				}
 			}
 		}
+
 		is ParameterRow.Single, is ParameterRow.Pair2D -> {
 			// A dragged group can only live at the root, so a target inside a group refuses it.
 			if (draggingGroup && !targetAtRoot) {
@@ -97,19 +99,27 @@ internal fun parameterDropAnchor(
 	if (band == RowDropBand.Into && targetRow is ParameterRow.GroupHeader) {
 		return targetRow.groupId to null
 	}
+
 	val tree = puppet.parameterTree.ifEmpty { puppet.parameters.map { parameter -> ParameterNode.Param(parameter.id) } }
 	val primaryRef = primaryRefOf(targetRow)
 	val location = locate(tree, primaryRef) ?: return null to null
 	val (parentGroupId, siblings, index) = location
+
 	return when (band) {
-		RowDropBand.Before -> parentGroupId to primaryRef
+		RowDropBand.Before -> {
+			parentGroupId to primaryRef
+		}
+
 		RowDropBand.After -> {
 			val span = if (targetRow is ParameterRow.Pair2D) 2 else 1
 			val afterIndex = index + span
 			val anchor = siblings.getOrNull(afterIndex)?.let { node -> refOf(node) }
 			parentGroupId to anchor
 		}
-		RowDropBand.Into -> parentGroupId to primaryRef // a non-group Into never reaches here.
+
+		RowDropBand.Into -> {
+			parentGroupId to primaryRef
+		} // a non-group Into never reaches here.
 	}
 }
 
@@ -154,6 +164,7 @@ internal fun resolveParameterDrop(
 		} else {
 			null
 		}
+
 	return ParameterDrop(newParentGroupId, before, expandsGroupId)
 }
 
@@ -183,16 +194,20 @@ private fun ParameterNode.matches(ref: ParameterNodeRef): Boolean =
 /** The sibling list and index of the node [ref] names, with its parent group id (null at root). */
 private fun locate(tree: List<ParameterNode>, ref: ParameterNodeRef): Triple<ParameterGroupId?, List<ParameterNode>, Int>? {
 	val rootIndex = tree.indexOfFirst { node -> node.matches(ref) }
+
 	if (rootIndex >= 0) {
 		return Triple(null, tree, rootIndex)
 	}
+
 	for (node in tree) {
 		if (node is ParameterNode.Group) {
 			val childIndex = node.children.indexOfFirst { child -> child.matches(ref) }
+
 			if (childIndex >= 0) {
 				return Triple(node.id, node.children, childIndex)
 			}
 		}
 	}
+
 	return null
 }

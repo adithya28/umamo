@@ -41,6 +41,7 @@ class UvEditOverlayProducerTest {
 		val direct = assertNotNull(UvEditOverlayProducer().produce(EditorMode.Edit, MeshSelection.editing(listOf(UV_RIG_QUAD, UV_RIG_OTHER)), sceneOf(model, geometries), sizes))
 
 		assertEquals(listOf(UV_RIG_QUAD, UV_RIG_OTHER), direct.overlay.meshes.map { mesh -> mesh.drawableId }, "the session meshes, in the session's order")
+
 		for (geometry in geometries) {
 			assertSame(geometry.positions, direct.positionsById[geometry.drawableId], "${geometry.drawableId} draws the shown positions themselves")
 			assertSame(geometry.indices, direct.triangleIndicesById[geometry.drawableId], "${geometry.drawableId} fills over the shown indices")

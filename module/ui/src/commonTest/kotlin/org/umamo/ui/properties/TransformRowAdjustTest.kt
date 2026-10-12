@@ -55,6 +55,7 @@ class TransformRowAdjustTest {
 		val triangle = floatArrayOf(450f, 450f, 550f, 450f, 450f, 550f)
 		val atRest = FloatArray(triangle.size)
 		val shifted = FloatArray(triangle.size) { componentIndex -> if (componentIndex % 2 == 0) posedShiftX else 0f }
+
 		return PuppetModel(
 			parameters = listOf(Parameter(parameterId, "Param", min = -1f, max = 1f, default = 0f)),
 			parts = emptyList(),
@@ -103,6 +104,7 @@ class TransformRowAdjustTest {
 	 */
 	private fun adjusted(parameters: List<OperatorParameter>, key: String, value: Float): List<OperatorParameter> {
 		val row = assertIs<OperatorParameter.FloatParameter>(parameters.first { parameter -> parameter.key == key })
+
 		return parameters.withParameter(key, row.copy(value = value))
 	}
 
