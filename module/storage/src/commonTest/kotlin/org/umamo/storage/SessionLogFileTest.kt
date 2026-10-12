@@ -114,10 +114,13 @@ class SessionLogFileTest {
 		val fileSystem = FakeFileSystem()
 		fileSystem.createDirectories(directory)
 		val older = (1..12).map { day -> directory / sessionLogFileName(Instant.parse("2026-08-${day.toString().padStart(2, '0')}T10:00:00Z"), "0000") }
+
 		for (path in older) {
 			fileSystem.write(path) { writeUtf8("old") }
 		}
+
 		val unrelated = listOf(directory / "notes.txt", directory / "session-notes.txt", directory / "crash.log")
+
 		for (path in unrelated) {
 			fileSystem.write(path) { writeUtf8("keep") }
 		}
@@ -226,11 +229,13 @@ class SessionLogFileTest {
 			object : ForwardingFileSystem(disk) {
 				override fun sink(file: Path, mustCreate: Boolean): Sink {
 					val sink = super.sink(file, mustCreate)
+
 					return object : ForwardingSink(sink) {
 						override fun write(source: Buffer, byteCount: Long) {
 							if (diskFull) {
 								throw IOException("no space left on device")
 							}
+
 							super.write(source, byteCount)
 						}
 					}
@@ -289,6 +294,7 @@ private class RecordingSessionLogLocks : SessionLogLocks {
 	 */
 	override fun holdForSession(path: Path): (() -> Unit)? {
 		held += path
+
 		return { held -= path }
 	}
 

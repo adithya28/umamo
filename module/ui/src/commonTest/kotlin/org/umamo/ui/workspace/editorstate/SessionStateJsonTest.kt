@@ -5,11 +5,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.umamo.edit.Cursor2d
 import org.umamo.edit.DEFAULT_PROPORTIONAL_EDIT_STATE
 import org.umamo.edit.EditorMode
-import org.umamo.edit.GridConfig
 import org.umamo.edit.MeshSelectMode
 import org.umamo.edit.ParameterSelection
 import org.umamo.edit.ProportionalEditState
@@ -76,7 +76,6 @@ class SessionStateJsonTest {
 				pivotMode = TransformPivotMode.IndividualOrigins,
 				proportionalEnabled = true,
 				proportionalSettings = ProportionalEditState(ProportionalFalloff.Linear, 64f, connectedOnly = true),
-				gridConfig = GridConfig(50f, 4),
 			)
 
 		val reopened = sessionViewStateOf(sessionStateJson(saved, defaultPose, model))
@@ -101,6 +100,23 @@ class SessionStateJsonTest {
 		val reopened = sessionViewStateOf(sessionStateJson(saved, defaultPose, model))
 
 		assertEquals(saved, reopened)
+	}
+
+	/** Every falloff curve round-trips under its UMA §7.4 wire name, the two-word one in lower camel case. */
+	@Test
+	fun everyFalloffRoundTripsUnderItsWireName() {
+		for (falloff in ProportionalFalloff.entries) {
+			val saved = SessionViewState(proportionalEnabled = true, proportionalSettings = ProportionalEditState(falloff, 48f))
+
+			val reopened = sessionViewStateOf(sessionStateJson(saved, defaultPose, model))
+
+			assertEquals(saved, reopened, "$falloff round-trips")
+		}
+
+		val inverseSquare = sessionStateJson(SessionViewState(proportionalEnabled = true, proportionalSettings = ProportionalEditState(ProportionalFalloff.InverseSquare, 48f)), defaultPose, model)
+		val random = sessionStateJson(SessionViewState(proportionalEnabled = true, proportionalSettings = ProportionalEditState(ProportionalFalloff.Random, 48f)), defaultPose, model)
+		assertEquals("inverseSquare", (inverseSquare["proportional"] as JsonObject)["falloff"]?.jsonPrimitive?.content)
+		assertEquals("random", (random["proportional"] as JsonObject)["falloff"]?.jsonPrimitive?.content)
 	}
 
 	@Test
@@ -143,13 +159,6 @@ class SessionStateJsonTest {
 						put("enabled", "yes")
 						put("falloff", "gaussian")
 						put("radius", -4)
-					},
-				)
-				put(
-					"grid",
-					buildJsonObject {
-						put("scale", 0)
-						put("subdivisions", 0)
 					},
 				)
 			}

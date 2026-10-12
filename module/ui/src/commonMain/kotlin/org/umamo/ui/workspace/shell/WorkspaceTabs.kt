@@ -141,6 +141,7 @@ fun WorkspaceTabs(
 			// custom-named tab that keeps its literal name.  A legacy layout that baked a name onto a built-in
 			// is cleared to null on load (see migrateLayout), so those tabs localize again rather than sticking.
 			val title = workspace.name ?: workspaceTitle(workspace.id)
+
 			if (editingWorkspaceId == workspace.id) {
 				// The tab turns into an inline editor in place of its label.
 				WorkspaceTabEditor(
@@ -184,6 +185,7 @@ fun WorkspaceTabs(
 							// consistent across tabs.
 							.onGloballyPositioned { coordinates ->
 								val parent = coordinates.parentLayoutCoordinates
+
 								if (parent != null) {
 									tabCenters[index] =
 										parent.localPositionOf(coordinates, Offset(coordinates.size.width / 2f, 0f)).x
@@ -198,11 +200,13 @@ fun WorkspaceTabs(
 								val clickTracker = DoubleClickTracker()
 								awaitEachGesture {
 									val down = awaitFirstDown(requireUnconsumed = false)
+
 									// A secondary/tertiary press belongs to the context-menu gesture, never to a tab drag
 									// or a rename tap - leave it for ContextMenuArea.  (Touch reports neither, so it passes.)
 									if (currentEvent.buttons.isSecondaryPressed || currentEvent.buttons.isTertiaryPressed) {
 										return@awaitEachGesture
 									}
+
 									// Double-click is detected on the press, not the release: the tab's clickable consumes
 									// the up when it fires its click, so the up is an unreliable signal, but the down always
 									// reaches us.  Selection stays on that clickable, which is why this gesture uses the
@@ -210,56 +214,71 @@ fun WorkspaceTabs(
 									// the press before a parent modifier would see it.
 									if (clickTracker.registerPress(down.uptimeMillis)) {
 										editingWorkspaceId = workspace.id
+
 										return@awaitEachGesture
 									}
+
 									// Hold gate: wait out the window watching the raw pressed state (read from the event,
 									// not waitForUpOrCancellation, whose result the clickable's up-consumption would defeat).
 									// A lift within the window is a click: the clickable handled selection, nothing to do here.
 									val liftedWithinWindow =
 										withTimeoutOrNull(REORDER_HOLD_MILLIS) {
 											var pointerUp = false
+
 											while (!pointerUp) {
 												val event = awaitPointerEvent()
 												val change =
 													event.changes.firstOrNull { pointer -> pointer.id == down.id }
+
 												if (change == null || !change.pressed) {
 													pointerUp = true
 												}
 											}
+
 											true
 										}
+
 									if (liftedWithinWindow != null) {
 										return@awaitEachGesture
 									}
+
 									// Held past the window: arm the reorder, engaging once the pointer actually moves.
 									var engaged = false
+
 									while (true) {
 										val event = awaitPointerEvent()
 										val change =
 											event.changes.firstOrNull { pointer -> pointer.id == down.id } ?: break
+
 										if (!change.pressed) {
 											break
 										}
+
 										if (!engaged && change.positionChange().getDistanceSquared() > 0f) {
 											engaged = true
 											draggingIndex = index
 											dragDeltaX = 0f
 										}
+
 										if (engaged) {
 											dragDeltaX += change.positionChange().x
 											change.consume()
 										}
 									}
+
 									if (engaged) {
 										val fromIndex = draggingIndex
+
 										if (fromIndex != null) {
 											val centers =
 												(0 until workspaces.size).map { tabIndex -> tabCenters[tabIndex] }
 											val toIndex = reorderTargetIndex(fromIndex, dragDeltaX, centers)
+
 											if (toIndex != fromIndex) {
 												onReorder(fromIndex, toIndex)
 											}
 										}
+
 										draggingIndex = null
 										dragDeltaX = 0f
 										// A drag's press must not pair with a later click as a double-click.
@@ -395,6 +414,7 @@ internal fun reorderTargetIndex(fromIndex: Int, dragDeltaX: Float, centers: List
 			targetIndex++
 		}
 	}
+
 	return targetIndex
 }
 

@@ -32,8 +32,7 @@ class ExportNoticeLabelsTest {
 			ExportNoticeReason.SketchPartIsNotRuntimeContent,
 			ExportNoticeReason.HiddenPartOmittedByExportOption,
 			ExportNoticeReason.HiddenDrawableOmittedByExportOption,
-			ExportNoticeReason.UnkeyedDrawableUnderDeformerHasNoParentGeometry,
-			ExportNoticeReason.RestMeshConversionSizeMismatch(6, 8),
+			ExportNoticeReason.VertexCountExceedsIndexWidth(70000, 65536),
 			ExportNoticeReason.NoAtlasPageBound,
 			ExportNoticeReason.ClippingMaskNotInExport(listOf("Mask01")),
 			ExportNoticeReason.OffscreenMaskNotInExport,
@@ -65,6 +64,9 @@ class ExportNoticeLabelsTest {
 			ExportNoticeReason.KeyformCannotBundle(KeyformBundleRejection.KeysOutsideGeometrySpan),
 			ExportNoticeReason.AxisParameterHasNoSource("ParamAngleX"),
 			ExportNoticeReason.BlendShapeParameterHasNoSource("ParamSmile"),
+			ExportNoticeReason.PhysicsNamesDeletedParameter(listOf("Hair Front", "Hair Back")),
+			ExportNoticeReason.SidecarNamesUnwrittenParameters("rig.physics3.json", listOf("ParamGone")),
+			ExportNoticeReason.SidecarNamesUnwrittenParts("rig.pose3.json", listOf("PartGone")),
 			ExportNoticeReason.KeyformsWithoutBaseMesh,
 			ExportNoticeReason.FractionalDrawOrderNotStorable,
 			ExportNoticeReason.StaticGlueIntensityWithoutKeyforms,
@@ -81,6 +83,7 @@ class ExportNoticeLabelsTest {
 			ExportNoticeReason.AtlasPageNotRecomposed,
 			ExportNoticeReason.AtlasTileMetadataNotReconcilable,
 			ExportNoticeReason.AtlasTileRebindingNotLowered,
+			ExportNoticeReason.SourceLayerBindingNotInExport("a.psd", "lyid:99"),
 		)
 
 	private val sampleRejections: List<KeyformBundleRejection> =
@@ -124,6 +127,7 @@ class ExportNoticeLabelsTest {
 	@Test
 	fun everyPhraseSuppliesExactlyThePlaceholdersItsTemplateHas() {
 		val placeholderCounts = placeholderCountsByKey()
+
 		for (reason in sampleReasons) {
 			val phrase = exportNoticeReasonPhrase(reason)
 			val key = phrase.resource.key
@@ -150,11 +154,13 @@ class ExportNoticeLabelsTest {
 		val counts = HashMap<String, Int>()
 		val stringPattern = Regex("""<string name="([^"]+)">(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
 		val placeholderPattern = Regex("""%(\d+)\$""")
+
 		for (match in stringPattern.findAll(text)) {
 			val key = match.groupValues[1]
 			val body = match.groupValues[2]
 			counts[key] = placeholderPattern.findAll(body).map { it.groupValues[1] }.toSet().size
 		}
+
 		return counts
 	}
 }

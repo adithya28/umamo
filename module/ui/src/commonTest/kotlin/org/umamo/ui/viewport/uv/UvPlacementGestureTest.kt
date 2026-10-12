@@ -18,7 +18,10 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -47,9 +50,11 @@ class UvPlacementGestureTest {
 
 	private fun opaqueRaster(width: Int, height: Int): DecodedImage {
 		val rgba = ByteArray(width * height * 4)
+
 		for (pixelIndex in 0 until width * height) {
 			rgba[pixelIndex * 4 + 3] = 0xFF.toByte()
 		}
+
 		return DecodedImage(rgba, width, height)
 	}
 
@@ -66,11 +71,13 @@ class UvPlacementGestureTest {
 	/** A page painted opaque inside [painted] only. */
 	private fun pageWith(painted: PixelRect, excluded: List<PixelRect>): PageOccupancy {
 		val rgba = ByteArray(pageWidth * pageHeight * 4)
+
 		for (y in painted.top until painted.bottom) {
 			for (x in painted.left until painted.right) {
 				rgba[(y * pageWidth + x) * 4 + 3] = 0xFF.toByte()
 			}
 		}
+
 		return PageOccupancy.of(DecodedImage(rgba, pageWidth, pageHeight), excluded)
 	}
 
@@ -190,6 +197,7 @@ class UvPlacementGestureTest {
 				Triple(MeshOperatorKind.Scale, parameters(factorX = 1.5f, factorY = 1.5f), "uniform scale"),
 				Triple(MeshOperatorKind.Scale, parameters(factorX = 1.5f, factorY = 1f), "tile-axis scale"),
 			)
+
 		for ((kind, dragParameters, name) in cases) {
 			val movers = listOf(mover("a", placement(20f, 30f, rotationDegrees = 30f), 40f, 40f), mover("b", placement(50f, 20f), 55f, 55f))
 			val dragged = evaluate(kind, dragParameters, movers)
@@ -198,10 +206,12 @@ class UvPlacementGestureTest {
 			val replayed = evaluate(kind, placementGestureParametersOf(kind, rows), movers)
 
 			assertTrue(rows.isNotEmpty(), "$name has rows")
+
 			for (mover in movers) {
 				assertPlacementClose(dragged.placementByTile.getValue(mover.tileId), replayed.placementByTile.getValue(mover.tileId), "$name '${mover.tileId.raw}'")
 			}
 		}
+
 		// The rows show the HUD's numbers: the snapped move, the page-space angle, the factors.
 		val grabRows = placementParameters(evaluate(MeshOperatorKind.Grab, parameters(deltaX = 7.3f, deltaY = -5.2f), listOf(mover("a", placement(20f, 30f), 25f, 45f))).status, pageWidth, pageHeight)
 		assertEquals(7, (grabRows[0] as OperatorParameter.IntParameter).value)
@@ -290,6 +300,33 @@ class UvPlacementGestureTest {
 		assertEquals(setOf(AtlasTileId("a"), AtlasTileId("b")), stacked.samplingTileIds)
 	}
 
+	/**
+	 * A mover's crop is its trim's own pixels, row by row and straight alpha as stored, for the scene to upload
+	 * when no layer texture stands in; and the gesture cuts it from the tile it moves.
+	 */
+	@Test
+	fun theMoverCropIsTheTrimsStraightPixels() {
+		val raster = DecodedImage(ByteArray(6 * 5 * 4) { byteIndex -> byteIndex.toByte() }, 6, 5)
+		val trim = LayerBounds(1, 2, 3, 2)
+
+		val crop = assertNotNull(cropRaster(raster, trim))
+
+		assertEquals(3, crop.width)
+		assertEquals(2, crop.height)
+
+		for (rowIndex in 0 until 2) {
+			val sourceStart = ((2 + rowIndex) * 6 + 1) * 4
+			assertContentEquals(raster.rgba.copyOfRange(sourceStart, sourceStart + 12), crop.rgba.copyOfRange(rowIndex * 12, rowIndex * 12 + 12), "row $rowIndex is the trim's, unpremultiplied")
+		}
+
+		assertNull(cropRaster(raster, LayerBounds(1, 1, 0, 3)), "an empty trim has no crop")
+
+		val mover = uvRigPlacementDrag().gesture.movers.single()
+		val moverCrop = assertNotNull(mover.crop)
+		assertEquals(mover.trim.width, moverCrop.width, "the gesture crops its mover to the trim")
+		assertEquals(mover.trim.height, moverCrop.height)
+	}
+
 	@Test
 	fun theTileToDisplayMappingFlipsOnceAfterThePlacement() {
 		// A tile at page (20, 30): its origin shows at display (20, h - 30) and its rows run DOWN the
@@ -306,6 +343,7 @@ class UvPlacementGestureTest {
 	fun theFlipIsItsOwnInverse() {
 		val affine = floatArrayOf(0.5f, -0.25f, 7f, 0.25f, 0.5f, -3f)
 		val roundTrip = flipAffineFrame(flipAffineFrame(affine, pageHeight), pageHeight)
+
 		for (componentIndex in affine.indices) {
 			assertClose(affine[componentIndex], roundTrip[componentIndex], "component $componentIndex")
 		}

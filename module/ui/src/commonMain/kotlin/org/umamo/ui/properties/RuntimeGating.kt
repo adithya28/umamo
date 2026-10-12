@@ -25,6 +25,7 @@ fun blendModeOptionsFor(target: RuntimeTarget, current: BlendMode): List<BlendMo
 	if (target.supports(RuntimeFeature.ExtendedBlendModes)) {
 		return blendModeDisplayOrder()
 	}
+
 	return blendModeDisplayOrder().filter { mode -> mode.isLegacy || mode == current }
 }
 
@@ -40,6 +41,7 @@ fun partGroupModeOptionsFor(target: RuntimeTarget, current: PartGroupModeKind): 
 	if (target.supports(RuntimeFeature.PartComposite)) {
 		return PartGroupModeKind.entries
 	}
+
 	return PartGroupModeKind.entries.filter { kind -> kind != PartGroupModeKind.Isolated || kind == current }
 }
 
@@ -71,5 +73,6 @@ fun alphaBlendModeOptionsFor(target: RuntimeTarget, current: AlphaBlendMode): Li
 	if (target.supports(RuntimeFeature.ExtendedBlendModes)) {
 		return AlphaBlendMode.entries
 	}
+
 	return AlphaBlendMode.entries.filter { mode -> mode == AlphaBlendMode.Over || mode == current }
 }

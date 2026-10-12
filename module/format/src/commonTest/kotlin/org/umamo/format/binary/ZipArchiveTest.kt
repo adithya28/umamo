@@ -35,6 +35,7 @@ class ZipArchiveTest {
 		val archive = ZipArchive.read(archiveOf(*expected.toTypedArray()))
 
 		assertEquals(expected.map { entry -> entry.first }, archive.entries.map { entry -> entry.name }, "entry order")
+
 		for ((name, contents, deflated) in expected) {
 			val entry = assertNotNull(archive.entry(name), "entry '$name' is listed")
 			assertContentEquals(contents, archive.contents(entry), "entry '$name' contents")
@@ -42,6 +43,7 @@ class ZipArchiveTest {
 			assertEquals(TEST_DOS_DATE_TIME, entry.dosDateTime, "entry '$name' stamp")
 			assertEquals(name.endsWith('/'), entry.isDirectory, "entry '$name' directory flag")
 		}
+
 		val deflatedEntry = assertNotNull(archive.entry("model/puppet.json"))
 		assertTrue(deflatedEntry.compressedSize < deflatedEntry.uncompressedSize, "the deflated entry actually compressed")
 	}
@@ -125,11 +127,14 @@ class ZipArchiveTest {
 	fun declaredSizeThatLiesFails() {
 		for (delta in listOf(-1L, 1L)) {
 			val bytes = archiveOf(Triple("deflated", compressible, true), Triple("stored", compressible, false))
+
 			for (entryIndex in 0..1) {
 				val header = centralHeaderOffset(bytes, entryIndex)
 				writeU32Le(bytes, header + 24, readU32Le(bytes, header + 24) + delta)
 			}
+
 			val archive = ZipArchive.read(bytes)
+
 			for (entry in archive.entries) {
 				assertFailsWith<ZipFormatException>("'${entry.name}' with its size off by $delta") { archive.contents(entry) }
 			}
@@ -361,19 +366,24 @@ class ZipArchiveTest {
 		writeU16Le(extra, 0, ZipRecords.ZIP64_EXTRA_ID)
 		writeU16Le(extra, 2, values.size)
 		val patched = archive.copyOfRange(0, insertAt) + extra + archive.copyOfRange(insertAt, archive.size)
+
 		if (sentinelSizes) {
 			writeU32Le(patched, headerStart + 20, ZipRecords.UINT32_SENTINEL)
 			writeU32Le(patched, headerStart + 24, ZipRecords.UINT32_SENTINEL)
 		}
+
 		if (sentinelOffset) {
 			writeU32Le(patched, headerStart + 42, ZipRecords.UINT32_SENTINEL)
 		}
+
 		if (sentinelDisk) {
 			writeU16Le(patched, headerStart + 34, ZipRecords.UINT16_SENTINEL)
 		}
+
 		writeU16Le(patched, headerStart + 30, extraLength + extra.size)
 		val endRecord = endRecordOffset(patched)
 		writeU32Le(patched, endRecord + 12, readU32Le(patched, endRecord + 12) + extra.size)
+
 		return patched
 	}
 
@@ -385,11 +395,13 @@ class ZipArchiveTest {
 	 */
 	private fun u64sLe(vararg values: Long): ByteArray {
 		val bytes = ByteArray(values.size * 8)
+
 		for ((valueIndex, value) in values.withIndex()) {
 			for (byteIndex in 0 until 8) {
 				bytes[valueIndex * 8 + byteIndex] = (value ushr (8 * byteIndex)).toByte()
 			}
 		}
+
 		return bytes
 	}
 }

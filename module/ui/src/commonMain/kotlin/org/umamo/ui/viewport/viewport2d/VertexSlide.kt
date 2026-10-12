@@ -49,6 +49,7 @@ internal fun slideContextFor(selection: MeshSelection, geometries: List<EditMesh
 	val active = selection.activeElement
 	val activeVertex = (active?.element as? MeshElement.Vertex)?.index
 	val activeGeometry = active?.let { candidate -> geometries.firstOrNull { it.drawableId == candidate.drawableId } }
+
 	return if (activeVertex != null && activeGeometry != null) {
 		val adjacency = MeshTopology.buildVertexAdjacency(activeGeometry.mesh.vertexCount, activeGeometry.mesh.indices)
 		val neighbors = adjacency.getOrElse(activeVertex) { IntArray(0) }
@@ -71,16 +72,20 @@ internal fun slideContextFor(selection: MeshSelection, geometries: List<EditMesh
 internal fun slideLandingToward(context: SlideContext, originalWorld: FloatArray, frame: TransformGestureFrame): SlideLanding? {
 	var bestNeighbor = -1
 	var bestDistance = Float.MAX_VALUE
+
 	for (neighbor in context.neighborIndices) {
 		val screen = worldToScreen(originalWorld[neighbor * 2], originalWorld[neighbor * 2 + 1], frame.camera, frame.size)
 		val distance = (screen - frame.current).getDistance()
+
 		if (distance < bestDistance) {
 			bestDistance = distance
 			bestNeighbor = neighbor
 		}
 	}
+
 	if (bestNeighbor < 0) {
 		return null
 	}
+
 	return SlideLanding(bestNeighbor, slideFactorAlongEdge(originalWorld, context.activeVertex, bestNeighbor, frame))
 }

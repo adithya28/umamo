@@ -131,6 +131,7 @@ fun CommandPalette(commands: List<Command>, onDismiss: () -> Unit, onInvoke: (Co
 									if (filtered.isNotEmpty()) {
 										selectedIndex = (safeIndex + 1) % filtered.size
 									}
+
 									true
 								}
 
@@ -138,6 +139,7 @@ fun CommandPalette(commands: List<Command>, onDismiss: () -> Unit, onInvoke: (Co
 									if (filtered.isNotEmpty()) {
 										selectedIndex = (safeIndex - 1 + filtered.size) % filtered.size
 									}
+
 									true
 								}
 
@@ -145,6 +147,7 @@ fun CommandPalette(commands: List<Command>, onDismiss: () -> Unit, onInvoke: (Co
 									filtered.getOrNull(safeIndex)?.let { (command, _) -> onInvoke(command) }
 									true
 								}
+
 								// Belt-and-suspenders: the shell already consumes Escape to close the palette, but
 								// handle it here too so the overlay stands alone if reused.
 								Key.Escape -> {
@@ -152,7 +155,9 @@ fun CommandPalette(commands: List<Command>, onDismiss: () -> Unit, onInvoke: (Co
 									true
 								}
 
-								else -> false
+								else -> {
+									false
+								}
 							}
 						}
 					},

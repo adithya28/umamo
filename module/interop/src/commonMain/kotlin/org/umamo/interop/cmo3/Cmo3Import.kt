@@ -46,6 +46,7 @@ import org.umamo.format.cmo3.model.identity.Id
 import org.umamo.interop.alphaBlendOfToken
 import org.umamo.interop.colorBlendOfToken
 import org.umamo.interop.runtimeTargetOfCmo3Target
+import org.umamo.runtime.eval.keyformBaseOf
 import org.umamo.runtime.keyform.asChannelTrack
 import org.umamo.runtime.keyform.channelGridsOf
 import org.umamo.runtime.keyform.fanOutMesh
@@ -88,6 +89,7 @@ import org.umamo.runtime.model.RotationForm
 import org.umamo.runtime.model.WarpForm
 import org.umamo.runtime.model.canvasCenterWorldOriginX
 import org.umamo.runtime.model.canvasCenterWorldOriginZ
+import org.umamo.runtime.model.deltasVsBase
 import org.umamo.runtime.model.deriveRenderRoot
 import org.umamo.runtime.model.storedToArtAffineForTile
 
@@ -206,15 +208,19 @@ object Cmo3Import {
 		val parameterLinks =
 			buildList {
 				var sourceIndex = 0
+
 				while (sourceIndex < parameterSources.size) {
 					val source = parameterSources[sourceIndex]
 					val nextSource = parameterSources.getOrNull(sourceIndex + 1)
+
 					if (source.combined && nextSource != null) {
 						val horizontalId = idStrOf(source.id)
 						val verticalId = idStrOf(nextSource.id)
+
 						if (horizontalId != null && verticalId != null) {
 							add(ParameterLink(ParameterId(horizontalId), ParameterId(verticalId)))
 						}
+
 						sourceIndex += 2
 					} else {
 						sourceIndex += 1
@@ -230,6 +236,7 @@ object Cmo3Import {
 		val parameterGroupByUuid =
 			buildMap {
 				val groups = (modelSource.parameterGroupSet as? CParameterGroupSet)?._groups
+
 				for (group in elementsOf(groups).filterIsInstance<CParameterGroup>()) {
 					val uuid = uuidOf(group.guid) ?: continue
 					put(uuid, group)
@@ -294,6 +301,7 @@ object Cmo3Import {
 					// composite opacity/color, and it matches Moc3Import, which yields no track for an unbound
 					// part.  A part with real animation keeps its tracks (non-empty axes).
 					?.takeIf { it.axes.isNotEmpty() } ?: return ChannelGrids.Empty
+
 			// Fan the one bundled grid out into per-channel tracks sharing its axes: a pure re-shape, so the
 			// blended values are bit-identical to what the bundled cell produced.
 			return channelGridsOf(
@@ -311,6 +319,7 @@ object Cmo3Import {
 		// opacity/color elements, so firstForm's channels fall back to identity).
 		fun partCompositeOf(source: CPartSource): PartComposite {
 			val firstForm = elementsOf(source.keyforms).filterIsInstance<CPartForm>().firstOrNull()
+
 			return PartComposite(
 				blendMode = colorBlendOfToken((source.colorComposition as? ColorComposition)?.name),
 				alphaBlendMode = alphaBlendOfToken((source.alphaComposition as? AlphaComposition)?.name),
@@ -364,6 +373,7 @@ object Cmo3Import {
 				// CMO3: targetDeformerGuid = parent deformer (transform tree); parentGuid = part (org tree).
 				val parent = deformerIdByUuid[uuidOf(source.targetDeformerGuid)]
 				val partId = partIdByUuid[uuidOf(source.parentGuid)]
+
 				when (source) {
 					is CWarpDeformerSource -> {
 						val fanned = buildGrid(source.keyformGridSource, source.keyforms, paramIdByUuid, ::warpForm)?.fanOutWarp()
@@ -386,6 +396,7 @@ object Cmo3Import {
 								blendShapeBindingsOf(source.keyformMorphTargetSet, source.keyforms, paramIdByUuid, ::warpForm),
 						)
 					}
+
 					is CRotationDeformerSource -> {
 						val fanned = buildGrid(source.keyformGridSource, source.keyforms, paramIdByUuid, ::rotationForm)?.fanOutRotation()
 						Deformer.Rotation(
@@ -405,7 +416,10 @@ object Cmo3Import {
 								blendShapeBindingsOf(source.keyformMorphTargetSet, source.keyforms, paramIdByUuid, ::rotationForm),
 						)
 					}
-					else -> null
+
+					else -> {
+						null
+					}
 				}
 			}
 
@@ -423,15 +437,27 @@ object Cmo3Import {
 		// Which image each drawable is shown from and which frame its stored coordinates are in.
 		val textureFrames = Cmo3TextureFrames(modelSource)
 
+		val defaultByParameter = parameters.associate { parameter -> parameter.id to parameter.default }
+		val defaultOf = { parameterId: ParameterId -> defaultByParameter[parameterId] ?: 0f }
 		val drawables =
 			orderedDrawableSources.map { source ->
 				// A placed tile's drawable takes its coordinates on the tile's page (Cmo3TextureFrames).
 				val storedToArt = atlasIngest.tileIdByDrawableId[idStrOf(source.id).orEmpty()]?.let { tileId -> atlasIngest.atlas.storedToArtAffineForTile(tileId) }
-				val mesh = meshOf(source, textureFrames, storedToArt)
+				// The forms as stored, absolute; the base they are measured from is the reference form's own
+				// positions, in the forms' space, so every delta is a difference within one space.
+				val formGrid =
+					buildGrid(source.keyformGridSource, source.keyforms, paramIdByUuid) { form ->
+						(form as? CArtMeshForm)?.takeIf { artForm -> artForm.positions is FloatArray }
+					}
+				val mesh =
+					meshOf(source, textureFrames, storedToArt)?.let { canvasMesh ->
+						val local = keyformBaseOf(canvasMesh.positions, formGrid, defaultOf) { artForm -> artForm.positions as FloatArray }
+						DrawableMesh(positions = canvasMesh.positions, localPositions = local, uvs = canvasMesh.uvs, indices = canvasMesh.indices)
+					}
 				// One bundled grid, then split into per-vertex deltas and the render channels.
 				val fannedMesh =
-					buildGrid(source.keyformGridSource, source.keyforms, paramIdByUuid) { form ->
-						meshForm(form, mesh?.positions)
+					formGrid?.let { grid ->
+						KeyformGrid(grid.axes, grid.cells.mapNotNull { cell -> meshForm(cell.form, mesh?.localPositions)?.let { form -> KeyformCell(cell.coordinate, form) } })
 					}?.fanOutMesh()
 				Drawable(
 					id = DrawableId(idStrOf(source.id).orEmpty()),
@@ -456,7 +482,7 @@ object Cmo3Import {
 					channelGrids = fannedMesh?.channels ?: ChannelGrids.Empty,
 					blendShapes =
 						blendShapeBindingsOf(source.keyformMorphTargetSet, source.keyforms, paramIdByUuid) { form ->
-							meshForm(form, mesh?.positions)
+							meshForm(form, mesh?.localPositions)
 						},
 					atlasTileId = atlasIngest.tileIdByDrawableId[idStrOf(source.id).orEmpty()],
 				)
@@ -497,8 +523,9 @@ object Cmo3Import {
 			rootChildrenFromTree + drawables.mapNotNull { drawable -> if (drawable.id in placedDrawableIds) null else OrgChild.Drawable(drawable.id) }
 
 		// CMO3: CModelSource.canvas -> CImageCanvas fields pixelWidth / pixelHeight - the document canvas
-		// size.  Drawable rest positions live in this canvas px space (Y down, the canvas rect spanning
-		// [0, width] x [0, height]; art may overhang it); the deform eval NEGATES Y into world space.
+		// size.  A drawable's canvas mesh (DrawableMesh.positions) lives in this canvas px space (Y down, the
+		// canvas rect spanning [0, width] x [0, height]; art may overhang it); the deform eval NEGATES Y into
+		// world space.
 		// A model without a canvas keeps the (0, 0) defaults.
 		val canvas = modelSource.canvas as? CImageCanvas
 		val canvasWidth = (canvas?.pixelWidth ?: 0).toFloat()
@@ -543,6 +570,7 @@ object Cmo3Import {
 			)
 		val withRenderRoot = model.copy(renderRoot = model.deriveRenderRoot())
 		val puppet = if (compactChannels) withRenderRoot.withChannelsCompacted() else withRenderRoot
+
 		return Cmo3ImportedDocument(puppet, atlasIngest)
 	}
 
@@ -567,6 +595,7 @@ object Cmo3Import {
 		if (rootGroup == null) {
 			return emptyList()
 		}
+
 		val visited = HashSet<String>()
 
 		fun childrenOf(group: CParameterGroup): List<ParameterNode> =
@@ -574,14 +603,19 @@ object Cmo3Import {
 				for (childGuid in elementsOf(group._childGuids)) {
 					val uuid = uuidOf(childGuid) ?: continue
 					val paramId = paramIdByUuid[uuid]
+
 					if (paramId != null) {
 						add(ParameterNode.Param(paramId))
+
 						continue
 					}
+
 					val childGroup = groupByUuid[uuid] ?: continue
+
 					if (!visited.add(uuid)) {
 						continue
 					}
+
 					add(
 						ParameterNode.Group(
 							id = ParameterGroupId(idStrOf(childGroup.id).orEmpty()),
@@ -595,6 +629,7 @@ object Cmo3Import {
 					)
 				}
 			}
+
 		return childrenOf(rootGroup)
 	}
 
@@ -633,14 +668,17 @@ object Cmo3Import {
 		val uidToIndexB = uidToIndexByDrawableId[meshB] ?: return null
 		val pairCount = minOf(weights.size, uids.size) / 2
 		val pairs = ArrayList<GluePair>(pairCount)
+
 		for (pairIndex in 0 until pairCount) {
 			val indexA = uidToIndexA[uids[pairIndex * 2].toInt()] ?: continue
 			val indexB = uidToIndexB[uids[pairIndex * 2 + 1].toInt()] ?: continue
 			pairs.add(GluePair(indexA, indexB, weights[pairIndex * 2], weights[pairIndex * 2 + 1]))
 		}
+
 		val intensityTrack =
 			buildGrid(glue.keyformGridSource, glue.keyforms, paramIdByUuid, ::glueForm)
 				?.asChannelTrack { form -> ChannelValue.Scalar(form.intensity) }
+
 		// A glue with no keyed intensity welds fully, which is the runtime's long-standing fallback.
 		return Glue(meshA, meshB, pairs, channelGridsOf(FormChannel.GLUE_INTENSITY to intensityTrack), intensity = 1f)
 	}
@@ -689,8 +727,10 @@ object Cmo3Import {
 			if (!visited.add(uuid)) {
 				return
 			}
+
 			order[uuid] = nextIndex++
 			val part = partByUuid[uuid] ?: return
+
 			for (child in elementsOf(part._childGuids)) {
 				val childUuid = uuidOf(child) ?: continue
 				walk(childUuid)
@@ -700,6 +740,7 @@ object Cmo3Import {
 		if (rootUuid != null) {
 			walk(rootUuid)
 		}
+
 		return order
 	}
 
@@ -752,8 +793,9 @@ object Cmo3Import {
 		(value as? CFloatColor)?.let { ColorRgb(it.red, it.green, it.blue) }
 
 	/**
-	 * Reads an art mesh's rest-pose geometry. CMO3: `CArtMeshSource.positions`/`uvs` are `float-array`
-	 * (interleaved x,y), `indices` is an `int-array` (3 per triangle).
+	 * Reads an art mesh's canvas geometry. CMO3: `CArtMeshSource.positions`/`uvs` are `float-array`
+	 * (interleaved x,y), `indices` is an `int-array` (3 per triangle).  The positions are the canvas editable
+	 * mesh; the returned mesh shares them as its base until the caller sets the keyforms' own.
 	 *
 	 * The stored `uvs` reach the model through [Cmo3TextureFrames.modelUvsOf]: coordinates on an atlas page
 	 * stay as they are, anything else is brought into its model image's raster frame (out of the editor's
@@ -762,13 +804,14 @@ object Cmo3Import {
 	 * @param CArtMeshSource    source        The art-mesh source.
 	 * @param Cmo3TextureFrames textureFrames The document's texture frames.
 	 * @param FloatArray?       storedToArt   The drawable's tile's model-to-art affine, or null without a tile.
-	 * @return DrawableMesh? The base mesh, or null when the source carries no positions.
+	 * @return DrawableMesh? The canvas mesh, or null when the source carries no positions.
 	 */
 	private fun meshOf(source: CArtMeshSource, textureFrames: Cmo3TextureFrames, storedToArt: FloatArray?): DrawableMesh? {
 		val positions = source.positions as? FloatArray ?: return null
 		val storedUvs = source.uvs as? FloatArray ?: FloatArray(0)
 		val indices = source.indices as? IntArray ?: IntArray(0)
-		return DrawableMesh(positions, textureFrames.modelUvsOf(source, storedUvs, storedToArt), indices)
+
+		return DrawableMesh.withLocalEqualToCanvas(positions, textureFrames.modelUvsOf(source, storedUvs, storedToArt), indices)
 	}
 
 	/**
@@ -787,6 +830,7 @@ object Cmo3Import {
 	 */
 	internal fun hasAtlasRegion(source: CArtMeshSource): Boolean {
 		val extension = elementsOf(source._extensions).filterIsInstance<CTextureInputExtension>().firstOrNull() ?: return false
+
 		return elementsOf(extension._textureInputs).any { it is CTextureInput_TextureAtlasRegion }
 	}
 
@@ -825,12 +869,15 @@ object Cmo3Import {
 				val payload = cellPayload(form) ?: return@mapNotNull null
 				val coordinate = IntArray(axes.size)
 				val keyList = (cell.accessKey as? KeyformGridAccessKey)?._keyOnParameterList
+
 				for (keyOnParameter in elementsOf(keyList).filterIsInstance<KeyOnParameter>()) {
 					val axisIndex = axisOfBinding[keyOnParameter.binding] ?: continue
 					coordinate[axisIndex] = keyOnParameter.keyIndex
 				}
+
 				KeyformCell(coordinate, payload)
 			}
+
 		return KeyformGrid(axes, cells)
 	}
 
@@ -842,6 +889,7 @@ object Cmo3Import {
 	 */
 	private fun floatKeys(keys: Any?): FloatArray {
 		val values = elementsOf(keys)
+
 		return FloatArray(values.size) { (values[it] as? Number)?.toFloat() ?: 0f }
 	}
 
@@ -888,13 +936,16 @@ object Cmo3Import {
 	): List<BlendShapeBinding<TForm>> {
 		val set = morphTargetSet as? KeyFormMorphTargetSet ?: return emptyList()
 		val targets = elementsOf(set._morphTargets).filterIsInstance<KeyFormMorphTarget>()
+
 		if (targets.isEmpty()) {
 			return emptyList()
 		}
+
 		val formByUuid = formPool(forms)
 		val constraints =
 			elementsOf((set.blendWeightConstraintSet as? MorphTargetBlendWeightConstraintSet)?._constraints)
 				.filterIsInstance<MorphTargetBlendWeightConstraint>()
+
 		return targets.groupBy { uuidOf(it.parameterGuid) }.mapNotNull { (parameterUuid, group) ->
 			val parameterId = parameterUuid?.let(paramIdByUuid::get) ?: return@mapNotNull null
 			val neutralValue = 0f
@@ -904,9 +955,11 @@ object Cmo3Import {
 					val payload = formPayload(form) ?: return@mapNotNull null
 					target.keyValue to payload
 				}.toMap()
+
 			if (payloadByKey.isEmpty()) {
 				return@mapNotNull null
 			}
+
 			val keys = (payloadByKey.keys + neutralValue).sorted()
 			BlendShapeBinding(
 				parameterId = parameterId,
@@ -951,19 +1004,20 @@ object Cmo3Import {
 			}
 
 	/**
-	 * Mesh cell payload: the form's absolute positions converted to deltas vs the mesh [base].
+	 * Mesh cell payload: the form's absolute positions converted to deltas vs the keyform-space [base].
 	 *
 	 * @param Any         form The form object (expected CArtMeshForm).
-	 * @param FloatArray? base The mesh base positions.
+	 * @param FloatArray? base The mesh's keyform-space base (DrawableMesh.localPositions).
 	 * @return MeshForm? The delta form, or null if the form has no positions.
 	 */
 	private fun meshForm(form: Any, base: FloatArray?): MeshForm? {
 		val artForm = form as? CArtMeshForm ?: return null
 		val positions = artForm.positions as? FloatArray ?: return null
+
 		// CMO3: ACDrawableForm.drawOrder (Cubism default 500) + opacity (0..1) + the 5.3 per-art-mesh
 		// multiply/screen color ride on the art-mesh keyform (pre-5.3 forms carry no color -> identity).
 		return MeshForm(
-			deltaVsBase(base, positions),
+			deltasVsBase(base, positions),
 			artForm.drawOrder.toFloat(),
 			artForm.opacity,
 			multiplyColor = colorRgbOf(artForm.multiplyColor) ?: ColorRgb.MultiplyIdentity,
@@ -983,6 +1037,7 @@ object Cmo3Import {
 	private fun warpForm(form: Any): WarpForm? {
 		val warp = form as? CWarpDeformerForm ?: return null
 		val positions = warp.positions as? FloatArray ?: return null
+
 		// CMO3: ACDeformerForm opacity / multiplyColor / screenColor.
 		return WarpForm(
 			positions,
@@ -1000,6 +1055,7 @@ object Cmo3Import {
 	 */
 	private fun rotationForm(form: Any): RotationForm? {
 		val rotation = form as? CRotationDeformerForm ?: return null
+
 		// CMO3: ACDeformerForm opacity / multiplyColor / screenColor.
 		return RotationForm(
 			rotation.originX,
@@ -1012,21 +1068,6 @@ object Cmo3Import {
 			multiplyColor = colorRgbOf(rotation.multiplyColor) ?: ColorRgb.MultiplyIdentity,
 			screenColor = colorRgbOf(rotation.screenColor) ?: ColorRgb.ScreenIdentity,
 		)
-	}
-
-	/**
-	 * Per-vertex deltas of [positions] vs [base] (`positions − base`), or a copy of positions when
-	 * there is no size-matching base, so the form is kept absolute rather than dropped.
-	 *
-	 * @param FloatArray? base      The mesh base positions.
-	 * @param FloatArray  positions The form's absolute positions.
-	 * @return FloatArray The deltas, or a copy of positions.
-	 */
-	private fun deltaVsBase(base: FloatArray?, positions: FloatArray): FloatArray {
-		if (base == null || base.size != positions.size) {
-			return positions.copyOf()
-		}
-		return FloatArray(positions.size) { positions[it] - base[it] }
 	}
 }
 

@@ -44,7 +44,7 @@ class ChannelOverrideEvalTest {
 				parentDeformerId = null,
 				blendMode = BlendMode.Normal,
 				maskedBy = emptyList(),
-				mesh = DrawableMesh(positions, FloatArray(positions.size), intArrayOf(0, 1, 2)),
+				mesh = DrawableMesh.withLocalEqualToCanvas(positions, FloatArray(positions.size), intArrayOf(0, 1, 2)),
 				geometryGrid =
 					KeyformGrid(
 						listOf(KeyformAxis(paramA, floatArrayOf(0f))),
@@ -54,6 +54,7 @@ class ChannelOverrideEvalTest {
 				opacity = 0.25f,
 				multiplyColor = ColorRgb(1f, 1f, 1f),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),

@@ -56,6 +56,7 @@ data class InterfaceLayout(
 	 */
 	fun withActiveRoot(newRoot: AreaNode): InterfaceLayout {
 		val active = activeWorkspace() ?: return this
+
 		return copy(workspaces = workspaces.map { workspace -> if (workspace.id == active.id) workspace.copy(root = newRoot) else workspace })
 	}
 
@@ -80,9 +81,11 @@ data class InterfaceLayout(
 		if (workspaces.isEmpty()) {
 			return this
 		}
+
 		val count = workspaces.size
 		// Kotlin's % can yield a negative result for a leftward delta; the extra + count and second % fold it back.
 		val shiftedIndex = ((activeIndex() + delta) % count + count) % count
+
 		return copy(activeWorkspaceId = workspaces[shiftedIndex].id)
 	}
 
@@ -100,6 +103,7 @@ data class InterfaceLayout(
 	fun withWorkspaceInserted(workspace: Workspace, atIndex: Int, activate: Boolean): InterfaceLayout {
 		val updated = workspaces.toMutableList()
 		updated.add(atIndex.coerceIn(0, updated.size), workspace)
+
 		return copy(
 			workspaces = updated,
 			activeWorkspaceId = if (activate) workspace.id else activeWorkspaceId,
@@ -120,10 +124,13 @@ data class InterfaceLayout(
 		if (workspaces.size <= 1) {
 			return this
 		}
+
 		val removedIndex = workspaces.indexOfFirst { workspace -> workspace.id == id }
+
 		if (removedIndex < 0) {
 			return this
 		}
+
 		val remaining = workspaces.filterNot { workspace -> workspace.id == id }
 		val nextActiveId =
 			if (activeWorkspaceId == id) {
@@ -131,6 +138,7 @@ data class InterfaceLayout(
 			} else {
 				activeWorkspaceId
 			}
+
 		return copy(workspaces = remaining, activeWorkspaceId = nextActiveId)
 	}
 
@@ -148,9 +156,11 @@ data class InterfaceLayout(
 		if (fromIndex !in workspaces.indices) {
 			return this
 		}
+
 		val updated = workspaces.toMutableList()
 		val moved = updated.removeAt(fromIndex)
 		updated.add(toIndex.coerceIn(0, updated.size), moved)
+
 		return copy(workspaces = updated)
 	}
 

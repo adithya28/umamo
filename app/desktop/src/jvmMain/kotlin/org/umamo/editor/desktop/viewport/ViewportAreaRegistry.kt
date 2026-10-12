@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import org.umamo.render.ContentBounds
 import org.umamo.render.ViewportCamera
 import org.umamo.ui.viewport.AreaCameraKey
+import org.umamo.ui.viewport.AreaOverlays
 import org.umamo.ui.viewport.CameraSurface
 import org.umamo.ui.viewport.RenderedFrame
 import org.umamo.ui.viewport.UvSceneContent
@@ -90,10 +91,12 @@ internal fun uvFitBounds(surfaceBounds: ContentBounds, islandExtent: ContentBoun
 	if (islandExtent == null) {
 		return surfaceBounds
 	}
+
 	val minX = minOf(surfaceBounds.minX, islandExtent.minX)
 	val minY = minOf(surfaceBounds.minY, islandExtent.minY)
 	val maxX = maxOf(surfaceBounds.minX + surfaceBounds.width, islandExtent.minX + islandExtent.width)
 	val maxY = maxOf(surfaceBounds.minY + surfaceBounds.height, islandExtent.minY + islandExtent.height)
+
 	return ContentBounds(minX, minY, maxX - minX, maxY - minY)
 }
 
@@ -105,7 +108,8 @@ internal data class AreaView(val camera: ViewportCamera, val width: Int, val hei
  * ([OffscreenRenderEngine]). Field-ownership contract:
  *
  *   - The @Volatile fields are written by the UI thread and read by the render thread (a volatile publish of
- *     immutable values or plain scalars): scene, uvContent, uvIslandExtent, width, height, refitRequested.
+ *     immutable values or plain scalars): scene, uvContent, uvIslandExtent, overlays, width, height,
+ *     refitRequested.
  *     framing is written by both: the UI thread's pan / zoom and the render thread's establish, each
  *     replacing the whole value.
  *   - imageState / cameraState are thread-safe StateFlows; either thread may set them.
@@ -137,6 +141,13 @@ internal class AreaSlot {
 	// uvContent, and read after it: a render thread that sees new content also sees the extent measured over it.
 	@Volatile
 	var uvIslandExtent: ContentBounds? = null
+
+	// What the area draws beyond its scene: its grid geometry and its frame's overlays (grid lines, axes, mesh
+	// overlay, wireframe).  One volatile publish of one immutable value, compared by VALUE for freshness, so a toggle
+	// re-renders this area alone and never counts against the others.  The editor's defaults until the area's
+	// host pushes its own, which it does as it registers.
+	@Volatile
+	var overlays: AreaOverlays = AreaOverlays.Default
 
 	@Volatile
 	var width: Int = 0
@@ -177,6 +188,7 @@ internal class AreaSlot {
 	var puppetRenderBumpDone: Long = -1
 	var atlasRenderBumpDone: Long = -1
 	var renderedUvContent: UvSceneContent? = null
+	var renderedOverlays: AreaOverlays? = null
 
 	// Render-thread-only resize-throttle bookkeeping: the last size the loop observed, when it last
 	// changed, when the last resize-driven render was issued (all System.nanoTime), and the
@@ -260,6 +272,7 @@ internal class ViewportAreaRegistry {
 		val slot = areas.getOrPut(areaId) { AreaSlot() }
 		claim(slot, RenderScene.Puppet2D, content = null, islandExtent = null)
 		slot.refCount++
+
 		return slot.imageState
 	}
 
@@ -275,6 +288,7 @@ internal class ViewportAreaRegistry {
 		val slot = areas.getOrPut(areaId) { AreaSlot() }
 		claim(slot, RenderScene.UvScene, content, islandExtent)
 		slot.refCount++
+
 		return slot.imageState
 	}
 
@@ -302,6 +316,7 @@ internal class ViewportAreaRegistry {
 	 */
 	private fun claim(slot: AreaSlot, scene: RenderScene, content: UvSceneContent?, islandExtent: ContentBounds?) {
 		val kindChanged = slot.scene != scene
+
 		when (scene) {
 			RenderScene.UvScene -> {
 				slot.uvIslandExtent = islandExtent
@@ -315,6 +330,7 @@ internal class ViewportAreaRegistry {
 				slot.uvIslandExtent = null
 			}
 		}
+
 		if (kindChanged) {
 			// The old surface's view stays remembered under its own key for the day the area switches back; this
 			// one is re-established from the new surface's remembered view, or a fit.  The last frame goes too:
@@ -340,9 +356,11 @@ internal class ViewportAreaRegistry {
 	 */
 	fun setUvSceneContent(areaId: String, content: UvSceneContent, islandExtent: ContentBounds?) {
 		val slot = areas[areaId] ?: return
+
 		if (slot.scene == RenderScene.Puppet2D) {
 			return
 		}
+
 		applyUvContent(slot, content, islandExtent)
 	}
 
@@ -364,6 +382,26 @@ internal class ViewportAreaRegistry {
 	}
 
 	/**
+	 * Publishes what an area draws beyond its scene; a no-op for an unregistered area.  One volatile store of
+	 * one immutable value: the render thread reads it once per render and stamps the frame from that read.
+	 *
+	 * @param String       areaId   The area.
+	 * @param AreaOverlays overlays The area's render options.
+	 */
+	fun setAreaOverlays(areaId: String, overlays: AreaOverlays) {
+		val slot = areas[areaId] ?: return
+		slot.overlays = overlays
+	}
+
+	/**
+	 * The render options an area last published, or null when it is not registered.
+	 *
+	 * @param String areaId The area.
+	 * @return AreaOverlays? The area's options, or null.
+	 */
+	fun areaOverlays(areaId: String): AreaOverlays? = areas[areaId]?.overlays
+
+	/**
 	 * Releases one hold on an area; the slot is dropped only when the last holder leaves (ref-count to zero).
 	 * This guards the tree-collapse case: closing one split sibling rebuilds the surviving area's leaf under a
 	 * fresh composition node, so its [register] runs BEFORE the old leaf's unregister - a plain remove here
@@ -375,6 +413,7 @@ internal class ViewportAreaRegistry {
 	fun unregister(areaId: String) {
 		val slot = areas[areaId] ?: return
 		slot.refCount--
+
 		if (slot.refCount <= 0) {
 			areas.remove(areaId)
 		}
@@ -458,9 +497,11 @@ internal class ViewportAreaRegistry {
 		val slot = areas[areaId] ?: return
 		val width = slot.width
 		val height = slot.height
+
 		if (width <= 0 || height <= 0) {
 			return
 		}
+
 		updateCamera(areaId) { camera -> camera.framingScreenRect(leftPx, topPx, rightPx, bottomPx, width, height) }
 	}
 
@@ -511,9 +552,11 @@ internal class ViewportAreaRegistry {
 		val slot = areas[areaId] ?: return
 		val width = slot.width
 		val height = slot.height
+
 		if (width <= 0 || height <= 0 || maxX < minX || maxZ < minZ) {
 			return
 		}
+
 		// A degenerate rect (a single vertex) still frames: ContentBounds spans are clamped to >= 1 world unit
 		// by the fit, so the camera centers on the point at a sane zoom.
 		updateCamera(areaId) {
@@ -531,6 +574,7 @@ internal class ViewportAreaRegistry {
 	fun viewFor(areaId: String): AreaView? {
 		val slot = areas[areaId] ?: return null
 		val camera = slot.camera ?: return null
+
 		return AreaView(camera, slot.width, slot.height)
 	}
 
@@ -570,9 +614,11 @@ internal class ViewportAreaRegistry {
 			}
 		val framing = slot.framing
 		val refit = slot.refitRequested
+
 		if (framing != null && !refit && framing.surface == shownSurface) {
 			return framing.camera
 		}
+
 		val recalled = if (refit) null else recallCamera(areaId, scene, shownSurface)
 		val camera =
 			recalled ?: run {
@@ -587,6 +633,7 @@ internal class ViewportAreaRegistry {
 			}
 		slot.refitRequested = false
 		publishCamera(slot, areaId, FramedCamera(camera, shownSurface))
+
 		return camera
 	}
 
@@ -608,12 +655,15 @@ internal class ViewportAreaRegistry {
 		if (surface == null) {
 			return rememberedCameras[AreaCameraKey(areaId, scene.cameraSurface)]
 		}
+
 		uvSurfaceCameras[AreaUvSurfaceKey(areaId, surface)]?.let { remembered ->
 			return remembered
 		}
+
 		if (areaId in uvShownAreaIds) {
 			return null
 		}
+
 		return rememberedCameras[AreaCameraKey(areaId, CameraSurface.Uv)]
 	}
 
@@ -631,6 +681,7 @@ internal class ViewportAreaRegistry {
 		slot.framing = framing
 		slot.cameraState.value = framing.camera
 		val surface = framing.surface
+
 		if (surface == null) {
 			rememberedCameras[AreaCameraKey(areaId, CameraSurface.Viewport)] = framing.camera
 		} else {

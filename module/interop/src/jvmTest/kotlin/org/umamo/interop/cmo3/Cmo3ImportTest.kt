@@ -46,10 +46,13 @@ class Cmo3ImportTest {
 	@Test
 	fun mapsCorpusModelToStructuralTree() {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.sample not present; skipping import test")
+
 			return
 		}
+
 		val root = Cmo3.read(file).root as? CModelSource ?: error("root is not a CModelSource")
 		val puppet = Cmo3Import.fromModelSource(root)
 
@@ -160,19 +163,24 @@ class Cmo3ImportTest {
 			}
 		}
 		checkOrgChildren(puppet.rootChildren, "root")
+
 		for (part in puppet.parts) {
 			checkOrgChildren(part.children, "part ${part.id.raw}")
 		}
+
 		val placedDrawables = puppet.partByDrawable().keys
+
 		for (drawable in puppet.drawables) {
 			assertTrue(drawable.id in placedDrawables, "drawable ${drawable.id.raw} is missing from the org tree")
 			drawable.parentDeformerId?.let {
 				assertTrue(it in deformerIds, "drawable ${drawable.id.raw} -> unknown deformer ${it.raw}")
 			}
+
 			for (mask in drawable.maskedBy) {
 				assertTrue(mask in drawableIds, "drawable ${drawable.id.raw} -> unknown mask ${mask.raw}")
 			}
 		}
+
 		for (deformer in puppet.deformers) {
 			deformer.parent?.let {
 				assertTrue(it in deformerIds, "deformer ${deformer.id.raw} -> unknown parent ${it.raw}")
@@ -334,10 +342,13 @@ class Cmo3ImportTest {
 	fun blendShapeBindingsAcrossCorpus() {
 		val files =
 			System.getProperty("cmo3.probe")?.split(',')?.map(::File)?.filter { it.isFile }.orEmpty()
+
 		if (files.isEmpty()) {
 			println("cmo3.probe not present; skipping blend-shape corpus probe")
+
 			return
 		}
+
 		for (file in files) {
 			val root = Cmo3.read(file).root as? CModelSource ?: error("${file.name}: root is not a CModelSource")
 			val puppet = Cmo3Import.fromModelSource(root)
@@ -356,6 +367,7 @@ class Cmo3ImportTest {
 			)
 
 			val parameterById = puppet.parameters.associateBy { it.id }
+
 			for (binding in bindings) {
 				val parameter = parameterById[binding.parameterId]
 				assertTrue(parameter != null, "${file.name}: binding driver ${binding.parameterId.raw} resolves")
@@ -375,6 +387,7 @@ class Cmo3ImportTest {
 					binding.keys[binding.neutralIndex],
 					"${file.name}: neutral key sits at parameter value 0",
 				)
+
 				// The neutral form is null when inserted (always, in the corpus - a morph authored
 				// exactly at value 0 would occupy the slot but is never read by the evaluator).
 				for (formIndex in binding.forms.indices) {
@@ -382,6 +395,7 @@ class Cmo3ImportTest {
 						assertTrue(binding.forms[formIndex] != null, "${file.name}: non-neutral form present")
 					}
 				}
+
 				for (limit in binding.limits) {
 					assertTrue(parameterById.containsKey(limit.parameterId), "${file.name}: limit constraint parameter resolves")
 					assertTrue(
@@ -398,6 +412,7 @@ class Cmo3ImportTest {
 				assertEquals(118, formCount, "Model A: morph-target form count")
 				assertEquals(0, limitCount, "Model A: no populated blend-weight constraints")
 			}
+
 			if (file.name.startsWith("modelB")) {
 				assertEquals(5, blendShapeParams.size, "Model B: blend-shape parameter count")
 				assertEquals(45, bindings.size, "Model B: binding count")
@@ -405,6 +420,7 @@ class Cmo3ImportTest {
 				assertEquals(44, limitCount, "Model B: limit curve count")
 				assertEquals(88, limitPointCount, "Model B: one point per XML constraint record")
 			}
+
 			// Model C: the corpus constraint + edge-case model. 146 XML morph targets ingest as 145
 			// forms: exactly one is owned by a CPartSource (part blend shapes, a moc v5 feature) and
 			// part morph targets are not ingested yet - deferred with the part/glue target kinds.

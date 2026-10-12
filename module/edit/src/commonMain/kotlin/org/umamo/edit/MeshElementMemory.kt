@@ -2,6 +2,7 @@ package org.umamo.edit
 
 import org.umamo.runtime.model.DrawableId
 import org.umamo.runtime.model.PuppetModel
+import org.umamo.runtime.model.meshOf
 
 /**
  * The session's remembered-selection memory: which drawable was last active (so entering Edit mode
@@ -34,9 +35,12 @@ internal class MeshElementMemory {
 		if (current.drawableIds.isEmpty()) {
 			return
 		}
+
 		rememberedSelectMode = current.selectMode
+
 		for (drawableId in current.drawableIds) {
 			val elements = current.elementsOf(drawableId)
+
 			if (elements.isEmpty()) {
 				rememberedElementsByDrawable.remove(drawableId)
 				rememberedActiveElementByDrawable.remove(drawableId)
@@ -44,7 +48,23 @@ internal class MeshElementMemory {
 				rememberedElementsByDrawable[drawableId] = elements
 			}
 		}
+
 		current.activeElement?.let { active -> rememberedActiveElementByDrawable[active.drawableId] = active.element }
+	}
+
+	/**
+	 * Forgets the remembered elements of meshes whose vertices were all replaced.  A restore checks only
+	 * that the remembered indices exist, so after a regenerated mesh a stale memory would select
+	 * different vertices under the same numbers.  The remembered select mode and the last active
+	 * drawable stay.
+	 *
+	 * @param Collection<DrawableId> drawableIds The drawables to forget.
+	 */
+	fun forget(drawableIds: Collection<DrawableId>) {
+		for (drawableId in drawableIds) {
+			rememberedElementsByDrawable.remove(drawableId)
+			rememberedActiveElementByDrawable.remove(drawableId)
+		}
 	}
 
 	/**
@@ -61,12 +81,14 @@ internal class MeshElementMemory {
 			seeded.drawableIds.mapNotNull { drawableId ->
 				val stored = rememberedElementsByDrawable[drawableId]?.takeIf { elements -> elements.isNotEmpty() } ?: return@mapNotNull null
 				val probe = seeded.copy(selectMode = rememberedSelectMode ?: seeded.selectMode, elementsByDrawable = mapOf(drawableId to stored))
-				val fits = MeshSelectionOps.fitsWithinMeshes(probe) { candidateId -> model.drawables.firstOrNull { drawable -> drawable.id == candidateId }?.mesh }
+				val fits = MeshSelectionOps.fitsWithinMeshes(probe) { candidateId -> model.meshOf(candidateId) }
 				if (fits) drawableId to stored else null
 			}.toMap()
+
 		if (restored.isEmpty()) {
 			return seeded
 		}
+
 		// The active mesh's remembered active element returns with it (when it is still selected there).
 		val restoredActive =
 			seeded.activeDrawableId?.let { activeId ->
@@ -74,6 +96,7 @@ internal class MeshElementMemory {
 					?.takeIf { element -> restored[activeId]?.contains(element) == true }
 					?.let { element -> ActiveMeshElement(activeId, element) }
 			}
+
 		return seeded.copy(
 			selectMode = rememberedSelectMode ?: seeded.selectMode,
 			elementsByDrawable = restored,

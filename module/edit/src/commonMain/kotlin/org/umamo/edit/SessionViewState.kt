@@ -22,7 +22,6 @@ import org.umamo.runtime.model.firstEditableDrawableInPanelOrder
  * @property Boolean                proportionalEnabled  Whether proportional editing is on.
  * @property ProportionalEditState? proportionalSettings The proportional falloff, radius, and connected flag - kept
  *   while proportional editing is off, since a toggle brings them back - or null for the defaults.
- * @property GridConfig?            gridConfig           The document's own grid, or null to follow the application's.
  */
 data class SessionViewState(
 	val selection: Selection = Selection(),
@@ -34,7 +33,6 @@ data class SessionViewState(
 	val pivotMode: TransformPivotMode = TransformPivotMode.MedianPoint,
 	val proportionalEnabled: Boolean = false,
 	val proportionalSettings: ProportionalEditState? = null,
-	val gridConfig: GridConfig? = null,
 )
 
 /**
@@ -59,6 +57,7 @@ internal fun SessionViewState.fittedTo(model: PuppetModel): SessionViewState {
 		}
 	val parameterIds = model.parameters.mapTo(HashSet()) { parameter -> parameter.id }
 	val targetedParameters = parameterSelection.ids.filterTo(LinkedHashSet()) { parameterId -> parameterId in parameterIds }
+
 	return copy(
 		selection = Selection(targets, selection.active?.takeIf { active -> active in targets } ?: targets.lastOrNull()),
 		parameterSelection =
@@ -107,9 +106,11 @@ internal fun editSeedOf(model: PuppetModel, selection: Selection, rememberedDraw
 			remembered != null -> listOf(remembered)
 			else -> listOfNotNull(model.firstEditableDrawableInPanelOrder())
 		}
+
 	if (seedDrawableIds.isEmpty()) {
 		return null
 	}
+
 	return EditSeed(seedDrawableIds, activeSelectedId ?: seedDrawableIds.first(), activeSelectedId != null)
 }
 
@@ -129,7 +130,9 @@ internal fun openingSnapshotOf(model: PuppetModel, pose: Pose, viewState: Sessio
 	if (viewState == null) {
 		return EditorSnapshot(model, Selection(), pose)
 	}
+
 	val editSeed = if (viewState.mode == EditorMode.Edit) editSeedOf(model, viewState.selection, rememberedDrawableId = null) else null
+
 	return EditorSnapshot(
 		model = model,
 		selection = viewState.selection,

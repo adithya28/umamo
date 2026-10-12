@@ -306,19 +306,22 @@ class KeyformCompactionTest {
 				// Genuinely bending, so nothing is dropped and refinement is a no-op.
 				track(floatArrayOf(0f, 5f, 10f), floatArrayOf(0f, 90f, 100f)),
 			)
+
 		for (original in originals) {
 			val originalKeys = original.axes.single().keys
 			val compacted = original.compacted(ChannelValueInterpolator)
 			val restored =
 				when (compacted) {
-					is CompactionResult.Constant ->
+					is CompactionResult.Constant -> {
 						KeyformGrid(
 							listOf(KeyformAxis(angleX, floatArrayOf(originalKeys.first(), originalKeys.last()))),
 							listOf(KeyformCell(intArrayOf(0), compacted.form), KeyformCell(intArrayOf(1), compacted.form)),
 						).refinedToUnion(mapOf(angleX to originalKeys), emptyMap(), ChannelValueInterpolator)
+					}
 
-					is CompactionResult.Reduced ->
+					is CompactionResult.Reduced -> {
 						compacted.grid.refinedToUnion(mapOf(angleX to originalKeys), emptyMap(), ChannelValueInterpolator)
+					}
 				}
 			assertEquals(originalKeys.toList(), restored.axes.single().keys.toList(), "every original key is restored")
 			assertEquals(valuesInIndexOrder(original), valuesInIndexOrder(restored), "restored bit-for-bit")

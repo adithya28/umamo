@@ -151,6 +151,7 @@ class SourceArtRastersTest {
 					placementOf(positionX = 292f, positionY = 409.0863f, scaleX = 1.16431f, scaleY = 1.16431f, rotationDegrees = 90f),
 			)
 		val storedUvs = floatArrayOf(0.1f, 0.2f, 0.9f, 0.8f, 0.5f, 0.5f)
+
 		for ((label, placement) in shapes) {
 			val binding = DrawableLayerBinding("layer", placement, pageWidth = 2048, pageHeight = 1024)
 			val toLayer = layerUvAffineOf(binding, layerWidth = 576, layerHeight = 646)
@@ -158,6 +159,7 @@ class SourceArtRastersTest {
 			val toStored = invertUvAffine(toLayer)
 			assertNotNull(toStored, "$label: the affine inverts")
 			val roundTripped = applyUvAffine(applyUvAffine(storedUvs, toLayer), toStored)
+
 			for (componentIndex in storedUvs.indices) {
 				assertEquals(storedUvs[componentIndex], roundTripped[componentIndex], 1e-4f, "$label: component $componentIndex")
 			}

@@ -34,11 +34,13 @@ class HelpMenuTest {
 			}
 			waitForIdle()
 		}
+
 		for (item in checkNotNull(menu).items) {
 			if (item is MenuItem.Action) {
 				item.onSelect()
 			}
 		}
+
 		return dispatched
 	}
 

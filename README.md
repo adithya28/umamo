@@ -218,7 +218,7 @@ Reverse engineered file formats have documentation in the [docs/format/](docs/fo
 
 #### Diagnostic CLI
 
-The `:cli` module (`app/cli`) is a headless dump, convert, diff, and atlas packing tool over the same CODEC and conversion stack the editor uses.  Run it through Gradle; relative paths resolve against the repository root.  Always pass `-q` so Gradle's own build output stays out of the tool's output.  The tool writes data to stdout and diagnostics to stderr.  The convert command will **overwrite WITHOUT confirmation**.
+The `:cli` module (`app/cli`) is a headless dump, convert, diff, atlas packing, and art meshing tool over the same CODEC and conversion stack the editor uses.  Run it through Gradle; relative paths resolve against the repository root.  Always pass `-q` so Gradle's own build output stays out of the tool's output.  The tool writes data to stdout and diagnostics to stderr.  The convert command will **overwrite WITHOUT confirmation**.
 
 ```bash
 ./gradlew -q :cli:run --args="dump model.moc3"               #Static-rig summary
@@ -230,6 +230,7 @@ The `:cli` module (`app/cli`) is a headless dump, convert, diff, and atlas packi
 ./gradlew -q :cli:run --args="extract model.cmo3 out/"       #Unpack the archive (Plaintext main.xml + layer PNGs) into out/model/
 ./gradlew -q :cli:run --args="atlas art.psd out/"            #Pack the layers into out/art/page_NN.png + placements.txt
 ./gradlew -q :cli:run --args="atlas art.clip out/ --preview" #Also recomposite the canvas from the packed pages.
+./gradlew -q :cli:run --args="mesh art.psd out/ --preview"   #Auto-mesh every layer: out/art-mesh/mesh.txt + wireframe PNGs
 ./gradlew -q :cli:run --args="convert in.cmo3 out.cmo3"      #Resave (An unedited main.xml will reemit byte-identical.)
 ./gradlew -q :cli:run --args="convert in.moc3 out.moc3"      #Rebake (Fresh synthesis, NOT byte-identical by design.)
 ./gradlew -q :cli:run --args="convert in.cmo3 out.moc3"      #Full family: moc3 + model3.json + cdi3.json + textures
@@ -239,7 +240,9 @@ The `:cli` module (`app/cli`) is a headless dump, convert, diff, and atlas packi
 
 A moc3 input may also be given as its `.model3.json` manifest; textures and sidecars(cdi3/physics3/pose3/userdata3) are discovered through the manifest's file references.
 
-Both `dump` and `atlas` accept source layered artwork(`.psd`, `.clip`, `.kra`) or any flat raster read as a one-layer document.  The `atlas` command takes `--page-size=N`, `--gutter=N`, `--extrude=N`, `--rotate`, `--visible-only`, and `--no-shrink`.  It reads every packed tile back out of its page and exits non-zero if any byte differs and reports layers it could not pack(no opaque pixels, or larger than a page) rather than dropping them silently.
+`dump`, `atlas`, and `mesh` accept source layered artwork(`.psd`, `.clip`, `.kra`) or any flat raster read as a one-layer document.
+* The `atlas` command takes `--page-size=N`, `--gutter=N`, `--extrude=N`, `--rotate`, `--visible-only`, and `--no-shrink`.  It reads every packed tile back out of its page and exits non-zero if any byte differs and reports layers it could not pack(no opaque pixels, or larger than a page) rather than dropping them silently.
+* The `mesh` command takes `--layer=NAME`, `--preset=standard|fine|coarse`, `--visible-only`, `--fill-holes`, `--preview`, `--scale=N`, and one `--key=value` per mesher setting.  Use `--fill-holes` meshes over holes in the art (lace, a spider web) as one solid sheet instead of cutting them out.  It prints each layer's vertex counts, smallest triangle angle, timing, and notices.  It will exit with a non-zero status if the mesher withheld a mesh after a failed structural check.
 
 #### Running Tests
 
@@ -262,9 +265,11 @@ test/corpus/clip/    test/corpus/psd/  test/corpus/krita/   test/corpus/tiff/  t
 ```
 
 ```bash
-./gradlew :format:jvmTest                                   #Corpus automatic discovery.
-./gradlew :format:jvmTest -Dcmo3.sample=/path/to/Model.cmo3 #Point at one explicitly.
+./gradlew :format:jvmTest                                                                                                                        #Corpus automatic discovery.
+./gradlew :format:jvmTest -Dcmo3.sample=/path/to/Model.cmo3                                                                                      #Point at one explicitly.
 ./gradlew :format:jvmTest --tests "org.umamo.format.cmo3.tools.ModelGenerator" -Dcmo3.generate=true -Dcmo3.gensample=/path/to/Model.cmo3 --rerun #Generate new CMO3 model and registration.  Make sure to run ktlintFormat afterwards to clean up.
+./gradlew :ui:jvmTest --tests "*.EditGrabPerfProbeTest" -i                                                                                       #Edit-mode perf probe over moc3.perfSample (test/corpus/moc3/modelF by default).  Print-only: -i (--info) shows the rows, or read build/test-results.
+./gradlew :render:jvmTest --tests "*.EditGrabRenderPerfProbeTest" -i                                                                             #Its render-thread twin (needs a GL context).
 ```
 
 ## Legal & Trademark Notice

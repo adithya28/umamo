@@ -105,6 +105,7 @@ private fun decodeTilePayload(
 ): ByteArray {
 	val flag = data[payloadOffset].toInt() and 0xFF
 	val packed = ByteArray(tileDataSize)
+
 	when (flag) {
 		KRA_RAW_DATA_FLAG -> {
 			// Already interleaved; copy the tileDataSize bytes after the flag.
@@ -125,8 +126,11 @@ private fun decodeTilePayload(
 			delinearizeColors(planar, packed, tileDataSize, pixelSize)
 		}
 
-		else -> error("Unknown KRA tile data flag $flag")
+		else -> {
+			error("Unknown KRA tile data flag $flag")
+		}
 	}
+
 	return packed
 }
 
@@ -142,6 +146,7 @@ private fun headerValue(line: String, expectedKey: String): Int {
 	require(parts.size == 2 && parts[0] == expectedKey) {
 		"Expected KRA tile header '$expectedKey <n>', got '$line'"
 	}
+
 	return parts[1].trim().toInt()
 }
 
@@ -164,13 +169,17 @@ private class AsciiLineCursor(private val data: ByteArray) {
 	 */
 	fun readLine(): String {
 		val start = position
+
 		while (position < data.size && data[position] != newline) {
 			position++
 		}
+
 		val line = decodeAscii(data, start, position - start)
+
 		if (position < data.size) {
 			position++ // consume the newline
 		}
+
 		return line
 	}
 

@@ -19,5 +19,6 @@ internal fun fallbackColorFor(id: String): FloatArray {
 	val red = 0.35f + ((hash shr 16) and 0xFF) / 255f * 0.6f
 	val green = 0.35f + ((hash shr 8) and 0xFF) / 255f * 0.6f
 	val blue = 0.35f + (hash and 0xFF) / 255f * 0.6f
+
 	return floatArrayOf(red, green, blue, 0.85f)
 }

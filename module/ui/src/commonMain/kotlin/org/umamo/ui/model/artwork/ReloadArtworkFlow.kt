@@ -6,10 +6,10 @@ import kotlinx.coroutines.withContext
 import org.umamo.edit.AdjustableOperation
 import org.umamo.edit.DocumentChange
 import org.umamo.edit.NoticePlacement
-import org.umamo.edit.commitArtworkRelinked
-import org.umamo.edit.commitArtworkReloaded
-import org.umamo.edit.setTileSources
-import org.umamo.edit.withArtworkReloaded
+import org.umamo.edit.atlas.commitArtworkRelinked
+import org.umamo.edit.atlas.commitArtworkReloaded
+import org.umamo.edit.atlas.setTileSources
+import org.umamo.edit.atlas.withArtworkReloaded
 import org.umamo.format.art.LayerRaster
 import org.umamo.format.art.SourceArt
 import org.umamo.interop.art.SourceArtImport
@@ -55,18 +55,23 @@ import org.umamo.ui.model.repack.AtlasRepackReport
  *   on the refreshed source so the watcher knows this save was taken; null keeps the record's.
  * @property Long?       lastModified The file's modification time when read, recorded beside the hash;
  *   null keeps the record's.
+ * @property List?       inventoryOverride The inventory to keep for the file instead of [art]'s own, or null:
+ *   art read from the document's own tiles rather than the file carries no hashes or review flags to
+ *   rewrite the record's rows with, so the record's rows stand.
  */
 class ReloadEntry(
 	val sourceId: ArtSourceId,
 	val art: SourceArt,
 	val contentHash: String? = null,
 	val lastModified: Long? = null,
+	val inventoryOverride: List<ArtSourceLayer>? = null,
 ) {
 	/**
-	 * The inventory of [art], computed once for the entry's life: it hashes every layer's pixels, and
-	 * the planner, the scorer, and every strip adjustment over this read want the same rows.
+	 * The inventory of [art], or [inventoryOverride] when set, computed once for the entry's life: it
+	 * hashes every layer's pixels, and the planner, the scorer, and every strip adjustment over this read
+	 * want the same rows.
 	 */
-	val inventory: List<ArtSourceLayer> by lazy { SourceArtImport.inventoryOf(art) }
+	val inventory: List<ArtSourceLayer> by lazy { inventoryOverride ?: SourceArtImport.inventoryOf(art) }
 }
 
 /** How a reload ended - what the watcher needs to know to wait, retry, or let go. */
@@ -99,7 +104,7 @@ class ReloadArtworkRequest(
 	val options: SourceArtImportOptions,
 	val matchThreshold: Float = InventoryLayerMatcher.DEFAULT_THRESHOLD,
 ) {
-	private val decoded = DecodedLayerRasters(entries.flatMap { entry -> entry.art.layers })
+	private val decoded = DecodedLayerRasters()
 
 	/**
 	 * The decoded wrapper of one of the files' layer rasters.
@@ -123,6 +128,10 @@ class ReloadArtworkRequest(
  * @property List<AtlasTileId>      retire  The tiles bound to the target layer that go with the move -
  *   the fresh drawable a reload minted for it, named by the proposal being accepted; each is re-checked
  *   for rig work before it leaves.  Empty for a relink by hand or a drop.
+ * @property List?                  inventoryOverride The inventory to keep for the file instead of [art]'s
+ *   own, or null (see [ReloadEntry.inventoryOverride]).
+ * @property Boolean                fromDocument Whether [art] is the art the document holds rather than
+ *   the file, which the notice says when a pull lands.
  */
 class RelinkArtworkRequest(
 	val tileIds: List<AtlasTileId>,
@@ -130,6 +139,8 @@ class RelinkArtworkRequest(
 	val art: SourceArt?,
 	val options: SourceArtImportOptions,
 	val retire: List<AtlasTileId> = emptyList(),
+	val inventoryOverride: List<ArtSourceLayer>? = null,
+	val fromDocument: Boolean = false,
 ) {
 	/**
 	 * The one-tile form.
@@ -142,11 +153,12 @@ class RelinkArtworkRequest(
 	constructor(tileId: AtlasTileId, ref: SourceLayerRef, art: SourceArt?, options: SourceArtImportOptions) : this(listOf(tileId), ref, art, options)
 
 	/**
-	 * The inventory of [art], computed once for the request's life; empty without the file.
+	 * The inventory of [art], or [inventoryOverride] when set, computed once for the request's life; empty
+	 * without either.
 	 */
-	val inventory: List<ArtSourceLayer> by lazy { art?.let(SourceArtImport::inventoryOf).orEmpty() }
+	val inventory: List<ArtSourceLayer> by lazy { inventoryOverride ?: art?.let(SourceArtImport::inventoryOf).orEmpty() }
 
-	private val decoded = DecodedLayerRasters(art?.layers.orEmpty())
+	private val decoded = DecodedLayerRasters()
 
 	/**
 	 * The decoded wrapper of one of the file's layer rasters.
@@ -253,6 +265,7 @@ internal fun rebindingsOf(plan: ReloadPlan, base: PuppetModel, art: SourceArt): 
 		plan.reload.drawableVisibility.map { (drawableId, visible) ->
 			Rebinding.VisibilityFollowed(base.drawables.firstOrNull { drawable -> drawable.id == drawableId }?.name ?: drawableId.raw, visible)
 		}
+
 	return rebound + retired + followed
 }
 
@@ -265,10 +278,17 @@ internal fun rebindingsOf(plan: ReloadPlan, base: PuppetModel, art: SourceArt): 
 internal fun reportRebindings(operation: String, rebindings: List<Rebinding>) {
 	for (rebinding in rebindings) {
 		when (rebinding) {
-			is Rebinding.Rebound -> UmamoLog.info("$operation: '${rebinding.tileName}' rebound to layer '${rebinding.layerName}' at ${percentOf(rebinding.score)}%")
-			is Rebinding.Retired -> UmamoLog.info("$operation: the new drawable '${rebinding.drawableName}' over layer '${rebinding.layerName}' was removed; a rebound tile took the layer")
-			is Rebinding.VisibilityFollowed ->
+			is Rebinding.Rebound -> {
+				UmamoLog.info("$operation: '${rebinding.tileName}' rebound to layer '${rebinding.layerName}' at ${percentOf(rebinding.score)}%")
+			}
+
+			is Rebinding.Retired -> {
+				UmamoLog.info("$operation: the new drawable '${rebinding.drawableName}' over layer '${rebinding.layerName}' was removed; a rebound tile took the layer")
+			}
+
+			is Rebinding.VisibilityFollowed -> {
 				UmamoLog.info("$operation: '${rebinding.drawableName}' is now ${if (rebinding.visible) "shown" else "hidden"}, following its layer's eye toggle in the file")
+			}
 		}
 	}
 }
@@ -315,19 +335,25 @@ private fun reloadOutcome(
 	var missing = 0
 	var visibility = 0
 	val oldRasterOf = oldRasterLookup(artRasters)
+
 	for (entry in request.entries) {
 		val plan =
 			ArtworkReloadPlanner.plan(model, entry.sourceId, entry.art, options, oldRasterOf, entry.contentHash, inventory = entry.inventory, lastModified = entry.lastModified, matchThreshold = matchThreshold)
 				?: continue
 		val next = model.withArtworkReloaded(plan.reload)
+
 		if (next === model) {
 			UmamoLog.error("reload artwork: the plan for '${plan.reload.source.name}' collides with the document's ids; that file was skipped")
+
 			continue
 		}
+
 		rebindings.addAll(rebindingsOf(plan, model, entry.art))
+
 		for ((lostKey, match) in plan.leftovers) {
 			suggestions[entry.sourceId to lostKey] = match
 		}
+
 		model = next
 		rasters.putAll(plan.rasterByTile)
 		notices.addAll(plan.notices)
@@ -338,10 +364,13 @@ private fun reloadOutcome(
 		missing += plan.report.needsReview.size
 		visibility += plan.reload.drawableVisibility.size
 	}
+
 	if (model === base) {
 		return ReloadOutcome.NothingChanged
 	}
+
 	val change = DocumentChange.ReloadArtwork(request.entries.size, replaced, added, matched, missing, visibility)
+
 	return packReloaded(model, rasters.mapValues { (_, raster) -> request.decodedFor(raster) }, notices, artRasters, premultipliedAlpha) { packedModel, textures, packedNotices, decodedByTile ->
 		ReloadOutcome.Reloaded(packedModel, textures, decodedByTile, packedNotices, outgrown, change, rebindings, suggestions)
 	}
@@ -372,7 +401,9 @@ private inline fun packReloaded(
 	if (decodedByTile.isEmpty()) {
 		return reloaded(model, null, notices, decodedByTile)
 	}
+
 	val decode: (AtlasTileId) -> DecodedImage? = { tileId -> decodedByTile[tileId] ?: artRasters.decodeRaster(tileId) }
+
 	return when (val packed = packNewTilesAround(model, decodedByTile.keys, decode, premultipliedAlpha, notices)) {
 		is PackAroundOutcome.Refused -> ReloadOutcome.Refused(packed.refusals)
 		is PackAroundOutcome.Packed -> reloaded(packed.model, packed.textures, packed.notices, decodedByTile)
@@ -403,26 +434,37 @@ suspend fun runReloadArtwork(host: AtlasRepackHost, request: ReloadArtworkReques
 		withContext(Dispatchers.Default) {
 			reloadOutcome(modelAtStart, request, request.options, request.matchThreshold, host.artRasters, host.premultipliedAlpha)
 		}
+
 	when (outcome) {
 		ReloadOutcome.NothingChanged -> {
 			UmamoLog.info("reload artwork: nothing changed in ${request.entries.size} file(s)")
 			session.emitNotice("notice.reload.noChanges", NoticePlacement.StatusBar)
+
 			return ReloadArtworkResult.NothingChanged
 		}
+
 		is ReloadOutcome.Refused -> {
 			for (refusal in outcome.refusals) {
 				UmamoLog.warn("reload artwork: the document's tile '${refusal.tileName}' could not be kept in place (${refusal.reason}); nothing was applied")
 			}
+
 			host.report(AtlasRepackReport(outcome.refusals))
+
 			return ReloadArtworkResult.Refused
 		}
-		is ReloadOutcome.Reloaded -> Unit
+
+		is ReloadOutcome.Reloaded -> {
+			Unit
+		}
 	}
+
 	if (session.model.value !== modelAtStart) {
 		UmamoLog.warn("reload artwork: the document changed while its files were being reloaded; nothing was applied")
 		session.emitNotice("notice.import.artworkSuperseded", NoticePlacement.StatusBar)
+
 		return ReloadArtworkResult.Superseded
 	}
+
 	host.artRasters.addDecoded(outcome.decodedByTile)
 	val committed = session.commitArtworkReloaded(outcome.change, outcome.model)
 	prewarmPages(host, committed, outcome.textures)
@@ -442,6 +484,7 @@ suspend fun runReloadArtwork(host: AtlasRepackHost, request: ReloadArtworkReques
 	session.registerAdjustableOperation(committed, areaId, matchArtworkParameters(request.matchThreshold, request.options)) { record ->
 		host.scope.launch { adjustReloadArtwork(host, record, request, publish) }
 	}
+
 	return ReloadArtworkResult.Applied
 }
 
@@ -464,23 +507,34 @@ internal suspend fun adjustReloadArtwork(host: AtlasRepackHost, record: Adjustab
 		withContext(Dispatchers.Default) {
 			reloadOutcome(base, request, options, matchThreshold, host.artRasters, host.premultipliedAlpha)
 		}
+
 	when (outcome) {
 		ReloadOutcome.NothingChanged -> {
 			UmamoLog.warn("reload artwork: under the adjusted options nothing changes; the previous result stands")
+
 			return
 		}
+
 		is ReloadOutcome.Refused -> {
 			host.report(AtlasRepackReport(outcome.refusals))
+
 			return
 		}
-		is ReloadOutcome.Reloaded -> Unit
+
+		is ReloadOutcome.Reloaded -> {
+			Unit
+		}
 	}
+
 	host.artRasters.addDecoded(outcome.decodedByTile)
 	prewarmPages(host, outcome.model, outcome.textures)
+
 	if (!host.session.amendLastCommit(record, outcome.model)) {
 		UmamoLog.info("reload artwork: the adjustment was superseded before it landed; nothing was applied")
+
 		return
 	}
+
 	publish(outcome.suggestions)
 	reportReload(outcome, outcome.model)
 }
@@ -509,10 +563,12 @@ private fun reportReload(outcome: ReloadOutcome.Reloaded, committed: PuppetModel
 	for (notice in outcome.notices) {
 		UmamoLog.warn("reload artwork: ${describeImportNotice(notice)}")
 	}
+
 	for (drawableId in outcome.outgrown) {
 		val name = committed.drawables.firstOrNull { drawable -> drawable.id == drawableId }?.name ?: drawableId.raw
 		UmamoLog.warn("reload artwork: the new art of '$name' reaches past its edited mesh; re-mesh it or extend the mesh")
 	}
+
 	reportRebindings("reload artwork", outcome.rebindings)
 	val change = outcome.change
 	UmamoLog.info(
@@ -540,28 +596,37 @@ suspend fun runRelinkArtwork(host: AtlasRepackHost, request: RelinkArtworkReques
 		withContext(Dispatchers.Default) {
 			planRelinkOf(modelAtStart, request, request.options, host.artRasters)
 		}
+
 	if (plan == null) {
 		val unchanged = request.tileIds.filter { tileId -> modelAtStart.atlas.tileById[tileId]?.source == request.ref }
 		val toRebind = request.tileIds - unchanged.toSet()
+
 		if (toRebind.isEmpty()) {
 			UmamoLog.info("relink artwork: ${describeTiles(request.tileIds)} already holds this binding and this art; nothing to pull")
+
 			return false
 		}
+
 		session.setTileSources(toRebind, request.ref)
 		UmamoLog.warn("relink artwork: ${describeTiles(toRebind)} rebound to '${request.ref.layerKey}' without its art (the file could not be read, or the layer has none)")
 		session.emitNotice("notice.relink.bindingOnly", NoticePlacement.StatusBar)
+
 		return false
 	}
+
 	val outcome =
 		withContext(Dispatchers.Default) {
 			relinkOutcome(modelAtStart, plan, request, host.artRasters, host.premultipliedAlpha)
 		}
+
 	if (!landRelink(host, request, modelAtStart, outcome) { model -> session.commitArtworkRelinked(request.tileIds.first(), model) }) {
 		return false
 	}
+
 	session.registerAdjustableOperation(session.model.value, areaId, addArtworkParameters(request.options, placed = false)) { record ->
 		host.scope.launch { adjustRelinkArtwork(host, record, request) }
 	}
+
 	return true
 }
 
@@ -578,6 +643,7 @@ suspend fun runRelinkArtwork(host: AtlasRepackHost, request: RelinkArtworkReques
 private fun planRelinkOf(base: PuppetModel, request: RelinkArtworkRequest, options: SourceArtImportOptions, artRasters: SourceArtRasters): ReloadPlan? {
 	val art = request.art ?: return null
 	val pairs = request.tileIds.map { tileId -> tileId to request.ref.layerKey }
+
 	return ArtworkReloadPlanner.planMatches(base, request.ref.sourceId, art, pairs, options, oldRasterLookup(artRasters), inventory = request.inventory, retire = request.retire.toSet())
 }
 
@@ -607,12 +673,16 @@ private fun relinkOutcome(
 	premultipliedAlpha: Boolean,
 ): ReloadOutcome {
 	val model = base.withArtworkReloaded(plan.reload)
+
 	if (model === base) {
 		UmamoLog.error("relink artwork: the plan for ${describeTiles(request.tileIds)} collides with the document's ids; nothing was applied")
+
 		return ReloadOutcome.NothingChanged
 	}
+
 	val change = DocumentChange.ReloadArtwork(1, plan.reload.replacedTiles.size, 0, 0, 0)
 	val rebindings = request.art?.let { art -> rebindingsOf(plan, base, art) }.orEmpty()
+
 	return packReloaded(model, plan.rasterByTile.mapValues { (_, raster) -> request.decodedFor(raster) }, plan.notices, artRasters, premultipliedAlpha) { packedModel, textures, notices, decodedByTile ->
 		ReloadOutcome.Reloaded(packedModel, textures, decodedByTile, notices, plan.reload.outgrown, change, rebindings)
 	}
@@ -623,7 +693,7 @@ private fun relinkOutcome(
  * the log, and the notice.
  *
  * @param AtlasRepackHost      host         The session, art, resolver, and shell callbacks.
- * @param RelinkArtworkRequest request      The request, for the log.
+ * @param RelinkArtworkRequest request      The request, for the log and the notice.
  * @param PuppetModel          modelAtStart The model the outcome was planned against.
  * @param ReloadOutcome        outcome      What the pass produced.
  * @param Function             commit       Commits the packed model and returns the committed one.
@@ -637,24 +707,37 @@ private inline fun landRelink(
 	commit: (PuppetModel) -> PuppetModel,
 ): Boolean {
 	val session = host.session
+
 	when (outcome) {
-		ReloadOutcome.NothingChanged -> return false
-		is ReloadOutcome.Refused -> {
-			host.report(AtlasRepackReport(outcome.refusals))
+		ReloadOutcome.NothingChanged -> {
 			return false
 		}
-		is ReloadOutcome.Reloaded -> Unit
+
+		is ReloadOutcome.Refused -> {
+			host.report(AtlasRepackReport(outcome.refusals))
+
+			return false
+		}
+
+		is ReloadOutcome.Reloaded -> {
+			Unit
+		}
 	}
+
 	if (session.model.value !== modelAtStart) {
 		UmamoLog.warn("relink artwork: the document changed while ${describeTiles(request.tileIds)} was being relinked; nothing was applied")
 		session.emitNotice("notice.import.artworkSuperseded", NoticePlacement.StatusBar)
+
 		return false
 	}
+
 	host.artRasters.addDecoded(outcome.decodedByTile)
 	val committed = commit(outcome.model)
 	prewarmPages(host, committed, outcome.textures)
 	reportReload(outcome, committed)
-	session.emitNotice(if (outcome.outgrown.isEmpty()) "notice.relink.pulled" else "notice.reload.outgrown", NoticePlacement.StatusBar)
+	val pulledNotice = if (request.fromDocument) "notice.relink.pulledFromDocument" else "notice.relink.pulled"
+	session.emitNotice(if (outcome.outgrown.isEmpty()) pulledNotice else "notice.reload.outgrown", NoticePlacement.StatusBar)
+
 	return true
 }
 
@@ -670,6 +753,7 @@ internal suspend fun adjustRelinkArtwork(host: AtlasRepackHost, record: Adjustab
 	if (request.art == null) {
 		return
 	}
+
 	val base = record.baseSnapshot.model
 	val options = addArtworkOptionsOf(record.parameters, request.options)
 	val outcome =
@@ -677,22 +761,33 @@ internal suspend fun adjustRelinkArtwork(host: AtlasRepackHost, record: Adjustab
 			val plan = planRelinkOf(base, request, options, host.artRasters)
 			if (plan == null) ReloadOutcome.NothingChanged else relinkOutcome(base, plan, request, host.artRasters, host.premultipliedAlpha)
 		}
+
 	when (outcome) {
 		ReloadOutcome.NothingChanged -> {
 			UmamoLog.warn("relink artwork: under the adjusted options nothing changes; the previous result stands")
+
 			return
 		}
+
 		is ReloadOutcome.Refused -> {
 			host.report(AtlasRepackReport(outcome.refusals))
+
 			return
 		}
-		is ReloadOutcome.Reloaded -> Unit
+
+		is ReloadOutcome.Reloaded -> {
+			Unit
+		}
 	}
+
 	host.artRasters.addDecoded(outcome.decodedByTile)
 	prewarmPages(host, outcome.model, outcome.textures)
+
 	if (!host.session.amendLastCommit(record, outcome.model)) {
 		UmamoLog.info("relink artwork: the adjustment was superseded before it landed; nothing was applied")
+
 		return
 	}
+
 	reportReload(outcome, outcome.model)
 }

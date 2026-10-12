@@ -8,6 +8,14 @@ import org.umamo.edit.MeshOperatorKind
 import org.umamo.edit.ProportionalEditState
 import org.umamo.edit.ProportionalFalloff
 import org.umamo.edit.TransformAxisConstraint
+import org.umamo.edit.transform.beginCircleSelect
+import org.umamo.edit.transform.beginMeshOperator
+import org.umamo.ui.viewport.gizmo.LEFT_AREA
+import org.umamo.ui.viewport.gizmo.assertNothingRan
+import org.umamo.ui.viewport.gizmo.countingGizmoRuns
+import org.umamo.ui.viewport.gizmo.moveIn
+import org.umamo.ui.viewport.gizmo.pressIn
+import org.umamo.ui.viewport.gizmo.releaseIn
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -74,5 +82,25 @@ class EditGizmoRecompositionTest {
 			waitForIdle()
 
 			assertNothingRan(counter, "a radius and an axis change")
+		}
+
+	/**
+	 * Painting with the circle brush publishes the stroke to the session for the renderer's overlay and
+	 * runs no composable: nothing that composes reads the stroke.
+	 */
+	@Test
+	fun aCircleStampRunsNothing() =
+		countingGizmoRuns { counter ->
+			val fixture = mountGizmoOverlays(gizmoEditSession())
+			fixture.session.beginCircleSelect(LEFT_AREA)
+			waitForIdle()
+			pressIn(LEFT_AREA, rigScreenOf(20f, -20f))
+			waitForIdle()
+			counter.reset()
+
+			moveIn(LEFT_AREA, listOf(rigScreenOf(10f, -20f), rigScreenOf(0f, -20f), rigScreenOf(0f, -10f)))
+
+			assertNothingRan(counter, "a circle stroke's stamps")
+			releaseIn(LEFT_AREA)
 		}
 }

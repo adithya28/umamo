@@ -33,6 +33,7 @@ internal fun sampleMeshLocal(
 	paramValue: (ParameterId) -> Float,
 ): FloatArray? {
 	val corners = gridCorners(grid, paramValue) ?: return null
+
 	return blendLocalFromCorners(grid, base, corners)
 }
 
@@ -53,13 +54,16 @@ internal fun sampleMeshLocal(
 internal fun blendLocalFromCorners(grid: KeyformGrid<MeshDeltaForm>?, base: FloatArray, corners: List<WeightedCell>): FloatArray {
 	val cells = if (grid != null) cellsByLinearIndex(grid) else emptyMap()
 	val out = base.copyOf()
+
 	for (corner in corners) {
 		val delta = cells[corner.linearIndex]?.form?.positionDeltas ?: continue
 		val count = minOf(out.size, delta.size)
+
 		for (coordIndex in 0 until count) {
 			out[coordIndex] += corner.weight * delta[coordIndex]
 		}
 	}
+
 	return out
 }
 
@@ -97,9 +101,11 @@ internal fun evalDirectMeshWorld(
 ): FloatArray? {
 	val world = sampleMeshLocal(grid, base, paramValue) ?: return null
 	var yIndex = 1
+
 	while (yIndex < world.size) {
 		world[yIndex] = -world[yIndex]
 		yIndex += 2
 	}
+
 	return world
 }

@@ -71,12 +71,15 @@ internal fun rowPreviewPosition(
 	val rightOfRow = anchorRect.right.roundToInt() + gapPx
 	val leftOfRow = anchorRect.left.roundToInt() - gapPx - popupSize.width
 	val levelWithRow = anchorRect.top.roundToInt().coerceIn(0, farthestY)
+
 	if (rightOfRow + popupSize.width <= windowSize.width) {
 		return IntOffset(rightOfRow, levelWithRow)
 	}
+
 	if (leftOfRow >= 0) {
 		return IntOffset(leftOfRow, levelWithRow)
 	}
+
 	val pointerPosition = pointer() ?: return IntOffset(leftOfRow.coerceIn(0, farthestX), levelWithRow)
 	val pointerX = pointerPosition.x.roundToInt()
 	val pointerY = pointerPosition.y.roundToInt()
@@ -94,6 +97,7 @@ internal fun rowPreviewPosition(
 		} else {
 			pointerY - pointerGapPx - popupSize.height
 		}
+
 	return IntOffset(x.coerceIn(0, farthestX), y.coerceIn(0, farthestY))
 }
 

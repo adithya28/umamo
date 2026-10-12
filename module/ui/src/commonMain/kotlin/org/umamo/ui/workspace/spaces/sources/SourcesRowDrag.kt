@@ -39,6 +39,7 @@ internal fun sourcesDragPayload(node: SourcesNode): SourcesDragPayload? =
  */
 internal fun relinkFor(payload: SourcesDragPayload, target: SourcesNode): Pair<AtlasTileId, SourceLayerRef>? {
 	val kind = target.kind
+
 	return when {
 		payload is SourcesDragPayload.Layer && kind is SourcesNodeKind.Tile -> kind.tileId to payload.ref
 		payload is SourcesDragPayload.Tile && kind is SourcesNodeKind.Layer && !target.status.isReview && target.status != SourcesStatus.Ignored -> payload.tileId to kind.ref
@@ -70,10 +71,12 @@ internal fun performSourcesDrop(
 	val payload = controller.draggedPayload
 	val target = controller.dropTargetKey?.let { key -> nodeById[key] }
 	val rebind = if (payload != null && target != null) relinkFor(payload, target) else null
+
 	if (onRelink != null && rebind != null) {
 		val (tileId, ref) = rebind
 		onRelink(listOf(tileId), ref, emptyList())
 		expand(sourcesLayerRowId(ref.sourceId, ref.layerKey))
 	}
+
 	controller.end()
 }

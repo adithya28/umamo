@@ -40,6 +40,7 @@ internal object BelowAnchorPositionProvider : PopupPositionProvider {
 				above >= 0 -> above
 				else -> windowSize.height - popupContentSize.height
 			}
+
 		return IntOffset(left, top.coerceIn(0, max(0, windowSize.height - popupContentSize.height)))
 	}
 }
@@ -60,6 +61,7 @@ internal class AtPointPositionProvider(private val localOffset: IntOffset) : Pop
 	): IntOffset {
 		val x = (anchorBounds.left + localOffset.x).coerceIn(0, max(0, windowSize.width - popupContentSize.width))
 		val y = (anchorBounds.top + localOffset.y).coerceIn(0, max(0, windowSize.height - popupContentSize.height))
+
 		return IntOffset(x, y)
 	}
 }

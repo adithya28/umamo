@@ -2,6 +2,7 @@ package org.umamo.render.eval
 
 import org.umamo.runtime.eval.colorAt
 import org.umamo.runtime.eval.meshGridDefaultDeltas
+import org.umamo.runtime.eval.multiplierAt
 import org.umamo.runtime.eval.rotationFormAt
 import org.umamo.runtime.eval.scalarAt
 import org.umamo.runtime.eval.warpControlPointsAt
@@ -57,16 +58,21 @@ internal fun activeBlendKeys(
 	if (limitMultiplier <= 0f) {
 		return emptyList()
 	}
+
 	val keys = binding.keys
+
 	if (keys.size < 2) {
 		// A lone key is necessarily the neutral (ingest always inserts it): nothing to add.
 		return emptyList()
 	}
+
 	// Saturating bracket, no epsilon: grid = last key <= value, clamped to the ends.
 	var lowerKeyIndex = 0
+
 	while (lowerKeyIndex + 1 < keys.size && keys[lowerKeyIndex + 1] <= value) {
 		lowerKeyIndex++
 	}
+
 	val span = if (lowerKeyIndex + 1 < keys.size) keys[lowerKeyIndex + 1] - keys[lowerKeyIndex] else 0f
 	val fraction =
 		when {
@@ -77,13 +83,17 @@ internal fun activeBlendKeys(
 		}
 	val active = ArrayList<ActiveBlendKey>(2)
 	val lowerWeight = (1f - fraction) * limitMultiplier
+
 	if (lowerKeyIndex != binding.neutralIndex && lowerWeight > 0f) {
 		active.add(ActiveBlendKey(lowerKeyIndex, lowerWeight))
 	}
+
 	val upperWeight = fraction * limitMultiplier
+
 	if (fraction > 0f && lowerKeyIndex + 1 != binding.neutralIndex && upperWeight > 0f) {
 		active.add(ActiveBlendKey(lowerKeyIndex + 1, upperWeight))
 	}
+
 	return active
 }
 
@@ -96,40 +106,7 @@ internal fun activeBlendKeys(
  * @param Function paramValue Current value per parameter id.
  * @return Float The multiplier in [0..1] (whatever the curves yield).
  */
-internal fun limitMultiplier(limits: List<BlendWeightLimit>, paramValue: (ParameterId) -> Float): Float {
-	var multiplier = 1f
-	for (limit in limits) {
-		val points = limit.points
-		if (points.isEmpty()) {
-			continue
-		}
-		val value = paramValue(limit.parameterId)
-		val capped =
-			when {
-				value <= points.first().value -> points.first().weight
-				value >= points.last().value -> points.last().weight
-				else -> {
-					var lowerPointIndex = 0
-					while (lowerPointIndex + 1 < points.size && points[lowerPointIndex + 1].value <= value) {
-						lowerPointIndex++
-					}
-					val lower = points[lowerPointIndex]
-					val upper = points[lowerPointIndex + 1]
-					val span = upper.value - lower.value
-					if (span > 0f) {
-						val fraction = (value - lower.value) / span
-						lower.weight + fraction * (upper.weight - lower.weight)
-					} else {
-						lower.weight
-					}
-				}
-			}
-		if (capped < multiplier) {
-			multiplier = capped
-		}
-	}
-	return multiplier
-}
+internal fun limitMultiplier(limits: List<BlendWeightLimit>, paramValue: (ParameterId) -> Float): Float = limits.multiplierAt(paramValue)
 
 /** One active mesh blend contribution: the form, its net weight, and its (binding, key) identity. */
 internal class MeshBlendContribution(
@@ -172,17 +149,21 @@ internal fun meshBlendState(
 	if (drawable.blendShapes.isEmpty()) {
 		return null
 	}
+
 	val contributions = ArrayList<MeshBlendContribution>()
+
 	for (bindingIndex in drawable.blendShapes.indices) {
 		val binding = drawable.blendShapes[bindingIndex]
 		val active =
 			activeBlendKeys(binding, paramValue(binding.parameterId), limitMultiplier(binding.limits, paramValue))
+
 		for (key in active) {
 			val form = binding.forms[key.keyIndex] ?: continue
 			contributions.add(MeshBlendContribution(bindingIndex, key.keyIndex, form, key.weight))
 		}
 	}
-	// The reference is the entity's state at the DEFAULT pose (E5): geometry deltas vs the rest mesh,
+
+	// The reference is the entity's state at the DEFAULT pose: geometry deltas vs the keyform-space base,
 	// plus each scalar channel's own value there. An untracked or out-of-range channel resolves to the
 	// drawable's static, which for an imported drawable is Cubism's 500 / full opacity - the same
 	// statics scalarAt falls back to everywhere else, so the evaluator's subtraction still cancels exactly.
@@ -200,8 +181,8 @@ internal fun meshBlendState(
 
 /**
  * The summed weighted control-point delta of [warp]'s blend bindings at the current pose, or null
- * when nothing contributes. Deltas are relative to the lattice's grid form at the DEFAULT pose
- * (E5); WarpForm control points are absolute, so the reference is subtracted here.
+ * when nothing contributes. Deltas are relative to the lattice's grid form at the DEFAULT pose;
+ * WarpForm control points are absolute, so the reference is subtracted here.
  *
  * @param Deformer.Warp warp        The warp deformer.
  * @param Function      paramValue   Current value per parameter id.
@@ -216,22 +197,29 @@ internal fun warpBlendDeltas(
 	if (warp.blendShapes.isEmpty()) {
 		return null
 	}
+
 	var deltas: FloatArray? = null
 	var reference: FloatArray? = null
+
 	for (binding in warp.blendShapes) {
 		val active =
 			activeBlendKeys(binding, paramValue(binding.parameterId), limitMultiplier(binding.limits, paramValue))
+
 		for (key in active) {
 			val form = binding.forms[key.keyIndex] ?: continue
+
 			if (reference == null) {
 				reference = warpControlPointsAt(warp.geometryGrid, defaultValue) ?: FloatArray(form.controlPoints.size)
 			}
+
 			val target = deltas ?: FloatArray(form.controlPoints.size).also { deltas = it }
+
 			for (componentIndex in target.indices) {
 				target[componentIndex] += key.weight * (form.controlPoints[componentIndex] - reference[componentIndex])
 			}
 		}
 	}
+
 	return deltas
 }
 
@@ -261,23 +249,28 @@ internal fun rotationBlendDeltas(
 	if (rotation.blendShapes.isEmpty()) {
 		return null
 	}
+
 	var originX = 0f
 	var originY = 0f
 	var angle = 0f
 	var scale = 0f
 	var contributed = false
 	var reference: RotationPivotForm? = null
+
 	for (binding in rotation.blendShapes) {
 		val active =
 			activeBlendKeys(binding, paramValue(binding.parameterId), limitMultiplier(binding.limits, paramValue))
+
 		for (key in active) {
 			val form = binding.forms[key.keyIndex] ?: continue
+
 			if (reference == null) {
 				// The identity fallback mirrors the importer's, so the subtraction cancels exactly even for
 				// an unkeyed rotation. Flips are FLAG channels and never take part in a blend-shape delta.
 				reference = rotationFormAt(rotation.geometryGrid, defaultValue)
 					?: RotationPivotForm(0f, 0f, 0f, 1f)
 			}
+
 			originX += key.weight * (form.originX - reference.originX)
 			originY += key.weight * (form.originY - reference.originY)
 			angle += key.weight * (form.angle - reference.angle)
@@ -285,6 +278,7 @@ internal fun rotationBlendDeltas(
 			contributed = true
 		}
 	}
+
 	return if (contributed) RotationBlendDeltas(originX, originY, angle, scale) else null
 }
 
@@ -331,6 +325,7 @@ internal fun <F : Any> deformerBlendChannelDeltas(
 	if (bindings.isEmpty()) {
 		return null
 	}
+
 	var opacity = 0f
 	var multiplyRed = 0f
 	var multiplyGreen = 0f
@@ -340,11 +335,14 @@ internal fun <F : Any> deformerBlendChannelDeltas(
 	var screenBlue = 0f
 	var contributed = false
 	var reference: DeformerBlendChannelDeltas? = null
+
 	for (binding in bindings) {
 		val active =
 			activeBlendKeys(binding, paramValue(binding.parameterId), limitMultiplier(binding.limits, paramValue))
+
 		for (key in active) {
 			val form = binding.forms[key.keyIndex] ?: continue
+
 			if (reference == null) {
 				reference =
 					DeformerBlendChannelDeltas(
@@ -353,6 +351,7 @@ internal fun <F : Any> deformerBlendChannelDeltas(
 						channelGrids.colorAt(FormChannel.SCREEN_COLOR, staticScreen, defaultValue),
 					)
 			}
+
 			val channels = channelsOf(form)
 			contributed = true
 			opacity += key.weight * (channels.opacity - reference.opacity)
@@ -364,9 +363,11 @@ internal fun <F : Any> deformerBlendChannelDeltas(
 			screenBlue += key.weight * (channels.screenColor.blue - reference.screenColor.blue)
 		}
 	}
+
 	if (!contributed) {
 		return null
 	}
+
 	return DeformerBlendChannelDeltas(
 		opacity,
 		ColorRgb(multiplyRed, multiplyGreen, multiplyBlue),
@@ -396,21 +397,27 @@ internal fun partBlendDrawOrderDelta(
 	if (part.blendShapes.isEmpty()) {
 		return null
 	}
+
 	var delta = 0f
 	var contributed = false
 	var reference: Float? = null
+
 	for (binding in part.blendShapes) {
 		val active =
 			activeBlendKeys(binding, paramValue(binding.parameterId), limitMultiplier(binding.limits, paramValue))
+
 		for (key in active) {
 			val form = binding.forms[key.keyIndex] ?: continue
+
 			if (reference == null) {
 				reference =
 					part.channelGrids.scalarAt(FormChannel.DRAW_ORDER, part.drawOrder.toFloat(), defaultValue)
 			}
+
 			contributed = true
 			delta += key.weight * (form.drawOrder - reference)
 		}
 	}
+
 	return if (contributed) delta else null
 }

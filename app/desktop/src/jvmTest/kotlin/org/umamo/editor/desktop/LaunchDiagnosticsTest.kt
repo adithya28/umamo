@@ -37,8 +37,10 @@ class LaunchDiagnosticsTest {
 	fun aChattyFolderOpenerStillFinishes() {
 		if (!File("/bin/sh").exists()) {
 			println("skipping: no POSIX shell to stand in for xdg-open")
+
 			return
 		}
+
 		// A megabyte of output is far past what a pipe holds: left in a pipe nothing reads, the opener would block
 		// on its write and never exit.
 		assertTrue(runFolderOpener(listOf("/bin/sh", "-c", "head -c 1048576 /dev/zero"), timeoutSeconds = 10))
@@ -49,8 +51,10 @@ class LaunchDiagnosticsTest {
 	fun aFolderOpenerThatHangsIsStoppedAtTheTimeout() {
 		if (!File("/bin/sh").exists()) {
 			println("skipping: no POSIX shell to stand in for xdg-open")
+
 			return
 		}
+
 		val started = System.nanoTime()
 
 		assertFalse(runFolderOpener(listOf("/bin/sh", "-c", "sleep 30"), timeoutSeconds = 1))
@@ -62,6 +66,7 @@ class LaunchDiagnosticsTest {
 		val original = Thread.getDefaultUncaughtExceptionHandler()
 		val delegated = ArrayList<Throwable>()
 		val marker = "uncaught-${System.nanoTime()}"
+
 		try {
 			val stub = Thread.UncaughtExceptionHandler { _, throwable -> delegated.add(throwable) }
 			Thread.setDefaultUncaughtExceptionHandler(stub)

@@ -69,6 +69,7 @@ class DerivedAtlasPageFidelityTest {
 
 		var comparedPages = 0
 		val failures = ArrayList<String>()
+
 		for (pageIndex in puppet.atlas.pages.indices) {
 			// The file's page for this model page: the one a drawable over a tile placed here samples.
 			val drawable =
@@ -78,47 +79,60 @@ class DerivedAtlasPageFidelityTest {
 				} ?: continue
 			val filePage: RasterImage = PngCodec.read(filePages.pageBytes[filePages.atlasIndexByDrawableId.getValue(drawable.id.raw)])
 			val derivedPage = derived.atlases[pageIndex]
+
 			if (filePage.width != derivedPage.width || filePage.height != derivedPage.height) {
 				failures.add("page $pageIndex: the file's is ${filePage.width}x${filePage.height}, derived ${derivedPage.width}x${derivedPage.height}")
+
 				continue
 			}
+
 			comparedPages++
 			var paintedOverEmpty = 0
 			var maximumAlphaDifference = 0
 			var colorCompared = 0
 			var colorMismatches = 0
+
 			for (pixelIndex in 0 until filePage.width * filePage.height) {
 				val byteOffset = pixelIndex * 4
 				val fileAlpha = filePage.rgba[byteOffset + 3].toInt() and 0xFF
 				val derivedAlpha = derivedPage.rgba[byteOffset + 3].toInt() and 0xFF
+
 				if (fileAlpha < EMPTY_ALPHA && derivedAlpha >= PAINTED_ALPHA) {
 					paintedOverEmpty++
 				}
+
 				maximumAlphaDifference = maxOf(maximumAlphaDifference, abs(fileAlpha - derivedAlpha))
+
 				if (fileAlpha >= COLOR_COMPARED_ALPHA && derivedAlpha >= COLOR_COMPARED_ALPHA) {
 					colorCompared++
 					val colorDifference =
 						(0 until 3).maxOf { channel -> abs((filePage.rgba[byteOffset + channel].toInt() and 0xFF) - (derivedPage.rgba[byteOffset + channel].toInt() and 0xFF)) }
+
 					if (colorDifference > COLOR_TOLERANCE) {
 						colorMismatches++
 					}
 				}
 			}
+
 			val colorMismatchFraction = if (colorCompared == 0) 0f else colorMismatches.toFloat() / colorCompared
 			println(
 				"[derived-page] ${file.name} page $pageIndex: $paintedOverEmpty pixels painted over empty page, alpha within $maximumAlphaDifference, " +
 					"$colorMismatches of $colorCompared compared pixels off by more than $COLOR_TOLERANCE in color",
 			)
+
 			if (paintedOverEmpty > 0) {
 				failures.add("page $pageIndex: $paintedOverEmpty pixels painted where the file's page is empty")
 			}
+
 			if (maximumAlphaDifference > ALPHA_TOLERANCE) {
 				failures.add("page $pageIndex: a pixel's alpha differs from the file's by $maximumAlphaDifference")
 			}
+
 			if (colorMismatchFraction > MAXIMUM_COLOR_MISMATCH_FRACTION) {
 				failures.add("page $pageIndex: $colorMismatchFraction of compared pixels differ in color from the file's")
 			}
 		}
+
 		assertTrue(comparedPages > 0, "no page was compared; the gate checked nothing")
 		assertTrue(failures.isEmpty(), "the derived pages differ from the file's own:\n" + failures.joinToString("\n"))
 	}

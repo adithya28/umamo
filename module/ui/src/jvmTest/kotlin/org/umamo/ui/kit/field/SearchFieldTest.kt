@@ -152,6 +152,7 @@ class SearchFieldTest {
 			waitForIdle()
 			measured = onNodeWithText(LONG_QUERY, useUnmergedTree = true).getUnclippedBoundsInRoot().width
 		}
+
 		return measured
 	}
 

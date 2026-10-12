@@ -9,7 +9,6 @@ import org.umamo.format.atlas.AtlasPackSkipReason
 import org.umamo.format.atlas.packAtlas
 import org.umamo.format.png.PngCodec
 import org.umamo.format.raster.RasterImage
-import org.umamo.runtime.model.DrawableMesh
 import org.umamo.runtime.model.PuppetModel
 
 /**
@@ -63,6 +62,7 @@ internal object Cmo3AtlasUndedup {
 			var result = pageIndex
 			result = 31 * result + uvs.contentHashCode()
 			result = 31 * result + indices.contentHashCode()
+
 			return result
 		}
 	}
@@ -78,7 +78,7 @@ internal object Cmo3AtlasUndedup {
 	 * Detects shared slots sampled from multiple canvas placements and gives every additional
 	 * placement its own patch copy on a synthesized page.
 	 *
-	 * @param PuppetModel puppet The model to convert; canvas-frame rest meshes.
+	 * @param PuppetModel puppet The model to convert; mesh.positions is the canvas editable mesh.
 	 * @param List        pages  The atlas pages, in model3 texture order.
 	 * @param Map         pageIndexByDrawableId Each drawable id's atlas page index.
 	 * @return Result The (possibly) remapped puppet, extended page list, and updated page map.
@@ -91,6 +91,7 @@ internal object Cmo3AtlasUndedup {
 		// Group drawables by slot, then by quantized placement within the slot.
 		val placementsBySlot = LinkedHashMap<SlotKey, LinkedHashMap<List<Long>, MutableList<String>>>()
 		val rectBySlot = HashMap<SlotKey, IntArray>()
+
 		for (drawable in puppet.drawables) {
 			val pageIndex = pageIndexByDrawableId[drawable.id.raw] ?: continue
 			val page = pages.getOrNull(pageIndex) ?: continue
@@ -116,32 +117,39 @@ internal object Cmo3AtlasUndedup {
 
 		// The first placement of a slot keeps the original pixels; every further placement is a job.
 		val jobs = ArrayList<DuplicationJob>()
+
 		for ((slotKey, placements) in placementsBySlot) {
 			if (placements.size < 2) {
 				continue
 			}
+
 			for ((placementIndex, drawableIds) in placements.values.withIndex()) {
 				if (placementIndex == 0) {
 					continue
 				}
+
 				jobs.add(DuplicationJob(slotKey.pageIndex, rectBySlot.getValue(slotKey), drawableIds))
 			}
 		}
+
 		if (jobs.isEmpty()) {
 			return Result(puppet, pages, pageIndexByDrawableId, emptyList())
 		}
 
 		// The key is the job's first drawable, stable and unique, so the pack is deterministic run to run.
 		val jobByKey = LinkedHashMap<String, DuplicationJob>()
+
 		for (job in jobs) {
 			jobByKey[job.drawableIds.first()] = job
 		}
+
 		val packed = packDuplicates(jobs, pages)
 
 		// Remap the duplicated drawables' uvs onto the synthesized pages.
 		val newPageIndexByDrawableId = HashMap(pageIndexByDrawableId)
 		val remapByDrawableId = HashMap<String, FloatArray>()
 		val duplicatedIds = ArrayList<String>()
+
 		for (placement in packed.placements) {
 			check(placement.quarterTurns == 0) { "the un-dedup packs without rotation" }
 			val job = jobByKey.getValue(placement.key)
@@ -152,6 +160,7 @@ internal object Cmo3AtlasUndedup {
 			// (trimLeft, trimTop) inside the patch: newPagePx = pageX + (oldPagePx - (sourceX + trimLeft)).
 			val deltaX = (placement.pageX - job.sourceRect[0] - placement.trimLeft).toFloat()
 			val deltaY = (placement.pageY - job.sourceRect[1] - placement.trimTop).toFloat()
+
 			for (drawableId in job.drawableIds) {
 				newPageIndexByDrawableId[drawableId] = pageIndex
 				remapByDrawableId[drawableId] =
@@ -159,6 +168,7 @@ internal object Cmo3AtlasUndedup {
 				duplicatedIds.add(drawableId)
 			}
 		}
+
 		// A patch the packer could not place keeps its drawables on the source slot.  One with no
 		// opaque pixel shares silently, since nothing shows at either placement; one larger than a
 		// page even alone is the unrepresentable case the conversion reports.
@@ -174,13 +184,16 @@ internal object Cmo3AtlasUndedup {
 				val mesh = drawable.mesh ?: return@map drawable
 				val newUvs = FloatArray(mesh.uvs.size)
 				var componentIndex = 0
+
 				while (componentIndex + 1 < mesh.uvs.size) {
 					newUvs[componentIndex] = (mesh.uvs[componentIndex] * remap[2] + remap[0]) / remap[4]
 					newUvs[componentIndex + 1] = (mesh.uvs[componentIndex + 1] * remap[3] + remap[1]) / remap[5]
 					componentIndex += 2
 				}
-				drawable.copy(mesh = DrawableMesh(mesh.positions, newUvs, mesh.indices))
+
+				drawable.copy(mesh = mesh.withUvs(newUvs))
 			}
+
 		return Result(
 			puppet.copy(drawables = remappedDrawables),
 			builtPages,
@@ -239,6 +252,7 @@ internal object Cmo3AtlasUndedup {
 				),
 			)
 		val encodedPages = packed.pages.map { page -> Cmo3Conversion.AtlasPage(PngCodec.write(page), page.width, page.height) }
+
 		return PackedDuplicates(packed.placements, packed.skipped, encodedPages)
 	}
 
@@ -256,12 +270,15 @@ internal object Cmo3AtlasUndedup {
 	private fun cutPatches(jobs: List<DuplicationJob>, pages: List<Cmo3Conversion.AtlasPage>): List<ByteArray> {
 		val patches = arrayOfNulls<ByteArray>(jobs.size)
 		val jobIndicesByPage = jobs.indices.groupBy { jobIndex -> jobs[jobIndex].sourcePageIndex }
+
 		for ((pageIndex, jobIndices) in jobIndicesByPage) {
 			val sourcePage = pages[pageIndex].decodedPixels()
+
 			for (jobIndex in jobIndices) {
 				patches[jobIndex] = cutPatch(sourcePage, jobs[jobIndex].sourceRect)
 			}
 		}
+
 		return patches.map { patch -> checkNotNull(patch) { "every job's source page was cut" } }
 	}
 
@@ -276,10 +293,12 @@ internal object Cmo3AtlasUndedup {
 		val width = rect[2] - rect[0]
 		val height = rect[3] - rect[1]
 		val rgba = ByteArray(width * height * 4)
+
 		for (rowIndex in 0 until height) {
 			val sourceOffset = ((rect[1] + rowIndex) * page.width + rect[0]) * 4
 			page.rgba.copyInto(rgba, rowIndex * width * 4, sourceOffset, sourceOffset + width * 4)
 		}
+
 		return rgba
 	}
 }

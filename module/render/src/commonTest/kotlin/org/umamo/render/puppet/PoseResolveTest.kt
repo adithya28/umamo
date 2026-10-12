@@ -42,13 +42,14 @@ class PoseResolveTest {
 
 	private fun drawable(id: String, indices: IntArray = intArrayOf(0, 1, 2)): Drawable {
 		val positions = floatArrayOf(0f, 0f, 1f, 0f, 1f, 1f)
+
 		return Drawable(
 			id = DrawableId(id),
 			name = id,
 			parentDeformerId = null,
 			blendMode = BlendMode.Normal,
 			maskedBy = emptyList(),
-			mesh = DrawableMesh(positions, FloatArray(positions.size), indices),
+			mesh = DrawableMesh.withLocalEqualToCanvas(positions, FloatArray(positions.size), indices),
 			geometryGrid =
 				KeyformGrid(
 					listOf(KeyformAxis(paramA, floatArrayOf(0f))),

@@ -35,6 +35,7 @@ import org.umamo.ui.action.CommandRegistry
  */
 internal fun CommandRegistry.registerAll(commands: List<Command>): () -> Unit {
 	commands.forEach { command -> register(command) }
+
 	return { commands.forEach { command -> unregister(command.id) } }
 }
 
@@ -72,6 +73,13 @@ internal class SessionAvailability(session: EditorSession?) {
 			val atlas = session?.model?.value?.atlas
 			atlas != null && atlas.tiles.isNotEmpty() && atlas.storedUvsAddressPages
 		}
+
+	/**
+	 * Applies when the document has art tiles to mesh from.  A MOC3-origin document has none (its
+	 * drawables sample packed pages, where cutting one drawable's art out would pick up its neighbours'),
+	 * so the command stays off there.
+	 */
+	val canGenerateMeshFromArt = CommandAvailability { session?.model?.value?.atlas?.tiles?.isNotEmpty() == true }
 
 	/** Applies while an operation may still be adjusted - the strip's F9 has something to open. */
 	val hasAdjustableOperation = CommandAvailability { session?.adjustableOperation?.value != null }

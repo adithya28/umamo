@@ -21,13 +21,15 @@ import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.unit.IntSize
 import org.umamo.edit.EditorMode
 import org.umamo.edit.EditorSession
-import org.umamo.edit.MeshTransforms
+import org.umamo.edit.transform.MeshTransforms
 import org.umamo.render.ViewportCamera
 import org.umamo.render.pick.PickCandidate
 import org.umamo.ui.theme.LocalUmamoColors
 import org.umamo.ui.theme.hiddenPointerIcon
 import org.umamo.ui.theme.selectionOverlayStyle
+import org.umamo.ui.viewport.LocalAreaOverlays
 import org.umamo.ui.viewport.PuppetViewportService
+import org.umamo.ui.viewport.gizmo.ModalDriveEffect
 import org.umamo.ui.viewport.gizmo.applyOperator
 import org.umamo.ui.viewport.gizmo.collectModalConfirmRequests
 import org.umamo.ui.viewport.gizmo.screenToWorld
@@ -67,7 +69,7 @@ import org.umamo.ui.viewport.gizmo.worldToScreen
  *     right-click abandons an in-flight drag.
  *   - Circle select (Blender's C): a brush paints drawables by centroid - a primary drag adds, a middle or
  *     Shift+primary drag erases; the stroke accumulates into a working selection committed once on release
- *     (one undo step), previewed live through the GPU tint via [EditorSession.setPreviewSelection]; the wheel
+ *     (one undo step), previewed live through the GPU tint via [SessionToolLatches.setPreviewSelection]; the wheel
  *     resizes the brush; a right-click leaves the tool keeping what was painted.
  *   - Grab / Scale / Rotate: a modal transform of every selected drawable's whole geometry about their combined
  *     centroid, previewed straight to the renderer and committed as one undo step ([MeshChange.TransformDrawables]).
@@ -109,6 +111,7 @@ fun ViewportObjectGizmoOverlay(
 	if (mode != EditorMode.Object || camera == null) {
 		return
 	}
+
 	// Armed = a select tool or an object operator LATCHED IN THIS AREA owns the pointer; only then does the
 	// overlay hide the OS cursor.  Idle is not inert: the loop still owns the click pick and the un-armed
 	// box, consuming only primary-driven events, so middle-drag pan and wheel zoom fall through to the
@@ -131,6 +134,10 @@ fun ViewportObjectGizmoOverlay(
 	val modalTransform = remember(areaId) { ObjectModalTransform(areaId, session, service::setModel) }
 	val gesture = modalTransform.gesture
 
+	// The drive's worker, alive exactly as long as the transform: each pointer event submits a drive and the
+	// result publishes back on the UI thread (see ModalDriveWorker).
+	ModalDriveEffect(modalTransform.drive)
+
 	// The marquee (box + circle) machinery over whole drawables, one per area (see viewportObjectMarquee).
 	val marquee = remember(areaId) { viewportObjectMarquee(session, anchors) }
 
@@ -148,6 +155,7 @@ fun ViewportObjectGizmoOverlay(
 			if (modalTransform.abandon()) {
 				service.setModel(session.model.value)
 			}
+
 			marquee.discard()
 			objectPick.cancel()
 		}
@@ -178,6 +186,7 @@ fun ViewportObjectGizmoOverlay(
 	// preview the drive loop pushed.
 	LaunchedEffect(activeObjectOperator) {
 		val operator = activeObjectOperator?.takeIf { it.areaId == areaId }
+
 		if (operator != null) {
 			modalTransform.begin(operator.kind)
 		} else {
@@ -201,9 +210,11 @@ fun ViewportObjectGizmoOverlay(
 	// The geometry-dependent Shift+S snaps for Object mode over the selected drawables' centroids.
 	// Only the pointer's own area executes: every open 2D viewport composes this collector, and an
 	// ungated request would commit once per viewport.
-	// The handler ignores the area - a snap acts on the model - so the payload's id is purely the election.
-	LaunchedEffect(session) {
-		collectObjectGizmoRequests(areaId, session)
+	// The handler ignores the area - a snap acts on the model - so the payload's id is purely the election;
+	// the grid snap reads this area's grid.
+	val overlays = LocalAreaOverlays.current
+	LaunchedEffect(session, overlays) {
+		collectObjectGizmoRequests(areaId, session, overlays)
 	}
 
 	Box(

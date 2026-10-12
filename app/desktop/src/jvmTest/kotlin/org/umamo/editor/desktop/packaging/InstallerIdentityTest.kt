@@ -101,6 +101,7 @@ class InstallerIdentityTest {
 		assertTrue("( true; DESKTOP_COMMANDS_INSTALL\n) || true" in rpmSpec.readText(), "the RPM's post")
 		assertTrue("( true; DESKTOP_COMMANDS_INSTALL\n) || true" in debPostinst.readText(), "the DEB's postinst")
 		assertTrue("( true; DESKTOP_COMMANDS_UNINSTALL\n) || true" in debPrerm.readText(), "the DEB's prerm")
+
 		for ((script, placeholder) in listOf(rpmSpec to "DESKTOP_COMMANDS_INSTALL", debPostinst to "DESKTOP_COMMANDS_INSTALL", debPrerm to "DESKTOP_COMMANDS_UNINSTALL")) {
 			assertEquals(1, Regex(placeholder).findAll(script.readText()).count(), "${script.name} runs them from one place")
 		}

@@ -239,6 +239,7 @@ object SourceArtImport {
 		// helpers the add path uses, so a document built by importing art and a new document that then
 		// imports the same art come out identical.
 		val model = withSeedParameters(withFirstArtworkState(assembled, art), options.parameters)
+
 		return SourceArtImportResult(model.copy(renderRoot = model.deriveRenderRoot()), added.rasterByTile, added.notices)
 	}
 
@@ -261,6 +262,7 @@ object SourceArtImport {
 	fun withFirstArtworkState(model: PuppetModel, art: SourceArt): PuppetModel {
 		val canvasWidth = art.widthPx.toFloat()
 		val canvasHeight = art.heightPx.toFloat()
+
 		return model.copy(
 			canvasWidth = canvasWidth,
 			canvasHeight = canvasHeight,
@@ -289,6 +291,7 @@ object SourceArtImport {
 		if (parameters.isEmpty()) {
 			return model
 		}
+
 		return model.copy(
 			parameters = parameters,
 			parameterTree = parameters.map { parameter -> ParameterNode.Param(parameter.id) },
@@ -322,6 +325,7 @@ object SourceArtImport {
 		if (isFirstArtwork(model) || model.canvasWidth <= 0f || model.canvasHeight <= 0f) {
 			return CanvasOffset.Zero
 		}
+
 		return CanvasOffset(
 			x = anchoredOffset(model.canvasWidth.roundToInt() - art.widthPx, options.anchor.horizontal) + options.nudgeX,
 			z = -anchoredOffset(model.canvasHeight.roundToInt() - art.heightPx, options.anchor.vertical) + options.nudgeZ,
@@ -405,26 +409,35 @@ object SourceArtImport {
 		val tiles = ArrayList<AtlasTile>()
 		val rasterByTile = LinkedHashMap<AtlasTileId, LayerRaster>()
 		val usedTileKeys = existing.atlas.tiles.mapTo(HashSet()) { tile -> tile.id.raw }
+
 		for (layer in layersTopFirst) {
 			if (layerKeys != null && layer.id.raw !in layerKeys) {
 				continue
 			}
+
 			if (layer.kind != SourceLayerKind.Raster) {
 				notices.add(SourceArtImportNotice.NonRasterLayer(layer.name, layer.kind))
+
 				continue
 			}
+
 			val analysis = layer.analyzeAlpha(alphaThreshold = options.alphaThreshold)
+
 			if (analysis == null) {
 				notices.add(SourceArtImportNotice.EmptyLayer(layer.name))
+
 				continue
 			}
+
 			// The reader's key is the tile's identity too, disambiguated by draw order when a weak source
 			// key (the PSD name-and-order fallback) collides - the same rule the packer's adapter applies.
 			var tileKey = "${sourceId.raw}/${layer.id.raw}"
+
 			if (!usedTileKeys.add(tileKey)) {
 				tileKey = "$tileKey#${layer.order}"
 				usedTileKeys.add(tileKey)
 			}
+
 			val tileId = AtlasTileId(tileKey)
 			tiles.add(
 				AtlasTile(
@@ -438,11 +451,13 @@ object SourceArtImport {
 			rasterByTile[tileId] = layer.raster
 
 			val blendMapping = mapLayerBlend(layer.blend)
+
 			when (blendMapping) {
 				is LayerBlendMapping.Exact -> Unit
 				is LayerBlendMapping.Approximate -> notices.add(SourceArtImportNotice.BlendApproximated(layer.name, layer.blend, blendMapping.blendMode))
 				LayerBlendMapping.Unsupported -> notices.add(SourceArtImportNotice.BlendUnsupported(layer.name, layer.blend))
 			}
+
 			if (layer.channelMask != ChannelMask.ALL) {
 				notices.add(SourceArtImportNotice.ChannelMaskDropped(layer.name))
 			}
@@ -471,18 +486,23 @@ object SourceArtImport {
 		// Pass 2: a clipping layer clips to the nearest non-clipped layer BELOW it in its own folder -
 		// Photoshop's "clip to layer below", which CLIP and Krita share.  Below is a greater order.
 		val drawableIndexById = drawables.withIndex().associate { (index, drawable) -> drawable.id to index }
+
 		for ((position, entry) in imported.withIndex()) {
 			if (!entry.layer.clipped) {
 				continue
 			}
+
 			val base =
 				imported.subList(position + 1, imported.size).firstOrNull { candidate ->
 					candidate.layer.groupPath == entry.layer.groupPath && !candidate.layer.clipped
 				}
+
 			if (base == null) {
 				notices.add(SourceArtImportNotice.ClipBaseMissing(entry.layer.name))
+
 				continue
 			}
+
 			val index = drawableIndexById.getValue(entry.drawableId)
 			drawables[index] = drawables[index].copy(maskedBy = listOf(base.drawableId))
 		}
@@ -495,24 +515,29 @@ object SourceArtImport {
 		// top-most layer sits, so the panel reads in the file's own order.
 		val existingPartByPath = if (underSource == null) emptyMap() else existingPartsByFolder(existing, underSource)
 		val folderByPath = LinkedHashMap<String, FolderNode>()
+
 		if (underSource == null) {
 			for (group in art.groups) {
 				folderByPath[group.path] = folderNodeOf(group)
 			}
 		} else {
 			val groupByPath = art.groups.associateBy { group -> group.path }
+
 			for (entry in imported) {
 				for (path in ancestorPathsOf(entry.layer.groupPath)) {
 					val group = groupByPath[path]
+
 					if (group != null && path !in folderByPath) {
 						folderByPath[path] = folderNodeOf(group)
 					}
 				}
 			}
 		}
+
 		for (entry in imported) {
 			ensureFolders(entry.layer.groupPath, folderByPath)
 		}
+
 		// Where a new child gathers: the root's list, an anchored part's list (placed among that part's
 		// existing children below), or a new folder's own node.
 		val rootGathered = ArrayList<FolderChild>()
@@ -524,26 +549,32 @@ object SourceArtImport {
 				parentPath in existingPartByPath -> gatheredByAnchor.getOrPut(parentPath) { ArrayList() }
 				else -> folderByPath.getValue(parentPath).children
 			}
+
 		for (folder in folderByPath.values) {
 			if (folder.path in existingPartByPath) {
 				// Anchored to a part the document has: its children lower into that part, and the folder
 				// itself is never a child of anything new.
 				continue
 			}
+
 			gatheredFor(folder.path.substringBeforeLast('/', missingDelimiterValue = "")).add(FolderChild.Folder(folder))
 		}
+
 		for (entry in imported) {
 			gatheredFor(entry.layer.groupPath).add(FolderChild.Layer(entry.layer.order, entry.drawableId))
 			var ancestorPath = entry.layer.groupPath
+
 			while (ancestorPath.isNotEmpty()) {
 				val ancestor = folderByPath.getValue(ancestorPath)
 				ancestor.firstOrder = minOf(ancestor.firstOrder, entry.layer.order)
 				ancestorPath = ancestorPath.substringBeforeLast('/', missingDelimiterValue = "")
 			}
 		}
+
 		val parts = ArrayList<Part>()
 		val orgRoot: List<OrgChild>
 		val insertions: List<OrgInsertion>
+
 		if (underSource == null) {
 			orgRoot = orgChildrenOf(rootGathered, parts, minter, notices)
 			insertions = emptyList()
@@ -552,9 +583,11 @@ object SourceArtImport {
 			val placer = InsertionPlacer(art, existing, underSource, existingPartByPath, imported)
 			val placed = ArrayList<OrgInsertion>()
 			placer.place(container = null, containerPath = "", gathered = rootGathered, parts, minter, notices, placed)
+
 			for ((containerPath, gathered) in gatheredByAnchor) {
 				placer.place(existingPartByPath.getValue(containerPath), containerPath, gathered, parts, minter, notices, placed)
 			}
+
 			insertions = placed
 		}
 
@@ -638,10 +671,14 @@ object SourceArtImport {
 			val existingChildren = if (container == null) existing.rootChildren else existing.parts.first { part -> part.id == container }.children
 			val present = HashSet<OrgChild>(existingChildren)
 			val siblings = fileSiblingsOf(containerPath)
+
 			for (child in gathered.sortedBy { candidate -> candidate.order }) {
 				val orgChild =
 					when (child) {
-						is FolderChild.Layer -> OrgChild.Drawable(child.drawableId)
+						is FolderChild.Layer -> {
+							OrgChild.Drawable(child.drawableId)
+						}
+
 						is FolderChild.Folder -> {
 							val minted = orgChildrenOf(listOf(child), parts, minter, notices).single()
 							newPartByPath[child.node.path] = (minted as OrgChild.Part).id
@@ -661,20 +698,25 @@ object SourceArtImport {
 		 */
 		private fun fileSiblingsOf(containerPath: String): List<FileSibling> {
 			val siblings = ArrayList<FileSibling>()
+
 			for (layer in art.layers) {
 				if (layer.groupPath == containerPath) {
 					siblings.add(FileSibling.Layer(layer.order, layer.id.raw))
 				}
 			}
+
 			val folderPaths = LinkedHashSet<String>(minOrderByPath.keys)
+
 			for (group in art.groups) {
 				folderPaths.add(group.path)
 			}
+
 			for (path in folderPaths) {
 				if (path.substringBeforeLast('/', missingDelimiterValue = "") == containerPath && path != containerPath) {
 					siblings.add(FileSibling.Folder(minOrderByPath[path] ?: Int.MAX_VALUE, path))
 				}
 			}
+
 			return siblings.sortedBy { sibling -> sibling.order }
 		}
 
@@ -691,16 +733,20 @@ object SourceArtImport {
 		private fun slotFor(order: Int, siblings: List<FileSibling>, present: Set<OrgChild>, self: OrgChild): OrgSlot {
 			for (sibling in siblings.filter { candidate -> candidate.order < order }.asReversed()) {
 				val anchor = shownChildOf(sibling, present, self)
+
 				if (anchor != null) {
 					return OrgSlot.After(anchor)
 				}
 			}
+
 			for (sibling in siblings.filter { candidate -> candidate.order > order }) {
 				val anchor = shownChildOf(sibling, present, self)
+
 				if (anchor != null) {
 					return OrgSlot.Before(anchor)
 				}
 			}
+
 			return OrgSlot.End
 		}
 
@@ -719,6 +765,7 @@ object SourceArtImport {
 					is FileSibling.Layer -> drawablesByKey[sibling.key].orEmpty().map { drawableId -> OrgChild.Drawable(drawableId) }
 					is FileSibling.Folder -> listOfNotNull((existingPartByPath[sibling.path] ?: newPartByPath[sibling.path])?.let { partId -> OrgChild.Part(partId) })
 				}
+
 			return candidates.firstOrNull { candidate -> candidate != self && candidate in present }
 		}
 	}
@@ -734,16 +781,21 @@ object SourceArtImport {
 	private fun boundDrawablesByLayerKey(existing: PuppetModel, sourceId: ArtSourceId): Map<String, List<DrawableId>> {
 		val drawablesByTile = existing.drawables.groupBy { drawable -> drawable.atlasTileId }
 		val result = HashMap<String, List<DrawableId>>()
+
 		for (tile in existing.atlas.tiles) {
 			val ref = tile.source ?: continue
+
 			if (ref.sourceId != sourceId) {
 				continue
 			}
+
 			val drawables = drawablesByTile[tile.id].orEmpty().map { drawable -> drawable.id }
+
 			if (drawables.isNotEmpty()) {
 				result[ref.layerKey] = result[ref.layerKey].orEmpty() + drawables
 			}
 		}
+
 		return result
 	}
 
@@ -755,11 +807,13 @@ object SourceArtImport {
 	 */
 	private fun minOrderByGroupPath(art: SourceArt): Map<String, Int> {
 		val minOrder = HashMap<String, Int>()
+
 		for (layer in art.layers) {
 			for (path in ancestorPathsOf(layer.groupPath)) {
 				minOrder[path] = minOf(minOrder[path] ?: Int.MAX_VALUE, layer.order)
 			}
 		}
+
 		return minOrder
 	}
 
@@ -778,23 +832,32 @@ object SourceArtImport {
 	private fun existingPartsByFolder(existing: PuppetModel, sourceId: ArtSourceId): Map<String, PartId> {
 		val rowByKey = existing.sources.firstOrNull { source -> source.id == sourceId }?.layers?.associateBy { row -> row.key }.orEmpty()
 		val folderByDrawable = HashMap<DrawableId, String>()
+
 		for (drawable in existing.drawables) {
 			val tile = drawable.atlasTileId?.let { tileId -> existing.atlas.tileById[tileId] } ?: continue
 			val ref = tile.source ?: continue
+
 			if (ref.sourceId != sourceId) {
 				continue
 			}
+
 			val folder = rowByKey[ref.layerKey]?.groupPath ?: continue
+
 			if (folder.isNotEmpty()) {
 				folderByDrawable[drawable.id] = folder
 			}
 		}
+
 		val countByFolderAndPart = LinkedHashMap<String, LinkedHashMap<PartId, Int>>()
 		val parentByPart = HashMap<PartId, PartId>()
+
 		for (part in existing.parts) {
 			for (child in part.children) {
 				when (child) {
-					is OrgChild.Part -> parentByPart[child.id] = part.id
+					is OrgChild.Part -> {
+						parentByPart[child.id] = part.id
+					}
+
 					is OrgChild.Drawable -> {
 						val folder = folderByDrawable[child.id] ?: continue
 						val counts = countByFolderAndPart.getOrPut(folder) { LinkedHashMap() }
@@ -803,21 +866,26 @@ object SourceArtImport {
 				}
 			}
 		}
+
 		val partByFolder = LinkedHashMap<String, PartId>()
+
 		for ((folder, counts) in countByFolderAndPart) {
 			partByFolder[folder] = counts.maxBy { (_, count) -> count }.key
 		}
+
 		// A folder no drawable sits in directly is reached through a mapped sub-folder: its part is the
 		// one holding that sub-folder's part.  A direct mapping always wins over an inferred one.
 		for ((folder, partId) in countByFolderAndPart.keys.associateWith { folder -> partByFolder.getValue(folder) }) {
 			var ancestorFolder = folder.substringBeforeLast('/', missingDelimiterValue = "")
 			var ancestorPart = parentByPart[partId]
+
 			while (ancestorFolder.isNotEmpty() && ancestorPart != null && ancestorFolder !in partByFolder) {
 				partByFolder[ancestorFolder] = ancestorPart
 				ancestorFolder = ancestorFolder.substringBeforeLast('/', missingDelimiterValue = "")
 				ancestorPart = parentByPart[ancestorPart]
 			}
 		}
+
 		return partByFolder
 	}
 
@@ -831,12 +899,15 @@ object SourceArtImport {
 		if (groupPath.isEmpty()) {
 			return emptyList()
 		}
+
 		val paths = ArrayList<String>()
 		var path = ""
+
 		for (segment in groupPath.split('/')) {
 			path = if (path.isEmpty()) segment else "$path/$segment"
 			paths.add(path)
 		}
+
 		return paths
 	}
 
@@ -877,15 +948,19 @@ object SourceArtImport {
 	 */
 	private fun nextSuffix(ids: Iterable<String>, prefix: String, first: Int): Int {
 		var highest: Int? = null
+
 		for (id in ids) {
 			if (!id.startsWith(prefix)) {
 				continue
 			}
+
 			val suffix = id.substring(prefix.length).toIntOrNull() ?: continue
+
 			if (highest == null || suffix > highest) {
 				highest = suffix
 			}
 		}
+
 		return if (highest == null) first else highest + 1
 	}
 
@@ -903,6 +978,7 @@ object SourceArtImport {
 	fun birthMeshFor(layer: SourceLayer, alphaThreshold: Int, margin: Int): DrawableMesh? {
 		val analysis = layer.analyzeAlpha(alphaThreshold = alphaThreshold) ?: return null
 		val bounds = analysis.opaqueBounds
+
 		return birthQuad(layer, bounds.left, bounds.top, bounds.width, bounds.height, margin)
 	}
 
@@ -931,7 +1007,8 @@ object SourceArtImport {
 		val canvasTop = layer.bounds.top.toFloat()
 		val tileWidth = layer.raster.width.toFloat()
 		val tileHeight = layer.raster.height.toFloat()
-		return DrawableMesh(
+
+		return DrawableMesh.withLocalEqualToCanvas(
 			positions =
 				floatArrayOf(
 					canvasLeft + left,
@@ -986,9 +1063,12 @@ object SourceArtImport {
 		if (groupPath.isEmpty()) {
 			return
 		}
+
 		var path = ""
+
 		for (segment in groupPath.split('/')) {
 			path = if (path.isEmpty()) segment else "$path/$segment"
+
 			if (path !in folderByPath) {
 				folderByPath[path] = FolderNode(path, segment, visible = true, opacity = 1f, clipped = false, blend = LayerBlend.Normal, passThrough = true)
 			}
@@ -1017,7 +1097,10 @@ object SourceArtImport {
 	): List<OrgChild> =
 		children.sortedBy { child -> child.order }.map { child ->
 			when (child) {
-				is FolderChild.Layer -> OrgChild.Drawable(child.drawableId)
+				is FolderChild.Layer -> {
+					OrgChild.Drawable(child.drawableId)
+				}
+
 				is FolderChild.Folder -> {
 					val node = child.node
 					val partId = PartId("Part${minter.nextPart}")
@@ -1027,12 +1110,15 @@ object SourceArtImport {
 					parts.add(Part(partId, node.name.ifBlank { partId.raw }, emptyList()))
 					val nestedChildren = orgChildrenOf(node.children, parts, minter, notices)
 					val blendMapping = mapLayerBlend(node.blend)
+
 					if (blendMapping == LayerBlendMapping.Unsupported) {
 						notices.add(SourceArtImportNotice.FolderBlendUnsupported(node.path, node.blend))
 					}
+
 					if (node.clipped) {
 						notices.add(SourceArtImportNotice.FolderClipDropped(node.path))
 					}
+
 					val composites = node.opacity < 1f || blendMapping.blendMode != BlendMode.Normal
 					parts[slot] =
 						Part(

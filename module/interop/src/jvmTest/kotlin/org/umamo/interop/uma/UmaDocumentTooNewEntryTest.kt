@@ -99,6 +99,7 @@ class UmaDocumentTooNewEntryTest {
 				while (true) {
 					val entry = input.nextEntry ?: break
 					var contents = input.readBytes()
+
 					if (entry.name == "manifest.json") {
 						val manifest = Json.parseToJsonElement(contents.decodeToString()).jsonObject
 						val records =
@@ -111,12 +112,14 @@ class UmaDocumentTooNewEntryTest {
 							}
 						contents = Json.encodeToString(JsonObject.serializer(), JsonObject(manifest + ("entries" to JsonArray(records)))).encodeToByteArray()
 					}
+
 					zip.putNextEntry(ZipEntry(entry.name))
 					zip.write(contents)
 					zip.closeEntry()
 				}
 			}
 		}
+
 		return output.toByteArray()
 	}
 
@@ -134,6 +137,7 @@ class UmaDocumentTooNewEntryTest {
 				contents[entry.name] = input.readBytes()
 			}
 		}
+
 		return contents
 	}
 

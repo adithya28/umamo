@@ -85,9 +85,11 @@ internal fun circleStampSelection(
 	val (worldX, worldZ) = screenToWorld(screenPos.x, screenPos.y, activeCamera, size)
 	val worldRadius = radiusPx / activeCamera.zoom
 	val enclosed = selectableDrawableTargets(drawablesInCircle(centroids, worldX, worldZ, worldRadius), model)
+
 	if (enclosed.isEmpty()) {
 		return working
 	}
+
 	return if (erasing) {
 		val remaining = working.targets - enclosed.toSet()
 		Selection(remaining, working.active?.takeIf { it in remaining } ?: remaining.lastOrNull())
@@ -127,6 +129,7 @@ internal fun boxSelection(
 			drawablesInBox(centroids, min(worldStartX, worldEndX), min(worldStartZ, worldEndZ), max(worldStartX, worldEndX), max(worldStartZ, worldEndZ)),
 			model,
 		)
+
 	return resolveObjectBoxSelection(current, enclosed, additive)
 }
 

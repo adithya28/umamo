@@ -2,10 +2,10 @@ package org.umamo.ui.workspace.commands
 
 import org.umamo.edit.EditorSession
 import org.umamo.edit.NoticePlacement
-import org.umamo.edit.captureKeyOnTrack
-import org.umamo.edit.removeKeyOnTrack
-import org.umamo.edit.removeTrackKeys
-import org.umamo.edit.removingKeys
+import org.umamo.edit.keyform.captureKeyOnTrack
+import org.umamo.edit.keyform.removeKeyOnTrack
+import org.umamo.edit.keyform.removeTrackKeys
+import org.umamo.edit.keyform.removingKeys
 import org.umamo.ui.action.Command
 import org.umamo.ui.action.CommandHint
 import org.umamo.ui.action.CommandSpaces
@@ -63,6 +63,7 @@ internal fun keyformCommands(
 	 * @return String? The hovered sheet's area id, or null.
 	 */
 	fun hoveredSheetArea(): String? = routing.areaOf(SpaceKind.KeyformSheet)
+
 	return listOf(
 		Command(
 			"keyform.insert",
@@ -97,6 +98,7 @@ internal fun keyformCommands(
 		Command("keyform.deleteSelectedKeys", title = Res.string.cmd_keyform_delete_keys, availability = availability.hasDocument) {
 			val sheet = keyformSheets.resolveForSelection(hoveredSheetArea())
 			val removals = sheet?.selectedTracks().orEmpty()
+
 			if (editorSession != null && sheet != null && removals.isNotEmpty()) {
 				// Everything selected is what is going, so the reconciliation lands on an empty selection -
 				// through the same helper as every other removal, which folds the selection update into the
@@ -132,6 +134,7 @@ private fun aimedKeyable(session: EditorSession, hover: KeyformHover?): KeyformH
 	if (hover == null) {
 		session.emitNotice("notice.keyform.noTarget", NoticePlacement.NearCursor)
 	}
+
 	return hover
 }
 

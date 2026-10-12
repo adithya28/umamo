@@ -25,6 +25,7 @@ import java.util.zip.ZipOutputStream
 internal fun emptyDocumentBytes(): ByteArray {
 	val puppet = newBlankDocument().puppet
 	val written = UmaDocumentBridge.documentOf(UmaModel.create(umamoWriterInfo()), puppet, UmaPixelSource({ null }, UmaRenderPagePixels.Derived, null))
+
 	return Uma.write(written)
 }
 
@@ -43,6 +44,7 @@ internal fun rewritten(bytes: ByteArray, extraEntries: List<Pair<String, ByteArr
 		ZipInputStream(ByteArrayInputStream(bytes)).use { input ->
 			generateSequence { input.nextEntry }.forEach { entry ->
 				val contents = input.readBytes()
+
 				if (entry.name == "mimetype") {
 					zip.putNextEntry(
 						ZipEntry(entry.name).apply {
@@ -57,15 +59,18 @@ internal fun rewritten(bytes: ByteArray, extraEntries: List<Pair<String, ByteArr
 					zip.putNextEntry(ZipEntry(entry.name))
 					zip.write(if (entry.name == "manifest.json") rewrite(contents.decodeToString()).encodeToByteArray() else contents)
 				}
+
 				zip.closeEntry()
 			}
 		}
+
 		for ((path, contents) in extraEntries) {
 			zip.putNextEntry(ZipEntry(path))
 			zip.write(contents)
 			zip.closeEntry()
 		}
 	}
+
 	return output.toByteArray()
 }
 

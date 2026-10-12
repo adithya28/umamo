@@ -295,8 +295,9 @@ data class Drawable(
 	 * The drawable whose texture-atlas binding this one shares, or null when it binds by its own [id].
 	 * The atlas page mapping is keyed by the SOURCE format's drawable ids (see PuppetTextures), so a
 	 * session-created copy (Object-mode duplicate) carries its source's id here and the renderer
-	 * resolves the atlas through it; a copy of a copy inherits the original.  Editor-only - no source
-	 * format persists it.
+	 * resolves the atlas through it; a copy of a copy inherits the original.  It is a key into that
+	 * mapping, not a reference to a live drawable: deleting the source keeps the copy's key, and the copy
+	 * keeps its art.  UMA persists it (docs/format/UMA.md §4.6); no Cubism format does.
 	 */
 	val textureSourceId: DrawableId? = null,
 	/**
@@ -344,6 +345,7 @@ fun PuppetModel.visibleDrawableIds(): Set<DrawableId> {
 			when (child) {
 				is OrgChild.Drawable -> {
 					val drawable = drawableById[child.id] ?: continue
+
 					if (ancestorsVisible && drawable.isVisible) {
 						shown.add(child.id)
 					}
@@ -357,6 +359,7 @@ fun PuppetModel.visibleDrawableIds(): Set<DrawableId> {
 		}
 	}
 	walk(rootChildren, ancestorsVisible = true)
+
 	return shown
 }
 
@@ -380,6 +383,7 @@ fun PuppetModel.partByDrawable(): Map<DrawableId, PartId?> {
 		}
 	}
 	walk(rootChildren, parent = null)
+
 	return owner
 }
 
@@ -404,6 +408,7 @@ fun PuppetModel.firstEditableDrawableInPanelOrder(): DrawableId? {
 			when (child) {
 				is OrgChild.Drawable -> {
 					val drawable = drawableById[child.id] ?: continue
+
 					if (ancestorsVisible && drawable.isVisible && drawable.mesh != null) {
 						return child.id
 					}
@@ -412,23 +417,28 @@ fun PuppetModel.firstEditableDrawableInPanelOrder(): DrawableId? {
 				is OrgChild.Part -> {
 					val part = partById[child.id] ?: continue
 					val found = walk(part.children, ancestorsVisible && part.isVisible)
+
 					if (found != null) {
 						return found
 					}
 				}
 			}
 		}
+
 		return null
 	}
 
 	val fromTree = walk(rootChildren, ancestorsVisible = true)
+
 	if (fromTree != null) {
 		return fromTree
 	}
+
 	// Degenerate model with no org tree: the visibility cascade has nothing to say, so fall back to the
 	// flat list (a drawable's own eyeball still gates it).
 	if (rootChildren.isEmpty()) {
 		return drawables.firstOrNull { candidate -> candidate.mesh != null && candidate.isVisible }?.id
 	}
+
 	return null
 }

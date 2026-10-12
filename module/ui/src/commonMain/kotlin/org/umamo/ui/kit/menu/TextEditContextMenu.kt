@@ -73,6 +73,7 @@ internal fun TextEditContextMenuArea(
 		CompositionLocalProvider(LocalContextMenuItems provides emptyList()) {
 			content(gesture)
 		}
+
 		if (open) {
 			// Built only while the menu is up.  Every kit text field mounts one of these, the entries depend
 			// on the CLIPBOARD (a cross-process read on desktop), and LocalContextMenuItems hands down a list
@@ -127,9 +128,11 @@ private fun textEditMenuItems(value: TextFieldValue, onValueChange: (TextFieldVa
 			onSelect = { onValueChange(value.copy(selection = TextRange(0, value.text.length))) },
 			enabled = value.text.isNotEmpty(),
 		)
+
 	if (readOnly) {
 		return listOf(copy, selectAll)
 	}
+
 	// One clipboard read for both the Paste entry's enablement and its action; the caller only builds this
 	// while the menu is opening, so the cross-process query happens once per right-click.
 	val hasClipboardText = clipboard.hasText()
@@ -148,6 +151,7 @@ private fun textEditMenuItems(value: TextFieldValue, onValueChange: (TextFieldVa
 			onSelect = { onValueChange(value.withSelectionReplaced(clipboard.getText()?.text.orEmpty())) },
 			enabled = hasClipboardText,
 		)
+
 	return listOf(cut, copy, paste, selectAll)
 }
 
@@ -163,5 +167,6 @@ internal fun TextFieldValue.selectedText(): String = text.substring(selection.mi
 internal fun TextFieldValue.withSelectionReplaced(replacement: String): TextFieldValue {
 	val edited = text.replaceRange(selection.min, selection.max, replacement)
 	val caret = selection.min + replacement.length
+
 	return copy(text = edited, selection = TextRange(caret))
 }

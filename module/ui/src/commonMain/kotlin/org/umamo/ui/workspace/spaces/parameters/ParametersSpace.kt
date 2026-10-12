@@ -87,10 +87,12 @@ fun ParametersSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 	val puppet = LocalPuppet.current
 	val liveParams = LocalLiveParams.current
 	val session = LocalEditorSession.current
+
 	if (puppet == null) {
 		// No document: the bare panel fill is the empty state (no load hint).
 		return
 	}
+
 	val viewState = scope.spaceState(PARAMETERS_VIEW_STATE_KEY) { ParametersViewState() }
 	val pose = rememberParameterPoseState(puppet, liveParams, session)
 
@@ -153,12 +155,15 @@ fun ParametersSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 	LaunchedEffect(viewState.renamingGroupId, viewState.renamingParameterId) {
 		val renamingGroupId = viewState.renamingGroupId
 		val renamingParameterId = viewState.renamingParameterId
+
 		if (renamingGroupId == null && renamingParameterId == null) {
 			return@LaunchedEffect
 		}
+
 		val index =
 			snapshotFlow { indexOfRenamedRow(currentRows.value, renamingGroupId, renamingParameterId) }
 				.first { candidate -> candidate >= 0 }
+
 		if (listState.layoutInfo.visibleItemsInfo.none { visible -> visible.index == index }) {
 			listState.animateScrollToItem(index)
 		}
@@ -226,6 +231,7 @@ fun ParametersSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 		// hand, which a drag changes as it starts and as it ends; where the pointer is, the ghost asks for
 		// itself.
 		val draggingKey = dragController.draggingKey
+
 		if (draggingKey != null) {
 			RowDragLabel(label = draggedRowLabel(rows, draggingKey), pointerInWindow = { dragController.pointerInWindow })
 		}
@@ -256,6 +262,7 @@ private fun HoldListTopEffect(listState: LazyListState, firstRowKey: String?) {
 	SideEffect {
 		if (lastSeen.key != firstRowKey) {
 			lastSeen.key = firstRowKey
+
 			if (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0) {
 				listState.requestScrollToItem(0)
 			}

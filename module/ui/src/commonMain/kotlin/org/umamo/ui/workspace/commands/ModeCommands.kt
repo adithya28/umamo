@@ -28,6 +28,7 @@ internal fun modeCommands(selection: SelectionHandle?, editorMode: EditorModeHan
 	// The toggle runs from either mode, and is suggested only on the way IN: the label reads "Edit Mode",
 	// which from inside Edit mode names where the user already is.
 	val inObjectMode = CommandAvailability { editorMode?.mode == EditorMode.Object }
+
 	return listOf(
 		Command("select.clear", title = Res.string.cmd_select_clear, availability = hasSelection) { selection?.set(SelectionOps.clear()) },
 		Command(

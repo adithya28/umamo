@@ -28,9 +28,11 @@ class GlueCorpusTest {
 		val geometry = CpuDeformationEvaluator().evaluate(puppet, mapOf(ParameterId("Param_Angle_Rotation3") to 43.31f))
 		var maxGap = 0.0
 		var weldedPairs = 0
+
 		for (glue in puppet.glues) {
 			val vertsA = geometry.worldPositions[glue.meshA] ?: continue
 			val vertsB = geometry.worldPositions[glue.meshB] ?: continue
+
 			for (pair in glue.pairs) {
 				val gap =
 					hypot(
@@ -41,6 +43,7 @@ class GlueCorpusTest {
 				weldedPairs++
 			}
 		}
+
 		println("[glue-e2e] welded pairs=$weldedPairs maxGap=${"%.4f".format(maxGap)}px")
 		assertTrue(weldedPairs > 0, "should have welded at least one pair")
 		assertTrue(maxGap < 1.0, "glued seam pairs should weld to ~one point, but maxGap=$maxGap px")

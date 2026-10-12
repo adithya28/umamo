@@ -33,16 +33,20 @@ internal fun checkForUpdatesOnRequest(
 		val outcome = withContext(Dispatchers.IO) { checkForUpdate(transport) }
 		logUpdateOutcome("requested", outcome)
 		recordUpdateCheck(outcome, services.settings, nowMillis())
+
 		when (outcome) {
 			is UpdateCheckOutcome.Newer -> {
 				services.commandRegistry.invoke("document.confirm", updateAvailableRequest(outcome, services.settings, openPage))
 			}
+
 			is UpdateCheckOutcome.UpToDate -> {
 				services.commandRegistry.invoke("document.alert", AlertRequest(Res.string.alert_up_to_date, listOf(outcome.current)))
 			}
+
 			UpdateCheckOutcome.NothingPublished -> {
 				services.commandRegistry.invoke("document.alert", AlertRequest(Res.string.alert_no_release_published))
 			}
+
 			is UpdateCheckOutcome.Failed -> {
 				services.commandRegistry.invoke("document.alert", AlertRequest(Res.string.alert_update_check_failed, listOf(outcome.reason)))
 			}
@@ -70,16 +74,21 @@ internal suspend fun updateNoticeAtLaunch(
 	if (!updateCheckDue(settings, nowMillis())) {
 		return null
 	}
+
 	val outcome = withContext(Dispatchers.IO) { checkForUpdate(transport) }
 	logUpdateOutcome("at launch", outcome)
 	recordUpdateCheck(outcome, settings, nowMillis())
+
 	if (outcome !is UpdateCheckOutcome.Newer) {
 		return null
 	}
+
 	if (updateSkipped(outcome, settings)) {
 		UmamoLog.info("update check (at launch): ${outcome.latest} was skipped, not shown")
+
 		return null
 	}
+
 	return updateAvailableRequest(outcome, settings, openPage)
 }
 

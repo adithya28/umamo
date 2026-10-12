@@ -29,9 +29,11 @@ import kotlin.math.floor
 internal fun Modifier.zebraFill(listState: LazyListState, rowHeight: Dp, stripeColor: Color): Modifier =
 	this.drawBehind {
 		val rowHeightPx = rowHeight.toPx()
+
 		if (rowHeightPx <= 0f) {
 			return@drawBehind
 		}
+
 		// Anchor the band grid to the first visible row so bands track the rows while scrolling; an empty
 		// list has no visible row, so fall back to band 0 flush at the area's top edge.
 		val firstVisible = listState.layoutInfo.visibleItemsInfo.firstOrNull()
@@ -54,6 +56,7 @@ internal fun Modifier.zebraFill(listState: LazyListState, rowHeight: Dp, stripeC
 						size = Size(size.width, rowHeightPx),
 					)
 				}
+
 				bandTop += rowHeightPx
 				bandIndex += 1
 			}

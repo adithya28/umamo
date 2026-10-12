@@ -33,6 +33,14 @@ class CommandSpacesTableTest {
 				"view.zoomOutCoarse" to workSurfaces,
 				"view.zoomRegion" to workSurfaces,
 				"view.frameSelected" to workSurfaces,
+				"view.overlay.all" to workSurfaces,
+				"view.overlay.grid" to workSurfaces,
+				"view.overlay.axes" to viewport,
+				"view.overlay.cursor" to workSurfaces,
+				"view.overlay.info" to workSurfaces,
+				"view.overlay.selectionTint" to viewport,
+				"view.overlay.wireframe" to viewport,
+				"view.overlay.wireframeCulling" to viewport,
 				"frame.all" to workSurfacesAndSheet,
 				"mesh.grab" to workSurfaces,
 				"mesh.scale" to workSurfaces,
@@ -42,6 +50,7 @@ class CommandSpacesTableTest {
 				"mesh.selectLinkedAtCursor" to workSurfaces,
 				"mesh.selectLinked" to workSurfaces,
 				"edit.switchObjectUnderCursor" to viewport,
+				"snap.cursorToGrid" to viewport,
 				"snap.cursorToSelected" to viewport,
 				"snap.cursorToActive" to viewport,
 				"snap.selectionToGrid" to viewport,
@@ -83,6 +92,7 @@ class CommandSpacesTableTest {
 	fun everyUvCommandIsScoped() {
 		val uvCommands = everyCommandTable().filter { command -> command.id.startsWith("uv.") }
 		assertTrue(uvCommands.isNotEmpty(), "the table must actually hold uv commands for this to mean anything")
+
 		for (command in uvCommands) {
 			assertEquals(CommandSpaces.UvEditor, command.spaces, "${command.id} must be scoped to the UV editor")
 		}
@@ -96,6 +106,7 @@ class CommandSpacesTableTest {
 	@Test
 	fun theSheetCommandsWithAFallbackStayEverywhere() {
 		val byId = everyCommandTable().associateBy { command -> command.id }
+
 		for (id in listOf("keyform.deleteSelectedKeys", "keyform.nudgeKeyLeft", "keyform.nudgeKeyRight", "keyform.frameAll")) {
 			assertEquals(CommandSpaces.Everywhere, byId.getValue(id).spaces, "$id reaches the lone open sheet from anywhere")
 		}

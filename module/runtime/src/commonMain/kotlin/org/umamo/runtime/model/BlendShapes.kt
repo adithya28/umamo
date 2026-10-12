@@ -76,6 +76,7 @@ data class BlendShapeBinding<TForm : Any>(
 	override fun equals(other: Any?): Boolean {
 		if (this === other) return true
 		if (other !is BlendShapeBinding<*>) return false
+
 		return parameterId == other.parameterId &&
 			keys.contentEquals(other.keys) &&
 			neutralIndex == other.neutralIndex &&
@@ -89,6 +90,7 @@ data class BlendShapeBinding<TForm : Any>(
 		hash = 31 * hash + neutralIndex
 		hash = 31 * hash + forms.hashCode()
 		hash = 31 * hash + limits.hashCode()
+
 		return hash
 	}
 }

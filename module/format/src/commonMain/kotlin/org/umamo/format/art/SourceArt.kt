@@ -49,12 +49,16 @@ data class LayerBounds(
 		if (area == 0L || other.area == 0L) {
 			return 0f
 		}
+
 		val overlapWidth = minOf(left + width, other.left + other.width) - maxOf(left, other.left)
 		val overlapHeight = minOf(top + height, other.top + other.height) - maxOf(top, other.top)
+
 		if (overlapWidth <= 0 || overlapHeight <= 0) {
 			return 0f
 		}
+
 		val intersection = overlapWidth.toLong() * overlapHeight.toLong()
+
 		return intersection.toFloat() / (area + other.area - intersection).toFloat()
 	}
 }
@@ -163,12 +167,15 @@ class LayerRaster(
  */
 fun LayerRaster.isFullyTransparent(): Boolean {
 	var offset = 3
+
 	while (offset < rgba.size) {
 		if (rgba[offset].toInt() != 0) {
 			return false
 		}
+
 		offset += 4
 	}
+
 	return true
 }
 
@@ -307,19 +314,25 @@ fun SourceArt.isEffectivelyVisible(layer: SourceLayer): Boolean {
 	if (!layer.visible) {
 		return false
 	}
+
 	if (groups.isEmpty() || layer.groupPath.isEmpty()) {
 		return true
 	}
+
 	val groupByPath = groups.associateBy { group -> group.path }
 	var ancestorPath = layer.groupPath
+
 	while (ancestorPath.isNotEmpty()) {
 		val ancestor = groupByPath[ancestorPath]
+
 		if (ancestor != null && !ancestor.visible) {
 			return false
 		}
+
 		val lastSlash = ancestorPath.lastIndexOf('/')
 		ancestorPath = if (lastSlash < 0) "" else ancestorPath.substring(0, lastSlash)
 	}
+
 	return true
 }
 

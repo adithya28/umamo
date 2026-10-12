@@ -30,9 +30,6 @@ import org.umamo.ui.theme.drawSelectionCircle
 // drawOwnedModalTransformHud alone reads a gesture's pointer state and projects its pivot through the
 // area camera, so the four overlays' HUDs cannot drift apart.
 
-/** A primary drag shorter than this (px) is treated as a click, not a box select. */
-internal const val SELECT_DRAG_THRESHOLD_PX = 3f
-
 // The modal HUD's pivot-to-pointer dash pattern (on, off).
 private val MODAL_DASH_ON = 6.dp
 private val MODAL_DASH_OFF = 4.dp
@@ -55,11 +52,13 @@ private val AXIS_LOCK_Z_COLOR =
  */
 internal fun DrawScope.drawAxisConstraintLine(constraint: TransformAxisConstraint?, anchorScreen: Offset, viewport: Size) {
 	when (constraint) {
-		TransformAxisConstraint.AxisX ->
+		TransformAxisConstraint.AxisX -> {
 			drawLine(color = AXIS_LOCK_X_COLOR, start = Offset(0f, anchorScreen.y), end = Offset(viewport.width, anchorScreen.y), strokeWidth = 1f)
+		}
 
-		TransformAxisConstraint.AxisZ ->
+		TransformAxisConstraint.AxisZ -> {
 			drawLine(color = AXIS_LOCK_Z_COLOR, start = Offset(anchorScreen.x, 0f), end = Offset(anchorScreen.x, viewport.height), strokeWidth = 1f)
+		}
 
 		null -> {}
 	}
@@ -74,7 +73,7 @@ internal fun DrawScope.drawAxisConstraintLine(constraint: TransformAxisConstrain
  *
  * @param Boolean owned Whether the caller's gate says this area draws the HUD.
  * @param Pair<Float, Float>? pivotWorld The capture's pivot, or null when no capture has landed.
- * @param ModalGestureState<*> gesture The area's modal gesture state.
+ * @param ModalGestureState<*, *> gesture The area's modal gesture state.
  * @param State axisConstraint The session's axis constraint.
  * @param ViewportCamera camera The camera the pivot projects through.
  * @param IntSize size The area size in pixels.
@@ -85,7 +84,7 @@ internal fun DrawScope.drawAxisConstraintLine(constraint: TransformAxisConstrain
 internal fun DrawScope.drawOwnedModalTransformHud(
 	owned: Boolean,
 	pivotWorld: Pair<Float, Float>?,
-	gesture: ModalGestureState<*>,
+	gesture: ModalGestureState<*, *>,
 	axisConstraint: State<TransformAxisConstraint?>,
 	camera: ViewportCamera,
 	size: IntSize,
@@ -95,6 +94,7 @@ internal fun DrawScope.drawOwnedModalTransformHud(
 	if (!owned || pivotWorld == null) {
 		return
 	}
+
 	drawModalTransformHud(
 		axisConstraint = axisConstraint.value,
 		pivotScreen = worldToScreen(pivotWorld.first, pivotWorld.second, camera, size),
@@ -136,9 +136,11 @@ internal fun DrawScope.drawModalTransformHud(
 	proportionalRadiusPx: Float? = null,
 ) {
 	drawAxisConstraintLine(axisConstraint, pivotScreen, viewport)
+
 	if (proportionalRadiusPx != null) {
 		drawCircle(color = lineColor, radius = proportionalRadiusPx, center = pivotScreen, style = Stroke(width = 1f))
 	}
+
 	drawLine(
 		color = lineColor,
 		start = pivotScreen,
@@ -176,6 +178,7 @@ internal fun DrawScope.drawSelectToolAffordances(
 			if (!boxDragInFlight) {
 				drawCrosshairGuides(pointer, viewport, style)
 			}
+
 			drawCursor(crosshairCursor, pointer)
 		}
 

@@ -7,10 +7,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.inset
 import androidx.compose.ui.unit.dp
 import org.umamo.edit.EditorSession
-import org.umamo.edit.RowDropBand
 import org.umamo.edit.SelectionTarget
-import org.umamo.edit.applyOutlinerDrop
-import org.umamo.edit.resolveOutlinerDrop
+import org.umamo.edit.structure.RowDropBand
+import org.umamo.edit.structure.applyOutlinerDrop
+import org.umamo.edit.structure.resolveOutlinerDrop
 import org.umamo.runtime.model.PuppetModel
 import org.umamo.ui.workspace.rowdrag.RowDragController
 
@@ -76,13 +76,16 @@ internal fun performOutlinerDrop(
 	val fraction = controller.dropTargetFraction ?: 0.5f
 	val dragged = controller.draggedPayload
 	controller.end()
+
 	if (targetId == null || session == null || dragged == null) {
 		return
 	}
+
 	val targetNode = rows.firstOrNull { row -> row.node.id == targetId }?.node ?: return
 	val target = targetNode.target ?: return
 	val drop = puppet.resolveOutlinerDrop(dragged, target, fraction) ?: return
 	session.applyOutlinerDrop(drop)
+
 	if (drop.expandTarget) {
 		expand(targetNode.id)
 	}

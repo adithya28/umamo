@@ -284,13 +284,16 @@ public class UmaModel internal constructor(
 		val encoded = UmaPuppetEntry.encode(puppet, path, scratch)
 		val merged = mergeRetainedTree(liveContent(kind), encoded, UmaPuppet.serializer().descriptor, UmaPuppetEntry.identities)
 		val ownedPath = checkNotNull(kind.bufferPath)
+
 		// The contract's exception, not check(): the caller's save flow catches UmaWriteException to report
 		// a document it cannot save, and a foreign writer's manifest can list this path.
 		if (entries.any { entry -> entry.path == ownedPath }) {
 			throw UmaWriteException(ownedPath, "is listed in the manifest as an entry, so the puppet cannot own it as its buffer")
 		}
+
 		val scratchBytes = scratch.bytes()
 		val layout = layOutBuffer(merged, ownedPath) { source -> if (source == UmaAccessor.SCRATCH_BUFFER) scratchBytes else bufferBytes(source) }
+
 		return withLiveContent(kind, layout.tree as JsonObject).withOwnedPayloads(kind, mapOf(ownedPath to UmaOwnedPayload(kind, layout.buffer.takeIf { layout.hasAccessors })))
 	}
 
@@ -320,16 +323,19 @@ public class UmaModel internal constructor(
 		// UMA §5.7: pixel entries new to the file follow the index in index order - tiles, render pages, thumbnail -
 		// whichever save wrote them, so a document saved twice before it is written orders them as one save does.
 		val owned = LinkedHashMap<String, UmaOwnedPayload>()
+
 		for (namedPath in UmaTexturesEntry.namedPaths(layout.textures)) {
 			val bytes = layout.payloads[namedPath]
 			val payload = if (bytes != null) UmaOwnedPayload(kind, bytes) else ownedPayloads[namedPath]?.takeIf { earlier -> earlier.owner == kind }
 			payload?.let { laidOut -> owned[namedPath] = laidOut }
 		}
+
 		for ((droppedPath, bytes) in layout.payloads) {
 			if (bytes == null) {
 				owned[droppedPath] = UmaOwnedPayload(kind, null)
 			}
 		}
+
 		return withLiveContent(kind, merged as JsonObject).withOwnedPayloads(kind, owned)
 	}
 
@@ -346,6 +352,7 @@ public class UmaModel internal constructor(
 		val kind = UmaEntryKind.Sources
 		val encoded = UmaSourcesEntry.encode(sources, entryPathOf(kind))
 		val merged = mergeRetainedTree(liveContent(kind), encoded, UmaSources.serializer().descriptor, UmaSourcesEntry.identities)
+
 		return withLiveContent(kind, merged as JsonObject)
 	}
 
@@ -365,10 +372,12 @@ public class UmaModel internal constructor(
 		val kind = UmaEntryKind.Editor
 		val retained = liveContent(kind)
 		val merged = applyMergePatch(retained ?: JsonObject(emptyMap()), patch)
+
 		// UMA §7.5: no entry is added that would be empty, and an unchanged tree is not a new document.
 		if (merged == retained || (retained == null && merged.isEmpty())) {
 			return this
 		}
+
 		return withLiveContent(kind, merged)
 	}
 
@@ -383,6 +392,7 @@ public class UmaModel internal constructor(
 	public fun payloadBytes(path: String): ByteArray? {
 		ownedPayloads[path]?.let { owned -> return owned.bytes }
 		val payload = payloadByPath[path] ?: return null
+
 		return decodeVerified(payload)
 	}
 
@@ -400,21 +410,26 @@ public class UmaModel internal constructor(
 		val payload = payloadByPath[path] ?: return null
 		val raw = payload.raw
 		val zipEntry = raw.zipEntry
+
 		if (!zipEntry.isEncrypted && zipEntry.method == ZipRecords.METHOD_STORED) {
 			return raw.storedPrefix(PAYLOAD_HEADER_BYTES)
 		}
+
 		if (!zipEntry.isEncrypted && zipEntry.method == ZipRecords.METHOD_DEFLATED) {
 			// Only the stream's first bytes are inflated: a deflate block's Huffman tables and 64 bytes of
 			// output fit well inside the bound, and the inflater copies whatever it is handed before it starts,
 			// so handing it the whole payload would copy a page-sized PNG to read its header.  A stream too
 			// sparse for the bound (a run of empty blocks) inflates short and takes the full path instead.
 			val bounded = inflateRawDeflate(raw.archive, zipEntry.payloadOffset, minOf(zipEntry.compressedSize, PAYLOAD_HEADER_SOURCE_BYTES), PAYLOAD_HEADER_BYTES)
+
 			if (bounded.size >= minOf(PAYLOAD_HEADER_BYTES, zipEntry.uncompressedSize)) {
 				return bounded
 			}
 		}
+
 		// An entry this reader cannot inflate at all fails as reading its bytes does.
 		val bytes = decodeVerified(payload)
+
 		return bytes.copyOf(minOf(bytes.size, PAYLOAD_HEADER_BYTES))
 	}
 
@@ -428,6 +443,7 @@ public class UmaModel internal constructor(
 	 */
 	internal fun bufferBytes(path: String): ByteArray? {
 		ownedPayloads[path]?.let { owned -> return owned.bytes }
+
 		return decodedPayloads[path]?.value
 	}
 
@@ -488,21 +504,29 @@ public class UmaModel internal constructor(
 		if (jsonNestsTooDeep(tree)) {
 			throw UmaWriteException(entryPathOf(kind), "the entry nests deeper than $UMA_MAXIMUM_JSON_DEPTH levels")
 		}
+
 		val existingIndex = entries.indexOfFirst { entry -> UmaEntryKind.ofWireName(entry.kind) == kind }
+
 		if (existingIndex >= 0) {
 			val existing = entries[existingIndex]
+
 			// UMA §3.3: an entry too new to interpret occupies its kind; writing a second one beside it would
 			// leave the file with two entries of one kind, and replacing it would lose what a newer writer put there.
 			if (existing.content !is UmaEntryContent.Live) {
 				throw UmaWriteException(existing.path, "the file's ${kind.wireName} entry is too new for this reader to replace")
 			}
+
 			val replaced = UmaEntry(existing.path, existing.kind, existing.version, existing.minVersion, existing.required, existing.record, UmaEntryContent.Live(kind, tree))
+
 			return derived(writer, entries.toMutableList().also { list -> list[existingIndex] = replaced }, ownedPayloads, kind)
 		}
+
 		if (entries.any { entry -> entry.path == kind.defaultPath } || payloads.any { payload -> payload.path == kind.defaultPath }) {
 			throw UmaWriteException(kind.defaultPath, "the path is already taken, so a new ${kind.wireName} entry has nowhere to go")
 		}
+
 		val added = UmaEntry(kind.defaultPath, kind.wireName, kind.version, kind.minVersion, kind.required, null, UmaEntryContent.Live(kind, tree))
+
 		return derived(writer, entries + added, ownedPayloads, kind)
 	}
 

@@ -31,12 +31,13 @@ class StatusBarStatsTest {
 		val mesh =
 			triangleCount?.let { count ->
 				val vertexCount = count + 2
-				DrawableMesh(
+				DrawableMesh.withLocalEqualToCanvas(
 					positions = FloatArray(vertexCount * 2),
 					uvs = FloatArray(vertexCount * 2),
 					indices = IntArray(count * 3) { indexSlot -> indexSlot % vertexCount },
 				)
 			}
+
 		return Drawable(
 			id = DrawableId(id),
 			name = id,
@@ -59,6 +60,7 @@ class StatusBarStatsTest {
 		val nested = drawable("nested", triangleCount = 4)
 		val innerPart = Part(PartId("bagInner"), "Bag Inner", listOf(OrgChild.Drawable(nested.id)))
 		val outerPart = Part(PartId("bag"), "Bag", listOf(OrgChild.Part(innerPart.id)))
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = listOf(outerPart, innerPart),

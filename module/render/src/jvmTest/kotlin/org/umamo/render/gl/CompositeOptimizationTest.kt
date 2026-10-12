@@ -68,7 +68,7 @@ class CompositeOptimizationTest {
 			alphaBlendMode = AlphaBlendMode.Over,
 			culling = false,
 			maskedBy = emptyList(),
-			mesh = DrawableMesh(positions, FloatArray(positions.size), frontIndices),
+			mesh = DrawableMesh.withLocalEqualToCanvas(positions, FloatArray(positions.size), frontIndices),
 			geometryGrid = restGrid(positions.size),
 			isVisible = true,
 		)
@@ -106,11 +106,13 @@ class CompositeOptimizationTest {
 		val target = device.createRenderTarget(RenderTargetSpec(viewportSize, viewportSize, TextureFormat.Rgba8, sampled = true))
 		renderer.render(target, viewportSize, viewportSize)
 		val image = device.readPixels(target)
+
 		return IntArray(image.rgba.size) { image.rgba[it].toInt() and 0xFF }
 	}
 
 	private fun pixel(image: IntArray, x: Int, y: Int): IntArray {
 		val offset = (y * viewportSize + x) * 4
+
 		return IntArray(4) { image[offset + it] }
 	}
 
@@ -155,9 +157,11 @@ class CompositeOptimizationTest {
 		val plainImage = renderImage(plain)
 		val wrappedImage = renderImage(wrapped)
 		var maxDiff = 0
+
 		for (index in plainImage.indices) {
 			maxDiff = maxOf(maxDiff, abs(plainImage[index] - wrappedImage[index]))
 		}
+
 		assertTrue(maxDiff <= 1, "flattened identity composite matches plain drawing (max channel diff $maxDiff)")
 	}
 

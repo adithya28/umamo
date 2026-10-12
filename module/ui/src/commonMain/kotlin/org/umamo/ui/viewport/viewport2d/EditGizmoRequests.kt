@@ -6,10 +6,12 @@ import androidx.compose.ui.unit.IntSize
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.umamo.edit.EditorSession
-import org.umamo.edit.NoticePlacement
 import org.umamo.render.ViewportCamera
 import org.umamo.render.pick.PickCandidate
+import org.umamo.ui.viewport.GridConfig
 import org.umamo.ui.viewport.PuppetViewportService
+import org.umamo.ui.viewport.ViewportOverlayState
+import org.umamo.ui.viewport.gizmo.editableGeometryOrNotice
 import org.umamo.ui.viewport.gizmo.handleSelectLinkedRequest
 
 /**
@@ -31,6 +33,8 @@ import org.umamo.ui.viewport.gizmo.handleSelectLinkedRequest
  * @param State<IntSize> size The area size in pixels.
  * @param State<Offset> areaPointer Where the pointer last was in the area, tracked by the host.
  * @param Function onOverlapRequest Opens the overlap-picker popup for an Alt+Q over 2+ stacked candidates.
+ * @param ViewportOverlayState? overlays The area's overlay state, whose grid a grid snap rounds to; null (no
+ *   area state, a standalone shell) rounds to the built-in grid.
  */
 internal suspend fun collectEditGizmoRequests(
 	areaId: String,
@@ -41,6 +45,7 @@ internal suspend fun collectEditGizmoRequests(
 	size: State<IntSize>,
 	areaPointer: State<Offset>,
 	onOverlapRequest: (Offset, List<PickCandidate>) -> Unit,
+	overlays: ViewportOverlayState?,
 ) {
 	coroutineScope {
 		// Select Linked (Blender's L / Ctrl+L).
@@ -49,7 +54,8 @@ internal suspend fun collectEditGizmoRequests(
 				if (request.areaId != areaId) {
 					return@collect
 				}
-				val editable = editableGeometryOrNotice(session, geometries.value) ?: return@collect
+
+				val editable = editableGeometryOrNotice(session, geometries.value, "notice.edit.noEditableGeometry") ?: return@collect
 				handleSelectLinkedRequest(
 					session,
 					editable.map { it.gizmo },
@@ -68,6 +74,7 @@ internal suspend fun collectEditGizmoRequests(
 				if (requestedAreaId != areaId) {
 					return@collect
 				}
+
 				handleSwitchEditDrawableRequest(session, service, areaId, areaPointer.value, onOverlapRequest)
 			}
 		}
@@ -77,7 +84,8 @@ internal suspend fun collectEditGizmoRequests(
 				if (requestedAreaId != areaId) {
 					return@collect
 				}
-				val editable = editableGeometryOrNotice(session, geometries.value) ?: return@collect
+
+				val editable = editableGeometryOrNotice(session, geometries.value, "notice.edit.noEditableGeometry") ?: return@collect
 				handleRipRequest(session, editable, areaId, areaPointer.value, camera.value, size.value)
 			}
 		}
@@ -89,25 +97,10 @@ internal suspend fun collectEditGizmoRequests(
 				if (request.areaId != areaId) {
 					return@collect
 				}
-				val editable = editableGeometryOrNotice(session, geometries.value) ?: return@collect
-				handleEditSnapRequest(session, editable, request.kind)
+
+				val editable = editableGeometryOrNotice(session, geometries.value, "notice.edit.noEditableGeometry") ?: return@collect
+				handleEditSnapRequest(session, editable, request.kind, (overlays?.grid ?: GridConfig()).snapStep)
 			}
 		}
 	}
-}
-
-/**
- * The geometry a request can run against, or null after telling the rigger there is none: every mesh
- * in the edit sits behind a hidden ancestor, so nothing could be projected.
- *
- * @param EditorSession session The session to emit the notice on.
- * @param List<EditMeshGeometry> geometries The session meshes' live geometry.
- * @return List<EditMeshGeometry>? The geometry, or null when it is empty.
- */
-private fun editableGeometryOrNotice(session: EditorSession, geometries: List<EditMeshGeometry>): List<EditMeshGeometry>? {
-	if (geometries.isEmpty()) {
-		session.emitNotice("notice.edit.noEditableGeometry", NoticePlacement.NearCursor)
-		return null
-	}
-	return geometries
 }

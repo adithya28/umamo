@@ -57,11 +57,13 @@ fun AreaTree(
 	onSplitterDragChange: (Boolean) -> Unit = {},
 ) {
 	when (node) {
-		is LeafArea ->
+		is LeafArea -> {
 			key(node.id) {
 				AreaLeaf(area = node, onCommand = onCommand, modifier = modifier)
 			}
-		is SplitNode ->
+		}
+
+		is SplitNode -> {
 			SplitContainer(
 				node = node,
 				onNodeChange = onNodeChange,
@@ -69,6 +71,7 @@ fun AreaTree(
 				modifier = modifier,
 				onSplitterDragChange = onSplitterDragChange,
 			)
+		}
 	}
 }
 
@@ -129,9 +132,11 @@ private fun SplitContainer(
 					currentOnSplitterDragChange(false)
 				}
 			}
+
 		if (cancelDrag != null) {
 			splitterDragCancel.cancel = cancelDrag
 		}
+
 		onDispose {
 			if (cancelDrag != null && splitterDragCancel.cancel === cancelDrag) {
 				splitterDragCancel.cancel = null
@@ -175,6 +180,7 @@ private fun SplitContainer(
 		}
 		val onDrag: (Float) -> Unit = { deltaPx ->
 			val activeSession = dragSession
+
 			// Escape already abandoned this drag and restored the starting ratio; swallow every further
 			// delta from the still-held pointer rather than rebasing, which would resume the drag.  The
 			// check precedes the ownsNode test so a structural edit landing after the cancel cannot
@@ -196,8 +202,9 @@ private fun SplitContainer(
 			dragSession = null
 			onSplitterDragChange(false)
 		}
+
 		when (node.orientation) {
-			SplitOrientation.Horizontal ->
+			SplitOrientation.Horizontal -> {
 				Row(modifier = Modifier.fillMaxSize()) {
 					Box(modifier = Modifier.weight(ratio).fillMaxHeight()) { first() }
 					Splitter(
@@ -208,7 +215,9 @@ private fun SplitContainer(
 					)
 					Box(modifier = Modifier.weight(1f - ratio).fillMaxHeight()) { second() }
 				}
-			SplitOrientation.Vertical ->
+			}
+
+			SplitOrientation.Vertical -> {
 				Column(modifier = Modifier.fillMaxSize()) {
 					Box(modifier = Modifier.weight(ratio).fillMaxWidth()) { first() }
 					Splitter(
@@ -219,6 +228,7 @@ private fun SplitContainer(
 					)
 					Box(modifier = Modifier.weight(1f - ratio).fillMaxWidth()) { second() }
 				}
+			}
 		}
 	}
 }

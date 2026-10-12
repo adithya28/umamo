@@ -12,7 +12,7 @@ import org.umamo.edit.EditorSession
 import org.umamo.edit.Selection
 import org.umamo.edit.SelectionOps
 import org.umamo.edit.SelectionTarget
-import org.umamo.edit.selectableOf
+import org.umamo.edit.structure.selectableOf
 import org.umamo.render.ViewportCamera
 import org.umamo.render.pick.PickCandidate
 import org.umamo.runtime.model.DrawableId
@@ -214,16 +214,26 @@ internal class ObjectPickController(
 	 */
 	private fun applyClickPick(position: Offset, toggleMembership: Boolean, alt: Boolean) {
 		val model = session.model.value
+
 		if (alt) {
 			val candidates =
 				pickStack(position).filter { candidate -> model.selectableOf(SelectionTarget.Drawable(candidate.id)) }
+
 			when (val resolution = resolveAltOverlapPick(candidates)) {
-				is AltPickResolution.ShowOverlap -> onOverlapRequest(position, resolution.candidates)
-				is AltPickResolution.SelectSingle -> session.setSelection(SelectionOps.replace(SelectionTarget.Drawable(resolution.id)))
+				is AltPickResolution.ShowOverlap -> {
+					onOverlapRequest(position, resolution.candidates)
+				}
+
+				is AltPickResolution.SelectSingle -> {
+					session.setSelection(SelectionOps.replace(SelectionTarget.Drawable(resolution.id)))
+				}
+
 				AltPickResolution.None -> {}
 			}
+
 			return
 		}
+
 		val hit = pickTopmost(position)?.takeIf { drawableId -> model.selectableOf(SelectionTarget.Drawable(drawableId)) }
 		session.setSelection(
 			resolveObjectClickSelection(

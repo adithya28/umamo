@@ -85,7 +85,7 @@ class CommandRoutingTest {
 			parentDeformerId = null,
 			blendMode = BlendMode.Normal,
 			maskedBy = emptyList(),
-			mesh = DrawableMesh(floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f), floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f), intArrayOf(0, 1, 2)),
+			mesh = DrawableMesh.withLocalEqualToCanvas(floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f), floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f), intArrayOf(0, 1, 2)),
 			geometryGrid = null,
 		)
 
@@ -110,6 +110,7 @@ class CommandRoutingTest {
 		val drawable = SelectionTarget.Drawable(DrawableId("a"))
 		session.setSelection(Selection(setOf(drawable), drawable))
 		session.setMode(mode)
+
 		return session
 	}
 
@@ -151,6 +152,7 @@ class CommandRoutingTest {
 
 			assertEquals(areaId, routing.areaOf(kind), "${kind.name} names its own area")
 			assertEquals(areaId, routing.hoveredAreaIdAnyKind(), "${kind.name} is reported kind-agnostically")
+
 			for (other in SpaceKind.entries.filter { candidate -> candidate != kind }) {
 				assertNull(routing.areaOf(other), "a hovered ${kind.name} must not answer as ${other.name}")
 			}

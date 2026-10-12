@@ -39,9 +39,11 @@ internal object UmaSourcesEntry {
 	fun decode(tree: JsonObject, path: String): UmaSources {
 		val sources = decodeUmaEntry(UmaEntryJson, UmaSources.serializer(), tree, path)
 		val problem = firstIdentityProblem(tree, UmaSources.serializer().descriptor, identities, "") ?: firstProblem(sources)
+
 		if (problem != null) {
 			throw UmaFormatException(UmaReadFailure.MalformedEntry(path, problem))
 		}
+
 		return sources
 	}
 
@@ -59,6 +61,7 @@ internal object UmaSourcesEntry {
 		val tree = UmaEntryJson.encodeToJsonElement(UmaSources.serializer(), sources) as JsonObject
 		// UMA §6.6: a reader refuses a repeated identity, so a save that wrote one could never be reopened.
 		firstIdentityProblem(tree, UmaSources.serializer().descriptor, identities, "")?.let { problem -> throw UmaWriteException(path, problem) }
+
 		return tree
 	}
 
@@ -73,14 +76,18 @@ internal object UmaSourcesEntry {
 		for ((sourceIndex, source) in sources.sources.orEmpty().withIndex()) {
 			val sourcePath = "sources[$sourceIndex]"
 			hashProblem(source.contentHash, "$sourcePath.contentHash")?.let { problem -> return problem }
+
 			for ((layerIndex, layer) in source.layers.orEmpty().withIndex()) {
 				val layerPath = "$sourcePath.layers[$layerIndex]"
+
 				if (layer.width < 0 || layer.height < 0) {
 					return "$layerPath has a negative size"
 				}
+
 				hashProblem(layer.contentHash, "$layerPath.contentHash")?.let { problem -> return problem }
 			}
 		}
+
 		return null
 	}
 
@@ -96,15 +103,19 @@ internal object UmaSourcesEntry {
 		if (hash == null) {
 			return null
 		}
+
 		// UMA §6.4: a hash under another algorithm is unknown to this reader, like an unknown enum value; a writer
 		// that changes the algorithm raises the entry's minVersion.
 		if (!hash.startsWith(UMA_SHA256_PREFIX)) {
 			return "$path is '$hash', which is not a sha256 hash"
 		}
+
 		val digest = hash.substring(UMA_SHA256_PREFIX.length)
+
 		if (digest.length != HASH_DIGITS || digest.any { character -> character !in '0'..'9' && character !in 'a'..'f' }) {
 			return "$path is not 64 lowercase hexadecimal digits"
 		}
+
 		return null
 	}
 }

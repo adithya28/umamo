@@ -43,6 +43,7 @@ fun ContextMenuArea(items: List<MenuItem>, modifier: Modifier = Modifier, conten
 		CompositionLocalProvider(LocalContextMenuItems provides items) {
 			content()
 		}
+
 		if (open) {
 			Menu(
 				items = items,

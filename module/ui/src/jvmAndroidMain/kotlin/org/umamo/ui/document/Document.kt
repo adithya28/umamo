@@ -91,9 +91,11 @@ sealed interface PuppetDocument : Document {
  */
 fun exportedModelFor(document: PuppetDocument, session: EditorSession?): PuppetModel {
 	val documentSession = session?.takeIf { candidate -> candidate.baselineModel === document.puppet }
+
 	if (session != null && documentSession == null) {
 		UmamoLog.error("export: session does not belong to ${document.displayName}; exporting the unedited document")
 	}
+
 	return documentSession?.model?.value ?: document.puppet
 }
 
@@ -126,11 +128,14 @@ suspend fun loadDocument(file: PlatformFile, importOptions: SourceArtImportOptio
 	val bytes =
 		runCatching { file.readBytes() }.getOrElse {
 			UmamoLog.error("failed to read ${file.name}", it)
+
 			return DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.ReadFailed, file.name))
 		}
+
 	if (FormatRegistry.detect(bytes, file.name)?.kind == FileKind.Moc3) {
 		return loadMoc3Document(file, bytes)
 	}
+
 	return loadDocument(bytes, file.name, file.absolutePath(), importOptions)
 }
 
@@ -156,24 +161,32 @@ fun loadDocument(
 ): DocumentLoad =
 	runCatching {
 		val codec = FormatRegistry.detect(bytes, name)
+
 		if (codec == null) {
 			UmamoLog.warn("$path is not a format that Umamo recognizes")
+
 			return@runCatching DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.Unrecognized, name))
 		}
+
 		// The native document: read whole, never imported.
 		if (codec.kind == FileKind.Uma) {
 			return@runCatching buildUmaDocument(bytes, name, path)
 		}
+
 		if (codec.kind == FileKind.Cmo3) {
 			// detect returns a star-projected FormatCodec<*>; each kind's read result is cast to the model
 			// type that kind's codec is known to produce.
 			return@runCatching buildCmo3Document(codec.read(bytes) as Cmo3Model, name, path)
 		}
+
 		val artwork = artworkOf(codec, bytes, name)
+
 		if (artwork == null) {
 			UmamoLog.warn("$path is a .${codec.kind.extension} file, which the editor shell can't open")
+
 			return@runCatching DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.NotOpenable, name))
 		}
+
 		buildArtDocument(artwork, codec.kind, name, path, importOptions, contentHashOf(bytes), fileModifiedAtMillis(path))
 	}.getOrElse {
 		UmamoLog.error("failed to open $path", it)

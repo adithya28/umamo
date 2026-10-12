@@ -1,20 +1,21 @@
 package org.umamo.edit.export
 
-import org.umamo.edit.MergeTarget
-import org.umamo.edit.MeshTopologyOps
-import org.umamo.edit.withDeformerDeleted
-import org.umamo.edit.withDrawableDeleted
-import org.umamo.edit.withDrawableDuplicated
-import org.umamo.edit.withMeshTopologyEdit
-import org.umamo.edit.withParameterCreated
-import org.umamo.edit.withParameterDeleted
-import org.umamo.edit.withParameterGroupCreated
-import org.umamo.edit.withPartDeleted
+import org.umamo.edit.mesh.MergeTarget
+import org.umamo.edit.mesh.MeshTopologyOps
+import org.umamo.edit.mesh.withMeshTopologyEdit
+import org.umamo.edit.parameter.withParameterCreated
+import org.umamo.edit.parameter.withParameterDeleted
+import org.umamo.edit.parameter.withParameterGroupCreated
+import org.umamo.edit.structure.withDeformerDeleted
+import org.umamo.edit.structure.withDrawableDeleted
+import org.umamo.edit.structure.withDrawableDuplicated
+import org.umamo.edit.structure.withPartDeleted
 import org.umamo.format.cmo3.Cmo3
 import org.umamo.format.cmo3.model.custom.CModelSource
 import org.umamo.interop.DrawableField
 import org.umamo.interop.EntityDiff
 import org.umamo.interop.ExportNotice
+import org.umamo.interop.ExportNoticeReason
 import org.umamo.interop.ExportReport
 import org.umamo.interop.cmo3.Cmo3Export
 import org.umamo.interop.cmo3.Cmo3Import
@@ -53,11 +54,13 @@ class Cmo3ExportStructureRoundTripTest {
 		val report = Cmo3Export.apply(edited, cmo3)
 		val reimportedSource =
 			Cmo3.read(Cmo3.write(cmo3)).root as? CModelSource ?: error("re-read root is not a CModelSource")
+
 		return RoundTrip(edited, Cmo3Import.fromModelSource(reimportedSource), report)
 	}
 
-	private fun assertLossless(result: RoundTrip, label: String) {
-		assertTrue(result.report.isEmpty, "$label: expected no notices, got ${result.report.notices}")
+	private fun assertLossless(result: RoundTrip, label: String, expected: (ExportNotice) -> Boolean = { false }) {
+		val unexpected = result.report.notices.filterNot(expected)
+		assertTrue(unexpected.isEmpty(), "$label: expected no notices, got $unexpected")
 		val residual = diffPuppetModels(result.reimported, result.edited)
 		assertTrue(residual.isEmpty, "$label: edits lost through export/import: $residual")
 	}
@@ -84,13 +87,16 @@ class Cmo3ExportStructureRoundTripTest {
 			(editedGrid == null) == (reimportedGrid == null),
 			"$label: geometry grid presence changed through the round trip",
 		)
+
 		if (editedGrid != null && reimportedGrid != null) {
 			val reimportedByCoordinate =
 				reimportedGrid.cells.associate { cell -> cell.coordinate.toList() to cell.form.positionDeltas }
 			var maxComponentDifference = 0f
+
 			for (cell in editedGrid.cells) {
 				val reimportedDeltas = reimportedByCoordinate[cell.coordinate.toList()]
 				assertTrue(reimportedDeltas != null, "$label: cell ${cell.coordinate.toList()} vanished")
+
 				for (component in cell.form.positionDeltas.indices) {
 					maxComponentDifference =
 						maxOf(
@@ -99,12 +105,16 @@ class Cmo3ExportStructureRoundTripTest {
 						)
 				}
 			}
+
 			assertTrue(maxComponentDifference < 1e-3f, "$label: geometry drifted by $maxComponentDifference")
 		}
+
 		val residual = diffPuppetModels(result.reimported, result.edited)
+
 		if (residual.isEmpty) {
 			return
 		}
+
 		val tolerated = setOf(DrawableField.TEXTURE_SOURCE, DrawableField.GEOMETRY, DrawableField.BLEND_SHAPES)
 		val onlyToleratedResidue =
 			residual.parameters.isEmpty() &&
@@ -125,15 +135,18 @@ class Cmo3ExportStructureRoundTripTest {
 
 	private fun skipMessageOrNull(): File? {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.sample not present; skipping structure round-trip test")
 		}
+
 		return file
 	}
 
 	@Test
 	fun parameterCreateAndDeleteSurviveRoundTrip() {
 		val file = skipMessageOrNull() ?: return
+		var deletedId: String? = null
 		val result =
 			roundTrip(file) { puppet ->
 				var model = puppet.withParameterCreated(ParameterId("UmamoTestParam"), "Umamo Test Param")
@@ -145,21 +158,30 @@ class Cmo3ExportStructureRoundTripTest {
 							drawable.channelGrids.gridsByChannel.values.forEach { grid -> grid.axes.forEach { add(it.parameterId) } }
 							drawable.blendShapes.forEach { add(it.parameterId) }
 						}
+
 						for (deformer in model.deformers) {
 							deformer.channelGrids.gridsByChannel.values.forEach { grid -> grid.axes.forEach { add(it.parameterId) } }
 						}
+
 						model.parameterLinks.forEach {
 							add(it.horizontal)
 							add(it.vertical)
 						}
 					}
 				val victim = model.parameters.firstOrNull { it.id !in referenced && it.id.raw != "UmamoTestParam" }
+
 				if (victim != null) {
+					deletedId = victim.id.raw
 					model = model.withParameterDeleted(victim.id)
 				}
+
 				model
 			}
-		assertLossless(result, "parameter create/delete")
+		// Physics the file retained may still read or drive the victim (EricaTamamo's ParamAngleZ feeds 43
+		// settings): Umamo writes physics back as it was, and the one notice it owes is that report.
+		assertLossless(result, "parameter create/delete") { notice ->
+			notice is ExportNotice.UnsupportedChange && notice.subject == deletedId && notice.reason is ExportNoticeReason.PhysicsNamesDeletedParameter
+		}
 	}
 
 	@Test
@@ -207,11 +229,13 @@ class Cmo3ExportStructureRoundTripTest {
 				val leafPart =
 					puppet.parts.firstOrNull { part -> part.children.none { it is OrgChild.Part } }
 				var model = puppet
+
 				if (leafPart != null) {
 					model = model.withPartDeleted(leafPart.id, cascade = true)
 				}
+
 				model.deformers.firstOrNull()?.let { deformer ->
-					model = model.withDeformerDeleted(deformer.id)
+					model = model.withDeformerDeleted(deformer.id, localPositionsByDrawable = emptyMap())
 				}
 				model
 			}

@@ -82,6 +82,7 @@ fun IconButton(
 			else -> colors.textMuted
 		}
 	var faceModifier = Modifier.size(size)
+
 	if (appearance is IconButtonAppearance.Filled) {
 		// Elevation is the inline clip + background idiom, not kit Surface: the fill must ramp on hover,
 		// which a Surface's static color cannot do.
@@ -99,9 +100,11 @@ fun IconButton(
 					shape = appearance.shape,
 				)
 	}
+
 	if (suppressFocus) {
 		faceModifier = faceModifier.focusProperties { canFocus = false }
 	}
+
 	faceModifier =
 		faceModifier
 			.clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)

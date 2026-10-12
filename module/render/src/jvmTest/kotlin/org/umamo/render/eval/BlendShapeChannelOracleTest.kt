@@ -49,13 +49,21 @@ class BlendShapeChannelOracleTest {
 	 */
 	private fun carriesChannelDelta(keyform: BlendShapeKeyform): Boolean =
 		when (keyform) {
-			is BlendShapeKeyform.Mesh ->
+			is BlendShapeKeyform.Mesh -> {
 				keyform.form.opacity != 0f || isNonZero(keyform.form.multiplyColor) || isNonZero(keyform.form.screenColor)
-			is BlendShapeKeyform.Warp ->
+			}
+
+			is BlendShapeKeyform.Warp -> {
 				keyform.form.opacity != 0f || isNonZero(keyform.form.multiplyColor) || isNonZero(keyform.form.screenColor)
-			is BlendShapeKeyform.Rotation ->
+			}
+
+			is BlendShapeKeyform.Rotation -> {
 				keyform.form.opacity != 0f || isNonZero(keyform.form.multiplyColor) || isNonZero(keyform.form.screenColor)
-			is BlendShapeKeyform.Part -> false
+			}
+
+			is BlendShapeKeyform.Part -> {
+				false
+			}
 		}
 
 	/**
@@ -67,16 +75,20 @@ class BlendShapeChannelOracleTest {
 	 */
 	private fun channelDeltaPoses(document: MocDocument): List<Map<String, Float>> {
 		val poses = LinkedHashSet<Map<String, Float>>()
+
 		for (record: BlendShape in document.blendShapes) {
 			val parameterId = document.parameters.getOrNull(record.parameterIndex)?.id ?: continue
+
 			for (keyIndex in record.keyforms.indices) {
 				if (keyIndex == record.neutralKeyIndex || !carriesChannelDelta(record.keyforms[keyIndex])) {
 					continue
 				}
+
 				val keyPosition = record.keyPositions.getOrNull(keyIndex) ?: continue
 				poses.add(mapOf(parameterId to keyPosition))
 			}
 		}
+
 		return poses.take(maximumPosesPerModel)
 	}
 
@@ -103,9 +115,11 @@ class BlendShapeChannelOracleTest {
 		for (mocFile in samples) {
 			val mocDocument = runCatching { Moc3.read(mocFile.readBytes()) }.getOrNull() ?: continue
 			val poses = channelDeltaPoses(mocDocument)
+
 			if (poses.isEmpty()) {
 				continue
 			}
+
 			posedModels++
 			// The canvas-space rebase is the app's real ingest path and the channels compared here are
 			// rebase-invariant, so running the rebased model keeps the gate on the rendered path.
@@ -116,14 +130,18 @@ class BlendShapeChannelOracleTest {
 				val dump = runOracleDump(dumpModel, coreLib, mocFile, pose)
 				val parameterValues = pose.entries.associate { ParameterId(it.key) to it.value }
 				val inputs = preparePose(puppet, parameterValues)
+
 				for (drawableInputs in inputs.drawables) {
 					val oracleEntry = dump.entries[drawableInputs.drawableId.raw] ?: continue
+
 					if (oracleNeverEvaluated(oracleEntry)) {
 						continue
 					}
+
 					comparedDrawableStates++
 					val label = "${mocFile.name} pose=$pose ${drawableInputs.drawableId.raw}"
 					checkChannel(mismatches, label, "op", oracleEntry.opacity, drawableInputs.opacity)
+
 					if (oracleEntry.multiplyRgba.size == 4 && oracleEntry.screenRgba.size == 4) {
 						checkChannel(mismatches, label, "mulR", oracleEntry.multiplyRgba[0], drawableInputs.multiplyColor.red)
 						checkChannel(mismatches, label, "mulG", oracleEntry.multiplyRgba[1], drawableInputs.multiplyColor.green)

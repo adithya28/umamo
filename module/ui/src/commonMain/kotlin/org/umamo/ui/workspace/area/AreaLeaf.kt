@@ -125,6 +125,7 @@ fun AreaLeaf(area: LeafArea, onCommand: (AreaCommand) -> Unit, modifier: Modifie
 	// Release the pointer claim on the same trigger, so a closed or joined-away area stops being the
 	// answer to "which area does the pointer mean" - the tracker's eviction half, next to the one above.
 	val hoveredTracker = LocalHoveredSurfaceTracker.current
+
 	if (hoveredTracker != null) {
 		DisposableEffect(hoveredTracker, area.id) {
 			onDispose { hoveredTracker.releaseArea(area.id) }
@@ -154,6 +155,7 @@ fun AreaLeaf(area: LeafArea, onCommand: (AreaCommand) -> Unit, modifier: Modifie
 				.stampsHoveredSurface(hoveredTracker, area.id, area.space)
 				.onGloballyPositioned { leafCoords ->
 					val content = dragController?.contentCoords
+
 					if (content != null && content.isAttached && leafCoords.isAttached) {
 						dragController.putBounds(area.id, content.localBoundingBoxOf(leafCoords))
 					}
@@ -178,6 +180,7 @@ fun AreaLeaf(area: LeafArea, onCommand: (AreaCommand) -> Unit, modifier: Modifie
 				}
 			}
 		}
+
 		// Corner handles last so they sit above the content for hit-testing.  They only capture a real drag
 		// (touch-slop), so a plain tap still falls through to header controls underneath the top corners.
 		if (dragController != null) {
@@ -256,9 +259,11 @@ private fun contentLocalOf(
 	offset: Offset,
 ): Offset? {
 	val content = controller.contentCoords
+
 	if (content == null || handleCoords == null || !content.isAttached || !handleCoords.isAttached) {
 		return null
 	}
+
 	return content.localPositionOf(handleCoords, offset)
 }
 

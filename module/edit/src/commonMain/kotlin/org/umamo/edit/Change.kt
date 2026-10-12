@@ -687,7 +687,9 @@ sealed interface DocumentChange : Change {
 		override val labelKey: String =
 			when (kind) {
 				MeshOperatorKind.Rotate -> "change.document.atlasPlacement.rotate"
+
 				MeshOperatorKind.Scale -> "change.document.atlasPlacement.scale"
+
 				// A placement has no slide; one arriving under that kind can only have moved.
 				MeshOperatorKind.Grab, MeshOperatorKind.VertexSlide, null -> "change.document.atlasPlacement"
 			}
@@ -943,6 +945,18 @@ sealed interface MeshChange : Change {
 	}
 
 	/**
+	 * Generates one or more drawables' meshes from their art in one step: every listed mesh is replaced
+	 * by a generated one, its keyform deltas, blend shapes, and glue pairs carried over from the mesh it
+	 * replaced.
+	 *
+	 * @property List<DrawableId> drawableIds The drawables whose meshes were replaced.
+	 */
+	data class GenerateFromArt(val drawableIds: List<DrawableId>) : MeshChange {
+		override val undoability: Undoability = Undoability.Undoable
+		override val labelKey: String = "change.mesh.generateFromArt"
+	}
+
+	/**
 	 * Transforms every vertex of one or more whole drawables to new rest positions - an Object-mode Grab /
 	 * Scale / Rotate of the selected drawables, or the Properties panel's typed Position / Size rows.
 	 * Recorded as one undo step for the whole gesture even though several drawables move.  The pose is
@@ -958,7 +972,9 @@ sealed interface MeshChange : Change {
 				// Object mode cannot latch a Vertex Slide (the command is Edit-mode gated), so it can only
 				// arrive here through a future caller - where reading as a plain move is the honest label.
 				MeshOperatorKind.Grab, MeshOperatorKind.VertexSlide -> "change.object.move"
+
 				MeshOperatorKind.Scale -> "change.object.scale"
+
 				MeshOperatorKind.Rotate -> "change.object.rotate"
 			}
 	}
@@ -983,7 +999,9 @@ sealed interface MeshChange : Change {
 				// The UV editor has no Vertex Slide yet (see TODO § UV Editor); until it does, a slide can
 				// only reach here as a move.
 				MeshOperatorKind.Grab, MeshOperatorKind.VertexSlide -> "change.uv.move"
+
 				MeshOperatorKind.Scale -> "change.uv.scale"
+
 				MeshOperatorKind.Rotate -> "change.uv.rotate"
 			}
 	}

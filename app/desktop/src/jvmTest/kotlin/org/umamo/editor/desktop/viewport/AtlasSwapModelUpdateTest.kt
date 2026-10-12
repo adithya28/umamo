@@ -55,12 +55,14 @@ class AtlasSwapModelUpdateTest {
 
 	private fun solidImage(red: Int, green: Int, blue: Int, size: Int = 16): DecodedImage {
 		val rgba = ByteArray(size * size * 4)
+
 		for (pixel in rgba.indices step 4) {
 			rgba[pixel] = red.toByte()
 			rgba[pixel + 1] = green.toByte()
 			rgba[pixel + 2] = blue.toByte()
 			rgba[pixel + 3] = 0xFF.toByte()
 		}
+
 		return DecodedImage(rgba, size, size)
 	}
 
@@ -68,6 +70,7 @@ class AtlasSwapModelUpdateTest {
 	private fun blueWhiteImage(): DecodedImage {
 		val size = 16
 		val rgba = ByteArray(size * size * 4)
+
 		for (rowIndex in 0 until size) {
 			for (columnIndex in 0 until size) {
 				val pixel = (rowIndex * size + columnIndex) * 4
@@ -78,6 +81,7 @@ class AtlasSwapModelUpdateTest {
 				rgba[pixel + 3] = 0xFF.toByte()
 			}
 		}
+
 		return DecodedImage(rgba, size, size)
 	}
 
@@ -89,13 +93,14 @@ class AtlasSwapModelUpdateTest {
 				parentDeformerId = null,
 				blendMode = BlendMode.Normal,
 				maskedBy = emptyList(),
-				mesh = DrawableMesh(quadPositions.copyOf(), uvs, quadIndices),
+				mesh = DrawableMesh.withLocalEqualToCanvas(quadPositions.copyOf(), uvs, quadIndices),
 				geometryGrid =
 					KeyformGrid(
 						listOf(KeyformAxis(paramA, floatArrayOf(0f))),
 						listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(quadPositions.size)))),
 					),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),
@@ -114,13 +119,17 @@ class AtlasSwapModelUpdateTest {
 		accept: (androidx.compose.ui.graphics.PixelMap) -> Boolean,
 	): Boolean {
 		val start = System.currentTimeMillis()
+
 		while (System.currentTimeMillis() - start < deadlineMillis) {
 			val frame = frames.value
+
 			if (frame != null && accept(frame.bitmap.toPixelMap())) {
 				return true
 			}
+
 			Thread.sleep(20)
 		}
+
 		return false
 	}
 
@@ -129,6 +138,7 @@ class AtlasSwapModelUpdateTest {
 		val red = color.red
 		val green = color.green
 		val blue = color.blue
+
 		return when (channel) {
 			"red" -> red > green + 0.25f && red > blue + 0.25f
 			"blue" -> blue > red + 0.25f && blue > green + 0.25f
@@ -144,12 +154,15 @@ class AtlasSwapModelUpdateTest {
 		val baselineTextures = PuppetTextures(listOf(solidImage(0xFF, 0x00, 0x00)), mapOf(probeId.raw to 0), false)
 		val service = OffscreenPuppetService(baselineModel, baselineTextures, LiveParams(emptyMap()))
 		service.start()
+
 		try {
 			val frames = service.register("area")
 			service.resize("area", 100, 100)
 			val sawBaseline = awaitFrame(frames) { pixels -> centerChannelDominates(pixels, "red") }
+
 			if (!sawBaseline) {
 				println("[atlas-swap-live] no GL frame arrived; skipping (context unavailable, or baseline never rendered)")
+
 				return
 			}
 
@@ -179,7 +192,7 @@ class AtlasSwapModelUpdateTest {
 					drawables =
 						listOf(
 							repackedModel.drawables.single().let { drawable ->
-								drawable.copy(mesh = DrawableMesh(drawable.mesh!!.positions, quadUvs(0.75f, 0.5f), drawable.mesh!!.indices))
+								drawable.copy(mesh = drawable.mesh!!.withUvs(quadUvs(0.75f, 0.5f)))
 							},
 						),
 				)

@@ -26,11 +26,14 @@ public class LittleEndianWriter(initialCapacity: Int = 64 * 1024) {
 	 */
 	private fun ensure(additional: Int) {
 		val needed = position + additional
+
 		if (needed > buffer.size) {
 			var newSize = buffer.size * 2
+
 			if (newSize < needed) {
 				newSize = needed
 			}
+
 			buffer = buffer.copyOf(newSize)
 		}
 	}
@@ -55,6 +58,7 @@ public class LittleEndianWriter(initialCapacity: Int = 64 * 1024) {
 	 */
 	public fun alignTo(alignment: Int) {
 		val remainder = position % alignment
+
 		if (remainder != 0) {
 			zeroPad(alignment - remainder)
 		}

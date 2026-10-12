@@ -33,10 +33,12 @@ class ModelGenerator {
 	 * Fields that must ALWAYS serialize, overriding the sometimes-present inference.
 	 *
 	 * The `@DontSerializeIfDefault` rule is "the corpus does not always carry this field", which is
-	 * a statement about the SAMPLES.  For these four the official editor's custom deserializers
-	 * dereference the field unconditionally and NPE at load when it is absent, so omitting it
-	 * writes a file Cubism cannot open - the corpus merely happens to include older-era samples
-	 * that predate the field.  Corpus evidence cannot express that, so the exception lives here,
+	 * a statement about the SAMPLES.  For these the official editor's custom deserializers
+	 * dereference the field unconditionally (CPartForm.opacity once the form carries its colors)
+	 * and NPE at load when it is absent, so omitting it writes a file Cubism cannot open - the corpus
+	 * merely happens to include older-era samples that predate the field.  Only a FRESH object honors the annotation (a read one replays the
+	 * fields it was read with), so an entry here changes what Umamo creates and nothing it
+	 * round-trips.  Corpus evidence cannot express that, so the exception lives here,
 	 * in the generator, and NOT as a hand-edit of the output: a from-scratch regeneration (the
 	 * output file deleted) has to reproduce it, and a hand-edit would not survive that.
 	 *
@@ -48,6 +50,9 @@ class ModelGenerator {
 			"ACParameterControllableSource.internalColor_direct_argb" to "the editor always writes this field, as an explicit null",
 			"CPartSource.useOffscreen" to "CPartSource.deserialize dereferences this unconditionally",
 			"CPartSource.invertClippingMask" to "CPartSource.deserialize dereferences this unconditionally",
+			// The pre-5.3 drawOrder-only form omits it legally, but every form Umamo creates carries
+			// its colors, and a form with colors and no opacity is a shape no corpus file has.
+			"CPartForm.opacity" to "CPartForm.deserialize dereferences this once the form carries its colors",
 		)
 
 	private val primitiveTags =
@@ -140,6 +145,7 @@ class ModelGenerator {
 
 		// Walk every sample into one accumulator: instances/enum-values/fields union across versions.
 		val tags = HashMap<String, TagInfo>()
+
 		for (sampleFile in sampleFiles) {
 			val mainXml =
 				CaffCodec.read(sampleFile.readBytes())
@@ -150,8 +156,10 @@ class ModelGenerator {
 		val reflective = sortedMapOf<String, TagInfo>()
 		val enums = sortedMapOf<String, TagInfo>()
 		val custom = sortedSetOf<String>()
+
 		for ((tag, info) in tags) {
 			if (tag in handHandled || tag in primitiveTags || tag in collectionTags) continue
+
 			when {
 				info.customAttrs == sortedSetOf("v") && !info.hasChildren -> enums[tag] = info
 				info.customAttrs.isNotEmpty() -> custom += "$tag ${info.customAttrs}"
@@ -168,26 +176,32 @@ class ModelGenerator {
 		fun ancestorFields(tag: String): Set<String> {
 			val out = HashSet<String>()
 			var superTag = reflective[tag]?.superTag
+
 			while (superTag != null) {
 				out += ownFields(superTag)
 				superTag = reflective[superTag]?.superTag
 			}
+
 			return out
 		}
 
 		val skip = sortedSetOf<String>()
 		for (tag in reflective.keys) if ((ownFields(tag) intersect ancestorFields(tag)).isNotEmpty()) skip += tag
 		var changed = true
+
 		while (changed) { // cascade: drop anything extending a skipped class
 			changed = false
+
 			for ((tag, info) in reflective) {
 				val superTag = info.superTag
+
 				if (tag !in skip && superTag != null && superTag in skip) {
 					skip += tag
 					changed = true
 				}
 			}
 		}
+
 		val emit = reflective.filterKeys { it !in skip }.toSortedMap()
 
 		writeModel(rootDir, emit, enums)
@@ -204,48 +218,59 @@ class ModelGenerator {
 		// instance (doing so made every field look "sometimes-present").
 		if (element.getAttributeValue("xs.ref") != null) return
 		val tag = element.name
+
 		if (tag !in primitiveTags && tag !in collectionTags && tag != "entry") {
 			val info = tags.getOrPut(tag) { TagInfo() }
 			info.instances++
 			@Suppress("UNCHECKED_CAST")
 			val attrs = element.attributes as List<org.jdom.Attribute>
+
 			for (attribute in attrs) {
 				if (attribute.name !in neutralAttrs) {
 					info.customAttrs += attribute.name
 					if (attribute.name == "v") info.enumValues += attribute.value
 				}
 			}
+
 			@Suppress("UNCHECKED_CAST")
 			val children = element.children as List<Element>
 			info.hasChildren = info.hasChildren || children.any { it.getAttributeValue("xs.n") != null }
 			val order = ArrayList<String>()
+
 			for (child in children) {
 				val fieldName = child.getAttributeValue("xs.n") ?: continue
+
 				if (fieldName == "super") {
 					info.superTag = child.name
 					tags.getOrPut(child.name) { TagInfo() }.isSuperOf += tag
+
 					continue
 				}
+
 				if (child.name != "null") {
 					info.fieldTypeTags.getOrPut(fieldName) { sortedSetOf() } += child.name
 				} else {
 					info.fieldTypeTags.getOrPut(fieldName) { sortedSetOf() }
 					info.nullableFields += fieldName // a <null> value means the field must be nullable
 				}
+
 				order += fieldName
 				info.fieldPresence[fieldName] = (info.fieldPresence[fieldName] ?: 0) + 1
 			}
+
 			if (order.size > info.bestOrderSize) {
 				info.bestOrder = order
 				info.bestOrderSize = order.size
 			}
 		}
+
 		@Suppress("UNCHECKED_CAST")
 		for (child in element.children as List<Element>) walk(child, tags)
 	}
 
 	private fun ktTypeAndDefault(typeTags: Set<String>): Pair<String, String> {
 		if (typeTags.size == 1) primitiveTags[typeTags.first()]?.let { return it }
+
 		return "Any?" to "null"
 	}
 
@@ -261,12 +286,15 @@ class ModelGenerator {
 	 */
 	private fun repositoryRoot(): File {
 		var candidate: File? = File(".").absoluteFile
+
 		while (candidate != null) {
 			if (File(candidate, "settings.gradle.kts").isFile) {
 				return candidate
 			}
+
 			candidate = candidate.parentFile
 		}
+
 		error("no settings.gradle.kts above ${File(".").absolutePath}; cannot locate the repository root")
 	}
 
@@ -287,6 +315,7 @@ class ModelGenerator {
 		val type = if (nullable) "$baseType?" else baseType
 		val default = if (nullable) "null" else baseDefault
 		val alwaysSerializedReason = alwaysSerializedFields["$tag.$field"]
+
 		if (alwaysSerializedReason != null) {
 			// The exception is emitted as a comment so the output explains itself; the rule that
 			// produces it lives in alwaysSerializedFields, so regeneration reproduces both.
@@ -295,14 +324,18 @@ class ModelGenerator {
 		} else if ((info.fieldPresence[field] ?: 0) < info.instances) {
 			lines += "\t@DontSerializeIfDefault"
 		}
+
 		// Field names that are not legal Kotlin identifiers (e.g. "parameters.keys") get a
 		// sanitized property name + @SerialName carrying the real on-disk xs.n.
 		val legal = field.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))
 		val kotlinName = if (legal) field else field.replace(Regex("[^A-Za-z0-9_]"), "_")
+
 		if (!legal) {
 			lines += "\t@SerialName(\"$field\")"
 		}
+
 		lines += "\tpublic ${propertyModifier}var `$kotlinName`: $type = $default"
+
 		return lines
 	}
 
@@ -337,9 +370,11 @@ class ModelGenerator {
 			val previous = existing.enums[tag] ?: emptySet<String>()
 			val inferred = enums[tag]?.enumValues ?: emptySet<String>()
 			(inferred - previous).forEach { added += "enum $tag.$it" }
+
 			if (tag !in existing.enums) {
 				added += "enum $tag (new)"
 			}
+
 			val values = (previous + inferred).sorted()
 			// A SINGLE-constant enum gets a trailing comma because that is what ktlintFormat writes;
 			// emitting it here keeps generate -> format idempotent.  Without it every regeneration
@@ -353,16 +388,20 @@ class ModelGenerator {
 		for (tag in (existing.classes.keys + reflective.keys).sorted()) {
 			val previousClass = existing.classes[tag]
 			val info = reflective[tag]
+
 			if (previousClass != null) {
 				// Keep the declaration exactly: its `open` modifier and super clause encode decisions
 				// (including hand-written supers) that a fresh inference over a different corpus may not
 				// reproduce.
 				builder.appendLine("@SerialTag(\"$tag\")")
 				builder.appendLine(previousClass.declaration)
+
 				if (previousClass.isBodyless) {
 					builder.appendLine()
+
 					continue
 				}
+
 				val propertyModifier = if (previousClass.declaration.contains("open class")) "open " else ""
 				val byName = previousClass.fields.associateBy { it.serialName }
 				val inferredOrder =
@@ -371,8 +410,10 @@ class ModelGenerator {
 					} else {
 						emptyList()
 					}
+
 				for (field in mergeFieldOrder(previousClass.fields.map { it.serialName }, inferredOrder)) {
 					val known = byName[field]
+
 					if (known != null) {
 						known.lines.forEach { builder.appendLine(it) }
 					} else {
@@ -380,8 +421,10 @@ class ModelGenerator {
 						newFieldLines(tag, field, info!!, propertyModifier).forEach { builder.appendLine(it) }
 					}
 				}
+
 				builder.appendLine("}")
 				builder.appendLine()
+
 				continue
 			}
 
@@ -396,11 +439,13 @@ class ModelGenerator {
 			builder.appendLine("public ${openMod}class $tag$superClause {")
 			val fields = LinkedHashSet(info.bestOrder)
 			info.fieldTypeTags.keys.forEach { fields += it } // union, in case a field only appears outside the richest instance
+
 			// Open classes get open properties so hand-written subclasses can override (e.g. CLayer
 			// overriding the inherited _optionOfIOption); final classes keep plain properties.
 			for (field in fields) {
 				newFieldLines(tag, field, info, if (openMod.isNotEmpty()) "open " else "").forEach { builder.appendLine(it) }
 			}
+
 			builder.appendLine("}")
 			builder.appendLine()
 		}
@@ -438,9 +483,11 @@ class ModelGenerator {
 		builder.appendLine()
 		builder.appendLine("/** Registers every generated reflective class + enum. */")
 		builder.appendLine("internal fun registerGeneratedSubsystem(registry: SerializerRegistry) {")
+
 		for (tag in (model.classes.keys + model.enums.keys + reflective.keys + enums.keys).sorted()) {
 			builder.appendLine("\tregistry.register($tag::class)")
 		}
+
 		builder.appendLine("}")
 		val outFile =
 			File(

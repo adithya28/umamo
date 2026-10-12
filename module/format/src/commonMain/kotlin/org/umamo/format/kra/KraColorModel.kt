@@ -70,6 +70,7 @@ internal class KraPixelFormat(
 					destination[destinationOffset + 2] = source[sourceOffset] // blue
 					destination[destinationOffset + 3] = source[sourceOffset + 3] // alpha
 				}
+
 				// KRA: KoBgrU16Traits - BGRA, little-endian; keep the MSB (offset+1 of each pair).
 				KraColorDepth.UnsignedShort -> {
 					destination[destinationOffset] = source[sourceOffset + 5] // red MSB
@@ -77,6 +78,7 @@ internal class KraPixelFormat(
 					destination[destinationOffset + 2] = source[sourceOffset + 1] // blue MSB
 					destination[destinationOffset + 3] = source[sourceOffset + 7] // alpha MSB
 				}
+
 				// KRA: KoRgbColorSpaceTraits - float RGB is red-first (RGBA), 32-bit little-endian.
 				KraColorDepth.Float32 -> {
 					destination[destinationOffset] = floatByteToUnorm8(source, sourceOffset) // red
@@ -89,6 +91,7 @@ internal class KraPixelFormat(
 			// Grayscale: replicate the single grey channel into R/G/B. KRA: KoGrayColorSpaceTraits.
 			val grayByte: Byte
 			val alphaByte: Byte
+
 			when (depth) {
 				KraColorDepth.UnsignedByte -> {
 					grayByte = source[sourceOffset]
@@ -105,6 +108,7 @@ internal class KraPixelFormat(
 					alphaByte = floatByteToUnorm8(source, sourceOffset + 4)
 				}
 			}
+
 			destination[destinationOffset] = grayByte
 			destination[destinationOffset + 1] = grayByte
 			destination[destinationOffset + 2] = grayByte
@@ -129,6 +133,7 @@ private fun floatByteToUnorm8(source: ByteArray, offset: Int): Byte {
 			((source[offset + 3].toInt() and 0xFF) shl 24)
 	val value = Float.fromBits(bits)
 	val clamped = value.coerceIn(0f, 1f)
+
 	return (clamped * 255f + 0.5f).toInt().toByte()
 }
 
@@ -155,17 +160,27 @@ internal fun resolveKraPixelFormat(colorspaceName: String, tilePixelSize: Int): 
 
 	val depth =
 		when {
-			normalized.contains("F32") -> KraColorDepth.Float32
-			normalized.contains("F16") ->
-				error("Unsupported KRA color depth (half-float) '$colorspaceName'")
+			normalized.contains("F32") -> {
+				KraColorDepth.Float32
+			}
 
-			normalized.contains("16") -> KraColorDepth.UnsignedShort
-			else -> KraColorDepth.UnsignedByte
+			normalized.contains("F16") -> {
+				error("Unsupported KRA color depth (half-float) '$colorspaceName'")
+			}
+
+			normalized.contains("16") -> {
+				KraColorDepth.UnsignedShort
+			}
+
+			else -> {
+				KraColorDepth.UnsignedByte
+			}
 		}
 
 	val format = KraPixelFormat(channelCount = if (isRgb) 4 else 2, depth = depth, isRgb = isRgb)
 	require(format.pixelSize == tilePixelSize) {
 		"KRA pixel-size mismatch: tile header says $tilePixelSize, '$colorspaceName' implies ${format.pixelSize}"
 	}
+
 	return format
 }

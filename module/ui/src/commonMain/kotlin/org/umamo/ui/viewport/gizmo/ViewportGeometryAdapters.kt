@@ -57,10 +57,12 @@ internal fun screenToWorld(screenX: Float, screenY: Float, camera: ViewportCamer
  */
 private fun edgeEndpointsOf(edges: List<MeshElement.Edge>): IntArray {
 	val endpoints = IntArray(edges.size * 2)
+
 	for (edgeOrdinal in edges.indices) {
 		endpoints[edgeOrdinal * 2] = edges[edgeOrdinal].endpointLow
 		endpoints[edgeOrdinal * 2 + 1] = edges[edgeOrdinal].endpointHigh
 	}
+
 	return endpoints
 }
 

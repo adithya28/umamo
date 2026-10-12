@@ -89,10 +89,13 @@ import org.umamo.ui.workspace.spaces.zebraFill
 fun OutlinerSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 	val stripeColor = LocalUmamoColors.current.rowStripe
 	val puppet = LocalPuppet.current
+
 	if (puppet == null) {
 		Box(modifier = modifier.fillMaxSize().zebraFill(rememberLazyListState(), OUTLINER_ROW_HEIGHT, stripeColor))
+
 		return
 	}
+
 	val selectionHandle = LocalSelection.current
 	// An armed relation pick (a Properties eyedropper) resolves from an outliner row as well as from a
 	// viewport, so rows check it before selecting.
@@ -166,6 +169,7 @@ fun OutlinerSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 		if (revealStandDown.claims(selection.active)) {
 			return@LaunchedEffect
 		}
+
 		val active = selection.active ?: return@LaunchedEffect
 		revealOutlinerTarget(active, filteredTree, viewState, isOpen, listState)
 	}
@@ -179,9 +183,11 @@ fun OutlinerSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 	LaunchedEffect(searching) {
 		val searchCleared = wasSearching && !searching
 		wasSearching = searching
+
 		if (!searchCleared) {
 			return@LaunchedEffect
 		}
+
 		val active = selection.active ?: return@LaunchedEffect
 		revealOutlinerTarget(active, filteredTree, viewState, isOpen, listState)
 	}
@@ -245,6 +251,7 @@ fun OutlinerSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 								// row it will NOT accept too - selecting would record an undo step and swap the
 								// Properties panel, and the arming field with it, out from under the pick.
 								val pickOutcome = target?.let { pressed -> relationPick.click(pressed) } ?: PickClickOutcome.Ignored
+
 								// A resolved or swallowed pick leaves the selection as it was, so there is no change
 								// for the reveal to stand down from.
 								if (pickOutcome == PickClickOutcome.Ignored && target != null && handle != null) {
@@ -279,6 +286,7 @@ fun OutlinerSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 					is SelectionTarget.Deformer -> null
 				}
 			}
+
 		if (preview != null && previewBitmap != null) {
 			RowThumbnailPreview(
 				name = preview.name,
@@ -287,11 +295,13 @@ fun OutlinerSpace(scope: AreaScope, modifier: Modifier = Modifier) {
 				pointerInWindow = { hoverPreview.pointerInWindow },
 			)
 		}
+
 		// A name chip follows the cursor while dragging, so there is something clearly "in hand".  The space
 		// reads which row is in hand, which a drag changes as it starts and as it ends; where the pointer
 		// is, the chip asks for itself.
 		val draggingLabel =
 			dragController.draggingKey?.let { id -> rows.firstOrNull { row -> row.node.id == id }?.node?.label }
+
 		if (draggingLabel != null) {
 			RowDragLabel(label = draggingLabel, pointerInWindow = { dragController.pointerInWindow })
 		}
@@ -319,6 +329,7 @@ private suspend fun revealOutlinerTarget(
 	val path = pathTo(filteredTree, target) ?: return
 	path.dropLast(1).forEach { ancestorId -> viewState.open(ancestorId) }
 	val index = flattenOutliner(filteredTree, isOpen).indexOfFirst { row -> row.node.id == path.last() }
+
 	if (index >= 0) {
 		listState.animateScrollToItem(index)
 	}

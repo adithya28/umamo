@@ -37,10 +37,13 @@ class OffscreenKeyformProbeTest {
 	fun offscreenKeyformLayoutIsPinned() {
 		val sample =
 			samplesDir?.walkTopDown()?.firstOrNull { it.isFile && it.name.startsWith("modelA") && it.extension == "moc3" }
+
 		if (sample == null) {
 			println("moc3.samples/modelA not present; skipping offscreen probe")
+
 			return
 		}
+
 		val model = MocCodec.read(sample.readBytes())
 		val document = Moc3.decode(model)
 		val sections = model.sections
@@ -91,10 +94,12 @@ class OffscreenKeyformProbeTest {
 		val maskBase = sections.intArray(Section.OFFSCREEN_MASK_BASE)
 		val maskCounts = sections.intArray(Section.OFFSCREEN_MASK_COUNT)
 		var runningMaskBase = 0
+
 		for (offscreenIndex in 0 until offscreenCount) {
 			assertEquals(runningMaskBase, maskBase[offscreenIndex], "158 cumulative at offscreen $offscreenIndex")
 			runningMaskBase += maskCounts[offscreenIndex]
 		}
+
 		val drawableMaskTotal = model.drawables().sumOf { it.maskCount }
 		val maskBytes = model.section(Section.MASK_INDEX_DATA.indexIn(model.version))!!
 		val maskReader = org.umamo.format.moc3.io.LittleEndianReader(maskBytes)
@@ -124,6 +129,7 @@ class OffscreenKeyformProbeTest {
 
 		// Section 152 is the inverse of 155.
 		val byPart = sections.intArray(Section.OFFSCREEN_BY_PART)
+
 		for (partIndex in document.parts.indices) {
 			val expected = document.offscreens.indexOfFirst { it.ownerPartIndex == partIndex }
 			assertEquals(expected, byPart[partIndex], "152 inverse-map at part $partIndex")

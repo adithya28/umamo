@@ -44,6 +44,7 @@ class UmaEntrySchemaTest {
 					if (!visited.add(descriptor.serialName.removeSuffix("?"))) {
 						return
 					}
+
 					for (elementIndex in 0 until descriptor.elementsCount) {
 						walk(descriptor.getElementDescriptor(elementIndex), "$path.${descriptor.getElementName(elementIndex)}")
 					}
@@ -51,18 +52,23 @@ class UmaEntrySchemaTest {
 
 				StructureKind.LIST -> {
 					val element = descriptor.getElementDescriptor(0)
+
 					if (element.kind == StructureKind.CLASS && identities.ruleFor(element.serialName) == null) {
 						missing += "$path (${element.serialName})"
 					}
+
 					walk(element, "$path[]")
 				}
 
-				StructureKind.MAP -> walk(descriptor.getElementDescriptor(1), "$path{}")
+				StructureKind.MAP -> {
+					walk(descriptor.getElementDescriptor(1), "$path{}")
+				}
 
 				else -> {}
 			}
 		}
 		walk(root, name)
+
 		return missing
 	}
 

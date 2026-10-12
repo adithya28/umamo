@@ -27,16 +27,19 @@ internal object FileSerializer : XmlSerializer {
 		val element = Element("file")
 		element.setFieldName(name)
 		val fileRef = value as FileRef
+
 		if (fileRef.archivePath != null) {
 			element.setAttribute("path", fileRef.archivePath)
 		} else {
 			element.text = fileRef.textPath ?: ""
 		}
+
 		return element
 	}
 
 	override fun createInstance(element: Element, ctx: ReadContext): Any {
 		val path = element.getAttributeValue("path")
+
 		return FileRef().apply {
 			if (path != null) archivePath = path else textPath = element.text
 		}

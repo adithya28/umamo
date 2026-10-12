@@ -35,6 +35,7 @@ internal class LayoutSavePacer(
 		if (activeDragCount > 0 || layout === lastSavedLayout) {
 			return
 		}
+
 		save(layout)
 		lastSavedLayout = layout
 	}
@@ -54,6 +55,7 @@ internal class LayoutSavePacer(
 			} else {
 				maxOf(0, activeDragCount - 1)
 			}
+
 		if (activeDragCount == 0 && latestLayout !== lastSavedLayout) {
 			save(latestLayout)
 			lastSavedLayout = latestLayout

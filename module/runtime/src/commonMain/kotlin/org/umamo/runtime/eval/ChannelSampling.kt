@@ -70,12 +70,14 @@ fun ChannelGrids.colorAt(
 	var red = 0f
 	var green = 0f
 	var blue = 0f
+
 	for (corner in corners) {
 		val color = (cells[corner.linearIndex]?.form as? ChannelValue.Color)?.color ?: continue
 		red += corner.weight * color.red
 		green += corner.weight * color.green
 		blue += corner.weight * color.blue
 	}
+
 	return ColorRgb(red, green, blue)
 }
 
@@ -102,6 +104,7 @@ fun ChannelGrids.flagAt(
 	val corners = gridCorners(grid, paramValue) ?: return staticValue
 	val floorCorner = corners.firstOrNull() ?: return staticValue
 	val cells = cellsByLinearIndex(grid)
+
 	return (cells[floorCorner.linearIndex]?.form as? ChannelValue.Flag)?.flag ?: staticValue
 }
 
@@ -128,10 +131,12 @@ fun ChannelGrids.scalarOrNull(
 	val corners = gridCorners(grid, paramValue) ?: return null
 	val cells = cellsByLinearIndex(grid)
 	var total = 0f
+
 	for (corner in corners) {
 		val value = (cells[corner.linearIndex]?.form as? ChannelValue.Scalar)?.value ?: continue
 		total += corner.weight * value
 	}
+
 	return total
 }
 

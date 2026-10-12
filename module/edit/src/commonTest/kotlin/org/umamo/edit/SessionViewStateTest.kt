@@ -37,7 +37,7 @@ class SessionViewStateTest {
 			parentDeformerId = null,
 			blendMode = BlendMode.Normal,
 			maskedBy = emptyList(),
-			mesh = if (meshed) DrawableMesh(floatArrayOf(0f, 0f, 2f, 0f, 0f, 2f), FloatArray(6), intArrayOf(0, 1, 2)) else null,
+			mesh = if (meshed) DrawableMesh.withLocalEqualToCanvas(floatArrayOf(0f, 0f, 2f, 0f, 0f, 2f), FloatArray(6), intArrayOf(0, 1, 2)) else null,
 			geometryGrid = null,
 		)
 
@@ -145,19 +145,6 @@ class SessionViewStateTest {
 
 		assertEquals(EditorMode.Object, session.mode.value)
 		assertTrue(session.meshSelection.value.drawableIds.isEmpty())
-	}
-
-	/** The grid follows the application unless the document brought its own, and only a document-owned grid is gathered. */
-	@Test
-	fun aDocumentOwnedGridHoldsAgainstTheApplicationDefault() {
-		val plain = EditorSession(meshedModel)
-		assertTrue(plain.gridFollowsApplication)
-		assertNull(plain.viewState().gridConfig, "a grid that merely mirrors the setting is not the document's to save")
-
-		val owned = EditorSession(meshedModel, initialViewState = SessionViewState(gridConfig = GridConfig(50f, 4)))
-		assertFalse(owned.gridFollowsApplication)
-		assertEquals(GridConfig(50f, 4), owned.gridConfig.value)
-		assertEquals(GridConfig(50f, 4), owned.viewState().gridConfig)
 	}
 
 	/** A plain open is untouched: no saved state means the defaults the session always had. */

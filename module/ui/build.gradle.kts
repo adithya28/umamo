@@ -59,6 +59,9 @@ kotlin {
 				// from :settings — coroutines is `implementation` there, so it would not leak through.
 				implementation(libs.kotlinxSerializationJson)
 				implementation(libs.kotlinxCoroutinesCore)
+				// The common lock the artwork flows' per-request raster memo fills under (the stdlib has none
+				// outside the JVM); the same artifact :storage's session log already takes.
+				implementation(libs.atomicfu)
 				implementation(project(":runtime"))
 				// Format↔runtime conversion: the CMO3/MOC3 import + export entry points the document
 				// layer calls, and the export report/notice types the shell overlays render.
@@ -159,6 +162,16 @@ umamoTestCorpus {
 	// (test/corpus/moc3/modelG) saved as a .cmo3.  It lives OUTSIDE the golden glob because a
 	// converted file fails the corpus invariants by nature, and it self-skips until the file exists.
 	sampleWithCorpusDefault("cmo3.repackSample", "cmo3/invalid/modelG.cmo3")
+	// The keyform-precision probes' inputs, explicit-only (a probe is a diagnostic, not a gate): the proof's one
+	// corpus file, the profile's comma-separated corpus files, and its warm-up file.  The rest are switches and
+	// an output directory that need not exist yet, so they go through as flags.
+	sample("proof.sample", "profile.samples", "profile.warmup")
+	flag("proof.mesh", "proof.keyform", "proof.component", "profile.output", "profile.openOnly")
 	// The artwork-import gate's fixture: a real layered PSD, imported, packed at open, and exported.
 	sampleWithCorpusDefault("psd.sample", "psd/EricaTamamo.psd")
+	// The Edit-mode perf probe's rig (EditGrabPerfProbeTest): print-only, and it self-skips without it.
+	sample("moc3.perfSample")
+	// The mesh regeneration probe's extra rigs, comma-separated and explicit-only: by default it reads
+	// cmo3.sample alone, so a plain jvmTest never meshes the whole corpus.
+	sample("meshTransfer.samples")
 }

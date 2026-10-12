@@ -34,6 +34,7 @@ class HostHeapTest {
 		val fileSystem = FakeFileSystem()
 		val configDirectory = "/config".toPath()
 		fileSystem.createDirectories(configDirectory)
+
 		return Settings.load(OkioAppStorage(fileSystem, configDirectory, "/data".toPath()), "{}")
 	}
 

@@ -45,6 +45,7 @@ class EditGizmoRequestsTest {
 		val service = StubPuppetViewportService()
 		val geometries = mutableStateOf(editMeshGeometries(session.model.value, session.meshSelection.value.drawableIds))
 		val overlapRequests = ArrayList<Pair<Offset, List<PickCandidate>>>()
+
 		for (areaId in listOf(LEFT_AREA_ID, RIGHT_AREA_ID)) {
 			backgroundScope.launch {
 				collectEditGizmoRequests(
@@ -56,10 +57,13 @@ class EditGizmoRequestsTest {
 					size = mutableStateOf(RIG_AREA_SIZE),
 					areaPointer = mutableStateOf(pointer),
 					onOverlapRequest = { anchor, candidates -> overlapRequests.add(anchor to candidates) },
+					overlays = null,
 				)
 			}
 		}
+
 		runCurrent()
+
 		return TwoAreas(session, service, geometries, overlapRequests)
 	}
 

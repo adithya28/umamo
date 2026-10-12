@@ -1,5 +1,7 @@
 package org.umamo.render.eval
 
+import org.umamo.runtime.model.DeformerId
+import org.umamo.runtime.model.Drawable
 import org.umamo.runtime.model.DrawableId
 import org.umamo.runtime.model.ParameterId
 import org.umamo.runtime.model.PuppetModel
@@ -26,20 +28,24 @@ private const val RIGID_INVERSE_MAX_ITERATIONS = 24
 
 /**
  * Maps between a drawable's local mesh space and the evaluator's world space at one fixed pose - the
- * `DeformedGeometry.worldPositions` space the viewport camera and picker use. Local space is whatever
- * the drawable's `DrawableMesh.positions` are stored in: model space for a direct (deformer-less)
- * drawable, the parent's normalized lattice UV for a warp child, the parent's affine frame for a
- * rotation child. The parent transform here is the FULLY COMPOSED chain (`buildDeformerWorlds` bakes
- * every ancestor in), so both directions are a single transform, never a chain walk.
+ * `DeformedGeometry.worldPositions` space the viewport camera and picker use.  Local space is the space
+ * the drawable's keyforms and `DrawableMesh.localPositions` live in: model space for a direct
+ * (deformer-less) drawable, the parent's normalized lattice UV for a warp child, the parent's affine frame
+ * for a rotation child.  `DrawableMesh.positions` is the canvas editable mesh and is never local, not even
+ * for a drawable with no keyforms.  The parent transform here is the FULLY COMPOSED chain
+ * (`buildDeformerWorlds` bakes every ancestor in), so both directions are a single transform, never a
+ * chain walk.
  *
  * The Edit-mode gizmo is the intended caller: it projects the active drawable's local shape to world
  * for drawing and hit-testing (forward), and converts a world-space drag back into local vertex
  * positions to write into the model (inverse).
  *
- * ドロウアブルのローカル座標と評価器のワールド座標を、固定ポーズで相互変換する。
+ * @property DeformerWorld? parentWorld The baked parent world this mapping composes, or null for a
+ *   direct drawable.  Internal so a test can pin that drawables resolved together by one
+ *   [DrawableSpaceResolver] share one instance; nothing outside the evaluator reads it.
  */
 class DrawableSpaceMapping internal constructor(
-	private val parentWorld: DeformerWorld?,
+	internal val parentWorld: DeformerWorld?,
 ) {
 	/**
 	 * Maps interleaved (x, y) local positions to world positions: the composed parent transform (or a
@@ -52,6 +58,7 @@ class DrawableSpaceMapping internal constructor(
 	fun localToWorld(local: FloatArray): FloatArray {
 		val world = FloatArray(local.size)
 		val vertexCount = local.size / 2
+
 		for (vertexIndex in 0 until vertexCount) {
 			if (parentWorld != null) {
 				parentWorld.apply(local[vertexIndex * 2], local[vertexIndex * 2 + 1], world, vertexIndex * 2)
@@ -59,8 +66,10 @@ class DrawableSpaceMapping internal constructor(
 				world[vertexIndex * 2] = local[vertexIndex * 2]
 				world[vertexIndex * 2 + 1] = local[vertexIndex * 2 + 1]
 			}
+
 			world[vertexIndex * 2 + 1] = -world[vertexIndex * 2 + 1]
 		}
+
 		return world
 	}
 
@@ -79,24 +88,34 @@ class DrawableSpaceMapping internal constructor(
 	fun worldToLocal(world: FloatArray, seedLocal: FloatArray, indices: Set<Int>): FloatArray {
 		val local = seedLocal.copyOf()
 		val scratch = FloatArray(2)
+
 		for (vertexIndex in indices) {
 			val coordIndex = vertexIndex * 2
+
 			if (coordIndex + 1 >= world.size || coordIndex + 1 >= local.size) {
 				continue
 			}
+
 			// Un-negate Y first: the parent transforms operate in the pre-negate model space.
 			val targetX = world[coordIndex]
 			val targetY = -world[coordIndex + 1]
+
 			when (parentWorld) {
 				null -> {
 					local[coordIndex] = targetX
 					local[coordIndex + 1] = targetY
 				}
 
-				is RotationWorld -> invertRotation(parentWorld, targetX, targetY, local, coordIndex)
-				is WarpWorld -> invertWarp(parentWorld, targetX, targetY, local, coordIndex, scratch)
+				is RotationWorld -> {
+					invertRotation(parentWorld, targetX, targetY, local, coordIndex)
+				}
+
+				is WarpWorld -> {
+					invertWarp(parentWorld, targetX, targetY, local, coordIndex, scratch)
+				}
 			}
 		}
+
 		return local
 	}
 
@@ -130,13 +149,16 @@ class DrawableSpaceMapping internal constructor(
 	 */
 	fun worldToLocalLinearized(world: FloatArray, seedLocal: FloatArray, worldRest: FloatArray, indices: Set<Int>): FloatArray {
 		val local = seedLocal.copyOf()
+
 		when (parentWorld) {
 			null -> {
 				for (vertexIndex in indices) {
 					val coordIndex = vertexIndex * 2
+
 					if (coordIndex + 1 >= world.size || coordIndex + 1 >= local.size) {
 						continue
 					}
+
 					// Un-negate Y: the parent frame is the pre-negate model space.
 					local[coordIndex] = world[coordIndex]
 					local[coordIndex + 1] = -world[coordIndex + 1]
@@ -146,9 +168,11 @@ class DrawableSpaceMapping internal constructor(
 			is RotationWorld -> {
 				for (vertexIndex in indices) {
 					val coordIndex = vertexIndex * 2
+
 					if (coordIndex + 1 >= world.size || coordIndex + 1 >= local.size) {
 						continue
 					}
+
 					invertRotation(parentWorld, world[coordIndex], -world[coordIndex + 1], local, coordIndex)
 				}
 			}
@@ -157,15 +181,19 @@ class DrawableSpaceMapping internal constructor(
 				// Constant per mapping, so it's computed once here rather than per vertex.
 				val toleranceSquared = warpInverseToleranceSquared(parentWorld.cp)
 				val scratch = FloatArray(2)
+
 				for (vertexIndex in indices) {
 					val coordIndex = vertexIndex * 2
+
 					if (coordIndex + 1 >= world.size || coordIndex + 1 >= local.size) {
 						continue
 					}
+
 					invertWarpUncapped(parentWorld, world[coordIndex], -world[coordIndex + 1], local, coordIndex, toleranceSquared, scratch)
 				}
 			}
 		}
+
 		return local
 	}
 
@@ -192,19 +220,23 @@ class DrawableSpaceMapping internal constructor(
 		var bestU = currentU
 		var bestV = currentV
 		var bestErrorSquared = Float.MAX_VALUE
+
 		for (iteration in 0 until RIGID_INVERSE_MAX_ITERATIONS) {
 			warpApply(warp.cp, warp.cols, warp.rows, warp.bilinear, currentU, currentV, scratch, 0)
 			val residualX = scratch[0] - targetX
 			val residualY = scratch[1] - targetY
 			val errorSquared = residualX * residualX + residualY * residualY
+
 			if (errorSquared < bestErrorSquared) {
 				bestErrorSquared = errorSquared
 				bestU = currentU
 				bestV = currentV
 			}
+
 			if (errorSquared <= toleranceSquared) {
 				break
 			}
+
 			warpApply(warp.cp, warp.cols, warp.rows, warp.bilinear, currentU + WARP_INVERSE_JACOBIAN_STEP, currentV, scratch, 0)
 			val dxDu = (scratch[0] - (residualX + targetX)) / WARP_INVERSE_JACOBIAN_STEP
 			val dyDu = (scratch[1] - (residualY + targetY)) / WARP_INVERSE_JACOBIAN_STEP
@@ -212,12 +244,15 @@ class DrawableSpaceMapping internal constructor(
 			val dxDv = (scratch[0] - (residualX + targetX)) / WARP_INVERSE_JACOBIAN_STEP
 			val dyDv = (scratch[1] - (residualY + targetY)) / WARP_INVERSE_JACOBIAN_STEP
 			val determinant = dxDu * dyDv - dxDv * dyDu
+
 			if (abs(determinant) < 1e-12f) {
 				break
 			}
+
 			currentU += (-residualX * dyDv + dxDv * residualY) / determinant
 			currentV += (-residualY * dxDu + dyDu * residualX) / determinant
 		}
+
 		local[coordIndex] = bestU
 		local[coordIndex + 1] = bestV
 	}
@@ -229,6 +264,9 @@ class DrawableSpaceMapping internal constructor(
  * does not exist or its parent deformer's world transform cannot be built (a hidden ancestor) - the
  * drawable is not on screen, so there is nothing to map onto.
  *
+ * One drawable, one bake of the whole deformer chain: for more than one drawable at one pose use a
+ * [DrawableSpaceResolver], which bakes the chain once for all of them.
+ *
  * @param PuppetModel model The rig.
  * @param Map parameters Parameter id -> value (partial; the rest default).
  * @param DrawableId drawableId The drawable to map.
@@ -236,10 +274,30 @@ class DrawableSpaceMapping internal constructor(
  */
 fun drawableSpaceMapping(model: PuppetModel, parameters: Map<ParameterId, Float>, drawableId: DrawableId): DrawableSpaceMapping? {
 	val drawable = model.drawables.firstOrNull { it.id == drawableId } ?: return null
+
+	// The defaults and the bake are built only when a parent asks for a world, so a direct drawable
+	// pays for neither.
+	return mappingOver(drawable) { parentDeformerId ->
+		val defaults = model.parameters.associate { it.id to it.default }
+		val paramValue: (ParameterId) -> Float = { parameters[it] ?: defaults[it] ?: 0f }
+		buildDeformerWorlds(model.deformers, paramValue)[parentDeformerId]
+	}
+}
+
+/**
+ * The per-drawable half of [drawableSpaceMapping], shared with [DrawableSpaceResolver] so the batch
+ * and the single call cannot drift: a direct drawable maps through the Y negation alone, and a parented
+ * one through the world [parentWorldOf] resolves for its parent - or not at all when that world is
+ * absent (a hidden ancestor, or a parent the model does not carry).
+ *
+ * @param Drawable drawable The drawable to map.
+ * @param Function parentWorldOf Resolves a deformer's baked world at the pose, or null when it has none.
+ * @return DrawableSpaceMapping? The mapping, or null when unmappable.
+ */
+internal fun mappingOver(drawable: Drawable, parentWorldOf: (DeformerId) -> DeformerWorld?): DrawableSpaceMapping? {
 	val parentDeformerId = drawable.parentDeformerId ?: return DrawableSpaceMapping(null)
-	val defaults = model.parameters.associate { it.id to it.default }
-	val paramValue: (ParameterId) -> Float = { parameters[it] ?: defaults[it] ?: 0f }
-	val parentWorld = buildDeformerWorlds(model.deformers, paramValue)[parentDeformerId] ?: return null
+	val parentWorld = parentWorldOf(parentDeformerId) ?: return null
+
 	return DrawableSpaceMapping(parentWorld)
 }
 
@@ -252,18 +310,33 @@ fun drawableSpaceMapping(model: PuppetModel, parameters: Map<ParameterId, Float>
  * @param PuppetModel model The rig.
  * @param Map parameters Parameter id -> value (partial; the rest default).
  * @param DrawableId drawableId The drawable to sample.
- * @return FloatArray? The interleaved local posed positions, or null when the drawable / mesh / grid is
+ * @return FloatArray? The interleaved local posed positions, or null when the drawable or its mesh is
  *   missing or the pose hides it (out of range).
  */
 fun drawableLocalPosed(model: PuppetModel, parameters: Map<ParameterId, Float>, drawableId: DrawableId): FloatArray? {
 	val drawable = model.drawables.firstOrNull { it.id == drawableId } ?: return null
+	// Lazy, so an unkeyed drawable answers without building the defaults.
+	val defaults by lazy { model.parameters.associate { it.id to it.default } }
+
+	return localPosedOver(drawable) { parameterId -> parameters[parameterId] ?: defaults[parameterId] ?: 0f }
+}
+
+/**
+ * The per-drawable half of [drawableLocalPosed], shared with [DrawableSpaceResolver] for the same
+ * reason as [mappingOver].
+ *
+ * @param Drawable drawable The drawable to sample.
+ * @param Function paramValue Parameter id -> value at the pose, with the defaults already folded in.
+ * @return FloatArray? The interleaved local posed positions, or null when the drawable has no mesh or
+ *   the pose hides it (out of range).
+ */
+internal fun localPosedOver(drawable: Drawable, paramValue: (ParameterId) -> Float): FloatArray? {
 	val mesh = drawable.mesh ?: return null
 	// An unkeyed drawable sits at its rest mesh, which is exactly the state a rigger needs the gizmo to
 	// show - returning null here would hide the vertices of the drawable they are about to key.
-	val grid = drawable.geometryGrid ?: return mesh.positions.copyOf()
-	val defaults = model.parameters.associate { it.id to it.default }
-	val paramValue: (ParameterId) -> Float = { parameters[it] ?: defaults[it] ?: 0f }
-	return sampleMeshLocal(grid, mesh.positions, paramValue)
+	val grid = drawable.geometryGrid ?: return mesh.localPositions.copyOf()
+
+	return sampleMeshLocal(grid, mesh.localPositions, paramValue)
 }
 
 /**
@@ -280,9 +353,11 @@ fun drawableLocalPosed(model: PuppetModel, parameters: Map<ParameterId, Float>, 
 private fun invertRotation(rotation: RotationWorld, targetX: Float, targetY: Float, local: FloatArray, coordIndex: Int) {
 	val xform = rotation.xform
 	val determinant = xform.c12 * xform.c13 - xform.c15 * xform.c14
+
 	if (abs(determinant) < 1e-12f) {
 		return
 	}
+
 	val relativeX = targetX - xform.ox
 	val relativeY = targetY - xform.oy
 	local[coordIndex] = (relativeX * xform.c13 - xform.c15 * relativeY) / determinant
@@ -309,19 +384,23 @@ private fun invertWarp(warp: WarpWorld, targetX: Float, targetY: Float, local: F
 	var bestU = currentU
 	var bestV = currentV
 	var bestErrorSquared = Float.MAX_VALUE
+
 	for (iteration in 0 until WARP_INVERSE_MAX_ITERATIONS) {
 		warpApply(warp.cp, warp.cols, warp.rows, warp.bilinear, currentU, currentV, scratch, 0)
 		val residualX = scratch[0] - targetX
 		val residualY = scratch[1] - targetY
 		val errorSquared = residualX * residualX + residualY * residualY
+
 		if (errorSquared < bestErrorSquared) {
 			bestErrorSquared = errorSquared
 			bestU = currentU
 			bestV = currentV
 		}
+
 		if (errorSquared <= toleranceSquared) {
 			break
 		}
+
 		warpApply(warp.cp, warp.cols, warp.rows, warp.bilinear, currentU + WARP_INVERSE_JACOBIAN_STEP, currentV, scratch, 0)
 		val dxDu = (scratch[0] - (residualX + targetX)) / WARP_INVERSE_JACOBIAN_STEP
 		val dyDu = (scratch[1] - (residualY + targetY)) / WARP_INVERSE_JACOBIAN_STEP
@@ -329,20 +408,25 @@ private fun invertWarp(warp: WarpWorld, targetX: Float, targetY: Float, local: F
 		val dxDv = (scratch[0] - (residualX + targetX)) / WARP_INVERSE_JACOBIAN_STEP
 		val dyDv = (scratch[1] - (residualY + targetY)) / WARP_INVERSE_JACOBIAN_STEP
 		val determinant = dxDu * dyDv - dxDv * dyDu
+
 		if (abs(determinant) < 1e-12f) {
 			break
 		}
+
 		var stepU = (-residualX * dyDv + dxDv * residualY) / determinant
 		var stepV = (-residualY * dxDu + dyDu * residualX) / determinant
 		val stepLength = sqrt(stepU * stepU + stepV * stepV)
+
 		if (stepLength > WARP_INVERSE_MAX_STEP) {
 			val damping = WARP_INVERSE_MAX_STEP / stepLength
 			stepU *= damping
 			stepV *= damping
 		}
+
 		currentU += stepU
 		currentV += stepV
 	}
+
 	local[coordIndex] = bestU
 	local[coordIndex + 1] = bestV
 }
@@ -360,6 +444,7 @@ private fun warpInverseToleranceSquared(cp: FloatArray): Float {
 	var minY = Float.MAX_VALUE
 	var maxY = -Float.MAX_VALUE
 	val pointCount = cp.size / 2
+
 	for (pointIndex in 0 until pointCount) {
 		val x = cp[pointIndex * 2]
 		val y = cp[pointIndex * 2 + 1]
@@ -368,7 +453,9 @@ private fun warpInverseToleranceSquared(cp: FloatArray): Float {
 		minY = minOf(minY, y)
 		maxY = maxOf(maxY, y)
 	}
+
 	val span = max(maxX - minX, maxY - minY)
 	val tolerance = max(1e-5f * span, 1e-6f)
+
 	return tolerance * tolerance
 }

@@ -3,7 +3,6 @@ package org.umamo.ui.document
 import org.umamo.interop.moc3.Moc3ExportOptions
 import org.umamo.interop.moc3.Moc3Sidecars
 import org.umamo.render.PuppetTextures
-import org.umamo.render.canvasToParentSpaceFor
 import org.umamo.render.encodeAtlasPng
 import org.umamo.render.withTexturePagesFrom
 import org.umamo.runtime.model.PuppetModel
@@ -44,13 +43,13 @@ fun prepareMoc3Export(
 	// FileKit appends the extension, so the destination's own name is the family's base name.
 	val basename = Moc3Sidecars.basenameFor(destinationName)
 	val moc3Document = document as? Moc3Document
+
 	return Moc3Sidecars.bundle(
 		puppet = bound,
 		basename = basename,
 		pages = atlasPagesFor(effectiveTextures, moc3Document, basename),
 		sidecars = exportedSidecarsFor(passThroughSidecars(moc3Document), options),
 		source = moc3Document?.manifest,
-		canvasToParentSpace = canvasToParentSpaceFor(bound),
 		options = options,
 	)
 }
@@ -74,7 +73,9 @@ internal fun exportedSidecarsFor(
 	sidecars.filter { sidecar ->
 		when (sidecar.kind) {
 			Moc3Sidecars.SidecarKind.Physics -> options.includePhysics
+
 			Moc3Sidecars.SidecarKind.UserData -> options.includeUserData
+
 			Moc3Sidecars.SidecarKind.Pose,
 			Moc3Sidecars.SidecarKind.Expression,
 			Moc3Sidecars.SidecarKind.Motion,
@@ -109,6 +110,7 @@ internal fun atlasPagesFor(
 	basename: String,
 ): List<Moc3Sidecars.AtlasPage> {
 	val textureFolder = "$basename.${atlasResolutionFor(textures)}"
+
 	return textures.atlases.mapIndexed { pageIndex, atlas ->
 		val sourceName = moc3Document?.manifest?.fileReferences?.textures?.getOrNull(pageIndex)
 		Moc3Sidecars.AtlasPage(

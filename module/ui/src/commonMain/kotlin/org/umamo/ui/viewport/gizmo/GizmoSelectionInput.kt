@@ -33,6 +33,43 @@ internal fun selectToolKind(ownedSelectTool: ActiveSelectTool?): Int =
 	}
 
 /**
+ * The marquee (box + circle) machinery over mesh elements, shared by the 2D viewport's Edit mode and the UV
+ * editor's: the stroke / rubber-band state and event rules are MarqueeSelectController's, and these callbacks
+ * bind them to the element domain.  An overlay holds one per area, so every callback reads the session and
+ * [geometries] when it runs.
+ *
+ * @param EditorSession session The session owning the mesh selection, the armed tool, and the gesture flag.
+ * @param Function geometries The shown meshes' gizmo geometry (the stamp and box domain), read per call.
+ * @param Function previewStroke Publishes the live stroke after every stamp and null when it ends (each
+ *   surface hands it to the renderer's mesh overlay, which draws it); defaults to nothing.
+ * @return MarqueeSelectController<MeshSelection> The marquee.
+ */
+internal fun meshMarquee(
+	session: EditorSession,
+	geometries: () -> List<GizmoMeshGeometry>,
+	previewStroke: (MeshSelection?) -> Unit = {},
+): MarqueeSelectController<MeshSelection> =
+	MarqueeSelectController(
+		seedStroke = { session.meshSelection.value },
+		stampStroke = { working, erasing, center, radiusPx, stampCamera, stampSize ->
+			circleSelection(working, erasing, center, radiusPx, geometries(), stampCamera, stampSize)
+		},
+		commitStroke = { stroke -> session.setMeshSelection(stroke) },
+		previewStroke = previewStroke,
+		applyBox = { start, end, additive, boxCamera, boxSize ->
+			val selection = session.meshSelection.value
+			val insideByDrawable =
+				geometries().associate { geometry ->
+					geometry.drawableId to elementsInBox(selection.selectMode, geometry, start, end, boxCamera, boxSize)
+				}
+			session.setMeshSelection(MeshSelectionOps.box(selection, insideByDrawable, additive = additive))
+		},
+		setCircleRadius = { radiusPx -> session.setCircleRadius(radiusPx) },
+		clearTool = { session.clearSelectTool() },
+		setGestureActive = { active -> session.setViewportGestureActive(active) },
+	)
+
+/**
  * The mesh-element surfaces' pointer flow, shared by the 2D viewport's Edit mode and the UV editor's: the
  * box select (un-armed and armed, one flow - see BoxSelectFlow) with the element domain's press and click.
  * An un-armed primary press on an element selects it per the select mode (Shift / Ctrl toggles, plain
@@ -104,17 +141,23 @@ internal class MeshPickController(
 			when {
 				// Shift and Ctrl both toggle membership (Blender-style): a second modified click on a selected
 				// element deselects it.
-				modifiers.isShiftPressed || modifiers.isCtrlPressed || modifiers.isMetaPressed ->
+				modifiers.isShiftPressed || modifiers.isCtrlPressed || modifiers.isMetaPressed -> {
 					MeshSelectionOps.toggle(current, hit.drawableId, hit.element)
-				else -> MeshSelectionOps.replace(current, hit.drawableId, hit.element)
+				}
+
+				else -> {
+					MeshSelectionOps.replace(current, hit.drawableId, hit.element)
+				}
 			}
 		session.setMeshSelection(updated)
+
 		return true
 	}
 
 	/** An un-armed sub-threshold click on empty canvas clears the selection. */
 	private fun clearSelection() {
 		val current = session.meshSelection.value
+
 		if (!current.isEmpty) {
 			session.setMeshSelection(MeshSelectionOps.clear(current))
 		}
@@ -145,19 +188,24 @@ internal fun handleSelectLinkedRequest(
 	size: IntSize,
 ) {
 	var selection = session.meshSelection.value
+
 	if (fromSelection) {
 		for (geometry in geometries) {
 			val covered = MeshTopology.coveredVertexIndices(selection.elementsOf(geometry.drawableId), geometry.indices)
+
 			if (covered.isEmpty()) {
 				continue
 			}
+
 			val adjacency = MeshTopology.buildVertexAdjacency(geometry.positions.size / 2, geometry.indices)
 			val reached = HashSet<Int>()
+
 			for (seedVertex in covered) {
 				if (seedVertex !in reached) {
 					reached.addAll(MeshTopology.connectedVertices(adjacency, seedVertex))
 				}
 			}
+
 			selection = MeshSelectionOps.selectLinked(selection, geometry.drawableId, reached, geometry.indices)
 		}
 	} else {
@@ -168,5 +216,6 @@ internal fun handleSelectLinkedRequest(
 		selection =
 			MeshSelectionOps.selectLinked(selection, hit.drawableId, MeshTopology.connectedVertices(adjacency, seedVertex), geometry.indices)
 	}
+
 	session.setMeshSelection(selection)
 }

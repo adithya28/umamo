@@ -36,12 +36,15 @@ class SourceLayerPlanCorpusTest {
 		var mappedTotal = 0
 		var decodedTotal = 0
 		val lines = mutableListOf<String>()
+
 		for (file in files) {
 			val root = Cmo3.read(file).root as? CModelSource ?: continue
 			val puppet = Cmo3Import.fromModelSource(root).let { model -> model.copy(rendersFromSourceLayers = true) }
+
 			if (puppet.atlas.tiles.isEmpty()) {
 				continue
 			}
+
 			val plan = buildLayerDrawPlan(puppet)
 			val meshed = puppet.drawables.count { drawable -> drawable.mesh != null }
 			mappedTotal += plan.drawsByDrawableId.size
@@ -59,6 +62,7 @@ class SourceLayerPlanCorpusTest {
 					"pagesAddressed=${puppet.atlas.storedUvsAddressPages}",
 			)
 		}
+
 		lines.take(40).forEach { line -> println("[plan] $line") }
 		assertTrue(mappedTotal > 0, "no corpus drawable mapped to artwork; the plan is empty everywhere")
 		assertTrue(decodedTotal > 0, "no mapped layer decoded; the renderer would never engage the mode")

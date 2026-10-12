@@ -88,6 +88,7 @@ internal fun ActiveMeshInfoLabel(
 				overflow = TextOverflow.Ellipsis,
 				modifier = Modifier.widthIn(max = ACTIVE_MESH_INFO_MAX_WIDTH),
 			)
+
 			if (deformerName != null) {
 				Text(
 					text = deformerName,
@@ -118,6 +119,7 @@ internal fun ViewportZoomBadge(
 	if (camera == null) {
 		return
 	}
+
 	val hudColors = LocalUmamoColors.current
 	// The operation settings strip owns the bottom-left while it shows; the badge lifts above it.
 	val stripInset = LocalOperationStripInset.current
@@ -206,7 +208,9 @@ internal fun falloffLabel(falloff: ProportionalFalloff): String =
 		ProportionalFalloff.Smooth -> stringResource(Res.string.falloff_smooth)
 		ProportionalFalloff.Sphere -> stringResource(Res.string.falloff_sphere)
 		ProportionalFalloff.Root -> stringResource(Res.string.falloff_root)
+		ProportionalFalloff.InverseSquare -> stringResource(Res.string.falloff_inverse_square)
 		ProportionalFalloff.Sharp -> stringResource(Res.string.falloff_sharp)
 		ProportionalFalloff.Linear -> stringResource(Res.string.falloff_linear)
 		ProportionalFalloff.Constant -> stringResource(Res.string.falloff_constant)
+		ProportionalFalloff.Random -> stringResource(Res.string.falloff_random)
 	}

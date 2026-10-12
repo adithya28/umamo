@@ -1,5 +1,15 @@
 package org.umamo.edit
 
+import org.umamo.edit.transform.MeshTransforms
+import org.umamo.edit.transform.RotationAngleTracker
+import org.umamo.edit.transform.TransformPivots
+import org.umamo.edit.transform.beginBoxSelect
+import org.umamo.edit.transform.beginCircleSelect
+import org.umamo.edit.transform.beginMeshOperator
+import org.umamo.edit.transform.beginObjectOperator
+import org.umamo.edit.transform.snapToGrid
+import org.umamo.edit.transform.snapToWorldGrid
+import org.umamo.edit.transform.wrapAngle
 import org.umamo.runtime.model.BlendMode
 import org.umamo.runtime.model.Drawable
 import org.umamo.runtime.model.DrawableId
@@ -7,6 +17,8 @@ import org.umamo.runtime.model.DrawableMesh
 import org.umamo.runtime.model.PuppetModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -44,7 +56,7 @@ class TransformStateTest {
 	}
 
 	private fun meshedSession(): EditorSession {
-		val mesh = DrawableMesh(floatArrayOf(0f, 0f, 2f, 0f, 0f, 2f), FloatArray(6), intArrayOf(0, 1, 2))
+		val mesh = DrawableMesh.withLocalEqualToCanvas(floatArrayOf(0f, 0f, 2f, 0f, 0f, 2f), FloatArray(6), intArrayOf(0, 1, 2))
 		val drawable =
 			Drawable(
 				id = DrawableId("d"),
@@ -64,6 +76,7 @@ class TransformStateTest {
 				rootChildren = emptyList(),
 				rootPartId = null,
 			)
+
 		return EditorSession(model)
 	}
 
@@ -124,7 +137,7 @@ class TransformStateTest {
 		assertTrue(session.canRedo.value)
 	}
 
-	/** Proportional editing toggles off/on remembering its configuration; falloff selection enables it. */
+	/** Proportional editing toggles off/on remembering its configuration; a setting changed while off never enables it. */
 	@Test
 	fun proportionalEditToggleAndConfiguration() {
 		val session = meshedSession()
@@ -144,12 +157,19 @@ class TransformStateTest {
 		session.toggleProportionalEdit()
 		assertEquals(ProportionalEditState(ProportionalFalloff.Sharp, 500f), session.proportionalEdit.value, "the configuration survives an off/on cycle")
 
-		// The radius clamps to its bounds; a falloff pick while off re-enables.
+		// The radius clamps to its bounds, and the settings flow tracks the live state while on.
 		session.setProportionalRadius(0f)
 		assertEquals(MIN_PROPORTIONAL_RADIUS_WORLD, session.proportionalEdit.value?.radiusWorld, "the radius clamps at the minimum")
+		assertEquals(session.proportionalEdit.value, session.proportionalSettings.value, "the settings are the live state while on")
+
+		// A falloff or radius change while off waits in the settings for the next toggle (Blender's rule).
 		session.toggleProportionalEdit()
 		session.setProportionalFalloff(ProportionalFalloff.Linear)
-		assertEquals(ProportionalFalloff.Linear, session.proportionalEdit.value?.falloff, "picking a falloff while off enables proportional editing")
+		session.setProportionalRadius(64f)
+		assertNull(session.proportionalEdit.value, "a setting changed while off leaves proportional editing off")
+		assertEquals(ProportionalEditState(ProportionalFalloff.Linear, 64f), session.proportionalSettings.value, "the settings carry the change")
+		session.toggleProportionalEdit()
+		assertEquals(ProportionalEditState(ProportionalFalloff.Linear, 64f), session.proportionalEdit.value, "the next toggle brings the change in")
 	}
 
 	/** The rotate accumulator crosses the atan2 branch cut, reverses through zero, and multi-turns. */
@@ -177,13 +197,17 @@ class TransformStateTest {
 		assertEquals(-pi + 0.2f, wrapAngle(pi + 0.2f), 1e-5f, "wrapAngle folds past +pi into the negative side")
 	}
 
-	/** Connected Only toggles with a notice, enabling proportional editing when it was off. */
+	/** Connected Only toggles with a notice and never switches proportional editing itself on or off. */
 	@Test
 	fun proportionalConnectedOnlyToggle() {
 		val session = meshedSession()
 		session.toggleProportionalConnected()
-		assertEquals(true, session.proportionalEdit.value?.connectedOnly, "toggling while off enables proportional editing, connected on")
+		assertNull(session.proportionalEdit.value, "toggling while off leaves proportional editing off")
+		assertEquals(true, session.proportionalSettings.value.connectedOnly, "the flag waits in the settings")
 		assertEquals("notice.proportional.connected.on", session.notice.value?.messageKey, "the toggle confirms with a notice")
+		session.toggleProportionalEdit()
+		assertEquals(true, session.proportionalEdit.value?.connectedOnly, "the next toggle brings the flag in")
+
 		session.toggleProportionalConnected()
 		assertEquals(false, session.proportionalEdit.value?.connectedOnly, "the second toggle turns connected off")
 		assertTrue(session.proportionalEdit.value != null, "proportional editing itself stays on")
@@ -193,6 +217,21 @@ class TransformStateTest {
 		session.toggleProportionalEdit()
 		session.toggleProportionalEdit()
 		assertEquals(true, session.proportionalEdit.value?.connectedOnly, "connected only survives an off/on cycle")
+	}
+
+	/** Setting Connected Only outright is silent and never switches proportional editing on or off. */
+	@Test
+	fun proportionalConnectedSetIsSilent() {
+		val session = meshedSession()
+		session.setProportionalConnected(true)
+		assertNull(session.proportionalEdit.value, "setting the flag while off leaves proportional editing off")
+		assertEquals(true, session.proportionalSettings.value.connectedOnly, "the flag waits in the settings")
+		assertNull(session.notice.value, "the setting control is its own confirmation: no notice")
+
+		session.toggleProportionalEdit()
+		session.setProportionalConnected(false)
+		assertEquals(false, session.proportionalEdit.value?.connectedOnly, "while on, the live state takes the flag")
+		assertEquals("notice.proportional.on", session.notice.value?.messageKey, "and the toggle's own notice is the last one")
 	}
 
 	/** A suppressed latch (the duplicate / rip auto-grab) opts the gesture out of proportional editing. */
@@ -311,6 +350,63 @@ class TransformStateTest {
 		assertNull(session.activeObjectOperator.value, "restore clears the latched operator")
 	}
 
+	/**
+	 * Zoom Region is mode-agnostic and area-keyed: arming it drops a latched tool, a latched operator drops
+	 * it, a restore leaves it armed (the gesture belongs to the area, not to the step), and disarming clears it.
+	 */
+	@Test
+	fun zoomRegionArmsPerAreaAndSurvivesARestore() {
+		val session = meshedSession()
+		val target = SelectionTarget.Drawable(DrawableId("d"))
+		session.setSelection(Selection(setOf(target), target))
+
+		session.beginCircleSelect("area-a")
+		session.armZoomRegion("area-a")
+		assertEquals("area-a", session.zoomRegionArmedArea.value, "arming the region takes the area")
+		assertNull(session.activeSelectTool.value, "arming the region drops the armed tool")
+
+		session.beginObjectOperator(MeshOperatorKind.Grab, "area-b")
+		assertNull(session.zoomRegionArmedArea.value, "latching an operator disarms the region")
+		session.clearObjectOperator()
+
+		// The undo reverts the selection step; the armed region is not part of the snapshot and stays.
+		session.armZoomRegion("area-a")
+		session.undo()
+		assertEquals("area-a", session.zoomRegionArmedArea.value, "a restore leaves the region armed")
+
+		session.disarmZoomRegion()
+		assertNull(session.zoomRegionArmedArea.value, "disarming clears it")
+	}
+
+	/**
+	 * releaseArea drops only what the dying area holds - its operator, its armed tool, its zoom region - and
+	 * reports an operator release so the 2D viewport's guard knows to resync the renderer.
+	 */
+	@Test
+	fun releaseAreaDropsOnlyThatAreasLatches() {
+		val session = meshedSession()
+		val target = SelectionTarget.Drawable(DrawableId("d"))
+		session.setSelection(Selection(setOf(target), target))
+
+		session.beginObjectOperator(MeshOperatorKind.Grab, "area-a")
+		assertFalse(session.releaseArea("area-b"), "another area's release reports nothing")
+		assertEquals("area-a", session.activeObjectOperator.value?.areaId, "and leaves the operator latched")
+		assertTrue(session.releaseArea("area-a"), "the owning area's release reports the dropped operator")
+		assertNull(session.activeObjectOperator.value)
+
+		session.beginCircleSelect("area-a")
+		session.releaseArea("area-b")
+		assertNotNull(session.activeSelectTool.value, "another area's release leaves the armed tool")
+		assertFalse(session.releaseArea("area-a"), "a released tool is not a released operator")
+		assertNull(session.activeSelectTool.value)
+
+		session.armZoomRegion("area-a")
+		session.releaseArea("area-b")
+		assertEquals("area-a", session.zoomRegionArmedArea.value, "another area's release leaves the region armed")
+		session.releaseArea("area-a")
+		assertNull(session.zoomRegionArmedArea.value)
+	}
+
 	/** snapToGrid rounds relative to the world origin, so a snap lands on the origin-anchored grid lines. */
 	@Test
 	fun snapToGridRoundsRelativeToOrigin() {
@@ -343,26 +439,5 @@ class TransformStateTest {
 
 		session.setCursor2d(12f, 34f)
 		assertEquals(Cursor2d(12f, 34f), session.cursor2dOrWorldOrigin(), "a placed cursor is its own point")
-	}
-
-	/** GridConfig.snapStep is the finest visible spacing: scale divided by the subdivision count. */
-	@Test
-	fun gridConfigSnapStepIsScaleOverSubdivisions() {
-		assertEquals(10f, GridConfig(scale = 100f, subdivisions = 10).snapStep, "100 / 10 = 10")
-		assertEquals(25f, GridConfig(scale = 100f, subdivisions = 4).snapStep, "100 / 4 = 25")
-		// A defaulted config keeps the built-in fallbacks (SNAP_GRID_WORLD_UNITS / DEFAULT_GRID_SUBDIVISIONS).
-		assertEquals(SNAP_GRID_WORLD_UNITS / DEFAULT_GRID_SUBDIVISIONS, GridConfig().snapStep, "default step")
-		// subdivisions is clamped to at least 1, so a degenerate 0 never divides by zero.
-		assertEquals(100f, GridConfig(scale = 100f, subdivisions = 0).snapStep, "0 subdivisions clamps to 1")
-	}
-
-	/** setGridConfig publishes the new geometry on the session's gridConfig flow (transient, not snapshotted). */
-	@Test
-	fun setGridConfigPublishesAndIsNotUndoable() {
-		val session = meshedSession()
-		assertEquals(GridConfig(), session.gridConfig.value, "starts at the default grid")
-		session.setGridConfig(GridConfig(scale = 50f, subdivisions = 5))
-		assertEquals(GridConfig(scale = 50f, subdivisions = 5), session.gridConfig.value, "the new config publishes")
-		assertTrue(!session.canUndo.value, "a grid-config change is transient, never an undo step")
 	}
 }

@@ -34,6 +34,7 @@ fun rememberStringSetting(key: String, default: String): MutableState<String> {
 			}
 		}
 	}
+
 	return remember(settings, key, backing) { WriteThroughSettingState(settings, key, backing) }
 }
 
@@ -87,6 +88,7 @@ fun rememberIntSetting(key: String, default: Int): MutableState<Int> {
 			}
 		}
 	}
+
 	return remember(settings, key, backing) { WriteThroughIntSettingState(settings, key, backing) }
 }
 
@@ -138,6 +140,7 @@ fun rememberDoubleSetting(key: String, default: Double): MutableState<Double> {
 			}
 		}
 	}
+
 	return remember(settings, key, backing) { WriteThroughDoubleSettingState(settings, key, backing) }
 }
 
@@ -189,6 +192,7 @@ fun rememberBooleanSetting(key: String, default: Boolean): MutableState<Boolean>
 			}
 		}
 	}
+
 	return remember(settings, key, backing) { WriteThroughBooleanSettingState(settings, key, backing) }
 }
 

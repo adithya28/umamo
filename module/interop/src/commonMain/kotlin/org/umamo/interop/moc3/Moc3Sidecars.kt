@@ -10,8 +10,10 @@ import org.umamo.format.moc3.json.DisplayPart
 import org.umamo.format.moc3.json.FileReferences
 import org.umamo.format.moc3.json.Model3Json
 import org.umamo.format.moc3.moc.MocVersion
+import org.umamo.interop.ExportEntityCategory
+import org.umamo.interop.ExportNotice
+import org.umamo.interop.ExportNoticeReason
 import org.umamo.interop.ExportReport
-import org.umamo.interop.moc3.export.CanvasToParentSpace
 import org.umamo.interop.moc3.export.Moc3Export
 import org.umamo.interop.moc3.export.Moc3WrittenIds
 import org.umamo.interop.mocVersion
@@ -102,7 +104,8 @@ object Moc3Sidecars {
 	 * The complete export: every file to write, plus the lowering's advisory report.
 	 *
 	 * @property List         files  The family, moc first.
-	 * @property ExportReport report The notices from the moc lowering.
+	 * @property ExportReport report The notices from the moc lowering, plus one per carried sidecar that names
+	 *   parameters the moc does not contain and one per sidecar that names parts it does not.
 	 */
 	class Bundle(val files: List<BundleFile>, val mocFileName: String, val report: ExportReport)
 
@@ -115,7 +118,6 @@ object Moc3Sidecars {
 	 * @param List        pages    The atlas pages, in the drawables' texture-page index order.
 	 * @param List        sidecars The retained sidecars to carry through.
 	 * @param Model3Json? source   The imported manifest, whose non-file sections carry through.
-	 * @param CanvasToParentSpace? canvasToParentSpace The unkeyed-drawable space inverse, or null.
 	 * @param Moc3ExportOptions options What the rigger chose to include; the default is the
 	 *   options-less behavior.
 	 * @return Bundle The files to write, which of them is the moc, and the report.
@@ -127,12 +129,11 @@ object Moc3Sidecars {
 		pages: List<AtlasPage>,
 		sidecars: List<PassThroughSidecar> = emptyList(),
 		source: Model3Json? = null,
-		canvasToParentSpace: CanvasToParentSpace? = null,
 		options: Moc3ExportOptions = Moc3ExportOptions.Default,
 	): Bundle {
 		// Lowered rather than written outright, because the cdi3 below has to name the objects by the ids
 		// the MOC actually got: an id the record width forced short is not the id the model carries.
-		val lowered = Moc3Export.toMocDocument(puppet, version, canvasToParentSpace, options)
+		val lowered = Moc3Export.toMocDocument(puppet, version, options)
 		val mocBytes = Moc3.write(lowered.document)
 		val report = lowered.report
 		val mocFileName = "$basename$MOC3_EXTENSION"
@@ -141,17 +142,21 @@ object Moc3Sidecars {
 		val displayInfoName = "$basename.cdi3.json".takeIf { options.includeDisplayInfo }
 		val files = ArrayList<BundleFile>(pages.size + sidecars.size + 3)
 		files.add(BundleFile(mocFileName, mocBytes))
+
 		if (displayInfoName != null) {
 			files.add(
 				BundleFile(displayInfoName, Moc3.writeCdi3(displayInfo(puppet, lowered.writtenIds)).encodeToByteArray()),
 			)
 		}
+
 		for (page in pages) {
 			files.add(BundleFile(page.fileName, page.bytes))
 		}
+
 		for (sidecar in sidecars) {
 			files.add(BundleFile(sidecar.fileName, sidecar.text.encodeToByteArray()))
 		}
+
 		val manifest =
 			Model3Json(
 				version = MODEL3_VERSION,
@@ -176,8 +181,91 @@ object Moc3Sidecars {
 				hitAreas = source?.hitAreas,
 			)
 		files.add(BundleFile("$basename.model3.json", Moc3.writeModel3(manifest).encodeToByteArray()))
-		return Bundle(files, mocFileName, report)
+		val sidecarNotices = sidecars.flatMap { sidecar -> unwrittenIdNotices(sidecar, lowered.writtenIds) }
+
+		return Bundle(files, mocFileName, if (sidecarNotices.isEmpty()) report else report.copy(notices = report.notices + sidecarNotices))
 	}
+
+	/**
+	 * The parameter and part ids one sidecar names.
+	 *
+	 * @property List parameterIds The parameter ids, in file order, repeats included.
+	 * @property List partIds      The part ids, in file order, repeats included.
+	 */
+	private class NamedIds(val parameterIds: List<String>, val partIds: List<String>)
+
+	/**
+	 * The notices for a sidecar carried through verbatim that names ids the moc does not contain - deleted since
+	 * the import, or written under a shortened id: one for the parameters it names and one for the parts, each
+	 * absent when it names none such.  A sidecar that cannot be read raises nothing; it is carried as it is either
+	 * way, and its runtime reader has the last word on it.
+	 *
+	 * @param PassThroughSidecar sidecar    The sidecar.
+	 * @param Moc3WrittenIds     writtenIds The ids the moc was written with.
+	 * @return List<ExportNotice> The notices, at most one per id kind.
+	 */
+	private fun unwrittenIdNotices(sidecar: PassThroughSidecar, writtenIds: Moc3WrittenIds): List<ExportNotice> {
+		val named = runCatching { namedIdsOf(sidecar) }.getOrNull() ?: return emptyList()
+		val writtenParameters = writtenIds.writtenParameterIds()
+		val writtenParts = writtenIds.writtenPartIds()
+		val missingParameters = named.parameterIds.filter { id -> id !in writtenParameters }.distinct()
+		val missingParts = named.partIds.filter { id -> id !in writtenParts }.distinct()
+		val notices = ArrayList<ExportNotice>(2)
+
+		if (missingParameters.isNotEmpty()) {
+			notices.add(ExportNotice.UnsupportedChange(ExportEntityCategory.Document, sidecar.fileName, ExportNoticeReason.SidecarNamesUnwrittenParameters(sidecar.fileName, missingParameters)))
+		}
+
+		if (missingParts.isNotEmpty()) {
+			notices.add(ExportNotice.UnsupportedChange(ExportEntityCategory.Document, sidecar.fileName, ExportNoticeReason.SidecarNamesUnwrittenParts(sidecar.fileName, missingParts)))
+		}
+
+		return notices
+	}
+
+	/**
+	 * The ids [sidecar] names, read by its kind's format.  Physics reads and drives parameters, an expression
+	 * sets them, a motion curves parameters and part opacities, and a pose switches parts; user data names art
+	 * meshes, and an entry for a mesh the moc lacks matches nothing and drives nothing, so it is not read here.
+	 *
+	 * @param PassThroughSidecar sidecar The sidecar.
+	 * @return NamedIds The ids it names.
+	 * @throws kotlinx.serialization.SerializationException When the text is not the kind's shape.
+	 */
+	private fun namedIdsOf(sidecar: PassThroughSidecar): NamedIds =
+		when (sidecar.kind) {
+			SidecarKind.Physics -> {
+				// physics3: PhysicsSettings[].Input[].Source and Output[].Destination, a (Target, Id) pair whose
+				// Target is "Parameter" for a parameter (MOC3.md § 6.2).
+				val physics = Moc3.readPhysics3(sidecar.text)
+				val targets = physics.physicsSettings.flatMap { setting -> setting.input.map { input -> input.source } + setting.output.map { output -> output.destination } }
+				NamedIds(targets.filter { target -> target.target == "Parameter" }.map { target -> target.id }, emptyList())
+			}
+
+			SidecarKind.Expression -> {
+				// exp3: Parameters[].Id, the parameter each entry sets (MOC3.md § 6.5).
+				NamedIds(Moc3.readExp3(sidecar.text).parameters.map { parameter -> parameter.id }, emptyList())
+			}
+
+			SidecarKind.Motion -> {
+				// motion3: Curves[].Target and Id - a "Parameter" curve drives a parameter, a "PartOpacity" curve a
+				// part, and a "Model" curve a model-level channel that names no object (MOC3.md § 6.6).
+				val curves = Moc3.readMotion3(sidecar.text).curves
+				NamedIds(
+					curves.filter { curve -> curve.target == "Parameter" }.map { curve -> curve.id },
+					curves.filter { curve -> curve.target == "PartOpacity" }.map { curve -> curve.id },
+				)
+			}
+
+			SidecarKind.Pose -> {
+				// pose3: Groups[][].Id and Link[], every one a part (MOC3.md § 6.7).
+				NamedIds(emptyList(), Moc3.readPose3(sidecar.text).groups.flatten().flatMap { entry -> listOf(entry.id) + entry.link.orEmpty() })
+			}
+
+			SidecarKind.UserData -> {
+				NamedIds(emptyList(), emptyList())
+			}
+		}
 
 	/**
 	 * The `cdi3.json` for [puppet]: parameter, group, part, and art-mesh display names.
@@ -196,7 +284,7 @@ object Moc3Sidecars {
 	 * bounds them.
 	 *
 	 * Parts and art meshes are also filtered to the ones the lowering actually WROTE - the export drops
-	 * sketch subtrees, mesh-less drawables, and unkeyed drawables it cannot invert into parent space.
+	 * sketch subtrees, mesh-less drawables, and the hidden parts and drawables the options leave out.
 	 * Naming a dropped object is dead weight on its own, and worse than that alongside the shortening
 	 * above: a dropped object claims no id, so an over-long id can shorten onto exactly its string and
 	 * leave the file with two entries under one id for a reader's join to choose between.
@@ -221,7 +309,10 @@ object Moc3Sidecars {
 		fun walk(nodes: List<ParameterNode>, parentGroupId: String) {
 			for (node in nodes) {
 				when (node) {
-					is ParameterNode.Param -> groupIdByParameter[node.id.raw] = parentGroupId
+					is ParameterNode.Param -> {
+						groupIdByParameter[node.id.raw] = parentGroupId
+					}
+
 					is ParameterNode.Group -> {
 						groups.add(DisplayParameterGroup(id = node.id.raw, groupId = parentGroupId, name = node.name))
 						walk(node.children, node.id.raw)

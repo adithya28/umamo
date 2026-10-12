@@ -70,6 +70,7 @@ fun MessageDialog(
 		) {
 			Column(modifier = Modifier.padding(20.dp)) {
 				SelectableText(text = message, style = LocalUmamoTypography.current.bodyMedium)
+
 				if (alternative == null) {
 					Box(modifier = Modifier.padding(top = 20.dp).align(Alignment.End)) {
 						Button(label = stringResource(Res.string.dialog_okay), onClick = onDismiss, primary = true)

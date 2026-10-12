@@ -56,6 +56,7 @@ fun pointInTriangle(
 	val sideCa = edgeSide(pointX, pointY, thirdX, thirdY, firstX, firstY)
 	val hasNegative = sideAb < 0f || sideBc < 0f || sideCa < 0f
 	val hasPositive = sideAb > 0f || sideBc > 0f || sideCa > 0f
+
 	// Inside when the point is not strictly on both sides of the edges (zero counts as on-edge).
 	return !(hasNegative && hasPositive)
 }
@@ -112,12 +113,15 @@ fun barycentricWeights(
 	thirdY: Float,
 ): FloatArray {
 	val denominator = (secondY - thirdY) * (firstX - thirdX) + (thirdX - secondX) * (firstY - thirdY)
+
 	if (abs(denominator) < 1e-7f) {
 		return floatArrayOf(1f / 3f, 1f / 3f, 1f / 3f)
 	}
+
 	val weightFirst = ((secondY - thirdY) * (pointX - thirdX) + (thirdX - secondX) * (pointY - thirdY)) / denominator
 	val weightSecond = ((thirdY - firstY) * (pointX - thirdX) + (firstX - thirdX) * (pointY - thirdY)) / denominator
 	val weightThird = 1f - weightFirst - weightSecond
+
 	return floatArrayOf(weightFirst, weightSecond, weightThird)
 }
 
@@ -155,19 +159,23 @@ fun pickDrawable(
 ): DrawableId? {
 	var bestId: DrawableId? = null
 	var bestRank = Float.NEGATIVE_INFINITY
+
 	for ((drawableId, positions) in worldPositions) {
 		val triangleIndices = indices[drawableId] ?: continue
 		val uvs = meshUvs[drawableId] ?: continue
 		val rank = frontRank[drawableId] ?: continue
 		val uv = hitUv(worldX, worldZ, positions, triangleIndices, uvs) ?: continue
+
 		if (sampleAlpha(drawableId, uv[0], uv[1]) < alphaThreshold) {
 			continue
 		}
+
 		if (bestId == null || rank > bestRank) {
 			bestId = drawableId
 			bestRank = rank
 		}
 	}
+
 	return bestId
 }
 
@@ -202,14 +210,17 @@ fun pickAllDrawables(
 	alphaThreshold: Float = PICK_ALPHA_THRESHOLD,
 ): List<PickCandidate> {
 	val candidates = mutableListOf<PickCandidate>()
+
 	for ((drawableId, positions) in worldPositions) {
 		val triangleIndices = indices[drawableId] ?: continue
 		val uvs = meshUvs[drawableId] ?: continue
 		val rank = frontRank[drawableId] ?: continue
 		val uv = hitUv(worldX, worldZ, positions, triangleIndices, uvs) ?: continue
+
 		if (sampleAlpha(drawableId, uv[0], uv[1]) < alphaThreshold) {
 			continue
 		}
+
 		val atlasSize = atlasSizeOf(drawableId)
 		val centrality =
 			if (atlasSize == null) {
@@ -219,7 +230,9 @@ fun pickAllDrawables(
 			}
 		candidates += PickCandidate(drawableId, rank, centrality)
 	}
+
 	candidates.sortByDescending { candidate -> candidate.frontRank }
+
 	return candidates
 }
 
@@ -255,24 +268,31 @@ fun centralityAt(
 	if (atlasWidth <= 0 || atlasHeight <= 0) {
 		return 1f
 	}
+
 	var minRadius = CENTRALITY_MAX_RADIUS_TEXELS
+
 	for (rayIndex in 0 until CENTRALITY_RAY_COUNT) {
 		val angle = 2.0 * PI * rayIndex / CENTRALITY_RAY_COUNT
 		val directionX = cos(angle).toFloat()
 		val directionY = sin(angle).toFloat()
 		var radius = CENTRALITY_STEP_TEXELS
+
 		while (radius <= CENTRALITY_MAX_RADIUS_TEXELS) {
 			val sampleU = u + directionX * radius / atlasWidth
 			val sampleV = v + directionY * radius / atlasHeight
+
 			if (sampleAlpha(id, sampleU, sampleV) < alphaThreshold) {
 				if (radius < minRadius) {
 					minRadius = radius
 				}
+
 				break
 			}
+
 			radius += CENTRALITY_STEP_TEXELS
 		}
 	}
+
 	return (minRadius / CENTRALITY_MAX_RADIUS_TEXELS).coerceIn(0f, 1f)
 }
 
@@ -298,10 +318,12 @@ private fun hitUv(
 	uvs: FloatArray,
 ): FloatArray? {
 	var triangleStart = 0
+
 	while (triangleStart + 2 < triangleIndices.size) {
 		val firstVertex = triangleIndices[triangleStart] * 2
 		val secondVertex = triangleIndices[triangleStart + 1] * 2
 		val thirdVertex = triangleIndices[triangleStart + 2] * 2
+
 		if (
 			firstVertex + 1 < positions.size &&
 			secondVertex + 1 < positions.size &&
@@ -316,14 +338,18 @@ private fun hitUv(
 			val by = positions[secondVertex + 1]
 			val cx = positions[thirdVertex]
 			val cy = positions[thirdVertex + 1]
+
 			if (pointInTriangle(worldX, worldZ, ax, ay, bx, by, cx, cy)) {
 				val weights = barycentricWeights(worldX, worldZ, ax, ay, bx, by, cx, cy)
 				val hitU = weights[0] * uvs[firstVertex] + weights[1] * uvs[secondVertex] + weights[2] * uvs[thirdVertex]
 				val hitV = weights[0] * uvs[firstVertex + 1] + weights[1] * uvs[secondVertex + 1] + weights[2] * uvs[thirdVertex + 1]
+
 				return floatArrayOf(hitU, hitV)
 			}
 		}
+
 		triangleStart += 3
 	}
+
 	return null
 }

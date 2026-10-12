@@ -74,23 +74,28 @@ internal fun ShellModalOverlays(
 			},
 		)
 	}
+
 	// The Help dialogs, below preferences as Escape closes them after it.
 	if (overlays.creditsVisible) {
 		CreditsDialog(onDismiss = { overlays.creditsVisible = false })
 	}
+
 	if (overlays.aboutVisible) {
 		AboutDialog(onDismiss = { overlays.aboutVisible = false })
 	}
+
 	// The preferences overlay; auto-saves every change, so closing it is the only action it needs.
 	if (overlays.settingsVisible) {
 		SettingsWindow(onDismiss = { overlays.settingsVisible = false })
 	}
+
 	// Quick Setup, open on a first run.  Above preferences and the Help dialogs, and below the alerts,
 	// so a message a first launch raises (a read-only document from the command line) still shows
 	// over it.
 	if (overlays.quickSetupVisible) {
 		QuickSetupDialog(onDismiss = { overlays.quickSetupVisible = false })
 	}
+
 	// The export-options dialog, the last of the self-focused family (its number field owns
 	// focus); the modal alerts below still paint above it.  The request's continuation runs
 	// from its own Export button, so dismissal here is unconditional.
@@ -180,6 +185,7 @@ internal fun ShellModalOverlays(
 private fun repackReportMessage(report: AtlasRepackReport): String {
 	val lines = ArrayList<String>(report.refusals.size + 1)
 	lines.add(stringResource(Res.string.repack_report_message))
+
 	for (refusal in report.refusals) {
 		val reasonText =
 			stringResource(
@@ -194,6 +200,7 @@ private fun repackReportMessage(report: AtlasRepackReport): String {
 			)
 		lines.add("• ${refusal.tileName} - $reasonText")
 	}
+
 	return lines.joinToString(separator = "\n")
 }
 

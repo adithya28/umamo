@@ -96,25 +96,35 @@ sealed interface ExportNotice {
  */
 fun describeExportNotice(notice: ExportNotice): String =
 	when (notice) {
-		is ExportNotice.UnsupportedChange ->
+		is ExportNotice.UnsupportedChange -> {
 			if (notice.subject == null) {
 				"[${notice.category}] ${notice.reason}"
 			} else {
 				"[${notice.category}] ${notice.subject}: ${notice.reason}"
 			}
-		is ExportNotice.WeldDivergence -> "weld divergence on ${notice.drawableNames.joinToString()}"
-		is ExportNotice.FeatureStripped ->
+		}
+
+		is ExportNotice.WeldDivergence -> {
+			"weld divergence on ${notice.drawableNames.joinToString()}"
+		}
+
+		is ExportNotice.FeatureStripped -> {
 			"${notice.feature} is not in the exported moc version; removed from " +
 				notice.subjects.take(8).joinToString() +
 				if (notice.subjects.size > 8) " (+${notice.subjects.size - 8} more)" else ""
-		is ExportNotice.MissingSourceArt ->
+		}
+
+		is ExportNotice.MissingSourceArt -> {
 			"no source artwork: the CMO3 was built around a stand-in document rebuilt from ${notice.pageCount} atlas page(s), " +
 				"so its layers are atlas slices rather than the original artwork"
-		is ExportNotice.SharedAtlasSlotKept ->
+		}
+
+		is ExportNotice.SharedAtlasSlotKept -> {
 			"twins sharing one atlas slot could not be given their own: " +
 				notice.drawableNames.take(8).joinToString() +
 				(if (notice.drawableNames.size > 8) " (+${notice.drawableNames.size - 8} more)" else "") +
 				"; the editor's layered view shows them at the first twin's placement"
+		}
 	}
 
 /**

@@ -89,6 +89,7 @@ internal fun HostHeap.jarLaunchCommand(): String = "java $JAR_HEAP_OPTION -jar $
 internal fun describeHeapLimit(maxBytes: Long): String {
 	// Mebibytes first, so the multiplication cannot overflow even for Long.MAX_VALUE's "no limit".
 	val tenthsOfGigabyte = (maxBytes / (1024L * 1024) * 10 + 512) / 1024
+
 	return "${tenthsOfGigabyte / 10}.${tenthsOfGigabyte % 10} GB"
 }
 
@@ -105,6 +106,7 @@ internal fun lowMemoryNoticeRequest(hostHeap: HostHeap?, settings: Settings): Al
 	if (hostHeap == null || !lowHeapNoticeDue(hostHeap, settings.getBoolean(SHOW_LOW_MEMORY_NOTICE_KEY) != false)) {
 		return null
 	}
+
 	return AlertRequest(
 		message = Res.string.alert_low_memory_jar,
 		arguments = listOf(describeHeapLimit(hostHeap.maxBytes), hostHeap.jarLaunchCommand()),

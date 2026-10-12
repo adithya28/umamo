@@ -53,18 +53,23 @@ public object Cmo3Author {
 		// deterministic (sorted-tag) order; the editor's own order is HashMap iteration and not
 		// reproducible, and readers key these by name.
 		val versions = ArrayList(CMO3_VERSIONS_ALWAYS_5_4)
+
 		for (tag in modelTags.sorted()) {
 			CMO3_VERSIONS_BY_TAG_5_4[tag]?.let { versionEntry -> versions.add(versionEntry) }
 		}
+
 		// CMO3: root attribute fileFormatVersion - the root's only attribute in every corpus file.
 		document.rootElement.setAttribute("fileFormatVersion", FRESH_FILE_FORMAT_VERSION)
 		var instructionIndex = 0
+
 		for ((piName, versionNumber) in versions) {
 			document.addContent(instructionIndex++, ProcessingInstruction("version", "$piName:$versionNumber"))
 		}
+
 		for (fqcn in imports) {
 			document.addContent(instructionIndex++, ProcessingInstruction("import", fqcn))
 		}
+
 		return XmlCodec.write(document)
 	}
 
@@ -122,14 +127,18 @@ public object Cmo3Author {
 		if (desiredImports == replayedImports && appendedVersions.isEmpty()) {
 			return
 		}
+
 		for (instruction in importInstructions) {
 			document.removeContent(instruction)
 		}
+
 		var instructionIndex =
 			versionInstructions.lastOrNull()?.let { instruction -> document.indexOf(instruction) + 1 } ?: 0
+
 		for ((piName, versionNumber) in appendedVersions) {
 			document.addContent(instructionIndex++, ProcessingInstruction("version", "$piName:$versionNumber"))
 		}
+
 		for (fqcn in desiredImports) {
 			document.addContent(instructionIndex++, ProcessingInstruction("import", fqcn))
 		}
@@ -143,6 +152,7 @@ public object Cmo3Author {
 	 */
 	private fun collectTags(element: Element, into: HashSet<String>) {
 		into.add(element.name)
+
 		for (child in element.children) {
 			collectTags(child as Element, into)
 		}

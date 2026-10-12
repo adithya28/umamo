@@ -85,13 +85,32 @@ internal class RecordedPipeline(
 internal class RecordedCapturePipeline : DeformCapturePipeline
 
 /**
- * The deformed-position store the recorder handed out.
+ * A deformed-position store the recorder handed out.
  *
  * @property Int vertexCapacity The vertex capacity it was allocated at.
  */
 internal class RecordedStore(
 	val vertexCapacity: Int,
-) : DeformedPositionStore
+) : DeformedPositionStore {
+	var destroyed: Boolean = false
+}
+
+/**
+ * One mesh's overlay instance buffers the recorder handed out.  The flag arrays are held by reference and
+ * replaced by an in-place update, the way [RecordedMesh.restPositions] is.
+ *
+ * @property Int serial The creation ordinal, for a failure message.
+ * @property OverlayMeshSpec spec The spec it was created from.
+ */
+internal class RecordedOverlayBuffers(
+	val serial: Int,
+	val spec: OverlayMeshSpec,
+) : OverlayMeshBuffers {
+	var vertexFlags: ByteArray = spec.vertexFlags
+	var edgeFlags: ByteArray = spec.edgeFlags
+	var faceFlags: ByteArray = spec.faceFlags
+	var destroyed: Boolean = false
+}
 
 /**
  * A read-back claim ticket.
@@ -120,6 +139,9 @@ internal class RecordedPass(
 
 	/** The target this pass writes, as the recorder's own type. */
 	val target: RecordedTarget get() = spec.colorTarget as RecordedTarget
+
+	/** The draw-order target the pass's art draws write, as the recorder's own type, or null. */
+	val drawOrderTarget: RecordedTarget? get() = spec.drawOrderTarget as RecordedTarget?
 }
 
 /**
@@ -208,6 +230,10 @@ internal sealed interface RecordedDraw {
  * @property Int                cornerCount       The active keyform corners; 0 for a glue draw.
  * @property Int                parentType        0 direct, 1 rotation, 2 warp; 0 for a glue draw.
  * @property List<Float>        glueIntensities   The per-glue weld intensities; empty for a deforming draw.
+ * @property Int                drawOrder         The back-to-front index the draw's covering fragments write into
+ *   the pass's draw-order target; 0 for a draw that writes none.
+ * @property Float              orderOpacity      The composite opacity product the alpha is scaled by before the
+ *   order threshold.
  */
 internal class RecordedMeshDraw(
 	override val pipeline: RenderPipelineSpec,
@@ -229,6 +255,8 @@ internal class RecordedMeshDraw(
 	val cornerCount: Int,
 	val parentType: Int,
 	val glueIntensities: List<Float>,
+	val drawOrder: Int = 0,
+	val orderOpacity: Float = 1f,
 ) : RecordedDraw
 
 /**
@@ -287,22 +315,106 @@ internal class RecordedAxisDraw(
 ) : RecordedDraw
 
 /**
- * One flat underlay quad draw.
+ * One image quad draw of a UV scene: an atlas page or layer image, a placement crop, or a flat scrim, with
+ * the values its uniforms held at call time.
  *
- * @property RenderPipelineSpec pipeline   The pipeline bound.
- * @property RecordedTexture    page       The image drawn.
- * @property Float              pageWidth  The quad width in texels.
- * @property Float              pageHeight The quad height in texels.
+ * @property RenderPipelineSpec pipeline    The pipeline bound.
+ * @property RecordedTexture?   texture     The image sampled, or null for a flat-color quad.
+ * @property List<Float>        quadToWorld The unit-corner-to-world affine, rows first.
+ * @property List<Float>        uvAffine    The fragment's sample affine, rows first.
+ * @property List<Float>        drawColor   The flat color, straight RGBA (read when there is no texture).
  */
-internal class RecordedPageDraw(
+internal class RecordedQuadDraw(
 	override val pipeline: RenderPipelineSpec,
-	val page: RecordedTexture,
-	val pageWidth: Float,
-	val pageHeight: Float,
+	val texture: RecordedTexture?,
+	val quadToWorld: List<Float>,
+	val uvAffine: List<Float>,
+	val drawColor: List<Float>,
+) : RecordedDraw
+
+/**
+ * One mesh-overlay draw with the values its uniform struct held at call time, copied out as a backend
+ * marshals them.
+ *
+ * @property RenderPipelineSpec pipeline The pipeline bound.
+ * @property PipelinePurpose purpose Which overlay domain drew.
+ * @property RecordedOverlayBuffers buffers The mesh's overlay buffers.
+ * @property RecordedStore store The store the positions came from.
+ * @property Int baseOffset The mesh's first vertex in the store.
+ * @property Float viewportWidth The pass viewport width the sizes expand in.
+ * @property Float viewportHeight The pass viewport height.
+ * @property Float sizePx The half-width or radius in framebuffer pixels.
+ * @property Boolean fillIdle Whether idle faces fill.
+ * @property Boolean activeDraw Whether this drew the one active primitive.
+ * @property List<Int> activeIndices The active primitive's local indices.
+ * @property List<Float> idleColor The idle color, straight RGBA.
+ * @property List<Float> selectedColor The selected color.
+ * @property List<Float> activeColor The active color.
+ * @property Int cullOrder The edge draw's own draw order it culls by, or -1 for no culling.
+ * @property RecordedTexture? orderTexture The draw-order texture a culling edge draw reads, or null.
+ */
+internal class RecordedOverlayDraw(
+	override val pipeline: RenderPipelineSpec,
+	val purpose: PipelinePurpose,
+	val buffers: RecordedOverlayBuffers,
+	val store: RecordedStore,
+	val baseOffset: Int,
+	val viewportWidth: Float,
+	val viewportHeight: Float,
+	val sizePx: Float,
+	val fillIdle: Boolean,
+	val activeDraw: Boolean,
+	val activeIndices: List<Int>,
+	val idleColor: List<Float>,
+	val selectedColor: List<Float>,
+	val activeColor: List<Float>,
+	val cullOrder: Int = -1,
+	val orderTexture: RecordedTexture? = null,
 ) : RecordedDraw
 
 /** One resource operation, in the order the renderer issued it. */
 internal sealed interface ResourceEvent
+
+/** A deformed-position store was allocated. */
+internal class StoreCreated(
+	val store: RecordedStore,
+) : ResourceEvent
+
+/** A deformed-position store was freed. */
+internal class StoreDestroyed(
+	val store: RecordedStore,
+) : ResourceEvent
+
+/**
+ * Positions were written into a deformed-position store directly (a UV scene's overlay).
+ *
+ * @property RecordedStore store The store written.
+ * @property Int vertexOffset The first vertex written.
+ * @property FloatArray positions The positions, by reference.
+ */
+internal class StorePositionsUpdated(
+	val store: RecordedStore,
+	val vertexOffset: Int,
+	val positions: FloatArray,
+) : ResourceEvent
+
+/** A mesh's overlay instance buffers were uploaded. */
+internal class OverlayBuffersCreated(
+	val buffers: RecordedOverlayBuffers,
+) : ResourceEvent
+
+/** A mesh's overlay flags were replaced in place. */
+internal class OverlayFlagsUpdated(
+	val buffers: RecordedOverlayBuffers,
+	val vertexFlags: ByteArray,
+	val edgeFlags: ByteArray,
+	val faceFlags: ByteArray,
+) : ResourceEvent
+
+/** A mesh's overlay instance buffers were freed. */
+internal class OverlayBuffersDestroyed(
+	val buffers: RecordedOverlayBuffers,
+) : ResourceEvent
 
 /** A texture was created. */
 internal class TextureCreated(
@@ -442,6 +554,13 @@ internal class RecordingRenderDevice : RenderDevice {
 	fun meshDrawsOf(positions: FloatArray): List<RecordedMeshDraw> = meshDraws().filter { draw -> draw.mesh.restPositions === positions }
 
 	/**
+	 * Every mesh-overlay draw in every recorded pass, in issue order.
+	 *
+	 * @return List<RecordedOverlayDraw> The draws.
+	 */
+	fun overlayDraws(): List<RecordedOverlayDraw> = passes().flatMap { pass -> pass.draws.filterIsInstance<RecordedOverlayDraw>() }
+
+	/**
 	 * The pass a draw was recorded into.
 	 *
 	 * @param RecordedDraw draw The draw.
@@ -471,12 +590,14 @@ internal class RecordingRenderDevice : RenderDevice {
 	): GpuTexture {
 		val texture = RecordedTexture(nextSerial++, RecordedTextureKind.Image, width, height, pixels, wrap)
 		recordedResourceEvents.add(TextureCreated(texture))
+
 		return texture
 	}
 
 	override fun createFloatTexture(width: Int, height: Int, filter: TextureFilter, texels: FloatArray): GpuTexture {
 		val texture = RecordedTexture(nextSerial++, RecordedTextureKind.Float, width, height, pixels = null, wrap = null)
 		recordedResourceEvents.add(TextureCreated(texture))
+
 		return texture
 	}
 
@@ -487,8 +608,16 @@ internal class RecordingRenderDevice : RenderDevice {
 	}
 
 	override fun createMesh(spec: MeshSpec): GpuMesh {
+		spec.glueAttributes?.let { attributes ->
+			val vertexCount = spec.restPositions.size / 2
+			// A backend reads one weld attribute per vertex; a shorter array reads past its buffer.
+			check(attributes.partnerIndex.size == vertexCount && attributes.glueIndex.size == vertexCount && attributes.weldWeight.size == vertexCount) {
+				"createMesh: glue attributes cover ${attributes.partnerIndex.size} vertices of a $vertexCount-vertex mesh"
+			}
+		}
 		val mesh = RecordedMesh(nextSerial++, spec)
 		recordedResourceEvents.add(MeshCreated(mesh))
+
 		return mesh
 	}
 
@@ -513,10 +642,16 @@ internal class RecordingRenderDevice : RenderDevice {
 			}
 		val target = RecordedTarget(nextSerial++, spec, sampledTexture)
 		recordedResourceEvents.add(TargetCreated(target))
+
 		return target
 	}
 
-	override fun createDeformedPositionStore(vertexCapacity: Int): DeformedPositionStore = RecordedStore(vertexCapacity)
+	override fun createDeformedPositionStore(vertexCapacity: Int): DeformedPositionStore {
+		val store = RecordedStore(vertexCapacity)
+		recordedResourceEvents.add(StoreCreated(store))
+
+		return store
+	}
 
 	override fun createRenderPipeline(spec: RenderPipelineSpec): RenderPipeline = pipelinesBySpec.getOrPut(spec) { RecordedPipeline(spec) }
 
@@ -542,9 +677,54 @@ internal class RecordingRenderDevice : RenderDevice {
 		recordedResourceEvents.add(TargetDestroyed(recorded))
 	}
 
+	override fun updateDeformedPositions(store: DeformedPositionStore, vertexOffset: Int, positions: FloatArray) {
+		val recorded = liveStore(store, "updateDeformedPositions")
+		check(!frameOpen) { "updateDeformedPositions inside a frame: positions upload between frames" }
+		check(positions.size % 2 == 0) { "updateDeformedPositions: positions come in x, y pairs" }
+		check(vertexOffset >= 0 && vertexOffset + positions.size / 2 <= recorded.vertexCapacity) {
+			"updateDeformedPositions: ${positions.size / 2} vertices at $vertexOffset overrun a store of ${recorded.vertexCapacity}"
+		}
+		recordedResourceEvents.add(StorePositionsUpdated(recorded, vertexOffset, positions))
+	}
+
+	override fun destroyDeformedPositionStore(store: DeformedPositionStore) {
+		val recorded = liveStore(store, "destroyDeformedPositionStore")
+		recorded.destroyed = true
+		recordedResourceEvents.add(StoreDestroyed(recorded))
+	}
+
+	override fun createOverlayMeshBuffers(spec: OverlayMeshSpec): OverlayMeshBuffers {
+		check(spec.edgeEndpoints.size % 2 == 0) { "overlay edge endpoints come in pairs" }
+		check(spec.faceCorners.size % 3 == 0) { "overlay face corners come in threes" }
+		check(spec.edgeFlags.size == spec.edgeEndpoints.size / 2) { "one overlay edge flag per edge" }
+		check(spec.faceFlags.size == spec.faceCorners.size / 3) { "one overlay face flag per triangle" }
+		val buffers = RecordedOverlayBuffers(nextSerial++, spec)
+		recordedResourceEvents.add(OverlayBuffersCreated(buffers))
+
+		return buffers
+	}
+
+	override fun updateOverlayMeshFlags(buffers: OverlayMeshBuffers, vertexFlags: ByteArray, edgeFlags: ByteArray, faceFlags: ByteArray) {
+		val recorded = liveOverlayBuffers(buffers, "updateOverlayMeshFlags")
+		check(vertexFlags.size == recorded.vertexFlags.size) { "updateOverlayMeshFlags changes the vertex flag count of overlay buffers #${recorded.serial}" }
+		check(edgeFlags.size == recorded.edgeFlags.size) { "updateOverlayMeshFlags changes the edge flag count of overlay buffers #${recorded.serial}" }
+		check(faceFlags.size == recorded.faceFlags.size) { "updateOverlayMeshFlags changes the face flag count of overlay buffers #${recorded.serial}" }
+		recorded.vertexFlags = vertexFlags
+		recorded.edgeFlags = edgeFlags
+		recorded.faceFlags = faceFlags
+		recordedResourceEvents.add(OverlayFlagsUpdated(recorded, vertexFlags, edgeFlags, faceFlags))
+	}
+
+	override fun destroyOverlayMeshBuffers(buffers: OverlayMeshBuffers) {
+		val recorded = liveOverlayBuffers(buffers, "destroyOverlayMeshBuffers")
+		recorded.destroyed = true
+		recordedResourceEvents.add(OverlayBuffersDestroyed(recorded))
+	}
+
 	override fun beginFrame(): FrameEncoder {
 		check(!frameOpen) { "beginFrame while a frame is already open" }
 		frameOpen = true
+
 		return RecordingFrame()
 	}
 
@@ -575,11 +755,13 @@ internal class RecordingRenderDevice : RenderDevice {
 		val recordedSource = liveTarget(source, "resolveUsed")
 		val recordedDestination = liveTarget(destination, "resolveUsed")
 		check(recordedSource !== recordedDestination) { "a copy from target #${recordedSource.serial} onto itself" }
+
 		if (region != null) {
 			check(sourceUsedWidth == destinationUsedWidth && sourceUsedHeight == destinationUsedHeight) {
 				"a region copy between used sizes ${sourceUsedWidth}x$sourceUsedHeight and ${destinationUsedWidth}x$destinationUsedHeight"
 			}
 		}
+
 		recordedSteps.add(
 			RecordedResolve(
 				recordedSource,
@@ -595,16 +777,19 @@ internal class RecordingRenderDevice : RenderDevice {
 
 	override fun beginReadback(target: RenderTarget): ReadbackTicket {
 		val recorded = liveTarget(target, "beginReadback")
+
 		return RecordedTicket(recorded.spec.width, recorded.spec.height)
 	}
 
 	override fun beginReadback(target: RenderTarget, usedWidth: Int, usedHeight: Int): ReadbackTicket {
 		liveTarget(target, "beginReadback")
+
 		return RecordedTicket(usedWidth, usedHeight)
 	}
 
 	override fun pollReadback(ticket: ReadbackTicket): RasterImage {
 		val recorded = ticket as RecordedTicket
+
 		return blankImage(recorded.width, recorded.height)
 	}
 
@@ -614,11 +799,13 @@ internal class RecordingRenderDevice : RenderDevice {
 
 	override fun readPixels(target: RenderTarget): RasterImage {
 		val recorded = liveTarget(target, "readPixels")
+
 		return blankImage(recorded.spec.width, recorded.spec.height)
 	}
 
 	override fun readPixels(target: RenderTarget, usedWidth: Int, usedHeight: Int): RasterImage {
 		liveTarget(target, "readPixels")
+
 		return blankImage(usedWidth, usedHeight)
 	}
 
@@ -645,6 +832,7 @@ internal class RecordingRenderDevice : RenderDevice {
 	private fun liveTexture(texture: GpuTexture, operation: String): RecordedTexture {
 		val recorded = texture as RecordedTexture
 		check(!recorded.destroyed) { "$operation used texture #${recorded.serial} after it was freed" }
+
 		return recorded
 	}
 
@@ -658,6 +846,7 @@ internal class RecordingRenderDevice : RenderDevice {
 	private fun liveMesh(mesh: GpuMesh, operation: String): RecordedMesh {
 		val recorded = mesh as RecordedMesh
 		check(!recorded.destroyed) { "$operation used mesh #${recorded.serial} after it was freed" }
+
 		return recorded
 	}
 
@@ -671,6 +860,7 @@ internal class RecordingRenderDevice : RenderDevice {
 	private fun liveTarget(target: RenderTarget, operation: String): RecordedTarget {
 		val recorded = target as RecordedTarget
 		check(!recorded.destroyed) { "$operation used render target #${recorded.serial} after it was freed" }
+
 		return recorded
 	}
 
@@ -687,8 +877,39 @@ internal class RecordingRenderDevice : RenderDevice {
 		if (texture == null) {
 			return null
 		}
+
 		val recorded = liveTexture(texture, operation)
 		check(recorded !== pass.target.sampledTexture) { "$operation samples target #${pass.target.serial}, which its own pass is writing" }
+		check(recorded !== pass.drawOrderTarget?.sampledTexture) { "$operation samples the draw-order target its own pass is writing" }
+
+		return recorded
+	}
+
+	/**
+	 * The recorded store behind a handle, failing when it was freed.
+	 *
+	 * @param DeformedPositionStore store The handle.
+	 * @param String operation What the renderer was doing, for the failure message.
+	 * @return RecordedStore The live store.
+	 */
+	private fun liveStore(store: DeformedPositionStore, operation: String): RecordedStore {
+		val recorded = store as RecordedStore
+		check(!recorded.destroyed) { "$operation on a deformed-position store that was freed" }
+
+		return recorded
+	}
+
+	/**
+	 * The recorded overlay buffers behind a handle, failing when they were freed.
+	 *
+	 * @param OverlayMeshBuffers buffers The handle.
+	 * @param String operation What the renderer was doing, for the failure message.
+	 * @return RecordedOverlayBuffers The live buffers.
+	 */
+	private fun liveOverlayBuffers(buffers: OverlayMeshBuffers, operation: String): RecordedOverlayBuffers {
+		val recorded = buffers as RecordedOverlayBuffers
+		check(!recorded.destroyed) { "$operation on overlay buffers #${recorded.serial} that were freed" }
+
 		return recorded
 	}
 
@@ -698,25 +919,31 @@ internal class RecordingRenderDevice : RenderDevice {
 			check(frameOpen) { "beginRenderPass after the frame ended" }
 			check(openPass == null && openCapture == null) { "beginRenderPass while another pass is open" }
 			liveTarget(spec.colorTarget, "beginRenderPass")
+			spec.drawOrderTarget?.let { order ->
+				liveTarget(order, "beginRenderPass")
+				check(order !== spec.colorTarget) { "beginRenderPass with the draw-order target as its own color target" }
+			}
 			val pass = RecordedPass(spec)
 			recordedSteps.add(pass)
 			openPass = pass
+
 			return RecordingPass(pass)
 		}
 
 		override fun beginDeformCapturePass(pipeline: DeformCapturePipeline, store: DeformedPositionStore): DeformCapturePassEncoder {
 			check(frameOpen) { "beginDeformCapturePass after the frame ended" }
 			check(openPass == null && openCapture == null) { "beginDeformCapturePass while another pass is open" }
-			val capture = RecordedCapturePass(store as RecordedStore)
+			val capture = RecordedCapturePass(liveStore(store, "beginDeformCapturePass"))
 			recordedSteps.add(capture)
 			openCapture = capture
+
 			return RecordingCapture(capture)
 		}
 
 		override fun barrier(store: DeformedPositionStore) {
 			check(frameOpen) { "barrier after the frame ended" }
 			check(openPass == null && openCapture == null) { "barrier while a pass is open" }
-			recordedSteps.add(RecordedBarrier(store as RecordedStore))
+			recordedSteps.add(RecordedBarrier(liveStore(store, "barrier")))
 		}
 
 		override fun endFrame() {
@@ -772,6 +999,8 @@ internal class RecordingRenderDevice : RenderDevice {
 					cornerCount = deform.cornerCount,
 					parentType = deform.parentType,
 					glueIntensities = emptyList(),
+					drawOrder = fragment.drawOrder,
+					orderOpacity = fragment.orderOpacity,
 				),
 			)
 		}
@@ -785,6 +1014,7 @@ internal class RecordingRenderDevice : RenderDevice {
 			textures: DrawTextures,
 		) {
 			val pipeline = pipelineFor(PipelinePurpose.PuppetGlueDraw, "drawGlueMesh")
+			liveStore(store, "drawGlueMesh")
 			pass.draws.add(
 				RecordedMeshDraw(
 					pipeline = pipeline,
@@ -806,14 +1036,26 @@ internal class RecordingRenderDevice : RenderDevice {
 					cornerCount = 0,
 					parentType = 0,
 					glueIntensities = glueIntensities.toList(),
+					drawOrder = fragment.drawOrder,
+					orderOpacity = fragment.orderOpacity,
 				),
 			)
 		}
 
-		override fun drawAtlasPage(atlas: GpuTexture, pageWidth: Float, pageHeight: Float, fragment: FragmentUniforms) {
-			val pipeline = pipelineFor(PipelinePurpose.AtlasPageDraw, "drawAtlasPage")
-			val page = sampledTexture(atlas, pass, "drawAtlasPage") ?: error("drawAtlasPage with no page")
-			pass.draws.add(RecordedPageDraw(pipeline, page, pageWidth, pageHeight))
+		override fun drawImageQuad(texture: GpuTexture?, quadToWorld: FloatArray, fragment: FragmentUniforms) {
+			val pipeline = pipelineFor(PipelinePurpose.AtlasPageDraw, "drawImageQuad")
+			check(quadToWorld.size == 6) { "drawImageQuad takes a six-float affine, got ${quadToWorld.size}" }
+			val sampled = sampledTexture(texture, pass, "drawImageQuad")
+			check(!fragment.useTexture || sampled != null) { "drawImageQuad samples a texture it was not given" }
+			pass.draws.add(
+				RecordedQuadDraw(
+					pipeline = pipeline,
+					texture = sampled.takeIf { fragment.useTexture },
+					quadToWorld = quadToWorld.toList(),
+					uvAffine = fragment.uvAffine.toList(),
+					drawColor = listOf(fragment.colorRed, fragment.colorGreen, fragment.colorBlue, fragment.colorAlpha),
+				),
+			)
 		}
 
 		override fun drawGrid(uniforms: GridUniforms) {
@@ -847,6 +1089,64 @@ internal class RecordingRenderDevice : RenderDevice {
 			pass.draws.add(RecordedAxisDraw(pipelineFor(PipelinePurpose.WorldAxisLine, "drawAxisLine"), uniforms))
 		}
 
+		override fun drawOverlayFaceFill(buffers: OverlayMeshBuffers, store: DeformedPositionStore, uniforms: OverlayDrawUniforms) {
+			recordOverlayDraw(PipelinePurpose.OverlayFaceFill, "drawOverlayFaceFill", buffers, store, uniforms)
+		}
+
+		override fun drawOverlayEdges(buffers: OverlayMeshBuffers, store: DeformedPositionStore, uniforms: OverlayDrawUniforms, orderTexture: GpuTexture?) {
+			recordOverlayDraw(PipelinePurpose.OverlayEdge, "drawOverlayEdges", buffers, store, uniforms, orderTexture)
+		}
+
+		override fun drawOverlayVertexDots(buffers: OverlayMeshBuffers, store: DeformedPositionStore, uniforms: OverlayDrawUniforms) {
+			recordOverlayDraw(PipelinePurpose.OverlayVertexDot, "drawOverlayVertexDots", buffers, store, uniforms)
+		}
+
+		override fun drawOverlayFaceDots(buffers: OverlayMeshBuffers, store: DeformedPositionStore, uniforms: OverlayDrawUniforms) {
+			recordOverlayDraw(PipelinePurpose.OverlayFaceDot, "drawOverlayFaceDots", buffers, store, uniforms)
+		}
+
+		/**
+		 * Records one overlay draw of any domain, copying the uniform values out as a backend marshals them.
+		 *
+		 * @param PipelinePurpose purpose The domain's pipeline purpose, which the bound pipeline must match.
+		 * @param String operation The draw being issued, for the failure message.
+		 * @param OverlayMeshBuffers buffers The mesh's overlay buffers.
+		 * @param DeformedPositionStore store The overlay's store.
+		 * @param OverlayDrawUniforms uniforms The draw's inputs.
+		 * @param GpuTexture? orderTexture The draw-order texture an edge draw culls by, or null.
+		 */
+		private fun recordOverlayDraw(
+			purpose: PipelinePurpose,
+			operation: String,
+			buffers: OverlayMeshBuffers,
+			store: DeformedPositionStore,
+			uniforms: OverlayDrawUniforms,
+			orderTexture: GpuTexture? = null,
+		) {
+			val pipeline = pipelineFor(purpose, operation)
+			check(uniforms.cullOrder < 0 || orderTexture != null) { "$operation culls by order ${uniforms.cullOrder} with no order texture" }
+			pass.draws.add(
+				RecordedOverlayDraw(
+					pipeline = pipeline,
+					purpose = purpose,
+					buffers = liveOverlayBuffers(buffers, operation),
+					store = liveStore(store, operation),
+					baseOffset = uniforms.baseOffset,
+					viewportWidth = uniforms.viewportWidth,
+					viewportHeight = uniforms.viewportHeight,
+					sizePx = uniforms.sizePx,
+					fillIdle = uniforms.fillIdle,
+					activeDraw = uniforms.activeDraw,
+					activeIndices = listOf(uniforms.activeIndexA, uniforms.activeIndexB, uniforms.activeIndexC),
+					idleColor = uniforms.idleColor.toList(),
+					selectedColor = uniforms.selectedColor.toList(),
+					activeColor = uniforms.activeColor.toList(),
+					cullOrder = uniforms.cullOrder,
+					orderTexture = sampledTexture(orderTexture, pass, operation),
+				),
+			)
+		}
+
 		override fun end() {
 			requireOpen("end")
 			pass.ended = true
@@ -873,6 +1173,7 @@ internal class RecordingRenderDevice : RenderDevice {
 			requireOpen(operation)
 			val pipeline = boundPipeline ?: error("$operation with no pipeline bound")
 			check(pipeline.spec.purpose == purpose) { "$operation with a ${pipeline.spec.purpose} pipeline bound" }
+
 			return pipeline.spec
 		}
 	}

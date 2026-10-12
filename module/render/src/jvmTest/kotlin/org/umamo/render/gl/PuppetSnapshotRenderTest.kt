@@ -4,11 +4,19 @@ import org.umamo.format.moc3.Moc3
 import org.umamo.format.raster.RasterImage
 import org.umamo.interop.moc3.import.Moc3Import
 import org.umamo.render.FrameBackdrop
+import org.umamo.render.FrameOverlays
 import org.umamo.render.GridColors
 import org.umamo.render.PuppetTextures
 import org.umamo.render.ViewportCamera
 import org.umamo.render.device.RenderTargetSpec
 import org.umamo.render.device.TextureFormat
+import org.umamo.render.puppet.MeshOverlay
+import org.umamo.render.puppet.MeshOverlayKind
+import org.umamo.render.puppet.MeshOverlayMesh
+import org.umamo.render.puppet.MeshOverlayPalette
+import org.umamo.render.puppet.MeshOverlaySelectMode
+import org.umamo.render.puppet.MeshOverlaySizes
+import org.umamo.render.puppet.OverlayColor
 import org.umamo.render.puppet.PuppetRenderer
 import org.umamo.render.puppet.fallbackColorFor
 import org.umamo.render.restMeshesToCanvasSpace
@@ -73,13 +81,14 @@ class PuppetSnapshotRenderTest {
 	 */
 	private fun quad(id: DrawableId, low: Float, high: Float, opacity: Float = 1f): Drawable {
 		val positions = floatArrayOf(low, -low, high, -low, low, -high, high, -high)
+
 		return Drawable(
 			id = id,
 			name = id.raw,
 			parentDeformerId = null,
 			blendMode = BlendMode.Normal,
 			maskedBy = emptyList(),
-			mesh = DrawableMesh(positions, FloatArray(positions.size), intArrayOf(0, 1, 2, 1, 3, 2)),
+			mesh = DrawableMesh.withLocalEqualToCanvas(positions, FloatArray(positions.size), intArrayOf(0, 1, 2, 1, 3, 2)),
 			// A single zero-delta keyform so the drawable is keyed; the base mesh alone drives its shape.
 			geometryGrid = KeyformGrid(listOf(KeyformAxis(paramA, floatArrayOf(0f))), listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(positions.size))))),
 			opacity = opacity,
@@ -110,8 +119,8 @@ class PuppetSnapshotRenderTest {
 	private fun quadModel(): PuppetModel = modelOf(listOf(quad(quadId, 20f, 80f)))
 
 	/**
-	 * A renderer over [quadModel], posed at rest, with the quad selected and active and the world axes on:
-	 * the viewport's state, which a capture must leave out.
+	 * A renderer over [quadModel], posed at rest, with the quad selected and active: the viewport's state,
+	 * which a capture must leave out.
 	 *
 	 * @param GlRenderDevice device The device to render through.
 	 * @return PuppetRenderer The renderer.
@@ -119,13 +128,13 @@ class PuppetSnapshotRenderTest {
 	private fun viewportRenderer(device: GlRenderDevice): PuppetRenderer {
 		val renderer = PuppetRenderer(quadModel(), PuppetTextures(emptyList(), emptyMap(), premultipliedAlpha = false), device)
 		renderer.initGl()
-		renderer.setWorldAxesVisible(true)
 		renderer.setShownDrawables(setOf(quadId))
 		renderer.setSelection(setOf(quadId))
 		renderer.setActiveSelection(quadId)
 		renderer.setSelectionHighlightColor(0f, 0f, 1f)
 		renderer.setActiveSelectionHighlightColor(0f, 0f, 1f)
 		renderer.setPose(emptyMap())
+
 		return renderer
 	}
 
@@ -139,6 +148,7 @@ class PuppetSnapshotRenderTest {
 	 */
 	private fun pixelAt(image: RasterImage, column: Int, row: Int): List<Int> {
 		val offset = (row * image.width + column) * 4
+
 		return (0 until 4).map { channel -> image.rgba[offset + channel].toInt() and 0xFF }
 	}
 
@@ -170,20 +180,25 @@ class PuppetSnapshotRenderTest {
 		var worst = 0
 		var worstAt = 0
 		var overTolerance = 0
+
 		for (pixel in 0 until whole.rgba.size / 4) {
 			var pixelWorst = 0
+
 			for (channel in 0 until 4) {
 				val byteIndex = pixel * 4 + channel
 				pixelWorst = maxOf(pixelWorst, abs((whole.rgba[byteIndex].toInt() and 0xFF) - (tiled.rgba[byteIndex].toInt() and 0xFF)))
 			}
+
 			if (pixelWorst > tolerance) {
 				overTolerance++
 			}
+
 			if (pixelWorst > worst) {
 				worst = pixelWorst
 				worstAt = pixel
 			}
 		}
+
 		val worstPlace = "pixel (${worstAt % whole.width}, ${worstAt / whole.width})"
 		assertTrue(
 			worst <= EDGE_SAMPLE_DIFFERENCE,
@@ -195,16 +210,24 @@ class PuppetSnapshotRenderTest {
 		)
 	}
 
-	/** A transparent capture leaves empty canvas clear, draws neither axis, and draws the selected quad untinted. */
+	/**
+	 * A transparent capture leaves empty canvas clear, draws neither axis though the frame asks for them, and
+	 * draws the selected quad untinted.
+	 */
 	@Test
 	fun transparentCaptureLeavesTheCanvasClearAndDrawsNoTintOrAxes() {
 		requireHeadlessGl("[snapshot-transparent]")
 		val renderer = viewportRenderer(GlRenderDevice())
-		val image = assertNotNull(renderer.renderSnapshot(ViewportCamera(0f, 0f, 1f), imageSize, imageSize, FrameBackdrop.Transparent))
+		// The axes are asked for, as an area's frame asks for them: a transparent capture has no backdrop pass
+		// to draw them in, which is what the two axis assertions below hold it to.
+		val image =
+			assertNotNull(
+				renderer.renderSnapshot(ViewportCamera(0f, 0f, 1f), imageSize, imageSize, FrameBackdrop.Transparent, overlays = FrameOverlays(axes = true)),
+			)
 		assertEquals(imageSize to imageSize, image.width to image.height)
 
 		assertEquals(listOf(0, 0, 0, 0), pixelAt(image, 10, 10), "empty canvas is fully transparent")
-		// Column 100 is the world z axis and row 100 the x axis; neither is drawn without the grid.
+		// Column 100 is the world z axis and row 100 the x axis; neither is drawn without the grid, asked for or not.
 		assertEquals(listOf(0, 0, 0, 0), pixelAt(image, 100, 150), "the z axis is not drawn")
 		assertEquals(listOf(0, 0, 0, 0), pixelAt(image, 50, 100), "the x axis is not drawn")
 
@@ -332,10 +355,13 @@ class PuppetSnapshotRenderTest {
 				?.takeIf { directory -> directory.isDirectory }
 				?.walkTopDown()
 				?.firstOrNull { candidate -> candidate.name == "modelA.moc3" }
+
 		if (mocFile == null) {
 			println("modelA.moc3 not present; skipping the corpus tiled-capture check")
+
 			return
 		}
+
 		requireHeadlessGl("[snapshot-corpus-tiles]")
 		val puppet = restMeshesToCanvasSpace(Moc3Import.fromMocDocument(Moc3.read(mocFile.readBytes()), null))
 		val renderer = PuppetRenderer(puppet, PuppetTextures(emptyList(), emptyMap(), premultipliedAlpha = false), GlRenderDevice())
@@ -351,5 +377,35 @@ class PuppetSnapshotRenderTest {
 		assertTrue(coveredPixels > width * height / 20, "the rig covers a real part of the capture ($coveredPixels pixels)")
 		// A composite boundary re-quantizes to 8 bits, the same tolerance the composite parity gate allows.
 		assertTilesMatchWhole(whole, tiled, tolerance = 3, label = "tiles meet on the rig")
+	}
+
+	/** A capture leaves the mesh overlay out, and the viewport draws it again afterwards over the buffers it kept. */
+	@Test
+	fun aCaptureLeavesTheOverlayOutAndTheViewportKeepsIt() {
+		requireHeadlessGl("[snapshot-overlay]")
+		val device = GlRenderDevice()
+		val renderer = viewportRenderer(device)
+		renderer.setCamera(ViewportCamera(0f, 0f, 1f))
+		// An opaque red vertex dot on every corner of the quad; its top-left corner, world (20, 80), is pixel (120, 20).
+		val red = OverlayColor(1f, 0f, 0f, 1f)
+		renderer.setMeshOverlayPalette(MeshOverlayPalette(red, red, red, red, red, red, red, red, red))
+		renderer.setMeshOverlay(
+			MeshOverlay(
+				MeshOverlayKind.Edit,
+				MeshOverlaySelectMode.Vertex,
+				listOf(MeshOverlayMesh(quadId, 4, intArrayOf(0, 1, 1, 2, 0, 2, 1, 3, 2, 3), ByteArray(4), ByteArray(5), ByteArray(2), null, null, null)),
+				MeshOverlaySizes(4f, 2f, 3f),
+			),
+		)
+		val target = device.createRenderTarget(RenderTargetSpec(imageSize, imageSize, TextureFormat.Rgba8, sampled = true))
+		renderer.render(target, imageSize, imageSize)
+		assertEquals(listOf(255, 0, 0, 255), pixelAt(device.readPixels(target), 120, 20), "the viewport paints the corner's vertex dot")
+
+		// (165, 35) is quad interior clear of every corner dot and of the diagonal edge from (120, 20) to (180, 80).
+		val capture = assertNotNull(renderer.renderSnapshot(ViewportCamera(0f, 0f, 1f), imageSize, imageSize, FrameBackdrop.Grid))
+		assertClose(pixelAt(capture, 165, 35), pixelAt(capture, 120, 20), 8, "the capture's corner is the quad's own color, with no dot")
+
+		renderer.render(target, imageSize, imageSize)
+		assertEquals(listOf(255, 0, 0, 255), pixelAt(device.readPixels(target), 120, 20), "the viewport paints the dot again after the capture")
 	}
 }

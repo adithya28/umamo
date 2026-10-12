@@ -9,6 +9,10 @@ import org.umamo.format.cmo3.model.gen.CParameterGroup
 import org.umamo.format.cmo3.model.gen.CParameterGroupSet
 import org.umamo.format.cmo3.model.gen.CParameterSource
 import org.umamo.format.cmo3.model.gen.CParameterSourceSet
+import org.umamo.format.cmo3.model.gen.CPhysicsInput
+import org.umamo.format.cmo3.model.gen.CPhysicsOutput
+import org.umamo.format.cmo3.model.gen.CPhysicsSettingsSource
+import org.umamo.format.cmo3.model.gen.CPhysicsSettingsSourceSet
 import org.umamo.format.cmo3.model.gen.CTextureInputExtension
 import org.umamo.format.cmo3.model.gen.CTextureInput_ModelImage
 import org.umamo.format.cmo3.model.gen.Type
@@ -59,6 +63,36 @@ internal class Cmo3StructureLowering(
 	var deletedAnything: Boolean = false
 		private set
 
+	/** Drawables whose topology pass this export has still to run; see [expectTopologyRewrites]. */
+	private val pendingTopology = HashSet<DrawableId>()
+
+	/** Glues a topology pass left to a partner whose own pass was still pending. */
+	private val deferredGlues = LinkedHashSet<Glue>()
+
+	/**
+	 * Names the drawables whose topology this export is about to rewrite, so a glue between two of them
+	 * re-binds once both carry their new vertex-id tables rather than against the later one's old table.
+	 *
+	 * @param Collection<DrawableId> drawableIds The drawables whose topology passes follow.
+	 */
+	fun expectTopologyRewrites(drawableIds: Collection<DrawableId>) {
+		pendingTopology.addAll(drawableIds)
+	}
+
+	/**
+	 * Re-binds every glue still left to a partner whose topology pass never ran, against the tables the
+	 * graph holds now - the binding it would have had without the wait, notice included.
+	 */
+	fun settleTopologyRewrites() {
+		pendingTopology.clear()
+		val waiting = deferredGlues.toList()
+		deferredGlues.clear()
+
+		for (glue in waiting) {
+			lowerGluePairsFor(glue)
+		}
+	}
+
 	private fun unsupported(
 		category: ExportEntityCategory,
 		subject: String?,
@@ -88,10 +122,13 @@ internal class Cmo3StructureLowering(
 
 	private fun appendToCollection(owner: Any, ownerTag: String, property: String, current: Any?, assign: (MutableList<Any?>) -> Unit, element: Any) {
 		val mutable = mutableGraphListOf(current)
+
 		if (mutable != null) {
 			mutable.add(element)
+
 			return
 		}
+
 		// Every field this helper serves (_sources, _groups, _childGuids) is carray_list in every
 		// corpus model; the official editor's deserializers cast such fields to CArrayList, so an
 		// array_list tag fails its load.
@@ -103,6 +140,7 @@ internal class Cmo3StructureLowering(
 
 	private fun removeFromCollection(current: Any?, matches: (Any?) -> Boolean): Boolean {
 		val mutable = mutableGraphListOf(current) ?: return false
+
 		return mutable.removeAll(matches)
 	}
 
@@ -111,7 +149,9 @@ internal class Cmo3StructureLowering(
 		if (uuid == null) {
 			return
 		}
+
 		val parts = index.userPartSources + listOfNotNull(index.rootPartSource)
+
 		for (part in parts) {
 			mutableGraphListOf(part._childGuids)?.removeAll { entry -> Cmo3Import.uuidOf(entry) == uuid }
 		}
@@ -126,10 +166,13 @@ internal class Cmo3StructureLowering(
 	 */
 	fun synthesizeParameter(editedParameter: Parameter): Boolean {
 		val sourceSet = modelSource.parameterSourceSet as? CParameterSourceSet
+
 		if (sourceSet == null) {
 			unsupported(ExportEntityCategory.Parameter, editedParameter.id.raw, ExportNoticeReason.NoSourceSetToCreateInto)
+
 			return false
 		}
+
 		val template = index.parameterSources.firstOrNull()
 		val fresh =
 			CParameterSource().apply {
@@ -152,18 +195,58 @@ internal class Cmo3StructureLowering(
 				parentGroupGuid = index.rootParameterGroup?.guid
 			}
 		appendToCollection(sourceSet, "CParameterSourceSet", "_sources", sourceSet._sources, { sourceSet._sources = it }, fresh)
+
 		return true
 	}
 
-	/** Removes a deleted parameter's source. */
+	/**
+	 * Removes a deleted parameter's source, and reports any physics setting the graph retained that still reads
+	 * or drives it: Umamo does not model physics, so the settings are written back as they were and the notice
+	 * is what tells the rigger they now name a parameter the file lacks.
+	 *
+	 * @param ParameterId parameterId The deleted parameter.
+	 */
 	fun deleteParameter(parameterId: ParameterId) {
 		val sourceSet = modelSource.parameterSourceSet as? CParameterSourceSet ?: return
+		val deleted = Cmo3Import.elementsOf(sourceSet._sources).filterIsInstance<CParameterSource>().firstOrNull { entry -> Cmo3Import.idStrOf(entry.id) == parameterId.raw }
+
 		if (removeFromCollection(sourceSet._sources) { entry ->
 				entry is CParameterSource && Cmo3Import.idStrOf(entry.id) == parameterId.raw
 			}
 		) {
 			deletedAnything = true
 		}
+
+		val settingNames = deleted?.guid?.let(::physicsSettingsNaming).orEmpty()
+
+		if (settingNames.isNotEmpty()) {
+			unsupported(ExportEntityCategory.Parameter, parameterId.raw, ExportNoticeReason.PhysicsNamesDeletedParameter(settingNames))
+		}
+	}
+
+	/**
+	 * The names of the physics settings whose inputs or outputs name the parameter whose guid is [parameterGuid].
+	 *
+	 * @param Any parameterGuid The parameter source's guid.
+	 * @return List<String> The settings' names, in the graph's order.
+	 */
+	private fun physicsSettingsNaming(parameterGuid: Any): List<String> {
+		val uuid = Cmo3Import.uuidOf(parameterGuid)
+
+		fun names(reference: Any?): Boolean = reference === parameterGuid || (uuid != null && Cmo3Import.uuidOf(reference) == uuid)
+
+		// CMO3: CModelSource field physicsSettingsSourceSet -> CPhysicsSettingsSourceSet field _sourceCubismPhysics
+		// -> CPhysicsSettingsSource fields inputs / outputs -> CPhysicsInput field source and CPhysicsOutput field
+		// destination, each the parameter source's own guid object (721 of 721 in the corpus,
+		// Cmo3PhysicsReferenceProbeTest).
+		val physicsSet = modelSource.physicsSettingsSourceSet as? CPhysicsSettingsSourceSet ?: return emptyList()
+
+		return Cmo3Import.elementsOf(physicsSet._sourceCubismPhysics)
+			.filterIsInstance<CPhysicsSettingsSource>()
+			.filter { setting ->
+				Cmo3Import.elementsOf(setting.inputs).filterIsInstance<CPhysicsInput>().any { input -> names(input.source) } ||
+					Cmo3Import.elementsOf(setting.outputs).filterIsInstance<CPhysicsOutput>().any { output -> names(output.destination) }
+			}.map { setting -> setting.name?.takeIf { name -> name.isNotBlank() } ?: Cmo3Import.idStrOf(setting.id).orEmpty() }
 	}
 
 	/**
@@ -174,15 +257,21 @@ internal class Cmo3StructureLowering(
 	 */
 	fun synthesizeParameterGroup(groupId: ParameterGroupId): Boolean {
 		val groupSet = modelSource.parameterGroupSet as? CParameterGroupSet
+
 		if (groupSet == null) {
 			unsupported(ExportEntityCategory.ParameterGroup, groupId.raw, ExportNoticeReason.NoSourceSetToCreateInto)
+
 			return false
 		}
+
 		val editedGroup = findEditedGroup(groupId)
+
 		if (editedGroup == null) {
 			unsupported(ExportEntityCategory.ParameterGroup, groupId.raw, ExportNoticeReason.CreatedGroupIsNotInTheEditedTree)
+
 			return false
 		}
+
 		val template = index.groupSources.firstOrNull() ?: index.rootParameterGroup
 		val fresh =
 			CParameterGroup().apply {
@@ -200,12 +289,14 @@ internal class Cmo3StructureLowering(
 				parentGroupGuid = index.rootParameterGroup?.guid
 			}
 		appendToCollection(groupSet, "CParameterGroupSet", "_groups", groupSet._groups, { groupSet._groups = it }, fresh)
+
 		return true
 	}
 
 	/** Removes a deleted parameter group's source. */
 	fun deleteParameterGroup(groupId: ParameterGroupId) {
 		val groupSet = modelSource.parameterGroupSet as? CParameterGroupSet ?: return
+
 		if (removeFromCollection(groupSet._groups) { entry ->
 				entry is CParameterGroup && Cmo3Import.idStrOf(entry.id) == groupId.raw
 			}
@@ -226,16 +317,22 @@ internal class Cmo3StructureLowering(
 	fun synthesizeDrawable(editedDrawable: Drawable): Boolean {
 		val subject = editedDrawable.id.raw
 		val sourceSet = modelSource.drawableSourceSet as? org.umamo.format.cmo3.model.gen.CDrawableSourceSet
+
 		if (sourceSet == null) {
 			unsupported(ExportEntityCategory.Drawable, subject, ExportNoticeReason.NoSourceSetToCreateInto)
+
 			return false
 		}
+
 		val textureSource = editedDrawable.textureSourceId?.let { index.drawableByIdStr[it.raw] }
 		val binding = drawableBindings[subject]
+
 		if (textureSource == null && binding == null) {
 			unsupported(ExportEntityCategory.Drawable, subject, ExportNoticeReason.CreatedDrawableHasNoTextureSource)
+
 			return false
 		}
+
 		val templateMesh = textureSource?.let(Cmo3Import::editableMeshOf)
 		val ownerPartId = edited.partByDrawable()[editedDrawable.id]
 		val ownerGuid = ownerPartId?.let { index.partByIdStr[it.raw]?.guid } ?: index.rootPartSource?.guid
@@ -254,6 +351,7 @@ internal class Cmo3StructureLowering(
 			// of a source with no art of its own) carries none.
 			icon32 = binding?.icon32
 			icon16 = binding?.icon16
+
 			if (textureSource != null) {
 				// CMO3: CArtMeshSource identity shell.  The texture and texture-input extension are
 				// the SOURCE drawable's own objects (the writer hoists the shared references), so the
@@ -262,10 +360,18 @@ internal class Cmo3StructureLowering(
 				textureState = textureSource.textureState
 			} else {
 				// CMO3: the fresh-graph binding - the page's SHARED GTexture2D plus a per-drawable
-				// CTextureInput_TextureAtlasRegion, so UVs stay in the atlas frame (hasAtlasRegion).
+				// CTextureInput_TextureAtlasRegion, so UVs stay in the atlas frame (hasAtlasRegion); or, for
+				// art never packed, the raster texture over its model image, in the MODEL_IMAGE state every
+				// corpus unpacked drawable carries.
 				texture = binding!!.texture
-				textureState = org.umamo.format.cmo3.model.gen.TextureState.TEXTURE_ATLAS
+				textureState =
+					if (binding.isUnpacked) {
+						org.umamo.format.cmo3.model.gen.TextureState.MODEL_IMAGE
+					} else {
+						org.umamo.format.cmo3.model.gen.TextureState.TEXTURE_ATLAS
+					}
 			}
+
 			_extensions =
 				CArrayList<Any?>().apply {
 					if (textureSource != null) {
@@ -276,6 +382,7 @@ internal class Cmo3StructureLowering(
 					} else {
 						add(freshTextureInputExtension(fresh, binding!!, editedDrawable.name))
 					}
+
 					add(
 						CEditableMeshExtension().apply {
 							guid = freshGuidLike(null, "CExtensionGuid")
@@ -298,16 +405,19 @@ internal class Cmo3StructureLowering(
 				}
 		}
 		appendToCollection(sourceSet, "CDrawableSourceSet", "_sources", sourceSet._sources, { sourceSet._sources = it }, fresh)
+
 		return true
 	}
 
 	/**
 	 * Builds the per-drawable texture-input extension for a fresh-graph binding: both input kinds
 	 * (model image + atlas region), with the one the document's display mode samples made active,
-	 * mirroring the editor's packed drawables.
+	 * mirroring the editor's packed drawables; or, for an unpacked binding, the model image alone,
+	 * active in either mode, as the editor writes a drawable it never packed.
 	 *
 	 * @param CArtMeshSource             owner       The drawable source under construction.
-	 * @param Cmo3DrawableTextureBinding binding     The drawable's texture web (page texture + patch).
+	 * @param Cmo3DrawableTextureBinding binding     The drawable's texture web (page texture + patch, or an
+	 *   unpacked drawable's raster texture + model image).
 	 * @param String                     subjectName The drawable's display name, naming it in the display-mode notice.
 	 * @return CTextureInputExtension The fresh extension.
 	 */
@@ -318,16 +428,18 @@ internal class Cmo3StructureLowering(
 	): CTextureInputExtension {
 		val extension = CTextureInputExtension()
 		val atlasRegion =
-			org.umamo.format.cmo3.model.gen.CTextureInput_TextureAtlasRegion().apply {
-				// CMO3: CTextureInput_TextureAtlasRegion fields textureAtlasGuid +
-				// inputImageLocalToCanvasTransform (ACTextureInput super carries the owner backref).
-				// The transform places the atlas page's pixel frame on the canvas so this drawable's
-				// texture patch coincides with its base mesh - the editor inverts it to draw the mesh
-				// over the texture in the atlas and mesh-edit views.
-				optionalTransformOnCanvas = CAffine()
-				_owner = extension
-				textureAtlasGuid = binding.textureAtlasGuid
-				inputImageLocalToCanvasTransform = binding.inputImageLocalToCanvasTransform
+			binding.textureAtlasGuid?.let { atlasGuid ->
+				org.umamo.format.cmo3.model.gen.CTextureInput_TextureAtlasRegion().apply {
+					// CMO3: CTextureInput_TextureAtlasRegion fields textureAtlasGuid +
+					// inputImageLocalToCanvasTransform (ACTextureInput super carries the owner backref).
+					// The transform places the atlas page's pixel frame on the canvas so this drawable's
+					// texture patch coincides with its canvas mesh - the editor inverts it to draw the mesh
+					// over the texture in the atlas and mesh-edit views.
+					optionalTransformOnCanvas = CAffine()
+					_owner = extension
+					textureAtlasGuid = atlasGuid
+					inputImageLocalToCanvasTransform = binding.inputImageLocalToCanvasTransform
+				}
 			}
 		val modelImage =
 			binding.modelImageGuid?.let { imageGuid ->
@@ -338,6 +450,7 @@ internal class Cmo3StructureLowering(
 					_modelImageGuid = imageGuid
 				}
 			}
+
 		// A layer-mode document whose created drawable has no model image keeps the atlas region active:
 		// it is the only input such a drawable has, and leaving the live pointer there is what keeps the
 		// file self-consistent.  The notice names the gap, matching what the property lowering reports
@@ -345,19 +458,21 @@ internal class Cmo3StructureLowering(
 		if (edited.rendersFromSourceLayers && modelImage == null) {
 			unsupported(ExportEntityCategory.Drawable, subjectName, ExportNoticeReason.NoTextureInputForDisplayMode)
 		}
+
 		return extension.apply {
 			guid = freshGuidLike(null, "CExtensionGuid")
 			_owner = owner
 			_textureInputs =
 				CArrayList<Any?>().apply {
 					modelImage?.let(::add)
-					add(atlasRegion)
+					atlasRegion?.let(::add)
 				}
 			// CMO3: CTextureInputExtension field currentTextureInputData - which input the document's
 			// display mode samples.  A drawable created in a layer-mode document must point at its model
-			// image, or the file's flag and its drawables disagree.
+			// image, or the file's flag and its drawables disagree; an unpacked drawable has only its model
+			// image, which is current in both modes.
 			currentTextureInputData =
-				if (edited.rendersFromSourceLayers) {
+				if (edited.rendersFromSourceLayers || atlasRegion == null) {
 					modelImage ?: atlasRegion
 				} else {
 					atlasRegion
@@ -376,10 +491,13 @@ internal class Cmo3StructureLowering(
 	 */
 	fun synthesizePart(editedPart: org.umamo.runtime.model.Part): Boolean {
 		val sourceSet = modelSource.partSourceSet as? org.umamo.format.cmo3.model.gen.CPartSourceSet
+
 		if (sourceSet == null) {
 			unsupported(ExportEntityCategory.Part, editedPart.id.raw, ExportNoticeReason.NoSourceSetToCreateInto)
+
 			return false
 		}
+
 		val template = index.userPartSources.firstOrNull() ?: index.rootPartSource
 		val part = org.umamo.format.cmo3.model.gen.CPartSource()
 		val formGuid = freshGuidLike(null, "CFormGuid")
@@ -428,6 +546,7 @@ internal class Cmo3StructureLowering(
 			alphaComposition = org.umamo.format.cmo3.model.gen.AlphaComposition.OVER
 		}
 		appendToCollection(sourceSet, "CPartSourceSet", "_sources", sourceSet._sources, { sourceSet._sources = it }, part)
+
 		return true
 	}
 
@@ -440,10 +559,13 @@ internal class Cmo3StructureLowering(
 	 */
 	fun synthesizeDeformer(editedDeformer: org.umamo.runtime.model.Deformer): Boolean {
 		val sourceSet = modelSource.deformerSourceSet as? org.umamo.format.cmo3.model.gen.CDeformerSourceSet
+
 		if (sourceSet == null) {
 			unsupported(ExportEntityCategory.Deformer, editedDeformer.id.raw, ExportNoticeReason.NoSourceSetToCreateInto)
+
 			return false
 		}
+
 		val fresh: org.umamo.format.cmo3.model.gen.ACDeformerSource =
 			when (editedDeformer) {
 				is org.umamo.runtime.model.Deformer.Warp -> {
@@ -455,6 +577,7 @@ internal class Cmo3StructureLowering(
 						keyforms = CArrayList<Any?>()
 					}
 				}
+
 				is org.umamo.runtime.model.Deformer.Rotation -> {
 					val template =
 						index.deformerSources.filterIsInstance<org.umamo.format.cmo3.model.gen.CRotationDeformerSource>().firstOrNull()
@@ -479,6 +602,7 @@ internal class Cmo3StructureLowering(
 			labelColor = Cmo3SkeletonBuilder.undefinedLabelColor()
 		}
 		appendToCollection(sourceSet, "CDeformerSourceSet", "_sources", sourceSet._sources, { sourceSet._sources = it }, fresh)
+
 		return true
 	}
 
@@ -493,16 +617,22 @@ internal class Cmo3StructureLowering(
 	fun synthesizeGlue(editedGlue: Glue, ordinal: Int): Boolean {
 		val subject = "${editedGlue.meshA.raw}~${editedGlue.meshB.raw}"
 		val sourceSet = modelSource.affecterSourceSet as? org.umamo.format.cmo3.model.gen.CAffecterSourceSet
+
 		if (sourceSet == null) {
 			unsupported(ExportEntityCategory.Glue, subject, ExportNoticeReason.NoSourceSetToCreateInto)
+
 			return false
 		}
+
 		val meshAGuid = index.drawableByIdStr[editedGlue.meshA.raw]?.guid as? Guid
 		val meshBGuid = index.drawableByIdStr[editedGlue.meshB.raw]?.guid as? Guid
+
 		if (meshAGuid == null || meshBGuid == null) {
 			unsupported(ExportEntityCategory.Glue, subject, ExportNoticeReason.GluedDrawableHasNoSource)
+
 			return false
 		}
+
 		val template = index.glueSources.firstOrNull()
 		val ownerPartId = edited.partByDrawable()[editedGlue.meshA]
 		val ownerPart = ownerPartId?.let { index.partByIdStr[it.raw] } ?: index.rootPartSource
@@ -570,12 +700,14 @@ internal class Cmo3StructureLowering(
 			keyforms = CArrayList<Any?>(mutableListOf(form))
 		}
 		appendToCollection(sourceSet, "CAffecterSourceSet", "_sources", sourceSet._sources, { sourceSet._sources = it }, fresh)
+
 		// CMO3: CPartSource field _childGuids - the owning part lists the glue's CAffecterGuid
 		// after its drawables and deformers; the editor's load-time verify repairs (and 5.4
 		// crashes on) an affecter absent from the part hierarchy.
 		if (ownerPart != null) {
 			appendToCollection(ownerPart, "CPartSource", "_childGuids", ownerPart._childGuids, { ownerPart._childGuids = it }, glueGuid)
 		}
+
 		return true
 	}
 
@@ -583,6 +715,7 @@ internal class Cmo3StructureLowering(
 	fun deleteDrawable(drawableId: DrawableId) {
 		val sourceSet = modelSource.drawableSourceSet as? org.umamo.format.cmo3.model.gen.CDrawableSourceSet ?: return
 		val source = index.drawableByIdStr[drawableId.raw]
+
 		if (removeFromCollection(sourceSet._sources) { entry -> entry === source }) {
 			stripFromChildLists(Cmo3Import.uuidOf(source?.guid))
 			deletedAnything = true
@@ -593,6 +726,7 @@ internal class Cmo3StructureLowering(
 	fun deletePart(partIdRaw: String) {
 		val sourceSet = modelSource.partSourceSet as? org.umamo.format.cmo3.model.gen.CPartSourceSet ?: return
 		val source = index.partByIdStr[partIdRaw]
+
 		if (removeFromCollection(sourceSet._sources) { entry -> entry === source }) {
 			stripFromChildLists(Cmo3Import.uuidOf(source?.guid))
 			deletedAnything = true
@@ -603,6 +737,7 @@ internal class Cmo3StructureLowering(
 	fun deleteDeformer(deformerIdRaw: String) {
 		val sourceSet = modelSource.deformerSourceSet as? org.umamo.format.cmo3.model.gen.CDeformerSourceSet ?: return
 		val source = index.deformerByIdStr[deformerIdRaw]
+
 		if (removeFromCollection(sourceSet._sources) { entry -> entry === source }) {
 			stripFromChildLists(Cmo3Import.uuidOf(source?.guid))
 			deletedAnything = true
@@ -618,6 +753,7 @@ internal class Cmo3StructureLowering(
 					index.drawableIdStrByUuid[Cmo3Import.uuidOf(glueSource.targetArtMeshB_guid)] == meshB.raw
 			}
 		val victim = matching.getOrNull(ordinal) ?: return
+
 		if (removeFromCollection(sourceSet._sources) { entry -> entry === victim }) {
 			stripFromChildLists(Cmo3Import.uuidOf(victim.guid))
 			deletedAnything = true
@@ -625,9 +761,10 @@ internal class Cmo3StructureLowering(
 	}
 
 	/**
-	 * Rewrites a drawable's topology surface: indices, base positions, UVs, and the full
+	 * Rewrites a drawable's topology surface: indices, canvas positions, UVs, and the full
 	 * GEditableMesh2 rebuild (point mirror, freshly minted vertex uids, the unique triangle-edge
-	 * set), then re-binds every glue touching the drawable to the new uid table.
+	 * set), then re-binds every glue touching the drawable to the new uid table; a glue whose partner's
+	 * own topology pass is still to come is left to that pass, which re-binds it against both new tables.
 	 *
 	 * @param CArtMeshSource source         The drawable's graph source.
 	 * @param Drawable       editedDrawable The edited drawable.
@@ -635,16 +772,20 @@ internal class Cmo3StructureLowering(
 	 */
 	fun lowerMeshTopology(source: CArtMeshSource, editedDrawable: Drawable): Boolean {
 		val subject = editedDrawable.id.raw
+		pendingTopology.remove(editedDrawable.id)
 		val mesh = editedDrawable.mesh
+
 		if (mesh == null) {
 			unsupported(ExportEntityCategory.Drawable, subject, ExportNoticeReason.DrawableHasNoMesh)
+
 			return false
 		}
+
 		// CMO3: CArtMeshSource fields indices / positions / uvs.  The positions are CANVAS-frame
-		// in every official file, and mesh.positions is canvas-frame by the runtime's contract:
-		// the MOC3 document loader normalizes parent-local rest meshes through :render's
-		// restMeshesToCanvasSpace at import (rendering never notices the base's frame - grids sum
-		// to one - but the editor's atlas and mesh-edit views read this field as canvas geometry).
+		// in every official file, and mesh.positions is the canvas editable mesh by the runtime's
+		// contract (a MOC3 import derives it through :render's restMeshesToCanvasSpace at load); the
+		// editor's atlas and mesh-edit views read this field as canvas geometry.  The forms are the
+		// keyform lowering's, rebuilt from mesh.localPositions.
 		source.indices = mesh.indices.copyOf()
 		editor.ensureChildSlot(source, "CArtMeshSource", "indices", "keyforms")
 		source.positions = mesh.positions.copyOf()
@@ -653,6 +794,7 @@ internal class Cmo3StructureLowering(
 		editor.ensureChildSlot(source, "CArtMeshSource", "uvs", "texture")
 
 		val editableMesh = Cmo3Import.editableMeshOf(source)
+
 		if (editableMesh != null) {
 			val vertexCount = mesh.vertexCount
 			// CMO3: GEditableMesh2 - point mirrors the positions as its own array; pointUid gets a
@@ -667,6 +809,7 @@ internal class Cmo3StructureLowering(
 			editor.ensurePresentAttr(editableMesh, "GEditableMesh2", "nextPointUid")
 			editableMesh.useDelaunayTriangulation = false
 			editor.ensurePresentAttr(editableMesh, "GEditableMesh2", "useDelaunayTriangulation")
+
 			if (vertexCount <= Short.MAX_VALUE.toInt()) {
 				editableMesh.edge = triangleEdges(mesh.indices)
 				editor.ensureChildSlot(editableMesh, "GEditableMesh2", "edge", "edgePriority")
@@ -677,6 +820,7 @@ internal class Cmo3StructureLowering(
 					ExportNoticeReason.VertexCountExceedsEdgeTable(vertexCount, Short.MAX_VALUE.toInt()),
 				)
 			}
+
 			// Priority arrays resize to the new counts, keeping whichever array type was stored.
 			editableMesh.pointPriority = resizedPriorityArray(editableMesh.pointPriority, vertexCount, freshDefault = 10)
 			editor.ensureChildSlot(editableMesh, "GEditableMesh2", "pointPriority", "edge")
@@ -685,18 +829,31 @@ internal class Cmo3StructureLowering(
 				editor.ensureChildSlot(editableMesh, "GEditableMesh2", "edgePriority", "pointUid")
 			}
 		}
+
 		for (glue in edited.glues) {
 			if (glue.meshA != editedDrawable.id && glue.meshB != editedDrawable.id) {
 				continue
 			}
+
 			// A partner whose uid table is still missing is a fresh shell whose own topology pass is
 			// later in this same export - ITS re-bind loop covers this glue with both tables minted,
 			// so a premature attempt here would only raise a spurious notice.
 			if (uidTableOf(glue.meshA) == null || uidTableOf(glue.meshB) == null) {
 				continue
 			}
+
+			// A partner whose topology pass is still to come holds its OLD uid table until then, and
+			// its own pass re-binds this glue against both new tables.
+			if (glue.meshA in pendingTopology || glue.meshB in pendingTopology) {
+				deferredGlues.add(glue)
+
+				continue
+			}
+
+			deferredGlues.remove(glue)
 			lowerGluePairsFor(glue)
 		}
+
 		return true
 	}
 
@@ -716,37 +873,49 @@ internal class Cmo3StructureLowering(
 				index.drawableIdStrByUuid[Cmo3Import.uuidOf(candidate.targetArtMeshA_guid)] == editedGlue.meshA.raw &&
 					index.drawableIdStrByUuid[Cmo3Import.uuidOf(candidate.targetArtMeshB_guid)] == editedGlue.meshB.raw
 			}.getOrNull(ordinal)
+
 		if (glueSource == null) {
 			unsupported(ExportEntityCategory.Glue, subject, ExportNoticeReason.NoMatchingSourceToReconcile)
+
 			return false
 		}
+
 		val uidTableA = uidTableOf(editedGlue.meshA)
 		val uidTableB = uidTableOf(editedGlue.meshB)
+
 		if (uidTableA == null || uidTableB == null) {
 			unsupported(ExportEntityCategory.Glue, subject, ExportNoticeReason.GluedMeshHasNoUidTable)
+
 			return false
 		}
+
 		val pairCount = editedGlue.pairs.size
 		val weights = FloatArray(pairCount * 2)
 		val uids = LongArray(pairCount * 2)
+
 		for (pairIndex in 0 until pairCount) {
 			val pair = editedGlue.pairs[pairIndex]
 			val uidA = uidTableA.getOrNull(pair.indexA)
 			val uidB = uidTableB.getOrNull(pair.indexB)
+
 			if (uidA == null || uidB == null) {
 				unsupported(ExportEntityCategory.Glue, subject, ExportNoticeReason.GluePairIndexesPastUidTable)
+
 				return false
 			}
+
 			// CMO3: CGlueSource fields weights / bindVertexUids - [A, B]-interleaved per pair.
 			weights[pairIndex * 2] = pair.weightA
 			weights[pairIndex * 2 + 1] = pair.weightB
 			uids[pairIndex * 2] = uidA.toLong()
 			uids[pairIndex * 2 + 1] = uidB.toLong()
 		}
+
 		glueSource.weights = weights
 		editor.ensureChildSlot(glueSource, "CGlueSource", "weights", "keyforms")
 		glueSource.bindVertexUids = uids
 		editor.ensureChildSlot(glueSource, "CGlueSource", "bindVertexUids", "tabPosOnCanvas")
+
 		return true
 	}
 
@@ -757,6 +926,7 @@ internal class Cmo3StructureLowering(
 	private fun triangleEdges(indices: IntArray): ShortArray {
 		val seen = LinkedHashSet<Int>()
 		var triangleStart = 0
+
 		while (triangleStart + 2 < indices.size) {
 			for (cornerIndex in 0 until 3) {
 				val endpointA = indices[triangleStart + cornerIndex]
@@ -765,14 +935,18 @@ internal class Cmo3StructureLowering(
 				val high = maxOf(endpointA, endpointB)
 				seen.add(low shl 16 or high)
 			}
+
 			triangleStart += 3
 		}
+
 		val edges = ShortArray(seen.size * 2)
 		var writeIndex = 0
+
 		for (packed in seen) {
 			edges[writeIndex++] = (packed shr 16).toShort()
 			edges[writeIndex++] = (packed and 0xFFFF).toShort()
 		}
+
 		return edges
 	}
 
@@ -811,11 +985,14 @@ internal class Cmo3StructureLowering(
 					if (node.id == groupId) {
 						return node
 					}
+
 					walk(node.children)?.let { return it }
 				}
 			}
+
 			return null
 		}
+
 		return walk(edited.parameterTree)
 	}
 }

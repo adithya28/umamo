@@ -126,6 +126,7 @@ class Moc3VersionDowngradeTest {
 						multiplyColor = ColorRgb(0.5f, 0.5f, 0.5f),
 					),
 			)
+
 		return PuppetModel(
 			parameters =
 				listOf(

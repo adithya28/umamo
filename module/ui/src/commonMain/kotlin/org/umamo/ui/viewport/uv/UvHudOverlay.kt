@@ -10,6 +10,7 @@ import org.umamo.edit.MeshOperatorKind
 import org.umamo.render.ViewportCamera
 import org.umamo.ui.resources.*
 import org.umamo.ui.viewport.ActiveMeshInfoLabel
+import org.umamo.ui.viewport.LocalAreaOverlays
 import org.umamo.ui.viewport.ModalOperatorBadge
 import org.umamo.ui.viewport.ViewportZoomBadge
 import kotlin.math.roundToInt
@@ -50,6 +51,7 @@ internal fun UvHudOverlay(
 	// or off-page warning), since the Object overlay that computes it is a sibling and can only reach
 	// this chrome through the host.
 	val badgeOperator = uvOperator?.takeIf { operator -> operator.areaId == areaId }
+
 	if (badgeOperator != null) {
 		val badgeRadius = if (proportionalEdit != null && placementDragStatus == null) proportionalRadiusDisplay?.roundToInt() else null
 		ModalOperatorBadge(
@@ -61,8 +63,13 @@ internal fun UvHudOverlay(
 			modifier = modifier,
 		)
 	}
-	ActiveMeshInfoLabel(session = session, modifier = modifier)
-	ViewportZoomBadge(camera = liveCamera, modifier = modifier)
+
+	// The info chips are what the area's General Information overlay toggle covers; the operator badge
+	// above is feedback and always shows.
+	if (LocalAreaOverlays.current?.effectiveInfo != false) {
+		ActiveMeshInfoLabel(session = session, modifier = modifier)
+		ViewportZoomBadge(camera = liveCamera, modifier = modifier)
+	}
 }
 
 /**
@@ -78,15 +85,25 @@ internal fun UvHudOverlay(
 private fun placementBadgeDetail(status: PlacementDragStatus): String {
 	val readout =
 		when (status.operatorKind) {
-			MeshOperatorKind.Grab -> stringResource(Res.string.hud_delta_px, status.deltaX, status.deltaY)
-			MeshOperatorKind.Rotate -> stringResource(Res.string.hud_angle_degrees, roundedTo(status.angleDegrees, 10))
-			MeshOperatorKind.Scale ->
+			MeshOperatorKind.Grab -> {
+				stringResource(Res.string.hud_delta_px, status.deltaX, status.deltaY)
+			}
+
+			MeshOperatorKind.Rotate -> {
+				stringResource(Res.string.hud_angle_degrees, roundedTo(status.angleDegrees, 10))
+			}
+
+			MeshOperatorKind.Scale -> {
 				if (status.factorX == status.factorY) {
 					stringResource(Res.string.hud_scale_factor, roundedTo(status.factorX, 1000))
 				} else {
 					stringResource(Res.string.hud_scale_factor, "${roundedTo(status.factorX, 1000)}, ${roundedTo(status.factorY, 1000)}")
 				}
-			MeshOperatorKind.VertexSlide -> ""
+			}
+
+			MeshOperatorKind.VertexSlide -> {
+				""
+			}
 		}
 	val warning =
 		when {
@@ -94,6 +111,7 @@ private fun placementBadgeDetail(status: PlacementDragStatus): String {
 			status.offPage -> "  ${stringResource(Res.string.hud_off_page)}"
 			else -> ""
 		}
+
 	return "  ${stringResource(Res.string.hud_placement)}  $readout$warning"
 }
 

@@ -9,7 +9,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import org.umamo.edit.EditorMode
 import org.umamo.edit.MeshSelection
-import org.umamo.edit.MeshTopology
 import org.umamo.edit.Selection
 import org.umamo.edit.SelectionTarget
 import org.umamo.edit.UvPageKind
@@ -18,14 +17,16 @@ import org.umamo.render.PuppetTextures
 import org.umamo.runtime.model.Drawable
 import org.umamo.runtime.model.DrawableId
 import org.umamo.runtime.model.PuppetModel
-import org.umamo.runtime.model.atlasBindingFor
-import org.umamo.runtime.model.layerUvsFromAtlasUvs
 import org.umamo.runtime.model.visibleDrawableIds
+import org.umamo.ui.viewport.OverlaySurface
+import org.umamo.ui.viewport.ViewportOverlayState
 import org.umamo.ui.viewport.gizmo.GizmoMeshGeometry
 import org.umamo.ui.viewport.uv.atlasPageIndexFor
-import org.umamo.ui.viewport.uv.uvToDisplay
 import org.umamo.ui.workspace.PersistentSpaceState
+import org.umamo.ui.workspace.editorstate.OVERLAYS_MEMBER
 import org.umamo.ui.workspace.editorstate.intOf
+import org.umamo.ui.workspace.editorstate.overlaysJsonOrNull
+import org.umamo.ui.workspace.editorstate.restoreOverlays
 import org.umamo.ui.workspace.editorstate.stringOf
 
 /** The AreaScope.spaceState key the UV editor parks its view state under, and its member in an area block (UMA §7.3). */
@@ -55,8 +56,9 @@ internal sealed class UvTextureSelection {
 /**
  * The UV editor's per-area view state, shared between its area-header controls and its body (they
  * render as sibling subtrees, so this lives on the hosting AreaScope via spaceState rather than in a
- * body-local remember).  Two UV editors each get their own instance, and the instance lives as long as the open
- * document does; a saved document carries it (UMA §7.3).
+ * body-local remember): the texture selection and the area's overlay visibility.  Two UV editors each get
+ * their own instance, and the instance lives as long as the open document does; a saved document carries it
+ * (UMA §7.3).
  *
  * A pin can name a page the document does not have - a repack that shrank the atlas, a file saved by another
  * version.  Resolution treats such a pin as Follow Selection (resolveUvEditorPage) without clearing what is
@@ -65,6 +67,12 @@ internal sealed class UvTextureSelection {
 internal class UvEditorViewState : PersistentSpaceState {
 	/** The area's texture selection: follow the session, a pinned atlas page, or the source-layer view. */
 	var textureSelection by mutableStateOf<UvTextureSelection>(UvTextureSelection.FollowSelection)
+
+	/** Which overlays this area shows (UMA §7.3 `overlays`). */
+	val overlays = ViewportOverlayState(OverlaySurface.UvEditor)
+
+	/** The area's proportional radius per surface, which the body's gestures and the header's size row share; never saved. */
+	val proportionalRadii = UvProportionalRadii()
 
 	/**
 	 * The UV editor's member of its area block.
@@ -82,6 +90,7 @@ internal class UvEditorViewState : PersistentSpaceState {
 					is UvTextureSelection.PinnedPage -> buildJsonObject { put("page", JsonPrimitive(selection.pageIndex)) }
 				},
 			)
+			put(OVERLAYS_MEMBER, overlays.overlaysJsonOrNull())
 		}
 
 	/**
@@ -97,6 +106,7 @@ internal class UvEditorViewState : PersistentSpaceState {
 				stringOf(tree, "texture") == "sourceLayer" -> UvTextureSelection.SourceLayer
 				else -> UvTextureSelection.FollowSelection
 			}
+		overlays.restoreOverlays(tree[OVERLAYS_MEMBER] as? JsonObject)
 	}
 }
 
@@ -123,8 +133,8 @@ internal data class UvEditorPage(
  *
  * Untextured fallback: a 1x1 "page" turns the display mapping into the flipped unit square, so the
  * wireframe still shows (over the grid) for a drawable with no atlas entry.  Must equal the
- * service's pageContentBounds dimensions so the Compose wireframe and the GL page frame at the same
- * camera align.
+ * service's pageContentBounds dimensions (and the unit surface the renderer bounds the grid by), so
+ * the wireframes, the gizmo chrome, and the GL page frame at the same camera align.
  *
  * @param PuppetModel model The session's committed model.
  * @param MeshSelection meshSelection The mesh-element selection (its active drawable wins).
@@ -142,6 +152,7 @@ internal fun resolveUvEditorPage(
 ): UvEditorPage? {
 	if (textureSelection is UvTextureSelection.PinnedPage) {
 		val pinnedPage = textures?.atlases?.getOrNull(textureSelection.pageIndex)
+
 		if (pinnedPage != null) {
 			return UvEditorPage(
 				pageIndex = textureSelection.pageIndex,
@@ -208,13 +219,16 @@ internal fun resolveUvEditorLayer(
 	if (model.atlas.tiles.isEmpty()) {
 		return null
 	}
+
 	val activeDrawable = activeUvDrawable(model, meshSelection, objectSelection) ?: return null
 	// The tile the drawable itself names: a session-created duplicate copies the field along with the
 	// rest of the drawable, so it finds its art natively rather than through its source.
 	val entry = activeDrawable.atlasTileId?.let { tileId -> model.atlas.tileById[tileId] } ?: return null
+
 	if (entry.width <= 0 || entry.height <= 0) {
 		return null
 	}
+
 	return UvEditorLayer(entry.id.raw, entry.width, entry.height)
 }
 
@@ -232,6 +246,7 @@ private fun activeUvDrawable(model: PuppetModel, meshSelection: MeshSelection, o
 		meshSelection.activeDrawableId
 			?: (objectSelection.active as? SelectionTarget.Drawable)?.id
 			?: model.drawables.firstOrNull { drawable -> drawable.mesh != null }?.id
+
 	return model.drawables.firstOrNull { drawable -> drawable.id == activeDrawableId }?.takeIf { it.mesh != null }
 }
 
@@ -266,7 +281,8 @@ internal fun shownLayerDrawables(
  * display projection the overlays draw, and the alpha gate the island pick samples the shown image
  * with.  Deriving them once is what keeps those two from disagreeing about where a mesh is.
  *
- * A drawable whose recovery is degenerate is absent rather than mapped to a wrong place.
+ * A drawable whose recovery is degenerate is absent rather than mapped to a wrong place.  This is the
+ * one-shot form; an area keeps a [UvGizmoGeometryCache], which computes the same per mesh and keeps it.
  *
  * @param List<Drawable> shownDrawables The drawables drawn over the shown surface.
  * @param PuppetModel    model The puppet, for the atlas the layer mapping derives from.
@@ -277,18 +293,7 @@ internal fun shownSurfaceUvs(
 	shownDrawables: List<Drawable>,
 	model: PuppetModel,
 	layerView: UvEditorLayer?,
-): Map<DrawableId, FloatArray> =
-	shownDrawables
-		.mapNotNull { drawable ->
-			val mesh = drawable.mesh ?: return@mapNotNull null
-			if (layerView == null) {
-				return@mapNotNull drawable.id to mesh.uvs
-			}
-			val binding = model.atlasBindingFor(drawable) ?: return@mapNotNull null
-			val layerUvs = layerUvsFromAtlasUvs(mesh.uvs, binding, layerView.width, layerView.height) ?: return@mapNotNull null
-			drawable.id to layerUvs
-		}
-		.toMap()
+): Map<DrawableId, FloatArray> = UvGizmoGeometryCache().surfaceUvs(shownDrawables, model, layerView)
 
 /**
  * The texture-selection transition for one page-switch request: cycling pins the page adjacent to
@@ -310,19 +315,25 @@ internal fun uvPageSelectionAfter(
 	pageCount: Int,
 ): UvTextureSelection =
 	when (kind) {
-		UvPageKind.FollowSelection -> UvTextureSelection.FollowSelection
-		UvPageKind.NextPage ->
+		UvPageKind.FollowSelection -> {
+			UvTextureSelection.FollowSelection
+		}
+
+		UvPageKind.NextPage -> {
 			if (pageCount <= 0) {
 				currentSelection
 			} else {
 				UvTextureSelection.PinnedPage(((effectivePageIndex ?: -1) + 1).mod(pageCount))
 			}
-		UvPageKind.PreviousPage ->
+		}
+
+		UvPageKind.PreviousPage -> {
 			if (pageCount <= 0) {
 				currentSelection
 			} else {
 				UvTextureSelection.PinnedPage(((effectivePageIndex ?: 0) - 1 + pageCount).mod(pageCount))
 			}
+		}
 	}
 
 /**
@@ -384,6 +395,7 @@ internal fun shownSurfaceDrawables(
 			val shownIds = model.visibleDrawableIds()
 			model.drawables.filter { drawable -> drawable.id in shownIds }
 		}
+
 	return candidates.filter { drawable ->
 		val mesh = drawable.mesh
 		mesh != null && mesh.uvs.isNotEmpty() && mesh.uvs.size == mesh.positions.size && drawsOverSurface(drawable)
@@ -396,7 +408,8 @@ internal fun shownSurfaceDrawables(
  *
  * Takes the mappings rather than reading them off the drawables, because which frame they are in is
  * the caller's business (see [shownSurfaceUvs]) - which is what lets one projection serve the page
- * view and the layer view alike, and every overlay downstream stay unaware of the difference.
+ * view and the layer view alike, and every overlay downstream stay unaware of the difference.  This is
+ * the one-shot form; an area keeps a [UvGizmoGeometryCache], which computes the same per mesh and keeps it.
  *
  * @param List<Drawable> shownDrawables The drawables drawn over the shown surface.
  * @param Map<DrawableId, FloatArray> uvsById Each drawable's mapping in the shown surface's frame.
@@ -409,12 +422,7 @@ internal fun uvGizmoGeometries(
 	uvsById: Map<DrawableId, FloatArray>,
 	displayWidth: Int,
 	displayHeight: Int,
-): List<GizmoMeshGeometry> =
-	shownDrawables.mapNotNull { drawable ->
-		val mesh = drawable.mesh ?: return@mapNotNull null
-		val uvs = uvsById[drawable.id] ?: return@mapNotNull null
-		GizmoMeshGeometry(drawable.id, mesh.indices, MeshTopology.uniqueEdges(mesh.indices), uvToDisplay(uvs, displayWidth, displayHeight))
-	}
+): List<GizmoMeshGeometry> = UvGizmoGeometryCache().geometries(shownDrawables, uvsById, displayWidth, displayHeight)
 
 /**
  * The display-space rectangle every shown mesh covers - what a fit of the UV editor widens the shown
@@ -428,23 +436,29 @@ internal fun shownIslandExtent(geometries: List<GizmoMeshGeometry>): ContentBoun
 	var minY = Float.POSITIVE_INFINITY
 	var maxX = Float.NEGATIVE_INFINITY
 	var maxY = Float.NEGATIVE_INFINITY
+
 	for (geometry in geometries) {
 		val positions = geometry.positions
+
 		for (vertexIndex in 0 until positions.size / 2) {
 			val x = positions[vertexIndex * 2]
 			val y = positions[vertexIndex * 2 + 1]
+
 			// A mapping that is not a number frames nothing, and would poison every bound it touched.
 			if (!x.isFinite() || !y.isFinite()) {
 				continue
 			}
+
 			minX = minOf(minX, x)
 			minY = minOf(minY, y)
 			maxX = maxOf(maxX, x)
 			maxY = maxOf(maxY, y)
 		}
 	}
+
 	if (minX > maxX) {
 		return null
 	}
+
 	return ContentBounds(minX, minY, maxX - minX, maxY - minY)
 }

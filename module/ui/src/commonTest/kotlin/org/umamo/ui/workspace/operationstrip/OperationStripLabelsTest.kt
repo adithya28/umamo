@@ -1,19 +1,22 @@
 package org.umamo.ui.workspace.operationstrip
 
-import org.umamo.edit.MergeTarget
 import org.umamo.edit.MeshOperatorKind
 import org.umamo.edit.OperatorParameter
 import org.umamo.edit.ProportionalFalloff
-import org.umamo.edit.ProportionalRows
-import org.umamo.edit.TransformGestureParameters
-import org.umamo.edit.TransformRowSpace
-import org.umamo.edit.mergeParameters
-import org.umamo.edit.slideParameters
-import org.umamo.edit.transformParameters
+import org.umamo.edit.mesh.MergeTarget
+import org.umamo.edit.mesh.mergeParameters
+import org.umamo.edit.transform.ProportionalRows
+import org.umamo.edit.transform.TransformGestureParameters
+import org.umamo.edit.transform.TransformRowSpace
+import org.umamo.edit.transform.slideParameters
+import org.umamo.edit.transform.transformParameters
 import org.umamo.format.atlas.AtlasPackOptions
 import org.umamo.interop.art.SourceArtImportOptions
+import org.umamo.interop.art.mesh.ArtMeshPreset
 import org.umamo.ui.model.artwork.addArtworkParameters
 import org.umamo.ui.model.artwork.matchArtworkParameters
+import org.umamo.ui.model.mesh.MeshGenerationOptions
+import org.umamo.ui.model.mesh.meshGenerationParameters
 import org.umamo.ui.model.repack.repackParameters
 import org.umamo.ui.viewport.uv.PlacementDragStatus
 import org.umamo.ui.viewport.uv.placementParameters
@@ -34,21 +37,25 @@ class OperationStripLabelsTest {
 	/**
 	 * Every row every adjustable operation registers: the repack, the three placement gestures, adding and
 	 * matching artwork, each modal transform in both of its spaces with the proportional rows on, the
-	 * vertex slide, and the merge.
+	 * vertex slide, the merge, and Generate Mesh from Art.
 	 */
 	private val everyRow: List<OperatorParameter> =
 		buildList {
 			addAll(repackParameters(AtlasPackOptions()))
+
 			for (kind in listOf(MeshOperatorKind.Grab, MeshOperatorKind.Rotate, MeshOperatorKind.Scale)) {
 				addAll(placementParameters(PlacementDragStatus(kind, 0, 0, 0f, 1f, 1f, 0, false), 1024, 1024))
+
 				for (space in TransformRowSpace.entries) {
 					addAll(transformParameters(kind, TransformGestureParameters.IDENTITY, space, ProportionalRows(true, ProportionalFalloff.Smooth, 50f, false)))
 				}
 			}
+
 			addAll(addArtworkParameters(SourceArtImportOptions(), placed = true))
 			addAll(matchArtworkParameters(0.8f, SourceArtImportOptions()))
 			addAll(slideParameters(0.5f))
 			addAll(mergeParameters(MergeTarget.AtCenter))
+			addAll(meshGenerationParameters(MeshGenerationOptions.of(ArtMeshPreset.Standard), minimumAlphaThreshold = 1))
 		}
 
 	/** The distinct label keys of [everyRow], the unit a description is looked up by. */
@@ -80,6 +87,7 @@ class OperationStripLabelsTest {
 	fun choiceEntriesHaveNoDescription() {
 		val entryKeys = everyRow.filterIsInstance<OperatorParameter.ChoiceParameter>().flatMap { row -> row.choices.mapNotNull { choice -> choice.labelKey } }
 		assertTrue(entryKeys.isNotEmpty(), "the strip has choice rows whose entries carry label keys")
+
 		for (entryKey in entryKeys) {
 			assertNull(operatorParameterDescriptionRes(entryKey), "the choice entry $entryKey resolved a row description")
 		}

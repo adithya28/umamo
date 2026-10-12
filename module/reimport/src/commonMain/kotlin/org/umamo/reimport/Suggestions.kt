@@ -55,18 +55,27 @@ fun inventoryWithMissing(
 		fresh.map { row ->
 			val previousRow = previousByKey[row.key]
 			val carried = if (previousRow?.ignored == true) row.copy(ignored = true) else row
+
 			when {
-				row.key in untouchedKeys && previousRow != null && previousRow.present -> previousRow
+				row.key in untouchedKeys && previousRow != null && previousRow.present -> {
+					previousRow
+				}
+
 				// The previous row already holds the last frame with art when it was itself erased.
-				row.empty && previousRow != null ->
+				row.empty && previousRow != null -> {
 					carried.copy(left = previousRow.left, top = previousRow.top, width = previousRow.width, height = previousRow.height)
-				else -> carried
+				}
+
+				else -> {
+					carried
+				}
 			}
 		}
 	val lost =
 		previous
 			.filter { row -> row.key !in freshKeys && row.key in boundKeys }
 			.map { row -> if (row.present) row.copy(present = false, replaced = lostByReplacement) else row }
+
 	return refreshed + lost
 }
 
@@ -108,31 +117,41 @@ fun suggestionsFor(
 	val source = model.sources.firstOrNull { candidate -> candidate.id == sourceId } ?: return emptyMap()
 	val boundTiles = model.atlas.tiles.filter { tile -> tile.source?.sourceId == sourceId }
 	val tileByKey = HashMap<String, AtlasTileId>()
+
 	for (tile in boundTiles) {
 		val key = tile.source?.layerKey ?: continue
 		tileByKey.putIfAbsent(key, tile.id)
 	}
+
 	val candidates =
 		source.layers
 			.filter { row -> row.present && !row.empty && !row.ignored && row.key !in tileByKey && row.width > 0 && row.height > 0 }
 			.map { row -> MatchCandidate(row) { candidateRasterOf(row.key) } }
+
 	if (candidates.isEmpty()) {
 		return emptyMap()
 	}
+
 	val rowByKey = source.layers.associateBy { row -> row.key }
 	val suggestions = LinkedHashMap<String, LayerMatch>()
+
 	for (tile in boundTiles) {
 		val key = tile.source?.layerKey ?: continue
+
 		if (key in suggestions || tileByKey[key] != tile.id) {
 			continue
 		}
+
 		val row = rowByKey[key]
+
 		if (row != null && row.present && !row.empty) {
 			continue
 		}
+
 		val best = matcher.rank(missingRowFor(row, tile), missingRasterOf(tile.id), candidates).firstOrNull() ?: continue
 		suggestions[key] = best
 	}
+
 	return suggestions
 }
 
@@ -163,6 +182,7 @@ fun suggestionsAgainstRead(
 	val boundKeys = model.atlas.tiles.filter { tile -> tile.source?.sourceId == sourceId }.mapNotNullTo(HashSet()) { tile -> tile.source?.layerKey }
 	val refreshed = source.copy(layers = inventoryWithMissing(source.layers, inventory, boundKeys, untouchedKeys = boundKeys))
 	val scoringModel = model.copy(sources = model.sources.map { candidate -> if (candidate.id == sourceId) refreshed else candidate })
+
 	return suggestionsFor(scoringModel, sourceId, missingRasterOf, candidateRasterOf, matcher)
 }
 
@@ -178,12 +198,15 @@ fun suggestionsAgainstRead(
 fun confidentMatches(suggestions: Map<String, LayerMatch>, threshold: Float): Map<String, String> {
 	val takenCandidates = HashSet<String>()
 	val accepted = LinkedHashMap<String, String>()
+
 	for ((lostKey, match) in suggestions.entries.sortedByDescending { (_, match) -> match.score }) {
 		if (match.score < threshold || !takenCandidates.add(match.key)) {
 			continue
 		}
+
 		accepted[lostKey] = match.key
 	}
+
 	return accepted
 }
 
@@ -202,6 +225,7 @@ fun confidentMatches(suggestions: Map<String, LayerMatch>, threshold: Float): Ma
  */
 fun retirableTiles(model: PuppetModel, sourceId: ArtSourceId, candidateKey: String, except: Set<AtlasTileId>): List<AtlasTileId> {
 	val row = model.sources.firstOrNull { source -> source.id == sourceId }?.layers?.firstOrNull { layer -> layer.key == candidateKey }
+
 	return model.atlas.tiles
 		.filter { tile -> tile.id !in except && tile.source?.sourceId == sourceId && tile.source?.layerKey == candidateKey }
 		.filter { tile -> model.tileCarriesNoRigWork(tile.id, row) }

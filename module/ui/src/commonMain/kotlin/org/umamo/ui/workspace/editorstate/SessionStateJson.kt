@@ -9,7 +9,6 @@ import kotlinx.serialization.json.buildJsonObject
 import org.umamo.edit.Cursor2d
 import org.umamo.edit.DEFAULT_PROPORTIONAL_EDIT_STATE
 import org.umamo.edit.EditorMode
-import org.umamo.edit.GridConfig
 import org.umamo.edit.MeshSelectMode
 import org.umamo.edit.ParameterSelection
 import org.umamo.edit.Pose
@@ -94,15 +93,6 @@ fun sessionStateJson(viewState: SessionViewState, pose: Pose, model: PuppetModel
 				}
 			} ?: JsonNull,
 		)
-		put(
-			"grid",
-			viewState.gridConfig?.let { grid ->
-				buildJsonObject {
-					put("scale", JsonPrimitive(grid.scale))
-					put("subdivisions", JsonPrimitive(grid.subdivisions))
-				}
-			} ?: JsonNull,
-		)
 	}
 
 /**
@@ -115,12 +105,13 @@ fun sessionViewStateOf(tree: JsonObject?): SessionViewState? {
 	if (tree == null) {
 		return null
 	}
+
 	val selection = tree["selection"] as? JsonObject
 	val targets = selection?.let { block -> stringListOf(block, "targets") }.orEmpty().mapNotNullTo(LinkedHashSet(), ::selectionTargetOf)
 	val parameterSelection = tree["parameterSelection"] as? JsonObject
 	val parameterIds = parameterSelection?.let { block -> stringListOf(block, "ids") }.orEmpty().mapTo(LinkedHashSet(), ::ParameterId)
 	val proportional = tree["proportional"] as? JsonObject
-	val grid = tree["grid"] as? JsonObject
+
 	return SessionViewState(
 		selection = Selection(targets, selection?.let { block -> stringOf(block, "active") }?.let(::selectionTargetOf)),
 		parameterSelection = ParameterSelection(parameterIds, parameterSelection?.let { block -> stringOf(block, "active") }?.let(::ParameterId)),
@@ -138,13 +129,6 @@ fun sessionViewStateOf(tree: JsonObject?): SessionViewState? {
 					connectedOnly = booleanOf(block, "connectedOnly") ?: false,
 				)
 			},
-		// UMA §7.4: a grid needs a positive scale and at least one subdivision; anything else follows the application's.
-		gridConfig =
-			grid?.let { block ->
-				val scale = finiteFloatOf(block["scale"])?.takeIf { value -> value > 0f }
-				val subdivisions = intOf(block["subdivisions"])?.takeIf { value -> value >= 1 }
-				if (scale != null && subdivisions != null) GridConfig(scale, subdivisions) else null
-			},
 	)
 }
 
@@ -158,12 +142,14 @@ fun sessionViewStateOf(tree: JsonObject?): SessionViewState? {
 fun savedPoseOf(tree: JsonObject?): Map<ParameterId, Float> {
 	val entries = tree?.get("pose") as? JsonArray ?: return emptyMap()
 	val pose = LinkedHashMap<ParameterId, Float>()
+
 	for (entry in entries) {
 		val block = entry as? JsonObject ?: continue
 		val parameterId = stringOf(block, "parameter") ?: continue
 		val value = finiteFloatOf(block["value"]) ?: continue
 		pose[ParameterId(parameterId)] = value
 	}
+
 	return pose
 }
 
@@ -248,7 +234,9 @@ private fun falloffWireName(falloff: ProportionalFalloff): String =
 		ProportionalFalloff.Smooth -> "smooth"
 		ProportionalFalloff.Sphere -> "sphere"
 		ProportionalFalloff.Root -> "root"
+		ProportionalFalloff.InverseSquare -> "inverseSquare"
 		ProportionalFalloff.Sharp -> "sharp"
 		ProportionalFalloff.Linear -> "linear"
 		ProportionalFalloff.Constant -> "constant"
+		ProportionalFalloff.Random -> "random"
 	}

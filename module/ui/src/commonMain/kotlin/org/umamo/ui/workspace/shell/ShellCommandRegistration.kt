@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalUriHandler
+import org.umamo.ui.LocalSettings
 import org.umamo.ui.action.CommandRegistry
 import org.umamo.ui.help.openLinkQuietly
 import org.umamo.ui.model.LocalEditorMode
@@ -16,10 +17,11 @@ import org.umamo.ui.model.LocalPuppetViewportService
 import org.umamo.ui.model.LocalSelection
 import org.umamo.ui.model.LocalSessionAtlasPages
 import org.umamo.ui.model.LocalSourceArtRasters
+import org.umamo.ui.model.mesh.generateMeshLauncher
 import org.umamo.ui.model.repack.atlasRepackLauncher
+import org.umamo.ui.settings.MESH_GENERATION_PRESET_KEY
 import org.umamo.ui.workspace.KeyformHover
 import org.umamo.ui.workspace.commands.ArtworkOperations
-import org.umamo.ui.workspace.commands.CommandRouting
 import org.umamo.ui.workspace.commands.SessionAvailability
 import org.umamo.ui.workspace.commands.atlasCommands
 import org.umamo.ui.workspace.commands.chromeCommands
@@ -30,8 +32,10 @@ import org.umamo.ui.workspace.commands.fileImageExportCommands
 import org.umamo.ui.workspace.commands.frameCommands
 import org.umamo.ui.workspace.commands.historyCommands
 import org.umamo.ui.workspace.commands.keyformCommands
+import org.umamo.ui.workspace.commands.meshGenerationCommands
 import org.umamo.ui.workspace.commands.modeCommands
 import org.umamo.ui.workspace.commands.objectCommands
+import org.umamo.ui.workspace.commands.overlayCommands
 import org.umamo.ui.workspace.commands.proportionalCommands
 import org.umamo.ui.workspace.commands.registerAll
 import org.umamo.ui.workspace.commands.selectCommands
@@ -41,8 +45,6 @@ import org.umamo.ui.workspace.commands.transformCommands
 import org.umamo.ui.workspace.commands.uvCommands
 import org.umamo.ui.workspace.commands.viewCommands
 import org.umamo.ui.workspace.commands.workspaceCommands
-import org.umamo.ui.workspace.hostsOperationStrip
-import org.umamo.ui.workspace.layout.firstLeafOrNull
 
 /**
  * Registers the shell's own command tables (the commands package) into [commandRegistry], one effect per
@@ -76,27 +78,21 @@ internal fun RegisterShellCommands(
 	val keyableHover = controllers.keyableHover
 	val keyformSheetViews = controllers.keyformSheetViews
 	val areaCameras = controllers.areaCameras
+	val areaOverlays = controllers.areaOverlays
 	val repackOptions = controllers.repackOptions
+	val meshGenerationOptions = controllers.meshGenerationOptions
+	val meshGenerationRun = controllers.meshGenerationRun
 	val operationStrip = controllers.operationStrip
 	// Read at dispatch: the command table registers once per session, and the app hands in a fresh
 	// collaborator per composition.
 	val currentArtwork by rememberUpdatedState(artwork)
 	val currentExportImage by rememberUpdatedState(exportImage)
 
-	// ONE routing seam serves every group, remembered for the shell's lifetime.  It closes over nothing but
-	// the tracker and the layout controller (both remembered for the same lifetime, and both read live at
-	// dispatch), so it cannot go stale across a document swap and the groups that must NOT re-register on
-	// one can hold it safely.
+	// ONE routing seam serves every group, held by the controllers for the shell's lifetime (the Properties
+	// panel's transform rows reach its strip-area answer through LocalOperationStripArea), so it cannot go
+	// stale across a document swap and the groups that must NOT re-register on one can hold it safely.
 	val service = LocalPuppetViewportService.current
-	val routing =
-		remember {
-			CommandRouting(
-				{ hoveredSurfaces.lastTouched },
-				{ hoveredSurfaces.lastTouchedStripHost },
-				{ workspaces.layout.activeWorkspace()?.root?.firstLeafOrNull { leaf -> leaf.space.hostsOperationStrip }?.id },
-				{ hoveredSurfaces.lastTouchedViewport },
-			)
-		}
+	val routing = controllers.routing
 	// Read at dispatch: the chrome table registers once, and the handler the platform provides is the
 	// composition's to change.
 	val currentUriHandler by rememberUpdatedState(LocalUriHandler.current)
@@ -114,12 +110,15 @@ internal fun RegisterShellCommands(
 			)
 		onDispose { cleanup() }
 	}
-	// Viewport navigation commands dispatch to the hovered surface at invocation time: the hovered
-	// area's camera controller through the hub (2D viewport or UV editor), a no-op when none is
-	// registered. Re-registered when the render service changes (a new document / renderer), which
-	// flips the availability gate.
+	// Viewport navigation and overlay commands dispatch to the hovered surface at invocation time: the
+	// hovered area's camera controller or overlay state through its hub (2D viewport or UV editor), a
+	// no-op when none is registered. Re-registered when the render service changes (a new document /
+	// renderer), which flips the availability gate.
 	DisposableEffect(commandRegistry, service) {
-		val cleanup = commandRegistry.registerAll(viewCommands(areaCameras, routing, service != null))
+		val cleanup =
+			commandRegistry.registerAll(
+				viewCommands(areaCameras, routing, service != null) + overlayCommands(areaOverlays, routing, service != null),
+			)
 		onDispose { cleanup() }
 	}
 	// Frame All resolves the hovered editor to the command that editor means and re-dispatches THAT, so
@@ -164,6 +163,24 @@ internal fun RegisterShellCommands(
 		} else {
 			null
 		}
+	// Generate Mesh from Art, the same shape: the run off-thread, its strip, and the window's memory of the
+	// last options; the settings' preset seeds the first run and is read when the command fires.
+	val settings = LocalSettings.current
+	val generateMesh: ((String?) -> Unit)? =
+		if (editorSession != null && artRasters != null) {
+			generateMeshLauncher(
+				session = editorSession,
+				artRasters = artRasters,
+				sessionAtlasPages = sessionAtlasPages,
+				premultipliedAlpha = puppetTextures?.premultipliedAlpha ?: false,
+				scope = shellScope,
+				sessionOptions = meshGenerationOptions,
+				runState = meshGenerationRun,
+				seedPresetKey = { settings.getString(MESH_GENERATION_PRESET_KEY) },
+			)
+		} else {
+			null
+		}
 	DisposableEffect(commandRegistry, editorSession, selection) {
 		val cleanup =
 			commandRegistry.registerAll(
@@ -171,9 +188,10 @@ internal fun RegisterShellCommands(
 					objectCommands(editorSession, selection, availability) +
 					transformCommands(editorSession, routing, availability) +
 					selectCommands(editorSession, routing, keyformSheetViews, availability) +
-					snapCommands(editorSession, routing, availability) +
+					snapCommands(editorSession, routing, availability, areaOverlays) +
 					uvCommands(editorSession, routing, availability) +
 					topologyCommands(editorSession, routing, availability) +
+					meshGenerationCommands(availability, routing, generateMesh) +
 					proportionalCommands(editorSession, availability) +
 					displayCommands(editorSession, availability) +
 					atlasCommands(availability, routing, repackAtlas) +

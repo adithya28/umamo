@@ -41,6 +41,7 @@ class PartCompositeEvalTest {
 
 	private fun values(vararg pairs: Pair<ParameterId, Float>): (ParameterId) -> Float {
 		val map = pairs.toMap()
+
 		return { map[it] ?: 0f }
 	}
 
@@ -133,6 +134,7 @@ class PartCompositeEvalTest {
 				composite = staticComposite,
 				channelGrids = channelGrids,
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = listOf(part),
@@ -189,13 +191,14 @@ class PartCompositeEvalTest {
 				listOf(KeyformAxis(paramA, floatArrayOf(0f))),
 				listOf(KeyformCell(intArrayOf(0), MeshForm(FloatArray(positions.size), opacity = ownOpacity))),
 			).fanOutMesh()
+
 		return Drawable(
 			id = DrawableId(id),
 			name = id,
 			parentDeformerId = null,
 			blendMode = BlendMode.Normal,
 			maskedBy = emptyList(),
-			mesh = DrawableMesh(positions, FloatArray(positions.size), intArrayOf(0, 1, 2)),
+			mesh = DrawableMesh.withLocalEqualToCanvas(positions, FloatArray(positions.size), intArrayOf(0, 1, 2)),
 			// Bundled then fanned, so the fixture matches importer output and the opacity lands on its
 			// own track rather than being hand-placed.
 			geometryGrid = fanned.geometry,
@@ -273,7 +276,7 @@ class PartCompositeEvalTest {
 				parentDeformerId = null,
 				blendMode = BlendMode.Normal,
 				maskedBy = emptyList(),
-				mesh = DrawableMesh(positions, FloatArray(positions.size), intArrayOf(0, 1, 2)),
+				mesh = DrawableMesh.withLocalEqualToCanvas(positions, FloatArray(positions.size), intArrayOf(0, 1, 2)),
 				geometryGrid = fanned.geometry,
 				channelGrids = fanned.channels,
 			)

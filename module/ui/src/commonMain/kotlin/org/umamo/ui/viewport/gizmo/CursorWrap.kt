@@ -33,6 +33,7 @@ internal fun computeCursorWrap(local: Offset, size: IntSize, margin: Float, inse
 	var wrappedX = local.x.coerceIn(0f, width)
 	var wrappedY = local.y.coerceIn(0f, height)
 	var wrapped = false
+
 	// Only wrap an axis when the viewport is wide enough that both the near trigger zone and the far
 	// teleport target fit without overlap - otherwise a sliver of an area would ping-pong the cursor.
 	if (width > inset + margin) {
@@ -44,6 +45,7 @@ internal fun computeCursorWrap(local: Offset, size: IntSize, margin: Float, inse
 			wrapped = true
 		}
 	}
+
 	if (height > inset + margin) {
 		if (local.y <= margin) {
 			wrappedY = height - inset
@@ -53,6 +55,7 @@ internal fun computeCursorWrap(local: Offset, size: IntSize, margin: Float, inse
 			wrapped = true
 		}
 	}
+
 	return if (wrapped) {
 		Offset(wrappedX, wrappedY)
 	} else {
@@ -109,10 +112,13 @@ internal class CursorWrapState(
 	 */
 	fun resolveArrival(position: Offset, size: IntSize): Offset? {
 		val expectedLanding = pendingWarpLanding
+
 		if (expectedLanding != null && (position - expectedLanding).getDistance() > min(size.width, size.height) / 2f) {
 			return expectedLanding
 		}
+
 		pendingWarpLanding = null
+
 		return null
 	}
 
@@ -140,6 +146,7 @@ internal class CursorWrapState(
 		val landed = Offset(landedScreen.x - origin.x, landedScreen.y - origin.y)
 		wrapOffset += position - landed
 		pendingWarpLanding = landed
+
 		return landed
 	}
 

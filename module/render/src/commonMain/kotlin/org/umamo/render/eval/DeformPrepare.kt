@@ -99,10 +99,12 @@ internal fun preparePose(
 	val overrides = channelOverrides.takeIf { pending -> pending.isNotEmpty() }
 	val deformerWorlds = buildDeformerWorlds(model.deformers, paramValue, defaultValue, channelOverrides)
 	val drawables = ArrayList<DrawableDeformInputs>(model.drawables.size)
+
 	for (drawable in model.drawables) {
-		if (drawable.mesh?.positions == null) {
+		if (drawable.mesh?.localPositions == null) {
 			continue
 		}
+
 		// An UNKEYED drawable renders at its rest mesh rather than vanishing: one full-weight corner into
 		// an empty cell map contributes no deltas, and every blend site already treats a missing cell as a
 		// zero contribution. Null corners keep meaning HIDDEN (a pose outside a keyed grid's range), so
@@ -143,6 +145,7 @@ internal fun preparePose(
 				paramValue,
 				overrides?.get(KeyableTarget(drawableOwner, FormChannel.SCREEN_COLOR)),
 			)
+
 		// Blend shapes: additive deltas on every channel the record carries, not just the scalars.  Each
 		// contribution's form holds its stored delta plus the grid-at-default reference (added at import),
 		// so subtracting that reference back out here recovers the delta exactly.  Opacity and the colors
@@ -169,10 +172,12 @@ internal fun preparePose(
 						screenColor.blue + contribution.weight * (form.screenColor.blue - blend.referenceScreenColor.blue),
 					)
 			}
+
 			opacity = opacity.coerceIn(0f, 1f)
 			multiplyColor = multiplyColor.coerceToUnit()
 			screenColor = screenColor.coerceToUnit()
 		}
+
 		// Then the parent deformer chain's accumulated channels. A deformer's opacity multiplies, its
 		// multiply color multiplies, its screen color screens - each already folded over every ancestor
 		// deformer by buildDeformerWorlds, so one composition here covers the whole chain. Clamped
@@ -206,6 +211,7 @@ internal fun preparePose(
 			),
 		)
 	}
+
 	val glues =
 		model.glues.map { glue ->
 			GlueInputs(
@@ -238,6 +244,7 @@ internal fun preparePose(
 		val partId = group.partId
 		val channels = group.channelGrids
 		val partOwner = partId?.let { KeyformOwner.Part(it) }
+
 		if (partId != null && partOwner != null) {
 			// Null when the part has no draw-order track or the pose is out of its range; with no blend
 			// record contributing either, the map entry is then left ABSENT so the renderer keeps the
@@ -252,12 +259,15 @@ internal fun preparePose(
 			// all - so an entry appears whenever EITHER contributes, with the static standing in as the
 			// base when only the record does.
 			val blendDelta = partsById[partId]?.let { part -> partBlendDrawOrderDelta(part, paramValue, defaultValue) }
+
 			if (tracked != null || blendDelta != null) {
 				val base = tracked ?: partsById[partId]?.drawOrder?.toFloat() ?: DEFAULT_DRAW_ORDER.toFloat()
 				partDrawOrders[partId] = base + (blendDelta ?: 0f)
 			}
 		}
+
 		val composite = group.composite
+
 		if (partId != null && composite != null) {
 			// Each composite channel resolves independently against its own static, so an isolated part
 			// can key opacity alone without dragging its tints onto the same axes.
@@ -283,6 +293,7 @@ internal fun preparePose(
 					),
 				)
 		}
+
 		for (child in group.children) {
 			if (child is RenderGroup) {
 				blendGroupStates(child)
@@ -290,6 +301,7 @@ internal fun preparePose(
 		}
 	}
 	blendGroupStates(model.renderRoot)
+
 	return PoseDeformInputs(drawables, glues, partDrawOrders, partCompositeStates)
 }
 
@@ -298,7 +310,7 @@ internal fun preparePose(
  * through the baked parent transform, negates Y, then welds the glue pairs in place. Output is identical
  * to evaluating the model in one pass.
  *
- * @param PuppetModel      model  The rig (for each drawable's base positions + grid).
+ * @param PuppetModel      model  The rig (for each drawable's keyform-space base + grid).
  * @param PoseDeformInputs inputs The prepared per-pose inputs.
  * @return DeformedGeometry World positions + scalars per visible drawable.
  */
@@ -307,21 +319,27 @@ internal fun applyCpuDeform(model: PuppetModel, inputs: PoseDeformInputs): Defor
 	val worldPositions = HashMap<DrawableId, FloatArray>(inputs.drawables.size)
 	val drawOrders = HashMap<DrawableId, Float>(inputs.drawables.size)
 	val opacities = HashMap<DrawableId, Float>(inputs.drawables.size)
+
 	for (drawableInputs in inputs.drawables) {
 		val corners = drawableInputs.corners ?: continue
+
 		// A parented mesh whose ancestor deformer is hidden produces no geometry (the cascade omitted it).
 		if (drawableInputs.isParented && drawableInputs.parentWorld == null) {
 			continue
 		}
+
 		val drawable = drawableById[drawableInputs.drawableId] ?: continue
-		val base = drawable.mesh?.positions ?: continue
+		// The keyform-space base: the deltas are measured from it, and the parent chain maps it (DrawableMesh).
+		val base = drawable.mesh?.localPositions ?: continue
 		// A null grid is an unkeyed drawable, which deforms to its rest mesh - see preparePose.
 		worldPositions[drawableInputs.drawableId] =
 			deformMeshWorldFromCorners(drawable.geometryGrid, base, corners, drawableInputs.parentWorld, drawableInputs.blend)
 		drawOrders[drawableInputs.drawableId] = drawableInputs.drawOrder
 		opacities[drawableInputs.drawableId] = drawableInputs.opacity
 	}
+
 	applyGluesResolved(inputs.glues, worldPositions)
+
 	return DeformedGeometry(worldPositions, drawOrders, opacities)
 }
 
@@ -337,12 +355,15 @@ internal fun applyGluesResolved(glues: List<GlueInputs>, worldPositions: Map<Dra
 		val vertsA = worldPositions[glue.meshA] ?: continue
 		val vertsB = worldPositions[glue.meshB] ?: continue
 		val intensity = glue.intensity
+
 		for (pair in glue.pairs) {
 			val indexA = pair.indexA * 2
 			val indexB = pair.indexB * 2
+
 			if (indexA + 1 >= vertsA.size || indexB + 1 >= vertsB.size) {
 				continue
 			}
+
 			val ax = vertsA[indexA]
 			val ay = vertsA[indexA + 1]
 			val bx = vertsB[indexB]

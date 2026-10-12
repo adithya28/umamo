@@ -2,21 +2,26 @@ package org.umamo.ui.viewport.viewport2d
 
 import org.umamo.edit.AdjustableOperation
 import org.umamo.edit.EditorSession
-import org.umamo.edit.ModalTransformCapture
+import org.umamo.edit.MeshOperatorKind
 import org.umamo.edit.ProportionalEditState
-import org.umamo.edit.ProportionalRows
-import org.umamo.edit.TransformGestureParameters
-import org.umamo.edit.TransformParameterKeys
-import org.umamo.edit.TransformRowSpace
+import org.umamo.edit.TransformPivotMode
 import org.umamo.edit.floatValue
-import org.umamo.edit.rederiveProportionalHalos
-import org.umamo.edit.slideParameters
-import org.umamo.edit.transformGestureParametersOf
-import org.umamo.edit.transformParameters
-import org.umamo.edit.withMeshPositions
+import org.umamo.edit.mesh.withMeshPositions
+import org.umamo.edit.transform.IndividualOriginScope
+import org.umamo.edit.transform.ModalCaptureSource
+import org.umamo.edit.transform.ModalTransformCapture
+import org.umamo.edit.transform.ProportionalRows
+import org.umamo.edit.transform.TransformGestureParameters
+import org.umamo.edit.transform.TransformParameterKeys
+import org.umamo.edit.transform.TransformRowSpace
+import org.umamo.edit.transform.buildModalTransformCapture
+import org.umamo.edit.transform.meshBounds
+import org.umamo.edit.transform.rederiveProportionalHalos
+import org.umamo.edit.transform.slideParameters
+import org.umamo.edit.transform.transformGestureParametersOf
+import org.umamo.edit.transform.transformParameters
 import org.umamo.runtime.model.DrawableId
 import org.umamo.ui.transform.DrawableWorldGeometry
-import org.umamo.ui.viewport.gizmo.applyOperator
 import org.umamo.ui.viewport.gizmo.slideVertexByFactor
 
 /*
@@ -35,7 +40,7 @@ import org.umamo.ui.viewport.gizmo.slideVertexByFactor
  * Call it right after the commit and before the operator clears (its teardown drops the capture the
  * caller still holds).  An adjustment re-derives the halos on the RETAINED [transform] from its frozen
  * positions under the edited proportional rows, applies the edited numbers per mesh, inverts each
- * world shape back onto the base mesh through the frozen [geometryById], lands the result over the
+ * world shape back onto the rest arrays through the frozen [geometryById], lands the result over the
  * gesture's own step from the record's base, and hands the proportional state back to
  * [onProportional] so the next gesture starts from it.  Synchronous: an evaluation is the
  * per-pointer-frame cost.
@@ -62,18 +67,18 @@ internal fun registerMeshTransformAdjustment(
 ): AdjustableOperation? {
 	val kind = transform.operatorKind
 	val rows = transformParameters(kind, parameters, TransformRowSpace.World, proportional)
+
 	if (rows.isEmpty()) {
 		return null
 	}
+
 	return session.registerAdjustableOperation(session.model.value, areaId, rows) { record ->
 		val adjusted = transformGestureParametersOf(kind, TransformRowSpace.World, record.parameters)
 		val proportionalRows = rederiveProportionalHalos(transform, record.parameters)
-		val landed =
-			transform.entries.fold(record.baseSnapshot.model) { model, entry ->
-				val geometry = geometryById[entry.drawableId] ?: return@fold model
-				val world = applyOperator(kind, entry.positions, entry.groups, adjusted, entry.influence)
-				model.withMeshPositions(entry.drawableId, geometry.worldToBase(world, entry.movedIndices))
-			}
+		// The drive's own compute, so a replay and the gesture it replays cannot drift apart.
+		val jobs = meshDriveJobs(transform, geometryById, wholeMeshes = false)
+		val landed = computeMeshDrive(MeshDriveRequest(kind, adjusted, jobs, null, record.baseSnapshot.model)).folded
+
 		if (session.amendLastCommit(record, landed) && proportionalRows != null) {
 			onProportional(proportionalRows.asState())
 		}
@@ -110,7 +115,7 @@ internal fun registerSlideAdjustment(
 		val geometry = geometryById[drawableId] ?: return@registerAdjustableOperation
 		val adjustedFactor = record.parameters.floatValue(TransformParameterKeys.SLIDE_FACTOR, factor)
 		val world = slideVertexByFactor(entry.positions, vertexIndex, neighborIndex, adjustedFactor)
-		session.amendLastCommit(record, record.baseSnapshot.model.withMeshPositions(drawableId, geometry.worldToBase(world, entry.movedIndices)))
+		session.amendLastCommit(record, record.baseSnapshot.model.withMeshPositions(drawableId, geometry.worldToRest(world, entry.movedIndices)))
 	}
 
 /**
@@ -119,7 +124,8 @@ internal fun registerSlideAdjustment(
  * its frozen geometry over every vertex.
  *
  * @param EditorSession              session      The session the gesture committed into.
- * @param String                     areaId       The viewport the gesture ran in.
+ * @param String?                    areaId       The viewport the gesture ran in, or the area a panel-driven
+ *   transform's strip should show in (null shows it nowhere).
  * @param ModalTransformCapture      transform    The frozen capture.
  * @param Map                        geometryById Each moving drawable's frozen world geometry.
  * @param TransformGestureParameters parameters   The numbers the gesture landed with.
@@ -128,24 +134,59 @@ internal fun registerSlideAdjustment(
  */
 internal fun registerObjectTransformAdjustment(
 	session: EditorSession,
-	areaId: String,
+	areaId: String?,
 	transform: ModalTransformCapture,
 	geometryById: Map<DrawableId, DrawableWorldGeometry>,
 	parameters: TransformGestureParameters,
 ): AdjustableOperation? {
 	val kind = transform.operatorKind
 	val rows = transformParameters(kind, parameters, TransformRowSpace.World, proportional = null)
+
 	if (rows.isEmpty()) {
 		return null
 	}
+
 	return session.registerAdjustableOperation(session.model.value, areaId, rows) { record ->
 		val adjusted = transformGestureParametersOf(kind, TransformRowSpace.World, record.parameters)
-		val landed =
-			transform.entries.fold(record.baseSnapshot.model) { model, entry ->
-				val geometry = geometryById[entry.drawableId] ?: return@fold model
-				val world = applyOperator(kind, entry.positions, entry.groups, adjusted, emptyMap())
-				model.withMeshPositions(entry.drawableId, geometry.worldToBase(world, entry.coveredIndices))
-			}
-		session.amendLastCommit(record, landed)
+		val jobs = meshDriveJobs(transform, geometryById, wholeMeshes = true)
+		session.amendLastCommit(record, computeMeshDrive(MeshDriveRequest(kind, adjusted, jobs, null, record.baseSnapshot.model)).folded)
 	}
+}
+
+/**
+ * Registers a world transform of ONE drawable that committed outside any gesture - the Properties
+ * panel's Position and Size rows - as the session's adjustable operation, with the same rows the
+ * viewport's Object-mode G / S register and the same rerun over the frozen geometry.
+ *
+ * The capture is pinned to the drawable's bounds center rather than left on the default median pivot,
+ * because the panel's Size row scales about the bounds center: the vertex mean sits off it on an
+ * asymmetric mesh, and a Scale row adjusted about the mean would move the Position readout.  A Grab
+ * ignores the pivot, so one capture rule serves both.
+ *
+ * @param EditorSession              session    The session the transform committed into.
+ * @param String?                    areaId     The area the strip should show in, or null for nowhere.
+ * @param DrawableWorldGeometry      geometry   The frozen geometry the commit was planned against.
+ * @param MeshOperatorKind           kind       Grab for a move, Scale for a resize.
+ * @param TransformGestureParameters parameters The numbers the commit landed with, in world space.
+ * @return AdjustableOperation? The record, or null when the session refused the registration.
+ */
+internal fun registerDrawableWorldAdjustment(
+	session: EditorSession,
+	areaId: String?,
+	geometry: DrawableWorldGeometry,
+	kind: MeshOperatorKind,
+	parameters: TransformGestureParameters,
+): AdjustableOperation? {
+	val bounds = meshBounds(geometry.world)
+	val transform =
+		buildModalTransformCapture(
+			sources = listOf(ModalCaptureSource(geometry.drawableId, geometry.world, IntArray(0), geometry.allIndices)),
+			pivotMode = TransformPivotMode.Cursor,
+			individualOriginScope = IndividualOriginScope.WholeMesh,
+			operatorKind = kind,
+			activeAnchor = null,
+			cursorAnchor = bounds.centerX to bounds.centerY,
+		) ?: return null
+
+	return registerObjectTransformAdjustment(session, areaId, transform, mapOf(geometry.drawableId to geometry), parameters)
 }

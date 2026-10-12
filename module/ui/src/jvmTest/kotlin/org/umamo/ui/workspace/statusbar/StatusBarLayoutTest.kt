@@ -102,6 +102,7 @@ class StatusBarLayoutTest {
 			}
 		}
 		test.waitForIdle()
+
 		return StripText(hintFragment, statsFragment, notice)
 	}
 

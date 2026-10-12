@@ -47,6 +47,7 @@ public data class Offscreen(
 		hash = 31 * hash + maskCount
 		hash = 31 * hash + keyforms.hashCode()
 		hash = 31 * hash + maskIndices.contentHashCode()
+
 		return hash
 	}
 }
@@ -109,6 +110,7 @@ public data class BlendShapeLimit(
 		var hash = parameterIndex
 		hash = 31 * hash + keyPositions.contentHashCode()
 		hash = 31 * hash + weights.contentHashCode()
+
 		return hash
 	}
 }
@@ -165,6 +167,7 @@ public data class BlendShape(
 		hash = 31 * hash + recordBase
 		hash = 31 * hash + limits.hashCode()
 		hash = 31 * hash + keyforms.hashCode()
+
 		return hash
 	}
 }

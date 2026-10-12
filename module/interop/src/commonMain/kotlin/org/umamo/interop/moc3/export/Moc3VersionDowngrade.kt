@@ -69,9 +69,11 @@ object Moc3VersionDowngrade {
 	 */
 	fun strip(puppet: PuppetModel, version: MocVersion): Stripped {
 		val unsupported = RuntimeFeature.entries.filterNot { feature -> carries(feature, version) }
+
 		if (unsupported.isEmpty()) {
 			return Stripped(puppet, emptyList())
 		}
+
 		val notices = ArrayList<ExportNotice>()
 		var stripped = puppet
 
@@ -90,30 +92,56 @@ object Moc3VersionDowngrade {
 		for (feature in unsupported) {
 			stripped =
 				when (feature) {
-					RuntimeFeature.WarpQuadTransform -> stripQuadTransform(stripped, ::report)
-					RuntimeFeature.MeshWarpBlendShapes -> stripMeshWarpBlendShapes(stripped, ::report)
-					RuntimeFeature.BlendShapeParameters -> stripBlendShapeParameters(stripped, ::report)
-					RuntimeFeature.MultiplyColor ->
+					RuntimeFeature.WarpQuadTransform -> {
+						stripQuadTransform(stripped, ::report)
+					}
+
+					RuntimeFeature.MeshWarpBlendShapes -> {
+						stripMeshWarpBlendShapes(stripped, ::report)
+					}
+
+					RuntimeFeature.BlendShapeParameters -> {
+						stripBlendShapeParameters(stripped, ::report)
+					}
+
+					RuntimeFeature.MultiplyColor -> {
 						stripColorChannel(stripped, FormChannel.MULTIPLY_COLOR, ColorRgb.MultiplyIdentity, ::report)
+					}
 
-					RuntimeFeature.ScreenColor ->
+					RuntimeFeature.ScreenColor -> {
 						stripColorChannel(stripped, FormChannel.SCREEN_COLOR, ColorRgb.ScreenIdentity, ::report)
+					}
 
-					RuntimeFeature.ExtendedBlendShapes -> stripExtendedBlendShapes(stripped, ::report)
-					RuntimeFeature.ExtendedBlendModes -> stripExtendedBlendModes(stripped, ::report)
-					RuntimeFeature.PartComposite -> stripPartComposites(stripped, ::report)
+					RuntimeFeature.ExtendedBlendShapes -> {
+						stripExtendedBlendShapes(stripped, ::report)
+					}
+
+					RuntimeFeature.ExtendedBlendModes -> {
+						stripExtendedBlendModes(stripped, ::report)
+					}
+
+					RuntimeFeature.PartComposite -> {
+						stripPartComposites(stripped, ::report)
+					}
+
 					// Carried by EVERY moc version, so `carries` is unconditionally true for both and neither
 					// ever reaches this loop: the reversed mask is a bit in the constant-flag byte and
 					// parameter repeat is section 54, and both go back to v1.  The arm exists to keep the
 					// `when` exhaustive, not because there is work to do.  If a future version gate ever
 					// drops one of them, this has to grow a real strip - returning the model unchanged would
 					// write the feature into a file with nowhere to put it.
-					RuntimeFeature.ReversedMask, RuntimeFeature.ParameterRepeat -> stripped
+					RuntimeFeature.ReversedMask, RuntimeFeature.ParameterRepeat -> {
+						stripped
+					}
+
 					// Neither is representable in PuppetModel, so there is nothing here to remove: motion
 					// sync is a sidecar family and an art path survives only as CMO3 round-trip payload.
-					RuntimeFeature.MotionSync, RuntimeFeature.ArtPath -> stripped
+					RuntimeFeature.MotionSync, RuntimeFeature.ArtPath -> {
+						stripped
+					}
 				}
 		}
+
 		return Stripped(stripped, notices)
 	}
 
@@ -131,16 +159,25 @@ object Moc3VersionDowngrade {
 	private fun carries(feature: RuntimeFeature, version: MocVersion): Boolean =
 		when (feature) {
 			RuntimeFeature.WarpQuadTransform -> Section.WARP_MODE.indexIn(version) >= 0
+
 			RuntimeFeature.MeshWarpBlendShapes -> Section.BLENDSHAPE_MESH_OBJECT.indexIn(version) >= 0
+
 			RuntimeFeature.BlendShapeParameters -> Section.PARAM_TYPE.indexIn(version) >= 0
+
 			RuntimeFeature.MultiplyColor, RuntimeFeature.ScreenColor -> Section.COLOR_MULTIPLY_R.indexIn(version) >= 0
+
 			RuntimeFeature.ExtendedBlendShapes -> Section.BLENDSHAPE_ROTATION_OBJECT.indexIn(version) >= 0
+
 			RuntimeFeature.ExtendedBlendModes -> Section.ARTMESH_EXTENDED_BLEND.indexIn(version) >= 0
+
 			RuntimeFeature.PartComposite -> Section.OFFSCREEN_OWNER_PART.indexIn(version) >= 0
+
 			RuntimeFeature.ParameterRepeat -> Section.PARAM_REPEAT.indexIn(version) >= 0
+
 			// The reversed mask is a BIT in the drawable/offscreen constant-flag byte, not a section of
 			// its own, and that byte is in every version - so no moc version has to give it up.
 			RuntimeFeature.ReversedMask -> true
+
 			// Neither is representable in PuppetModel, so no version can fail to carry what is not there.
 			RuntimeFeature.MotionSync, RuntimeFeature.ArtPath -> true
 		}
@@ -158,6 +195,7 @@ object Moc3VersionDowngrade {
 				}
 			}
 		report(RuntimeFeature.WarpQuadTransform, affected)
+
 		return if (affected.isEmpty()) puppet else puppet.copy(deformers = deformers)
 	}
 
@@ -183,6 +221,7 @@ object Moc3VersionDowngrade {
 				}
 			}
 		report(RuntimeFeature.MeshWarpBlendShapes, affected)
+
 		return if (affected.isEmpty()) puppet else puppet.copy(drawables = drawables, deformers = deformers)
 	}
 
@@ -208,6 +247,7 @@ object Moc3VersionDowngrade {
 				}
 			}
 		report(RuntimeFeature.ExtendedBlendShapes, affected)
+
 		return if (affected.isEmpty()) puppet else puppet.copy(deformers = deformers, parts = parts)
 	}
 
@@ -224,6 +264,7 @@ object Moc3VersionDowngrade {
 				}
 			}
 		report(RuntimeFeature.BlendShapeParameters, affected)
+
 		return if (affected.isEmpty()) puppet else puppet.copy(parameters = parameters)
 	}
 
@@ -251,6 +292,7 @@ object Moc3VersionDowngrade {
 		val drawables =
 			puppet.drawables.map { drawable: Drawable ->
 				val staticColor = if (isMultiply) drawable.multiplyColor else drawable.screenColor
+
 				if (!tints(staticColor, drawable.channelGrids)) {
 					drawable
 				} else {
@@ -263,25 +305,29 @@ object Moc3VersionDowngrade {
 		val deformers =
 			puppet.deformers.map { deformer ->
 				val staticColor = if (isMultiply) deformer.multiplyColor else deformer.screenColor
+
 				if (!tints(staticColor, deformer.channelGrids)) {
 					deformer
 				} else {
 					affected.add(deformer.name)
 					val grids = deformer.channelGrids.without(channel)
-					when (deformer) {
-						is Deformer.Warp ->
-							if (isMultiply) {
-								deformer.copy(channelGrids = grids, multiplyColor = identity)
-							} else {
-								deformer.copy(channelGrids = grids, screenColor = identity)
-							}
 
-						is Deformer.Rotation ->
+					when (deformer) {
+						is Deformer.Warp -> {
 							if (isMultiply) {
 								deformer.copy(channelGrids = grids, multiplyColor = identity)
 							} else {
 								deformer.copy(channelGrids = grids, screenColor = identity)
 							}
+						}
+
+						is Deformer.Rotation -> {
+							if (isMultiply) {
+								deformer.copy(channelGrids = grids, multiplyColor = identity)
+							} else {
+								deformer.copy(channelGrids = grids, screenColor = identity)
+							}
+						}
 					}
 				}
 			}
@@ -289,6 +335,7 @@ object Moc3VersionDowngrade {
 			puppet.parts.map { part: Part ->
 				val composite = part.activeComposite ?: return@map part
 				val staticColor = if (isMultiply) composite.multiplyColor else composite.screenColor
+
 				if (!tints(staticColor, part.channelGrids)) {
 					part
 				} else {
@@ -303,6 +350,7 @@ object Moc3VersionDowngrade {
 				}
 			}
 		report(if (isMultiply) RuntimeFeature.MultiplyColor else RuntimeFeature.ScreenColor, affected)
+
 		return if (affected.isEmpty()) {
 			puppet
 		} else {
@@ -328,6 +376,7 @@ object Moc3VersionDowngrade {
 		val parts =
 			puppet.parts.map { part ->
 				val composite = part.activeComposite ?: return@map part
+
 				if (composite.blendMode.isLegacy && composite.alphaBlendMode == AlphaBlendMode.Over) {
 					part
 				} else {
@@ -342,6 +391,7 @@ object Moc3VersionDowngrade {
 				}
 			}
 		report(RuntimeFeature.ExtendedBlendModes, affected)
+
 		return if (affected.isEmpty()) puppet else puppet.copy(drawables = drawables, parts = parts)
 	}
 
@@ -362,6 +412,7 @@ object Moc3VersionDowngrade {
 				}
 			}
 		report(RuntimeFeature.PartComposite, affected)
+
 		return if (affected.isEmpty()) puppet else puppet.copy(parts = parts)
 	}
 }
@@ -379,6 +430,8 @@ private fun ChannelGrids.without(channel: FormChannel): ChannelGrids {
 	if (this[channel] == null) {
 		return this
 	}
+
 	val remaining = gridsByChannel - channel
+
 	return if (remaining.isEmpty()) ChannelGrids.Empty else ChannelGrids(remaining)
 }

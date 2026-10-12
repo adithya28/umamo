@@ -5,7 +5,7 @@
 Umamo is an open-source cross-platform rigging editor for 2D puppet animation, with first class pen and touch support, built as a drop-in replacement for the Live2D Cubism Editor.
 
 - **Language:** Kotlin, Kotlin Multiplatform (shared core across desktop + Android).
-- **Package root:** `org.umamo` (reverse-DNS of the `umamo.org` domain). Shared library modules are flat — `org.umamo.format`, `org.umamo.runtime`, `org.umamo.interop`, `org.umamo.render`, `org.umamo.ui`, `org.umamo.reimport`. App code carries product + platform — `org.umamo.editor.desktop`, `org.umamo.editor.android` (a future viewer takes `org.umamo.viewer.*`); the headless diagnostic tool is `org.umamo.cli` (JVM-only).  The editor's Android `applicationId` is `org.umamo.editor`, keeping bare `org.umamo` a clean umbrella.
+- **Package root:** `org.umamo` (reverse-DNS of the `umamo.org` domain). Shared library modules are flat — `org.umamo.format`, `org.umamo.geometry`, `org.umamo.runtime`, `org.umamo.interop`, `org.umamo.render`, `org.umamo.ui`, `org.umamo.reimport`. App code carries product + platform — `org.umamo.editor.desktop`, `org.umamo.editor.android` (a future viewer takes `org.umamo.viewer.*`); the headless diagnostic tool is `org.umamo.cli` (JVM-only).  The editor's Android `applicationId` is `org.umamo.editor`, keeping bare `org.umamo` a clean umbrella.
 - **Platforms:** Windows, macOS, Linux (keyboard/mouse/pen) **and Android tablets** (pen/touch — e.g.  Wacom MovinkPad).  Rigging is a first-class workflow on **all** of these, not desktop-only.
 - **Headline workflow:** draw in Clip Studio Paint (or Photoshop), save/export, switch to Umamo, and the rig **refreshes against the updated art** without losing rigging work.
 - **Compatibility is the product:** read and write the existing Cubism source format so riggers can adopt incrementally and interoperate with the official editor.
@@ -23,7 +23,7 @@ Runtime concerns (MOC3 emit, SDK/Core replacement) are a work in progress — se
 ## Format Support (priority order)
 
 - **UMA — read AND write, and the app's Open/Save.**  Native Umamo format: a ZIP of per-domain JSON entries (the puppet graph with its bulk arrays in a buffer entry, the atlas with its pixel entries, the linked source art) under a manifest whose compatibility rules open a newer file read-only or carry what this reader cannot interpret byte for byte.  `object Uma : FormatCodec<UmaModel>` lives in `:format` `uma/`; `UmaDocumentBridge` in `:interop` `uma/` maps a document to and from `PuppetModel`; `UmaDocument` (`:ui` jvmAndroidMain `document/`) is what File > Open loads and `writeUmaDocument` is what Save writes, laid over the file as opened so unknown keys and held tiles survive; the save target lives in a `DocumentFile` beside the session, not on the document.  Editor state (`editor/state.json`, never an input to the model) rides each save as a merge patch: per-area view state and cameras through `AreaViewStates` (`:ui` `workspace/editorstate/`), keyed by the layout's area ids, and the session's pose, selection, mode, cursors, and tool settings through `SessionViewState` (`:edit`), laid into the session's first snapshot so nothing restored is an undo step.  Spec: `docs/format/UMA.md`; decisions and roadmap: `docs/plan/uma-format.md`.
-- **CMO3 — read AND write, with edit-to-CMO3 lowering.**  A CMO3 is the native format for the Cubism editor, and an interop boundary for Umamo: the UI offers it as Import/Export (Open/Save is reserved for UMA).  `Cmo3.write` round-trips an unedited file's **decompressed `main.xml` byte-for-byte** — not the whole file; see the Fidelity contract.  Export is a **state-based reconcile**: `Cmo3Export.apply` (`:interop` jvmAndroidMain) re-imports the retained graph as a baseline, diffs the session's model against it, and patches only what changed — flat fields, base geometry/UVs, the keyform grid web (re-bundled via `refinedToUnion`), blend shapes, and structural create/delete for every entity category.  A MOC3-origin document (no retained graph) exports through **fresh-graph synthesis**: `Cmo3Conversion.freshCmo3` builds a blank BareMinimum-shaped skeleton plus a per-page image chain and runs the SAME reconcile against the empty baseline.  Anything unrepresentable surfaces as an `ExportNotice`, never a silent drop.  See `docs/format/CMO3.md` § Export.
+- **CMO3 — read AND write, with edit-to-CMO3 lowering.**  A CMO3 is the native format for the Cubism editor, and an interop boundary for Umamo: the UI offers it as Import/Export (Open/Save is reserved for UMA).  `Cmo3.write` round-trips an unedited file's **decompressed `main.xml` byte-for-byte** — not the whole file; see the Fidelity contract.  Export is a **state-based reconcile**: `Cmo3Export.apply` (`:interop` jvmAndroidMain) re-imports the retained graph as a baseline, diffs the session's model against it, and patches only what changed — flat fields, base geometry/UVs, the keyform grid web (re-bundled via `refinedToUnion`), blend shapes, and structural create/delete for every entity category.  A document with no retained graph (MOC3- or artwork-origin, or any `.uma` - a `.uma` never carries a CMO3's graph, D34) exports through **fresh-graph synthesis**: `Cmo3Conversion.freshCmo3` builds a blank BareMinimum-shaped skeleton plus a per-page image chain and runs the SAME reconcile against the empty baseline.  Anything unrepresentable surfaces as an `ExportNotice`, never a silent drop.  See `docs/format/CMO3.md` § Export.
 - **PSD — read.**  Layered-art ingestion.  Re-import join key is the lyid layer id when present (Photoshop-written, stable across rename/reorder), else layer name/path + order (lossy; some exporters omit lyid, so CLIP/KRA with always-present stable ids stay more robust).  See `docs/format/PSD.md`.
 - **CLIP (Clip Studio Paint) — read.**  Layered-art ingestion, proprietary (SQLite-based container).  Implemented: layer tree + raster decode, registered in `FormatRegistry` with corpus-backed tests.  See `docs/format/CLIP.md`.
 - **KRA (Krita) — read.**  Layered-art ingestion, open source format.  See `docs/format/KRA.md`.
@@ -122,7 +122,7 @@ Parameter-driven morph blending, **not** skeletal: `p = base + Σ wᵢ·Δᵢ`, 
 
 Mesh and keyform-deformation editing should feel like **sculpting, not CAD**, adopting Blender's UV-editor interactions.
 
-- **Proportional editing — shipped.**  Moving one vertex drags its neighbours within an adjustable radius, with six selectable **falloff curves** (smooth / sphere / root / sharp / linear / constant) plus a geodesic "connected only" mode that follows mesh edges instead of screen-space distance (`module/edit/.../ProportionalEditing.kt`).
+- **Proportional editing — shipped.**  Moving one vertex drags its neighbours within an adjustable radius, with Blender's eight selectable **falloff curves** (smooth / sphere / root / inverse square / sharp / linear / constant / random) plus a geodesic "connected only" mode that follows mesh edges instead of screen-space distance (`module/edit/.../ProportionalEditing.kt`).
 - **Brush radius for grab / smooth / relax — not yet implemented.**  The only existing brush-radius tool today is circle-select, a selection brush, not a vertex-manipulation one; there are no grab/smooth/relax sculpt operators yet.
 - **Pen-pressure-driven brush radius / falloff strength — not yet implemented.**  No pressure/tilt input is wired anywhere in the codebase yet (see the Pen input note above); this stays the target pen-first advantage over Cubism's click-drag-per-vertex model once it lands.
 
@@ -153,6 +153,7 @@ This is where Live2D's own reimport is lossy; doing it well is a competitive fea
 ```
 :format       commonMain  — Cubism file family + art I/O.  CMO3 (read/write), PSD (read),
                             CLIP (read), KRA (read), MOC3, JSON family.
+                            → :geometry (the alpha contour simplifier is its Douglas-Peucker)
 :reimport     commonMain  — non-destructive reconcile over the model's source bindings: the
                             key reconciler, the reload planner (a changed layer's tile is
                             superseded, never mutated), the okio polling file watcher, the watch
@@ -165,6 +166,13 @@ This is where Live2D's own reimport is lossy; doing it well is a competitive fea
                             jvmMain/androidMain (no expect/actual). → okio, FileKit
 :settings     commonMain  — JSON settings engine: bundled defaults ← user overrides, dotted-key
                             get/set, persistence, change-event Flow. → :storage, kotlinx-serialization
+:geometry     commonMain  — pure vector geometry, zero project deps: Shewchuk's exact orient2d /
+                            incircle, the constrained Delaunay triangulation the auto-mesh is built on
+                            (boundary rings by even-odd, neutral segments, crossings rejected never
+                            forced, no vertex ever added), resampling / Douglas-Peucker, a point
+                            locator, and the neutral PlanarTriangleMesh.  Knows no pixels, puppets, or
+                            formats.  Also declares linuxX64() so its tests RUN under Kotlin/Native
+                            (iosArm64 only compiles; the predicates assume no FMA).
 :runtime      commonMain  — the pure puppet runtime: the immutable PuppetModel + typed ids, the
                             keyform grid algebra, the sampling eval, and the atlas domain (PuppetAtlas:
                             pages + tiles, each tile's AtlasPlacement, plus the uv-affine algebra that
@@ -185,17 +193,30 @@ This is where Live2D's own reimport is lossy; doing it well is a competitive fea
                             container format.  `art/` is the source-art → PuppetModel bridge
                             (`SourceArtImport`: an UNPACKED model the app packs at open, the blend
                             table, the import notices; it seeds the parameter list it is handed and
-                            knows no template).
-                            → :format (api), :runtime (api)
-:edit         commonMain  — the editing session over the immutable PuppetModel: EditorSession
-                            (snapshot-based undo History, selection + mode state, tool latches,
-                            request buses), the sealed Change hierarchy, the pure edit ops
-                            (mesh topology/transforms, parameter edits, proportional editing), and
-                            the seed catalogs a new model starts from (`seed/`: ParameterTemplate +
-                            the humanoid standard set).
-                            → :runtime (api), kotlinx-coroutines (api)
+                            knows no template); `art/mesh/` is the art mesher (generateArtMesh: a
+                            layer's signed distance field → outline + inner ring + hex lattice → CDT,
+                            every art pixel provably covered) behind the `umamo mesh` CLI.
+                            → :format (api), :runtime (api), :geometry (api)
+:edit         commonMain  — the editing session over the immutable PuppetModel.  The root package
+                            is the session core: EditorSession (snapshot-based undo History, the one
+                            commitStep seam, the selection / mode / pose state) with the tool latches,
+                            tool settings, and request buses it delegates to, the sealed Change
+                            hierarchy, and the value types they snapshot.  One subpackage per editing
+                            domain (`transform/`, `mesh/`, `parameter/`, `keyform/`, `structure/`,
+                            `property/`, `atlas/`), each holding its pure PuppetModel transforms and
+                            the EditorSession extensions that record them; `seed/` holds the catalogs
+                            a new model starts from.  A domain imports the root, never the reverse.
+                            `mesh/` also carries rig work onto a mesh generated from art (the
+                            transfer behind Generate Mesh from Art), hence :geometry.
+                            → :runtime (api), :geometry (api), kotlinx-coroutines (api)
 :render       commonMain  — deformation eval (CPU) + the puppet renderer + morph-blend shaders,
                   + GL impl   over a `RenderDevice` backend seam.  → :runtime (api), :format (api).
+                            The renderer also draws the mesh overlay (`MeshOverlay`: edges, dots, face
+                            fills) that :ui derives and publishes, over the art's own deformed positions
+                            in the 2D viewport and over direct display positions in a UV area's scene
+                            (`DirectMeshOverlay`, riding the area's `UvSceneContent`): the Edit wireframe,
+                            and in Object mode the islands with the placement drag's preview
+                            (`PlacementPreview`) under them; Compose draws only the gesture chrome.
                             The whole renderer is backend-neutral commonMain now: the eval, the pure
                             render logic (`puppet/`: glue layout, pose resolve, model diff, delta
                             texels, bounds), the GL-family GLSL (`glsl/`, shared by GL 3.3 + GLES 3.0
@@ -241,7 +262,7 @@ This is where Live2D's own reimport is lossy; doing it well is a competitive fea
 :android      android     — thin Android entrypoint (Activity) over the same shared EditorApp;
                             the GLES `PuppetViewportService` implementation is pending — viewport
                             areas render placeholders until it lands.
-:cli          jvm         — headless diagnostic tool: dump / extract / atlas / convert / diff over
+:cli          jvm         — headless diagnostic tool: dump / extract / atlas / mesh / convert / diff over
                             cmo3, moc3, and source artwork files.  An operator's tool, not a
                             shipping app target, so it skips :ui and :edit entirely.
                             → :interop (api brings :format, :runtime), :render
@@ -249,7 +270,7 @@ This is where Live2D's own reimport is lossy; doing it well is a competitive fea
 
 **On disk:** library modules live under `module/`, application targets under `app/` (e.g. `module/format`, `app/desktop`); everything else at the repo root is intentionally non-module.  A module's Gradle path (`:format`, `:desktop`) is kept **flat and decoupled from its folder** via `projectDir` in `settings.gradle.kts`, so dependency declarations stay terse (`project(":format")`) and *path ≠ directory ≠ package*.  Stretch-phase modules follow the same scheme.
 
-Keep `:format`, `:reimport`, `:runtime`, `:interop`, `:edit`, `:ui` in `commonMain` so Android and desktop share them verbatim.  Platform-specific code (GPU contexts, FFI, pen, windowing) lives in `jvmMain` / `androidMain`.
+Keep `:format`, `:geometry`, `:reimport`, `:runtime`, `:interop`, `:edit`, `:ui` in `commonMain` so Android and desktop share them verbatim.  Platform-specific code (GPU contexts, FFI, pen, windowing) lives in `jvmMain` / `androidMain`.
 
 **Build logic that more than one module needs is a convention plugin, not a copied block.**  `gradle/build-logic` is an included build (not `buildSrc` — the configuration cache is on, and a `buildSrc` edit invalidates the whole build) exposing three plugins a module opts into by id:
 
@@ -294,6 +315,7 @@ The official Cubism Core/SDK/Editor are **external dependencies of the harness o
 - Model format versions and deformer kinds as **sealed classes/enums**; match exhaustively so the compiler enforces coverage.  No accidental nullability.
 - Prefer `expect`/`actual` over `if (platform)` for desktop/Android splits.
 - Braces are MANDATORY on EVERY `if`, `else if`, and `else` — including single-statement bodies. The body always goes on its own line inside `{ }`.  The brace-less one-liner form is NOT allowed under any circumstances.
+- **Blank lines around control flow:** a blank line goes before and after every statement-level `if`, `when`, `for`, `while`, `do`-`while`, and `try` block, and before every `return`, `throw`, `break`, and `continue`, in lambda bodies too — except where the statement opens its block (a block never starts or ends on a blank line).  Comment lines above a statement belong to it, so the blank line goes above them.  A value `if`/`when` (`val side = if (…) … else …`) and a jump inside an expression (`?: return`) are part of their statement, not blocks.  Enforced by the `umamo:blank-line-around-control-flow` ktlint rule (Umamo's own rule set, the `gradle/ktlint-rules` included build); `ktlintFormat` inserts whatever is missing.
 
 ### Comments & documentation
 

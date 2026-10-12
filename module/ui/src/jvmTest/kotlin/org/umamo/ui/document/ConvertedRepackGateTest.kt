@@ -1,6 +1,6 @@
 package org.umamo.ui.document
 
-import org.umamo.edit.withAtlasRepack
+import org.umamo.edit.atlas.withAtlasRepack
 import org.umamo.format.art.analyzeAlpha
 import org.umamo.format.atlas.AtlasPackOptions
 import org.umamo.format.atlas.packAtlas
@@ -74,15 +74,18 @@ class ConvertedRepackGateTest {
 		val trimByTile = HashMap<AtlasTileId, FloatArray?>()
 		var displaced = 0
 		var checked = 0
+
 		for (drawable in model.drawables) {
 			val tileId = drawable.atlasTileId ?: continue
 			val tile = tileById[tileId] ?: continue
 			val placement = tile.placement ?: continue
 			val page = model.atlas.pages.getOrNull(placement.pageIndex) ?: continue
 			val uvs = drawable.mesh?.uvs ?: continue
+
 			if (uvs.size < 2) {
 				continue
 			}
+
 			val trim =
 				trimByTile.getOrPut(tileId) {
 					decodeRaster(tileId)?.let { raster ->
@@ -101,6 +104,7 @@ class ConvertedRepackGateTest {
 			var minV = Float.MAX_VALUE
 			var maxV = -Float.MAX_VALUE
 			var componentIndex = 0
+
 			while (componentIndex + 1 < uvs.size) {
 				minU = min(minU, uvs[componentIndex])
 				maxU = max(maxU, uvs[componentIndex])
@@ -108,6 +112,7 @@ class ConvertedRepackGateTest {
 				maxV = max(maxV, uvs[componentIndex + 1])
 				componentIndex += 2
 			}
+
 			checked++
 			val left = minU * page.width
 			val top = minV * page.height
@@ -118,10 +123,12 @@ class ConvertedRepackGateTest {
 			val bboxArea = max(1f, (right - left) * (bottom - top))
 			val overlap =
 				if (intersectWidth > 0f && intersectHeight > 0f) intersectWidth * intersectHeight / bboxArea else 0f
+
 			if (overlap < 0.25f) {
 				displaced++
 			}
 		}
+
 		return JumbleStats(displaced, checked)
 	}
 
@@ -136,6 +143,7 @@ class ConvertedRepackGateTest {
 
 	private fun decodeRasterOf(cmo3: Cmo3Model): (AtlasTileId) -> DecodedImage? {
 		val ingest = cmo3AtlasIngest(cmo3.root as CModelSource)
+
 		return { tileId ->
 			ingest.imageResourceByTile[tileId]?.let(cmo3::extractLayerPng)?.let { bytes ->
 				val image = PngCodec.read(bytes)
@@ -147,10 +155,13 @@ class ConvertedRepackGateTest {
 	@Test
 	fun aConvertedRepackExportRoundTripsConsistently() {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.repackSample not present; skipping the converted-repack export gate")
+
 			return
 		}
+
 		val cmo3 = Cmo3.read(file.readBytes())
 		val imported = Cmo3Import.fromModelSource(cmo3.root as CModelSource)
 		assertTrue(imported.atlas.storedUvsAddressPages, "the fixture is page-addressed")
@@ -168,9 +179,11 @@ class ConvertedRepackGateTest {
 		)
 		val packedByKey = packResult.placements.associateBy { placement -> placement.key }
 		val placements = HashMap<AtlasTileId, AtlasPlacement?>()
+
 		for (tile in imported.atlas.tiles) {
 			placements[tile.id] = packedByKey[tile.id.raw]?.let { packed -> atlasPlacementFromPack(packed) }
 		}
+
 		val repacked =
 			imported.withAtlasRepack(packResult.pages.map { page -> AtlasPage(page.width, page.height) }, placements)
 		assertTrue(
@@ -210,12 +223,15 @@ class ConvertedRepackGateTest {
 		assertEquals(repacked.atlas.pages, reimported.atlas.pages, "the page set follows the repack")
 		assertTrue(reimported.atlas.storedUvsAddressPages)
 		var placementMismatches = 0
+
 		for (tile in repacked.atlas.tiles) {
 			val reread = reimported.atlas.tiles.firstOrNull { candidate -> candidate.id == tile.id }
+
 			if (reread?.placement != tile.placement) {
 				placementMismatches++
 			}
 		}
+
 		assertEquals(0, placementMismatches, "every placement round-trips")
 
 		// The jumble metric is back at the baseline: the export is exactly as consistent as the import.
@@ -232,22 +248,26 @@ class ConvertedRepackGateTest {
 		// _modelImageGroups.
 		val textureManager = rereadSource.textureManager as CTextureManager
 		val canvasByGuid = HashMap<String, CAffine>()
+
 		for (group in elementsOf(textureManager._modelImageGroups).filterIsInstance<CModelImageGroup>()) {
 			for (modelImage in elementsOf(group._modelImages).filterIsInstance<CModelImage>()) {
 				val uuid = (modelImage.guid as? Guid)?.uuid ?: continue
 				(modelImage._materialLocalToCanvasTransform as? CAffine)?.let { canvas -> canvasByGuid[uuid] = canvas }
 			}
 		}
+
 		val atlases = elementsOf(textureManager._textureAtlases).filterIsInstance<CTextureAtlas>()
 		val placementByTileId =
 			reimported.atlas.tiles.associateBy({ tile -> tile.id.raw }, { tile -> tile.placement })
 		var compositionChecks = 0
+
 		for (atlas in atlases) {
 			for (entry in elementsOf(atlas.modelImages).filterIsInstance<ModelImageEntry>()) {
 				val uuid = (entry.modelImageGuid as? Guid)?.uuid ?: continue
 				val placement = placementByTileId[uuid] ?: continue
 				val canvas = canvasByGuid[uuid] ?: continue
 				val entryHalf = entry.atlasLocalToCanvasTransform as? CAffine ?: continue
+
 				for ((probeX, probeY) in listOf(0f to 0f, 137f to 0f, 0f to 251f)) {
 					val onPage = atlasPixelOf(placement, probeX, probeY)
 					val composedX = entryHalf.m00 * onPage[0] + entryHalf.m01 * onPage[1] + entryHalf.m02
@@ -260,9 +280,11 @@ class ConvertedRepackGateTest {
 							" at ($probeX, $probeY)",
 					)
 				}
+
 				compositionChecks++
 			}
 		}
+
 		assertTrue(compositionChecks > 100, "the composition invariant actually ran ($compositionChecks entries)")
 
 		// Drawable page-consistency, zero disagreements: the sampled resource, the region's atlas
@@ -270,18 +292,22 @@ class ConvertedRepackGateTest {
 		val atlasIndexByGuidUuid = HashMap<String, Int>()
 		val atlasIndexByResource = java.util.IdentityHashMap<Any, Int>()
 		val atlasIndexByEntryGuid = HashMap<String, Int>()
+
 		for ((atlasIndex, atlas) in atlases.withIndex()) {
 			(atlas.guid as? Guid)?.uuid?.let { uuid -> atlasIndexByGuidUuid[uuid] = atlasIndex }
 			atlas.cachedAtlasImage?.let { resource -> atlasIndexByResource[resource] = atlasIndex }
+
 			for (entry in elementsOf(atlas.modelImages).filterIsInstance<ModelImageEntry>()) {
 				(entry.modelImageGuid as? Guid)?.uuid?.let { uuid -> atlasIndexByEntryGuid[uuid] = atlasIndex }
 			}
 		}
+
 		var consistencyChecks = 0
 		var disagreements = 0
 		val artMeshes =
 			elementsOf((rereadSource.drawableSourceSet as? CDrawableSourceSet)?._sources)
 				.filterIsInstance<CArtMeshSource>()
+
 		for (mesh in artMeshes) {
 			val extension =
 				elementsOf(mesh._extensions).filterIsInstance<CTextureInputExtension>().firstOrNull() ?: continue
@@ -300,8 +326,10 @@ class ConvertedRepackGateTest {
 			val guidPage = (region.textureAtlasGuid as? Guid)?.uuid?.let(atlasIndexByGuidUuid::get)
 			val resourcePage = (mesh.texture as? GTexture2D)?.srcImageResource?.let(atlasIndexByResource::get)
 			consistencyChecks++
+
 			if (guidPage != entryPage || resourcePage != entryPage) {
 				disagreements++
+
 				if (disagreements <= 5) {
 					println(
 						"[repack-gate] '${(mesh.id as? Id)?.idstr}' pages disagree:" +
@@ -310,6 +338,7 @@ class ConvertedRepackGateTest {
 				}
 			}
 		}
+
 		println(
 			"[repack-gate] ${reimported.atlas.pages.size} page(s), jumble ${rereadJumble.displacedDrawables}/" +
 				"${rereadJumble.checkedDrawables} (baseline ${baselineJumble.displacedDrawables}), " +

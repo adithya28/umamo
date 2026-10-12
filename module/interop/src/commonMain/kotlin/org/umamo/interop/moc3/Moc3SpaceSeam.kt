@@ -77,6 +77,7 @@ fun convertPointsToRuntime(space: PointSpace, points: FloatArray, canvas: MocCan
 	val converted = FloatArray(points.size)
 	val scale = effectiveScale(canvas)
 	var coordIndex = 0
+
 	while (coordIndex + 1 < points.size) {
 		when (space) {
 			// MOC3 §5.3 CanvasInfo: canvas px = origin + ppu·model, same Y-down orientation.
@@ -84,14 +85,17 @@ fun convertPointsToRuntime(space: PointSpace, points: FloatArray, canvas: MocCan
 				converted[coordIndex] = canvas.originX + scale * points[coordIndex]
 				converted[coordIndex + 1] = canvas.originY + scale * points[coordIndex + 1]
 			}
+
 			// Warp-lattice (u, v) and pixel-scale rotation-local frames match the runtime verbatim.
 			PointSpace.WarpLattice, PointSpace.RotationLocal -> {
 				converted[coordIndex] = points[coordIndex]
 				converted[coordIndex + 1] = points[coordIndex + 1]
 			}
 		}
+
 		coordIndex += 2
 	}
+
 	return converted
 }
 
@@ -107,19 +111,23 @@ fun convertPointsToMoc(space: PointSpace, points: FloatArray, canvas: MocCanvasM
 	val converted = FloatArray(points.size)
 	val scale = effectiveScale(canvas)
 	var coordIndex = 0
+
 	while (coordIndex + 1 < points.size) {
 		when (space) {
 			PointSpace.ModelRoot -> {
 				converted[coordIndex] = (points[coordIndex] - canvas.originX) / scale
 				converted[coordIndex + 1] = (points[coordIndex + 1] - canvas.originY) / scale
 			}
+
 			PointSpace.WarpLattice, PointSpace.RotationLocal -> {
 				converted[coordIndex] = points[coordIndex]
 				converted[coordIndex + 1] = points[coordIndex + 1]
 			}
 		}
+
 		coordIndex += 2
 	}
+
 	return converted
 }
 
@@ -140,7 +148,10 @@ fun convertDeltasToRuntime(space: PointSpace, deltas: FloatArray, canvas: MocCan
 			val scale = effectiveScale(canvas)
 			FloatArray(deltas.size) { index -> scale * deltas[index] }
 		}
-		PointSpace.WarpLattice, PointSpace.RotationLocal -> deltas.copyOf()
+
+		PointSpace.WarpLattice, PointSpace.RotationLocal -> {
+			deltas.copyOf()
+		}
 	}
 
 /**
@@ -153,6 +164,7 @@ fun convertDeltasToRuntime(space: PointSpace, deltas: FloatArray, canvas: MocCan
  */
 fun convertDeltasToMoc(space: PointSpace, deltas: FloatArray, canvas: MocCanvasMapping): FloatArray {
 	val scale = effectiveScale(canvas)
+
 	return when (space) {
 		PointSpace.ModelRoot -> FloatArray(deltas.size) { index -> deltas[index] / scale }
 		PointSpace.WarpLattice, PointSpace.RotationLocal -> deltas.copyOf()
@@ -192,14 +204,18 @@ fun rotationAncestorFlags(
 		var found = false
 		// The step cap breaks a malformed cyclic parent chain rather than hanging on it.
 		var chainSteps = 0
+
 		while (currentIndex in 0 until deformerCount && chainSteps <= deformerCount) {
 			if (isRotationAt(currentIndex)) {
 				found = true
+
 				break
 			}
+
 			currentIndex = parentIndexOf(currentIndex)
 			chainSteps++
 		}
+
 		found
 	}
 
@@ -214,18 +230,23 @@ fun rotationAncestorFlags(
  */
 fun rotationAncestorsById(deformers: List<Deformer>): Map<DeformerId, Boolean> {
 	val byId = deformers.associateBy { deformer -> deformer.id }
+
 	return deformers.associate { deformer ->
 		var current = deformer.parent?.let { byId[it] }
 		var found = false
 		var chainSteps = 0
+
 		while (current != null && chainSteps <= deformers.size) {
 			if (current is Deformer.Rotation) {
 				found = true
+
 				break
 			}
+
 			current = current.parent?.let { byId[it] }
 			chainSteps++
 		}
+
 		deformer.id to found
 	}
 }

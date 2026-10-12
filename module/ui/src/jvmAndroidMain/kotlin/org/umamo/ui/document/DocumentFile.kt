@@ -64,10 +64,13 @@ class DocumentFile(origin: Document) {
 	 */
 	fun afterPendingSave(scope: CoroutineScope, onWaiting: () -> Unit = {}, action: () -> Unit) {
 		val pending = saveJob
+
 		if (pending == null || pending.isCompleted) {
 			action()
+
 			return
 		}
+
 		onWaiting()
 		scope.launch {
 			if (pending.await()) {

@@ -21,7 +21,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.umamo.edit.KeyformAction
 import org.umamo.edit.NoticePlacement
 import org.umamo.edit.SelectionTarget
-import org.umamo.edit.resolveParameterChoice
+import org.umamo.edit.keyform.resolveParameterChoice
 import org.umamo.ui.kit.AtPointPositionProvider
 import org.umamo.ui.kit.TooltipCard
 import org.umamo.ui.kit.menu.Menu
@@ -110,9 +110,11 @@ internal fun ShellPieMenuHost(pointerPosition: Offset?, modifier: Modifier = Mod
 	val activePie by session.activePieMenu.collectAsState()
 	val kind = activePie ?: return
 	val entries = pieMenuEntriesFor(kind)
+
 	if (entries.isEmpty()) {
 		return
 	}
+
 	BoxWithConstraints(modifier = modifier.fillMaxSize()) {
 		// The anchor freezes at open (keyed on the pie kind): passing the live pointer would drag the
 		// whole ring - labels and all - around with the mouse instead of letting the pointer travel
@@ -145,9 +147,11 @@ internal fun ShellNearCursorNotice(pointerPosition: Offset?, modifier: Modifier 
 	val session = LocalEditorSession.current ?: return
 	val notice by session.notice.collectAsState()
 	val current = notice ?: return
+
 	if (current.placement != NoticePlacement.NearCursor) {
 		return
 	}
+
 	// Auto-dismiss after the visible window; keyed on the serial so a repeated notice restarts the
 	// timer, and clearNotice only clears if a newer notice has not replaced this one meanwhile.
 	LaunchedEffect(current.serial) {
@@ -258,6 +262,7 @@ internal fun ShellRelationPickOverlay(pointerPosition: Offset?, modifier: Modifi
 		Canvas(modifier = Modifier.fillMaxSize()) {
 			drawCursor(LocalUmamoCursors.eyedropper, anchor)
 		}
+
 		// The kit's tooltip card, positioned at the cursor rather than hover-anchored to a control - the
 		// chrome stays owned by Tooltip.kt so this label can never drift from every other tooltip.
 		if (picker.hoveredTarget != null) {
@@ -279,26 +284,31 @@ internal fun ShellRelationPickOverlay(pointerPosition: Offset?, modifier: Modifi
 @Composable
 private fun relationPickLabel(target: SelectionTarget?): String {
 	val puppet = LocalPuppet.current
+
 	if (target == null || puppet == null) {
 		return ""
 	}
+
 	return when (target) {
-		is SelectionTarget.Drawable ->
+		is SelectionTarget.Drawable -> {
 			stringResource(
 				Res.string.pick_hover_drawable,
 				puppet.drawables.firstOrNull { it.id == target.id }?.name?.ifBlank { target.id.raw } ?: target.id.raw,
 			)
+		}
 
-		is SelectionTarget.Part ->
+		is SelectionTarget.Part -> {
 			stringResource(
 				Res.string.pick_hover_part,
 				puppet.parts.firstOrNull { it.id == target.id }?.name?.ifBlank { target.id.raw } ?: target.id.raw,
 			)
+		}
 
-		is SelectionTarget.Deformer ->
+		is SelectionTarget.Deformer -> {
 			stringResource(
 				Res.string.pick_hover_deformer,
 				puppet.deformers.firstOrNull { it.id == target.id }?.name?.ifBlank { target.id.raw } ?: target.id.raw,
 			)
+		}
 	}
 }

@@ -51,12 +51,15 @@ object UmaDocumentBridge {
 		var document = base.withPuppet(UmaPuppetExport.puppetOf(model))
 		val textures = UmaTexturesBridge.texturesOf(model)
 		val texturesHaveContent = textures != UmaTextures() || pixels.renderPages is UmaRenderPagePixels.Stored
+
 		if (!base.holdsTooNewEntry(UmaEntryKind.Textures) || texturesHaveContent) {
 			document = document.withTextures(textures, pixels)
 		}
+
 		if (!base.holdsTooNewEntry(UmaEntryKind.Sources) || model.sources.isNotEmpty()) {
 			document = document.withSources(UmaSourcesBridge.sourcesOf(model))
 		}
+
 		return document
 	}
 
@@ -72,6 +75,7 @@ object UmaDocumentBridge {
 	 */
 	fun modelOf(document: UmaModel): PuppetModel {
 		val puppet = document.puppet ?: throw UmaFormatException(UmaReadFailure.MissingEntry(UmaEntryKind.Puppet.defaultPath))
+
 		return UmaPuppetImport.modelOf(puppet).copy(atlas = UmaTexturesBridge.atlasOf(document.textures), sources = UmaSourcesBridge.sourcesOf(document.sources))
 	}
 
@@ -92,6 +96,7 @@ object UmaDocumentBridge {
 				// UMA §5.5: the format layer has already checked every render page's entry is there.
 				AtlasPageSet(renderPages.pages.map { page -> checkNotNull(document.payloadBytes(page.path)) }, renderPages.drawablePages.orEmpty())
 			}
+
 		return UmaDocumentPages(pageSet, tilePng)
 	}
 }

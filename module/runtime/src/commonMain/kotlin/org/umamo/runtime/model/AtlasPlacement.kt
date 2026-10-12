@@ -88,6 +88,7 @@ fun inversePlacementAffine(placement: AtlasPlacement): FloatArray? {
 	if (placement.scaleX == 0f || placement.scaleY == 0f) {
 		return null
 	}
+
 	val radians = placement.rotationDegrees.toDouble() * PI / 180.0
 	val cosine = cos(radians)
 	val sine = sin(radians)
@@ -96,6 +97,7 @@ fun inversePlacementAffine(placement: AtlasPlacement): FloatArray? {
 	val m01 = (sine / placement.scaleX).toFloat()
 	val m10 = (-sine / placement.scaleY).toFloat()
 	val m11 = (cosine / placement.scaleY).toFloat()
+
 	return floatArrayOf(
 		m00,
 		m01,
@@ -118,6 +120,7 @@ fun placementAffine(placement: AtlasPlacement): FloatArray {
 	val radians = placement.rotationDegrees.toDouble() * PI / 180.0
 	val cosine = cos(radians)
 	val sine = sin(radians)
+
 	return floatArrayOf(
 		(cosine * placement.scaleX).toFloat(),
 		(-sine * placement.scaleY).toFloat(),
@@ -159,6 +162,7 @@ fun atlasPixelOf(placement: AtlasPlacement, layerX: Float, layerY: Float): Float
 	val sine = sin(radians)
 	val scaledX = layerX * placement.scaleX
 	val scaledY = layerY * placement.scaleY
+
 	return floatArrayOf(
 		(cosine * scaledX - sine * scaledY).toFloat() + placement.positionX,
 		(sine * scaledX + cosine * scaledY).toFloat() + placement.positionY,
@@ -175,6 +179,7 @@ fun atlasPixelOf(placement: AtlasPlacement, layerX: Float, layerY: Float): Float
  */
 fun layerPixelOf(placement: AtlasPlacement, atlasX: Float, atlasY: Float): FloatArray? {
 	val inverse = inversePlacementAffine(placement) ?: return null
+
 	return floatArrayOf(
 		inverse[0] * atlasX + inverse[1] * atlasY + inverse[2],
 		inverse[3] * atlasX + inverse[4] * atlasY + inverse[5],
@@ -198,10 +203,13 @@ fun layerPixelOf(placement: AtlasPlacement, atlasX: Float, atlasY: Float): Float
  */
 fun layerUvAffineOf(binding: DrawableLayerBinding, layerWidth: Int, layerHeight: Int): FloatArray? {
 	val placement = binding.placement ?: return identityUvAffine()
+
 	if (layerWidth <= 0 || layerHeight <= 0) {
 		return null
 	}
+
 	val inverse = inversePlacementAffine(placement) ?: return null
+
 	return floatArrayOf(
 		inverse[0] * binding.pageWidth / layerWidth,
 		inverse[1] * binding.pageHeight / layerWidth,
@@ -225,14 +233,18 @@ fun invertUvAffine(affine: FloatArray): FloatArray? {
 	if (affine.size < 6) {
 		return null
 	}
+
 	val determinant = affine[0] * affine[4] - affine[1] * affine[3]
+
 	if (determinant == 0f) {
 		return null
 	}
+
 	val m00 = affine[4] / determinant
 	val m01 = -affine[1] / determinant
 	val m10 = -affine[3] / determinant
 	val m11 = affine[0] / determinant
+
 	return floatArrayOf(
 		m00,
 		m01,
@@ -253,6 +265,7 @@ fun invertUvAffine(affine: FloatArray): FloatArray? {
 fun applyUvAffine(uvs: FloatArray, affine: FloatArray): FloatArray {
 	val mapped = FloatArray(uvs.size)
 	var componentIndex = 0
+
 	while (componentIndex + 1 < uvs.size) {
 		val u = uvs[componentIndex]
 		val v = uvs[componentIndex + 1]
@@ -260,6 +273,7 @@ fun applyUvAffine(uvs: FloatArray, affine: FloatArray): FloatArray {
 		mapped[componentIndex + 1] = affine[3] * u + affine[4] * v + affine[5]
 		componentIndex += 2
 	}
+
 	return mapped
 }
 
@@ -280,5 +294,6 @@ fun layerUvsFromAtlasUvs(
 	layerHeight: Int,
 ): FloatArray? {
 	val affine = layerUvAffineOf(binding, layerWidth, layerHeight) ?: return null
+
 	return applyUvAffine(atlasUvs, affine)
 }

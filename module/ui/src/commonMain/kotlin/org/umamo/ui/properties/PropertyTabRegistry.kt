@@ -44,6 +44,7 @@ class PropertyTabRegistry(private val tabs: List<PropertyTab>) {
 		val overrideById = extra.associateBy { tab -> tab.id }
 		val replaced = tabs.map { tab -> overrideById[tab.id] ?: tab }
 		val appended = extra.filter { tab -> tabs.none { existing -> existing.id == tab.id } }
+
 		return PropertyTabRegistry(replaced + appended)
 	}
 }
@@ -59,9 +60,11 @@ class PropertyTabRegistry(private val tabs: List<PropertyTab>) {
  */
 fun matchesQuery(haystack: List<String>, query: String): Boolean {
 	val trimmed = query.trim()
+
 	if (trimmed.isEmpty()) {
 		return true
 	}
+
 	return haystack.any { candidate -> candidate.contains(trimmed, ignoreCase = true) }
 }
 
@@ -94,12 +97,16 @@ fun sectionVisibility(title: String, rowTerms: List<List<String>>, query: String
 	if (rowTerms.isEmpty()) {
 		return SectionVisibility(false, emptyList())
 	}
+
 	val trimmed = query.trim()
 	val allRows = rowTerms.indices.toList()
+
 	if (trimmed.isEmpty() || matchesQuery(listOf(title), trimmed)) {
 		return SectionVisibility(true, allRows)
 	}
+
 	val matching = allRows.filter { index -> matchesQuery(rowTerms[index], trimmed) }
+
 	return SectionVisibility(matching.isNotEmpty(), matching)
 }
 

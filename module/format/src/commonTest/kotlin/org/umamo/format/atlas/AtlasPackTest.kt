@@ -39,6 +39,7 @@ class AtlasPackTest {
 		val xs = FloatArray(4)
 		val ys = FloatArray(4)
 		var cornerIndex = 0
+
 		for (cornerX in listOf(0f, width.toFloat())) {
 			for (cornerY in listOf(0f, height.toFloat())) {
 				xs[cornerIndex] = affine[0] * cornerX + affine[1] * cornerY + affine[2]
@@ -46,6 +47,7 @@ class AtlasPackTest {
 				cornerIndex++
 			}
 		}
+
 		return floatArrayOf(xs.min(), ys.min(), xs.max(), ys.max())
 	}
 
@@ -86,11 +88,13 @@ class AtlasPackTest {
 			(result.placements.map { placement -> placement.key } + result.fixed.map { kept -> kept.key } + result.skipped.map { skip -> skip.key }).sorted(),
 			"placements, fixed, and skipped partition the input",
 		)
+
 		for (tileY in 0 until 6) {
 			for (tileX in 0 until 6) {
 				assertEquals(itemPixel(kept, tileX, tileY), pagePixel(result.pages[0], 10 + tileX, 10 + tileY), "kept pixel ($tileX, $tileY) sits at its affine spot verbatim")
 			}
 		}
+
 		assertTilesRoundTripByteExact(items, result)
 		assertFreeTilesClearOf(result, 0, floatArrayOf(10f, 10f, 16f, 16f), gutter = 2)
 		assertTrue(result.pageOccupancy(0) > 0f)
@@ -243,6 +247,7 @@ class AtlasPackTest {
 			)
 
 		assertEquals(result.pages.size, composed.size)
+
 		for (pageIndex in result.pages.indices) {
 			assertContentEquals(result.pages[pageIndex].rgba, composed[pageIndex].rgba, "page $pageIndex pixels")
 		}
@@ -369,6 +374,7 @@ class AtlasPackTest {
 
 		val placement = result.placements.single()
 		val page = result.pages.single()
+
 		for (rowOffset in -2 until placement.trimHeight + 2) {
 			for (columnOffset in -2 until placement.trimWidth + 2) {
 				val clampedColumn = columnOffset.coerceIn(0, placement.trimWidth - 1)
@@ -394,6 +400,7 @@ class AtlasPackTest {
 
 		for ((pageIndex, page) in result.pages.withIndex()) {
 			val covered = HashSet<Int>()
+
 			for (placement in result.placements.filter { placement -> placement.pageIndex == pageIndex }) {
 				for (tileY in 0 until placement.pageHeight) {
 					for (tileX in 0 until placement.pageWidth) {
@@ -401,10 +408,12 @@ class AtlasPackTest {
 					}
 				}
 			}
+
 			for (pixelIndex in 0 until page.width * page.height) {
 				if (pixelIndex in covered) {
 					continue
 				}
+
 				assertEquals(0, pagePixel(page, pixelIndex % page.width, pixelIndex / page.width), "pixel $pixelIndex")
 			}
 		}
@@ -532,6 +541,7 @@ class AtlasPackTest {
 			reversed.placements.sortedBy { placement -> placement.key },
 		)
 		assertEquals(forward.pages.size, reversed.pages.size)
+
 		for (pageIndex in forward.pages.indices) {
 			assertContentEquals(forward.pages[pageIndex].rgba, reversed.pages[pageIndex].rgba, "page $pageIndex pixels")
 		}

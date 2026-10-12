@@ -55,5 +55,6 @@ fun <Payload : Any, Band : Any> RowDragController<Payload>.rememberRowDragRole(
 	bandFor: (dragged: Payload, fraction: Float) -> Band?,
 ): State<RowDragRole<Band>> {
 	val currentBandFor = rememberUpdatedState(bandFor)
+
 	return remember(this, rowKey) { derivedStateOf { roleOf(rowKey) { dragged, fraction -> currentBandFor.value(dragged, fraction) } } }
 }

@@ -153,9 +153,11 @@ class CaffZipFramingTest {
 		assertContentEquals(contents, CaffZip.unzipSingle(mangled), "a blob with no usable descriptor still inflates fully")
 
 		val zeroed = framed.copyOf()
+
 		for (offset in zeroed.size - 4 until zeroed.size) {
 			zeroed[offset] = 0
 		}
+
 		assertContentEquals(contents, CaffZip.unzipSingle(zeroed), "a zero declared size reads as absent, not as an empty entry")
 	}
 

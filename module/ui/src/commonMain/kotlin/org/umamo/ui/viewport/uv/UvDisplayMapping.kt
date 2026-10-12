@@ -62,10 +62,12 @@ internal fun displayToUvV(displayY: Float, pageHeight: Int): Float = 1f - displa
 internal fun uvToDisplay(uvs: FloatArray, pageWidth: Int, pageHeight: Int): FloatArray {
 	val display = FloatArray(uvs.size)
 	val vertexCount = uvs.size / 2
+
 	for (vertexIndex in 0 until vertexCount) {
 		display[vertexIndex * 2] = uvToDisplayX(uvs[vertexIndex * 2], pageWidth)
 		display[vertexIndex * 2 + 1] = uvToDisplayY(uvs[vertexIndex * 2 + 1], pageHeight)
 	}
+
 	return display
 }
 
@@ -81,10 +83,12 @@ internal fun uvToDisplay(uvs: FloatArray, pageWidth: Int, pageHeight: Int): Floa
 internal fun displayToUv(display: FloatArray, pageWidth: Int, pageHeight: Int): FloatArray {
 	val uvs = FloatArray(display.size)
 	val vertexCount = display.size / 2
+
 	for (vertexIndex in 0 until vertexCount) {
 		uvs[vertexIndex * 2] = displayToUvU(display[vertexIndex * 2], pageWidth)
 		uvs[vertexIndex * 2 + 1] = displayToUvV(display[vertexIndex * 2 + 1], pageHeight)
 	}
+
 	return uvs
 }
 

@@ -39,10 +39,12 @@ import org.umamo.ui.theme.drawIcon
 @Composable
 private fun Modifier.consumingPress(onPress: (shiftHeld: Boolean) -> Unit): Modifier {
 	val currentOnPress by rememberUpdatedState(onPress)
+
 	return this.pointerInput(Unit) {
 		awaitPointerEventScope {
 			while (true) {
 				val event = awaitPointerEvent()
+
 				if (event.type == PointerEventType.Press) {
 					event.changes.forEach { change -> change.consume() }
 					currentOnPress(event.keyboardModifiers.isShiftPressed)
@@ -83,6 +85,7 @@ internal fun ChevronSlot(visible: Boolean, expanded: Boolean, labels: OutlinerLa
 		if (visible) {
 			Canvas(modifier = Modifier.size(9.dp)) {
 				val chevron = Path()
+
 				if (expanded) {
 					chevron.moveTo(size.width * 0.15f, size.height * 0.35f)
 					chevron.lineTo(size.width * 0.85f, size.height * 0.35f)
@@ -92,6 +95,7 @@ internal fun ChevronSlot(visible: Boolean, expanded: Boolean, labels: OutlinerLa
 					chevron.lineTo(size.width * 0.72f, size.height * 0.50f)
 					chevron.lineTo(size.width * 0.35f, size.height * 0.85f)
 				}
+
 				chevron.close()
 				drawPath(chevron, color = tint)
 			}
@@ -114,10 +118,13 @@ internal fun OutlinerIconSlot(icon: OutlinerIcon, dimmed: Boolean) {
 	val colors = LocalUmamoColors.current
 	val tint =
 		when (icon) {
-			OutlinerIcon.PuppetRoot, OutlinerIcon.Part, OutlinerIcon.Drawable ->
+			OutlinerIcon.PuppetRoot, OutlinerIcon.Part, OutlinerIcon.Drawable -> {
 				if (dimmed) colors.outlinerObjectTintDimmed else colors.outlinerObjectTint
-			OutlinerIcon.Armature, OutlinerIcon.WarpDeformer, OutlinerIcon.RotationDeformer ->
+			}
+
+			OutlinerIcon.Armature, OutlinerIcon.WarpDeformer, OutlinerIcon.RotationDeformer -> {
 				if (dimmed) colors.outlinerDeformTintDimmed else colors.outlinerDeformTint
+			}
 		}
 	Box(modifier = Modifier.size(OUTLINER_ICON_WIDTH), contentAlignment = Alignment.Center) {
 		Canvas(modifier = Modifier.size(20.dp)) {

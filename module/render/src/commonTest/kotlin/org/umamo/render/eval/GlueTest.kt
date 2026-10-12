@@ -23,13 +23,14 @@ class GlueTest {
 	/** A direct (deformer-less) one-vertex drawable resting at `(x, y)` - evaluates to world `(x, −y)`. */
 	private fun pointDrawable(raw: String, x: Float, y: Float): Drawable {
 		val grid = KeyformGrid(emptyList<KeyformAxis>(), listOf(KeyformCell(intArrayOf(), MeshDeltaForm(floatArrayOf(0f, 0f)))))
+
 		return Drawable(
 			id = DrawableId(raw),
 			name = raw,
 			parentDeformerId = null,
 			blendMode = BlendMode.Normal,
 			maskedBy = emptyList(),
-			mesh = DrawableMesh(floatArrayOf(x, y), floatArrayOf(0f, 0f), IntArray(0)),
+			mesh = DrawableMesh.withLocalEqualToCanvas(floatArrayOf(x, y), floatArrayOf(0f, 0f), IntArray(0)),
 			geometryGrid = grid,
 		)
 	}

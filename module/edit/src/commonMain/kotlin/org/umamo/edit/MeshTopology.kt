@@ -19,10 +19,47 @@ object MeshTopology {
 	fun uniqueEdges(triangleIndices: IntArray): List<MeshElement.Edge> {
 		val edges = LinkedHashSet<MeshElement.Edge>()
 		val triangleCount = triangleIndices.size / 3
+
 		for (triangleIndex in 0 until triangleCount) {
 			edges.addAll(edgesOfTriangle(triangleIndices, triangleIndex))
 		}
+
 		return edges.toList()
+	}
+
+	/**
+	 * The unique undirected edges of a triangle index list as flat endpoint pairs: exactly [uniqueEdges]'
+	 * edges, in the same first-encounter order, low endpoint first, so an edge's ordinal means the same
+	 * here as in the boxed list.  For a consumer that ships edges as data (the GPU mesh overlay), without a
+	 * boxed element per edge.
+	 *
+	 * @param IntArray triangleIndices The mesh triangle vertex indices (three per triangle).
+	 * @return IntArray Two endpoints per unique edge.
+	 */
+	fun uniqueEdgeEndpoints(triangleIndices: IntArray): IntArray {
+		val triangleCount = triangleIndices.size / 3
+		val seen = HashSet<Long>(triangleCount * 2)
+		val endpoints = IntArray(triangleCount * 6)
+		var written = 0
+
+		for (triangleIndex in 0 until triangleCount) {
+			val triangleStart = triangleIndex * 3
+
+			for (cornerIndex in 0 until 3) {
+				val from = triangleIndices[triangleStart + cornerIndex]
+				val to = triangleIndices[triangleStart + (cornerIndex + 1) % 3]
+				val low = minOf(from, to)
+				val high = maxOf(from, to)
+
+				if (seen.add((low.toLong() shl 32) or high.toLong())) {
+					endpoints[written] = low
+					endpoints[written + 1] = high
+					written += 2
+				}
+			}
+		}
+
+		return endpoints.copyOf(written)
 	}
 
 	/**
@@ -36,6 +73,7 @@ object MeshTopology {
 		val cornerA = triangleIndices[triangleIndex * 3]
 		val cornerB = triangleIndices[triangleIndex * 3 + 1]
 		val cornerC = triangleIndices[triangleIndex * 3 + 2]
+
 		return listOf(
 			MeshElement.Edge.of(cornerA, cornerB),
 			MeshElement.Edge.of(cornerB, cornerC),
@@ -68,18 +106,24 @@ object MeshTopology {
 	 */
 	fun coveredVertexIndices(elements: Set<MeshElement>, triangleIndices: IntArray): Set<Int> {
 		val covered = HashSet<Int>()
+
 		for (element in elements) {
 			when (element) {
-				is MeshElement.Vertex -> covered.add(element.index)
+				is MeshElement.Vertex -> {
+					covered.add(element.index)
+				}
 
 				is MeshElement.Edge -> {
 					covered.add(element.endpointLow)
 					covered.add(element.endpointHigh)
 				}
 
-				is MeshElement.Face -> covered.addAll(verticesOfTriangle(triangleIndices, element.triangleIndex))
+				is MeshElement.Face -> {
+					covered.addAll(verticesOfTriangle(triangleIndices, element.triangleIndex))
+				}
 			}
 		}
+
 		return covered
 	}
 
@@ -107,11 +151,13 @@ object MeshTopology {
 	fun facesWithAllVerticesSelected(triangleIndices: IntArray, selectedVertexIndices: Set<Int>): Set<MeshElement.Face> {
 		val faces = HashSet<MeshElement.Face>()
 		val triangleCount = triangleIndices.size / 3
+
 		for (triangleIndex in 0 until triangleCount) {
 			if (verticesOfTriangle(triangleIndices, triangleIndex).all { vertexIndex -> vertexIndex in selectedVertexIndices }) {
 				faces.add(MeshElement.Face(triangleIndex))
 			}
 		}
+
 		return faces
 	}
 
@@ -127,11 +173,13 @@ object MeshTopology {
 	fun facesWithAllEdgesSelected(triangleIndices: IntArray, selectedEdges: Set<MeshElement.Edge>): Set<MeshElement.Face> {
 		val faces = HashSet<MeshElement.Face>()
 		val triangleCount = triangleIndices.size / 3
+
 		for (triangleIndex in 0 until triangleCount) {
 			if (edgesOfTriangle(triangleIndices, triangleIndex).all { edge -> edge in selectedEdges }) {
 				faces.add(MeshElement.Face(triangleIndex))
 			}
 		}
+
 		return faces
 	}
 
@@ -156,6 +204,7 @@ object MeshTopology {
 			}
 		}
 		val triangleCount = triangleIndices.size / 3
+
 		for (triangleIndex in 0 until triangleCount) {
 			val cornerA = triangleIndices[triangleIndex * 3]
 			val cornerB = triangleIndices[triangleIndex * 3 + 1]
@@ -164,6 +213,7 @@ object MeshTopology {
 			connect(cornerB, cornerC)
 			connect(cornerC, cornerA)
 		}
+
 		return neighborSets.map { neighbors -> neighbors.toIntArray() }
 	}
 
@@ -179,18 +229,22 @@ object MeshTopology {
 		if (seedVertexIndex !in adjacency.indices) {
 			return emptySet()
 		}
+
 		val reached = HashSet<Int>()
 		val frontier = ArrayDeque<Int>()
 		reached.add(seedVertexIndex)
 		frontier.add(seedVertexIndex)
+
 		while (frontier.isNotEmpty()) {
 			val vertexIndex = frontier.removeFirst()
+
 			for (neighbor in adjacency[vertexIndex]) {
 				if (reached.add(neighbor)) {
 					frontier.add(neighbor)
 				}
 			}
 		}
+
 		return reached
 	}
 
@@ -207,6 +261,7 @@ object MeshTopology {
 	fun selectionIslands(adjacency: List<IntArray>, vertexIndices: Set<Int>): List<Set<Int>> {
 		val unvisited = vertexIndices.filterTo(LinkedHashSet()) { vertexIndex -> vertexIndex in adjacency.indices }
 		val islands = ArrayList<Set<Int>>()
+
 		while (unvisited.isNotEmpty()) {
 			val seed = unvisited.first()
 			val island = HashSet<Int>()
@@ -214,8 +269,10 @@ object MeshTopology {
 			island.add(seed)
 			unvisited.remove(seed)
 			frontier.add(seed)
+
 			while (frontier.isNotEmpty()) {
 				val vertexIndex = frontier.removeFirst()
+
 				for (neighbor in adjacency[vertexIndex]) {
 					if (neighbor in unvisited) {
 						unvisited.remove(neighbor)
@@ -224,8 +281,10 @@ object MeshTopology {
 					}
 				}
 			}
+
 			islands.add(island)
 		}
+
 		return islands
 	}
 }

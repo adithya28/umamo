@@ -6,9 +6,9 @@ import io.github.vinceglb.filekit.readBytes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import org.umamo.edit.NoticePlacement
-import org.umamo.edit.deleteTile
-import org.umamo.edit.setLayerIgnored
-import org.umamo.edit.setTileSources
+import org.umamo.edit.atlas.deleteTile
+import org.umamo.edit.atlas.setLayerIgnored
+import org.umamo.edit.atlas.setTileSources
 import org.umamo.interop.art.ArtSourceDescriptor
 import org.umamo.interop.art.placedFor
 import org.umamo.reimport.InventoryLayerMatcher
@@ -18,6 +18,7 @@ import org.umamo.storage.UmamoLog
 import org.umamo.ui.document.DocumentOpenError
 import org.umamo.ui.document.DocumentOpenFailure
 import org.umamo.ui.document.ReadArtwork
+import org.umamo.ui.document.SourceReadOrigin
 import org.umamo.ui.document.artworkImportExtensions
 import org.umamo.ui.document.artworkImportOptions
 import org.umamo.ui.document.fileDisplayName
@@ -147,14 +148,17 @@ internal class ArtworkController(
 			runCatching { picked.readBytes() }.getOrElse { failure ->
 				UmamoLog.error("failed to read ${picked.name}", failure)
 				services.commandRegistry.invoke("document.openFailed", DocumentOpenFailure(DocumentOpenError.ReadFailed, picked.name))
+
 				return null
 			}
 		val read =
 			readArtwork(bytes, picked.name) ?: run {
 				services.commandRegistry.invoke("document.openFailed", DocumentOpenFailure(DocumentOpenError.Unrecognized, picked.name))
+
 				return null
 			}
 		val path = picked.absolutePath()
+
 		return PickedArtwork(read, ArtSourceDescriptor(picked.name, path, read.kind.extension, read.contentHash, path.let(::fileModifiedAtMillis)))
 	}
 
@@ -178,8 +182,10 @@ internal class ArtworkController(
 			if (request == null) {
 				val picked = pickArtwork() ?: return@launch
 				addArtwork(picked, areaId)
+
 				return@launch
 			}
+
 			for (path in request.paths) {
 				addArtwork(readArtworkForPath(path) ?: continue, areaId)
 			}
@@ -203,8 +209,10 @@ internal class ArtworkController(
 		val read =
 			readArtworkAt(path) ?: run {
 				services.commandRegistry.invoke("document.openFailed", DocumentOpenFailure(DocumentOpenError.Unrecognized, name))
+
 				return null
 			}
+
 		return PickedArtwork(read, ArtSourceDescriptor(name, path, read.kind.extension, read.contentHash, read.lastModified))
 	}
 
@@ -236,33 +244,45 @@ internal class ArtworkController(
 		services.scope.launch {
 			val entries = ArrayList<ReloadEntry>()
 			val covered = LinkedHashSet<ArtSourceId>()
+
 			for (source in puppet.session.model.value.sources) {
 				if (reloadScope != null && source.id !in reloadScope.sourceIds) {
 					continue
 				}
+
 				val path = source.path ?: continue
+
 				if (systemSourceFilePresence(path) != true) {
 					continue
 				}
+
 				covered.add(source.id)
 				val read = readListedArtworkAt(source, path)
+
 				if (read == null) {
 					UmamoLog.warn("reload artwork: '${source.name}' at $path could not be read; skipped")
+
 					continue
 				}
+
 				entries.add(ReloadEntry(source.id, read.art, read.contentHash, read.lastModified))
 			}
+
 			if (entries.isEmpty()) {
 				puppet.session.emitNotice("notice.reload.noFiles", NoticePlacement.StatusBar)
 				watch?.coordinator?.reloadFinished(covered, WatchedReloadResult.Abandoned)
+
 				return@launch
 			}
+
 			// A reload that lands publishes what its matcher left under the bar (scored before it minted);
 			// one that found nothing changed re-scores the files as they stand.
 			val result = runReloadArtwork(host, ReloadArtworkRequest(entries, artworkImportOptions(), InventoryLayerMatcher.DEFAULT_THRESHOLD), areaId) { scored -> publishSuggestions(covered, scored) }
+
 			if (result == ReloadArtworkResult.NothingChanged) {
 				publishSuggestions(covered, scoreSourceSuggestions(host, entries))
 			}
+
 			watch?.coordinator?.reloadFinished(
 				entries.mapTo(LinkedHashSet()) { entry -> entry.sourceId },
 				when (result) {
@@ -277,26 +297,39 @@ internal class ArtworkController(
 
 	/**
 	 * Rebinds one or more tiles as one step.  An unbind is the plain binding edit; a binding to a layer
-	 * pulls the layer's art in when its file is on disk - or, for a CMO3-origin document whose file is not,
-	 * from the layer PNGs the official editor decomposed into the CMO3 at import - and changes the bindings
-	 * alone when neither can be read.
+	 * pulls the layer's art in when its file is on disk - or, when it is not, from the layer PNGs the official
+	 * editor decomposed into a CMO3 the document is open from, else from the tile the document holds for that
+	 * layer - and changes the bindings alone when none has art for the layer.
 	 *
 	 * @param RelinkRequest request The tiles and the binding they take.
 	 * @param String?       areaId  The area the operation strip shows in.
 	 */
 	private fun relinkArtwork(request: RelinkRequest, areaId: String?) {
 		val ref = request.ref
+
 		if (ref == null) {
 			puppet.session.setTileSources(request.tileIds, null)
+
 			return
 		}
+
 		services.scope.launch {
-			val source = puppet.session.model.value.sources.firstOrNull { candidate -> candidate.id == ref.sourceId }
-			val read = source?.let { listed -> readSourceArt(puppet.document, listed) }
-			if (read?.fromCmo3 == true) {
-				UmamoLog.info("relink artwork: '${ref.layerKey}' read from the CMO3's own decomposed layer image, since its file could not be read on this machine")
-			}
-			runRelinkArtwork(host, RelinkArtworkRequest(request.tileIds, ref, read?.art, artworkImportOptions(), request.retire), areaId)
+			val model = puppet.session.model.value
+			val source = model.sources.firstOrNull { candidate -> candidate.id == ref.sourceId }
+			val read = source?.let { listed -> readSourceArt(puppet.document, model, listed) }
+			runRelinkArtwork(
+				host,
+				RelinkArtworkRequest(
+					request.tileIds,
+					ref,
+					read?.art,
+					artworkImportOptions(),
+					request.retire,
+					inventoryOverride = read?.inventory,
+					fromDocument = read?.origin == SourceReadOrigin.DocumentTiles,
+				),
+				areaId,
+			)
 		}
 	}
 
@@ -310,14 +343,19 @@ internal class ArtworkController(
 	private fun matchArtwork(areaId: String?) {
 		services.scope.launch {
 			val entries = ArrayList<ReloadEntry>()
-			for (source in puppet.session.model.value.sources) {
-				val read = readSourceArt(puppet.document, source) ?: continue
-				entries.add(ReloadEntry(source.id, read.art, read.contentHash, read.lastModified))
+			val model = puppet.session.model.value
+
+			for (source in model.sources) {
+				val read = readSourceArt(puppet.document, model, source) ?: continue
+				entries.add(ReloadEntry(source.id, read.art, read.contentHash, read.lastModified, inventoryOverride = read.inventory))
 			}
+
 			if (entries.isEmpty()) {
-				puppet.session.emitNotice("notice.reload.noFiles", NoticePlacement.StatusBar)
+				puppet.session.emitNotice("notice.match.noFiles", NoticePlacement.StatusBar)
+
 				return@launch
 			}
+
 			val covered = entries.mapTo(HashSet()) { entry -> entry.sourceId }
 			runMatchArtwork(
 				host,

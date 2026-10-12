@@ -23,6 +23,7 @@ import org.umamo.ui.document.umamoWriterInfo
 import org.umamo.ui.document.writeUmaDocument
 import org.umamo.ui.resources.Res
 import org.umamo.ui.resources.alert_save_failed
+import org.umamo.ui.viewport.AreaOverlays
 import org.umamo.ui.viewport.fitSquare
 import org.umamo.ui.workspace.AlertRequest
 import org.umamo.ui.workspace.commands.DirtyDocumentPrompt
@@ -56,6 +57,7 @@ internal class DocumentSaveController(
 	 */
 	fun canSaveNow(): Boolean {
 		val context = services.current()
+
 		return context.document is PuppetDocument && context.file?.canSave == true
 	}
 
@@ -78,13 +80,17 @@ internal class DocumentSaveController(
 		val puppet = context.puppet ?: return
 		val file = context.file ?: return
 		val activeSession = puppet.session
+
 		if (!file.canSave) {
 			return
 		}
+
 		if (file.saving) {
 			activeSession.emitNotice("notice.document.saveBusy", NoticePlacement.StatusBar)
+
 			return
 		}
+
 		// Kept on the holder as the save in flight, so a quit or a document replace asked for meanwhile waits
 		// for it instead of racing it (afterPendingWrites below); it completes true only when the file landed.
 		file.saveJob =
@@ -115,6 +121,7 @@ internal class DocumentSaveController(
 					} finally {
 						file.saving = false
 					}
+
 				when (outcome) {
 					is UmaWriteOutcome.Written -> {
 						activeSession.markSaved(snapshot)
@@ -124,27 +131,35 @@ internal class DocumentSaveController(
 						services.settings.addRecentFile(path)
 						UmamoLog.info("saved $path")
 						activeSession.emitNotice("notice.document.saved", NoticePlacement.StatusBar, listOf(fileDisplayName(path)))
+
 						// Once per document, what a .uma of this origin does not carry: shown after
 						// the saved notice, so it is the one left on screen.
 						if (!file.lossNoticeShown) {
 							file.lossNoticeShown = true
+
 							// Logged as well as shown: a status notice is gone in seconds, and this is the one place the
 							// rigger is told what the new file leaves behind.
 							when (puppet.document) {
 								is Cmo3Document -> {
-									UmamoLog.info("saved $path from a CMO3: the CMO3 structure Umamo does not model is not in the .uma; exports from this session still reconcile onto the original")
+									UmamoLog.info("saved $path from a CMO3: its physics, guides, keyform notes, random pose, model state sets, user data, and other editor settings are not in the .uma; CMO3 exports from this session still keep them, one exported after reopening the .uma will not")
 									activeSession.emitNotice("notice.document.cmo3Loss", NoticePlacement.StatusBar)
 								}
+
 								is Moc3Document -> {
 									UmamoLog.info("saved $path from a MOC3: physics, motions, expressions, user data, and pose are not in the .uma")
 									activeSession.emitNotice("notice.document.moc3Loss", NoticePlacement.StatusBar)
 								}
-								else -> Unit
+
+								else -> {
+									Unit
+								}
 							}
 						}
+
 						onSaved()
 						true
 					}
+
 					is UmaWriteOutcome.Failed -> {
 						services.commandRegistry.invoke("document.alert", AlertRequest(Res.string.alert_save_failed, listOf(destination.name, outcome.reason)))
 						false
@@ -170,11 +185,13 @@ internal class DocumentSaveController(
 		val bounds = service.visibleContentBounds() ?: return null
 		val thumbnail =
 			withTimeoutOrNull(THUMBNAIL_RENDER_TIMEOUT_MILLIS) {
-				service.renderImage(fitSquare(bounds, UMA_THUMBNAIL_SIZE), FrameBackdrop.Transparent)
+				service.renderImage(fitSquare(bounds, UMA_THUMBNAIL_SIZE), FrameBackdrop.Transparent, AreaOverlays.Default)
 			}
+
 		if (thumbnail == null) {
 			UmamoLog.warn("save: the renderer did not draw the thumbnail; compositing it instead")
 		}
+
 		return thumbnail
 	}
 
@@ -197,10 +214,13 @@ internal class DocumentSaveController(
 		services.afterRunningExport {
 			val context = services.current()
 			val file = context.file
+
 			if (file == null) {
 				action()
+
 				return@afterRunningExport
 			}
+
 			file.afterPendingSave(
 				services.scope,
 				onWaiting = { context.session?.emitNotice("notice.document.waitingForSave", NoticePlacement.StatusBar) },

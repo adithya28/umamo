@@ -55,28 +55,35 @@ private fun writeSample(
 	synthetic: Boolean,
 ) {
 	val destinationAlpha = page[offset + 3].toInt() and 0xFF
+
 	if (destinationAlpha == 0) {
 		// A bleed band holds no alpha, so an earlier tile's band is told apart from untouched page by its
 		// color: another band never recolors it, and the gutter keeps the color of the edge it borders.
 		if (synthetic && (page[offset].toInt() != 0 || page[offset + 1].toInt() != 0 || page[offset + 2].toInt() != 0)) {
 			return
 		}
+
 		page[offset] = red.toByte()
 		page[offset + 1] = green.toByte()
 		page[offset + 2] = blue.toByte()
 		page[offset + 3] = alpha.toByte()
+
 		return
 	}
+
 	if (synthetic || alpha == 0) {
 		return
 	}
+
 	if (alpha == 255) {
 		page[offset] = red.toByte()
 		page[offset + 1] = green.toByte()
 		page[offset + 2] = blue.toByte()
 		page[offset + 3] = alpha.toByte()
+
 		return
 	}
+
 	// Straight-alpha source-over: the sample sits over the earlier content.
 	val sourceCoverage = alpha / 255f
 	val destinationCoverage = destinationAlpha / 255f * (1f - sourceCoverage)
@@ -106,6 +113,7 @@ private fun compositeChannel(
 ): Byte {
 	val destinationValue = destination.toInt() and 0xFF
 	val composite = (source * sourceCoverage + destinationValue * destinationCoverage) / outCoverage
+
 	return composite.roundToInt().coerceIn(0, 255).toByte()
 }
 
@@ -214,8 +222,10 @@ internal fun blitTile(
 ) {
 	val placedWidth = if (quarterTurns == 0) trim.width else trim.height
 	val placedHeight = if (quarterTurns == 0) trim.height else trim.width
+
 	for (row in 0 until placedHeight) {
 		val destinationRowOffset = ((destinationY + row) * pageWidth + destinationX) * 4
+
 		for (column in 0 until placedWidth) {
 			writeSourcePixel(
 				page,
@@ -264,17 +274,22 @@ internal fun extrudeTileEdges(
 ) {
 	val tileWidth = if (quarterTurns == 0) trim.width else trim.height
 	val tileHeight = if (quarterTurns == 0) trim.height else trim.width
+
 	if (extrude <= 0 || tileWidth <= 0 || tileHeight <= 0) {
 		return
 	}
+
 	for (rowOffset in -extrude until tileHeight + extrude) {
 		val clampedRow = rowOffset.coerceIn(0, tileHeight - 1)
 		val insideVertically = rowOffset == clampedRow
+
 		for (columnOffset in -extrude until tileWidth + extrude) {
 			val clampedColumn = columnOffset.coerceIn(0, tileWidth - 1)
+
 			if (insideVertically && columnOffset == clampedColumn) {
 				continue
 			}
+
 			bleedSourcePixel(
 				page,
 				((tileY + rowOffset) * pageWidth + tileX + columnOffset) * 4,
@@ -316,6 +331,7 @@ public fun composeAtlasPages(
 	val itemByKey = items.associateBy { item -> item.key }
 	require(itemByKey.size == items.size) { "atlas pack item keys must be unique" }
 	val pageBuffers = List(pageWidths.size) { pageIndex -> ByteArray(pageWidths[pageIndex] * pageHeights[pageIndex] * 4) }
+
 	for (placement in placements) {
 		val item = requireNotNull(itemByKey[placement.key]) { "placement '${placement.key}' has no item" }
 		require(placement.quarterTurns in 0..1) {
@@ -365,6 +381,7 @@ public fun composeAtlasPages(
 			extrude = extrude,
 		)
 	}
+
 	return pageBuffers.mapIndexed { pageIndex, buffer -> RasterImage(pageWidths[pageIndex], pageHeights[pageIndex], buffer) }
 }
 
@@ -430,6 +447,7 @@ public fun composeAtlasPagesAffine(
 	val itemByKey = items.associateBy { item -> item.key }
 	require(itemByKey.size == items.size) { "atlas pack item keys must be unique" }
 	val pageBuffers = List(pageWidths.size) { pageIndex -> ByteArray(pageWidths[pageIndex] * pageHeights[pageIndex] * 4) }
+
 	for (placement in placements) {
 		val item = requireNotNull(itemByKey[placement.key]) { "placement '${placement.key}' has no item" }
 		val trim = placement.trim
@@ -446,11 +464,14 @@ public fun composeAtlasPagesAffine(
 		require(pageWidth != null && pageHeight != null) {
 			"placement '${placement.key}' names page ${placement.pageIndex} of ${pageWidths.size}"
 		}
+
 		if (trim.width <= 0 || trim.height <= 0) {
 			continue
 		}
+
 		paintTilePlacement(pageBuffers[placement.pageIndex], pageWidth, pageHeight, item, trim, placement.tileToPage, extrude)
 	}
+
 	return pageBuffers.mapIndexed { pageIndex, buffer -> RasterImage(pageWidths[pageIndex], pageHeights[pageIndex], buffer) }
 }
 
@@ -480,6 +501,7 @@ internal fun paintTilePlacement(
 	extrude: Int,
 ) {
 	val exact = exactPlacement(tileToPage, trim)
+
 	if (exact != null &&
 		exact.originX - extrude >= 0 &&
 		exact.originY - extrude >= 0 &&
@@ -515,6 +537,7 @@ internal fun affineBounds(
 	var minY = Float.POSITIVE_INFINITY
 	var maxX = Float.NEGATIVE_INFINITY
 	var maxY = Float.NEGATIVE_INFINITY
+
 	for (cornerIndex in 0 until 4) {
 		val cornerX = if (cornerIndex and 1 == 0) left else right
 		val cornerY = if (cornerIndex and 2 == 0) top else bottom
@@ -525,6 +548,7 @@ internal fun affineBounds(
 		maxX = maxOf(maxX, pageX)
 		maxY = maxOf(maxY, pageY)
 	}
+
 	return floatArrayOf(minX, minY, maxX, maxY)
 }
 
@@ -586,6 +610,7 @@ private fun exactPlacement(affine: FloatArray, trim: LayerBounds): ExactPlacemen
 	val quarterTurns: Int
 	val originX: Float
 	val originY: Float
+
 	if (affine[0] == 1f && affine[1] == 0f && affine[3] == 0f && affine[4] == 1f) {
 		quarterTurns = 0
 		originX = affine[2] + trim.left
@@ -597,11 +622,14 @@ private fun exactPlacement(affine: FloatArray, trim: LayerBounds): ExactPlacemen
 	} else {
 		return null
 	}
+
 	val pixelX = originX.roundToInt()
 	val pixelY = originY.roundToInt()
+
 	if (pixelX.toFloat() != originX || pixelY.toFloat() != originY) {
 		return null
 	}
+
 	return ExactPlacement(pixelX, pixelY, quarterTurns)
 }
 
@@ -613,13 +641,16 @@ private fun exactPlacement(affine: FloatArray, trim: LayerBounds): ExactPlacemen
  */
 private fun invertAffine2x3(affine: FloatArray): FloatArray? {
 	val determinant = affine[0] * affine[4] - affine[1] * affine[3]
+
 	if (determinant == 0f) {
 		return null
 	}
+
 	val m00 = affine[4] / determinant
 	val m01 = -affine[1] / determinant
 	val m10 = -affine[3] / determinant
 	val m11 = affine[0] / determinant
+
 	return floatArrayOf(
 		m00,
 		m01,
@@ -675,15 +706,19 @@ internal fun blitTileAffine(
 	val endColumn = ceil(bounds[2] + reach).toInt().coerceAtMost(pageWidth)
 	val startRow = floor(bounds[1] - reach).toInt().coerceAtLeast(0)
 	val endRow = ceil(bounds[3] + reach).toInt().coerceAtMost(pageHeight)
+
 	if (startColumn >= endColumn || startRow >= endRow) {
 		return
 	}
+
 	val extrudeSquared = extrude.toFloat() * extrude.toFloat()
 	val lastColumn = trim.left + trim.width - 1
 	val lastRow = trim.top + trim.height - 1
 	val sample = IntArray(4)
+
 	for (pageRow in startRow until endRow) {
 		val centerY = pageRow + 0.5f
+
 		for (pageColumn in startColumn until endColumn) {
 			val centerX = pageColumn + 0.5f
 			val tileX = pageToTile[0] * centerX + pageToTile[1] * centerY + pageToTile[2]
@@ -693,21 +728,27 @@ internal fun blitTileAffine(
 			val clampedX = tileX.coerceIn(trimLeft, trimRight)
 			val clampedY = tileY.coerceIn(trimTop, trimBottom)
 			val insideTrim = clampedX == tileX && clampedY == tileY
+
 			if (sample[3] > 0 || insideTrim) {
 				// The tile's own pixels, a transparent one included, and the partial coverage of an edge.
 				writeSample(page, pageOffset, sample[0], sample[1], sample[2], sample[3], synthetic = false)
+
 				continue
 			}
+
 			if (extrude == 0) {
 				continue
 			}
+
 			val backX = tileToPage[0] * clampedX + tileToPage[1] * clampedY + tileToPage[2]
 			val backY = tileToPage[3] * clampedX + tileToPage[4] * clampedY + tileToPage[5]
 			val deltaX = backX - centerX
 			val deltaY = backY - centerY
+
 			if (deltaX * deltaX + deltaY * deltaY > extrudeSquared) {
 				continue
 			}
+
 			writeSample(page, pageOffset, sample[0], sample[1], sample[2], 0, synthetic = true)
 		}
 	}
@@ -762,6 +803,7 @@ private fun sampleBilinearCovered(
 	var straightRed = 0f
 	var straightGreen = 0f
 	var straightBlue = 0f
+
 	for (tapIndex in 0 until 4) {
 		val column = if (tapIndex and 1 == 0) baseColumn else baseColumn + 1
 		val row = if (tapIndex and 2 == 0) baseRow else baseRow + 1
@@ -772,23 +814,28 @@ private fun sampleBilinearCovered(
 				2 -> (1f - fractionX) * fractionY
 				else -> fractionX * fractionY
 			}
+
 		if (weight == 0f) {
 			continue
 		}
+
 		val inside = column in firstColumn..lastColumn && row in firstRow..lastRow
 		val offset = (row.coerceIn(firstRow, lastRow) * sourceWidth + column.coerceIn(firstColumn, lastColumn)) * 4
 		val tapRed = (source[offset].toInt() and 0xFF).toFloat()
 		val tapGreen = (source[offset + 1].toInt() and 0xFF).toFloat()
 		val tapBlue = (source[offset + 2].toInt() and 0xFF).toFloat()
 		val tapAlpha = if (inside) (source[offset + 3].toInt() and 0xFF).toFloat() else 0f
+
 		if (weight == 1f) {
 			// Exactly on one texel's center: that texel, verbatim (at zero alpha when it lies beyond the trim).
 			out[0] = tapRed.toInt()
 			out[1] = tapGreen.toInt()
 			out[2] = tapBlue.toInt()
 			out[3] = tapAlpha.toInt()
+
 			return
 		}
+
 		red += weight * tapRed * tapAlpha
 		green += weight * tapGreen * tapAlpha
 		blue += weight * tapBlue * tapAlpha
@@ -797,6 +844,7 @@ private fun sampleBilinearCovered(
 		straightGreen += weight * tapGreen
 		straightBlue += weight * tapBlue
 	}
+
 	if (alpha > 0f) {
 		out[0] = (red / alpha).roundToInt().coerceIn(0, 255)
 		out[1] = (green / alpha).roundToInt().coerceIn(0, 255)
@@ -807,5 +855,6 @@ private fun sampleBilinearCovered(
 		out[1] = straightGreen.roundToInt().coerceIn(0, 255)
 		out[2] = straightBlue.roundToInt().coerceIn(0, 255)
 	}
+
 	out[3] = alpha.roundToInt().coerceIn(0, 255)
 }

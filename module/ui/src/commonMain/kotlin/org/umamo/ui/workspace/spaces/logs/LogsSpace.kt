@@ -39,18 +39,22 @@ import org.umamo.ui.theme.LocalUmamoTypography
 @Composable
 fun LogsSpace(modifier: Modifier = Modifier) {
 	val entries by UmamoLog.entries.collectAsState()
+
 	if (entries.isEmpty()) {
 		Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
 			Text(text = stringResource(Res.string.logs_empty), color = LocalUmamoColors.current.textMuted)
 		}
+
 		return
 	}
+
 	val listState = rememberLazyListState()
 	// Follow the tail only when the user is already viewing the bottom: if the previously-last line was
 	// visible when this new line arrived, jump to the new last line; otherwise leave the scroll alone.
 	LaunchedEffect(entries.size) {
 		val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
 		val previousLastIndex = entries.size - 2
+
 		if (lastVisibleIndex >= previousLastIndex) {
 			listState.scrollToItem(entries.lastIndex)
 		}

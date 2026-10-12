@@ -24,18 +24,23 @@ internal fun runDump(arguments: List<String>): Int {
 	val flags = arguments.filter { argument -> argument.startsWith("--") }.toSet()
 	val positionals = arguments.filterNot { argument -> argument.startsWith("--") }
 	val unknownFlags = flags - setOf("--sections", "--xml", "--puppet")
+
 	if (unknownFlags.isNotEmpty()) {
 		throw CliUsageException("unknown dump flag(s): ${unknownFlags.joinToString(", ")}")
 	}
+
 	if (positionals.size != 1) {
 		throw CliUsageException("usage: dump <file> [--sections] [--xml] [--puppet]")
 	}
+
 	val loaded = loadInput(positionals[0])
+
 	when (loaded) {
 		is LoadedInput.Moc3Input -> {
 			if ("--xml" in flags) {
 				throw CliUsageException("--xml applies to cmo3 input only")
 			}
+
 			if ("--sections" in flags) {
 				dumpMoc3Sections(loaded)
 			} else {
@@ -47,10 +52,13 @@ internal fun runDump(arguments: List<String>): Int {
 			if ("--sections" in flags) {
 				throw CliUsageException("--sections applies to moc3 input only")
 			}
+
 			if ("--xml" in flags) {
 				dumpCmo3Xml(loaded.model)
+
 				return 0
 			}
+
 			dumpCmo3Overview(loaded.model)
 		}
 
@@ -58,12 +66,15 @@ internal fun runDump(arguments: List<String>): Int {
 			if ("--sections" in flags || "--xml" in flags) {
 				throw CliUsageException("--sections and --xml do not apply to source artwork")
 			}
+
 			dumpSourceArt(loaded)
 		}
 	}
+
 	if ("--puppet" in flags) {
 		dumpPuppetSummary(importPuppet(loaded))
 	}
+
 	return 0
 }
 
@@ -121,13 +132,16 @@ private fun dumpMoc3Sections(loaded: LoadedInput.Moc3Input) {
 	println("# MOC3 version=${container.versionByte} sections=${container.sectionCount} bigEndian=${container.isBigEndian}")
 	println("# countInfo ${container.countInfo.joinToString(",")}")
 	var presentCount = 0
+
 	for (section in Section.entries) {
 		if (!container.sections.isPresent(section)) {
 			continue
 		}
+
 		presentCount++
 		println("S ${section.name} count=${container.sections.elementCount(section)}")
 	}
+
 	println("# sections present=$presentCount modeled=${Section.entries.size}")
 }
 
@@ -158,6 +172,7 @@ private fun dumpCmo3Overview(model: Cmo3Model) {
 		println("I $imageIndex type=${resource.type} width=${resource.width} height=${resource.height} pngBytes=$pngSize")
 	}
 	val mainXml = archive.firstByTag(CaffArchive.TAG_MAIN_XML)
+
 	if (mainXml != null) {
 		// sharedElements/mainElements are JDOM-typed and JDOM stays :format-internal; the class-version
 		// table and import list are the useful prologue summary anyway.

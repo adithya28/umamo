@@ -92,6 +92,7 @@ class IconSlotSemanticsTest {
 			}
 			description = publishedDescription()
 		}
+
 		return description
 	}
 
@@ -126,6 +127,7 @@ class IconSlotSemanticsTest {
 			}
 			description = publishedDescription()
 		}
+
 		return description
 	}
 
@@ -141,6 +143,7 @@ class IconSlotSemanticsTest {
 	private fun ComposeUiTest.publishedDescription(): String {
 		waitForIdle()
 		val node = onNodeWithTag(SLOT_TAG, useUnmergedTree = true).fetchSemanticsNode()
+
 		return node.config.getOrNull(SemanticsProperties.ContentDescription)?.firstOrNull().orEmpty()
 	}
 

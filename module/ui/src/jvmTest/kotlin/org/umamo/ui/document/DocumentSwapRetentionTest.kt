@@ -44,9 +44,11 @@ class DocumentSwapRetentionTest {
 		// current document while the previous one is discarded.
 		val currentDocument = loadCmo3Document(file)
 		awaitCollection(replacedReferences)
+
 		for ((label, reference) in replacedReferences) {
 			assertNull(reference.get(), "$label is still strongly reachable after the document swap")
 		}
+
 		assertTrue(currentDocument.puppet.drawables.isNotEmpty(), "the replacement document stays live")
 	}
 
@@ -87,6 +89,7 @@ class DocumentSwapRetentionTest {
 			)
 		// Every document builds its own raster store, so this one is always the document's to release.
 		references.add("SourceArtRasters" to WeakReference<Any>(document.artRasters))
+
 		return references
 	}
 
@@ -98,6 +101,7 @@ class DocumentSwapRetentionTest {
 	 */
 	private fun loadCmo3Document(file: File): Cmo3Document {
 		val load = loadDocument(file.readBytes(), file.name, file.path)
+
 		return assertIs<Cmo3Document>(assertIs<DocumentLoad.Loaded>(load).document)
 	}
 
@@ -109,11 +113,14 @@ class DocumentSwapRetentionTest {
 	 */
 	private fun awaitCollection(references: List<Pair<String, WeakReference<Any>>>) {
 		val deadlineNanos = System.nanoTime() + GC_WAIT_MILLIS * 1_000_000L
+
 		while (System.nanoTime() < deadlineNanos) {
 			System.gc()
+
 			if (references.all { (_, reference) -> reference.get() == null }) {
 				return
 			}
+
 			Thread.sleep(GC_POLL_MILLIS)
 		}
 	}

@@ -59,11 +59,13 @@ fun <TForm, TGeometry> KeyformGrid<TForm>.asGeometryGrid(geometryOf: (TForm) -> 
  */
 fun channelGridsOf(vararg tracks: Pair<FormChannel, KeyformGrid<ChannelValue>?>): ChannelGrids {
 	val present = LinkedHashMap<FormChannel, KeyformGrid<ChannelValue>>(tracks.size)
+
 	for ((channel, grid) in tracks) {
 		if (grid != null) {
 			present[channel] = grid
 		}
 	}
+
 	return if (present.isEmpty()) ChannelGrids.Empty else ChannelGrids(present)
 }
 

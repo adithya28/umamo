@@ -36,8 +36,8 @@ internal sealed interface LoadedInput {
 
 	/**
 	 * Layered or flat source artwork: PSD, CLIP, KRA, or any of the flat raster formats read as a
-	 * single-layer document.  It carries no rig - there is no source-art to PuppetModel bridge yet
-	 * (pipeline Phase E) - so only artwork-side commands accept it.
+	 * single-layer document.  It carries no rig, and the CLI never runs the source-art to PuppetModel
+	 * bridge over it, so only the artwork-side commands (atlas, mesh) accept it.
 	 */
 	class SourceArtInput(val art: SourceArt, val file: File) : LoadedInput
 }
@@ -69,25 +69,35 @@ internal class Moc3Family(
  */
 internal fun loadInput(path: String): LoadedInput {
 	val inputFile = File(path)
+
 	if (!inputFile.isFile) {
 		throw CliUsageException("No such file: $path")
 	}
+
 	if (inputFile.name.lowercase(Locale.ROOT).endsWith(".model3.json")) {
 		val manifest = Moc3.readModel3(inputFile.readText())
 		val mocFile = File(inputFile.parentFile, manifest.fileReferences.moc)
+
 		if (!mocFile.isFile) {
 			throw CliUsageException("Manifest references a missing MOC3: ${mocFile.path}")
 		}
+
 		return loadMoc3(mocFile, manifestFile = inputFile, manifest = manifest)
 	}
+
 	val bytes = inputFile.readBytes()
+
 	return when (val codec = FormatRegistry.detect(bytes, inputFile.name)) {
 		Cmo3 -> LoadedInput.Cmo3Input(Cmo3.read(bytes), bytes)
+
 		Moc3 -> loadMoc3(inputFile, manifestFile = null, manifest = null)
+
 		is ArtReader -> LoadedInput.SourceArtInput(codec.read(bytes), inputFile)
+
 		// A flat raster becomes a one-layer document, which is what makes `atlas cover.png` mean
 		// something rather than being rejected for lacking layers.
 		is RasterCodec -> LoadedInput.SourceArtInput(rasterToSourceArt(codec.read(bytes), inputFile.nameWithoutExtension), inputFile)
+
 		else -> throw CliUsageException("Unsupported input format: $path (expected cmo3, moc3, model3.json, or source artwork)")
 	}
 }
@@ -113,9 +123,11 @@ private fun loadMoc3(mocFile: File, manifestFile: File?, manifest: Model3Json?):
 					runCatching { Moc3.readModel3(candidate.readText()).fileReferences.moc == mocFile.name }.getOrDefault(false)
 				}
 	val resolvedManifest = manifest ?: resolvedManifestFile?.let { file -> Moc3.readModel3(file.readText()) }
+
 	if (resolvedManifest == null) {
 		return LoadedInput.Moc3Input(document, Moc3Family(mocFile, null, null, emptyList(), emptyList()))
 	}
+
 	val manifestDirectory = resolvedManifestFile!!.parentFile
 	val references = resolvedManifest.fileReferences
 	// Manifest reference first, then the sibling-by-basename fallback the app's document loader
@@ -134,6 +146,7 @@ private fun loadMoc3(mocFile: File, manifestFile: File?, manifest: Model3Json?):
 		buildList {
 			fun passThrough(kind: Moc3Sidecars.SidecarKind, reference: String?) {
 				val file = reference?.let { relative -> File(manifestDirectory, relative) } ?: return
+
 				if (file.isFile) {
 					add(Moc3Sidecars.PassThroughSidecar(kind, file.name, file.readText()))
 				}
@@ -142,6 +155,7 @@ private fun loadMoc3(mocFile: File, manifestFile: File?, manifest: Model3Json?):
 			passThrough(Moc3Sidecars.SidecarKind.Pose, references.pose)
 			passThrough(Moc3Sidecars.SidecarKind.UserData, references.userData)
 		}
+
 	return LoadedInput.Moc3Input(document, Moc3Family(mocFile, resolvedManifest, displayInfo, textureFiles, sidecars))
 }
 
@@ -156,13 +170,19 @@ private fun loadMoc3(mocFile: File, manifestFile: File?, manifest: Model3Json?):
  */
 internal fun importPuppet(loaded: LoadedInput): PuppetModel =
 	when (loaded) {
-		is LoadedInput.Cmo3Input -> Cmo3Import.fromModelSource(loaded.model.root as CModelSource)
-		is LoadedInput.Moc3Input -> restMeshesToCanvasSpace(Moc3Import.fromMocDocument(loaded.document, loaded.family.displayInfo))
-		is LoadedInput.SourceArtInput ->
+		is LoadedInput.Cmo3Input -> {
+			Cmo3Import.fromModelSource(loaded.model.root as CModelSource)
+		}
+
+		is LoadedInput.Moc3Input -> {
+			restMeshesToCanvasSpace(Moc3Import.fromMocDocument(loaded.document, loaded.family.displayInfo))
+		}
+
+		is LoadedInput.SourceArtInput -> {
 			throw CliUsageException(
-				"${loaded.file.name} is source artwork, which carries no rig; try `atlas` (a source-art to " +
-					"PuppetModel bridge is pipeline Phase E and does not exist yet)",
+				"${loaded.file.name} is source artwork, which carries no rig; try `atlas` or `mesh`",
 			)
+		}
 	}
 
 /**
@@ -186,8 +206,44 @@ internal class CliArguments(
 	 */
 	fun intOption(name: String, defaultValue: Int): Int {
 		val raw = options[name] ?: return defaultValue
+
 		return raw.toIntOrNull() ?: throw CliUsageException("$name expects a whole number, got '$raw'")
 	}
+
+	/**
+	 * Reads one valued option as a decimal number.
+	 *
+	 * @param String name         The option name, with its leading dashes.
+	 * @param Double defaultValue The value to use when the option is absent.
+	 * @return Double The parsed value.
+	 */
+	fun doubleOption(name: String, defaultValue: Double): Double {
+		val raw = options[name] ?: return defaultValue
+
+		return raw.toDoubleOrNull() ?: throw CliUsageException("$name expects a number, got '$raw'")
+	}
+}
+
+/** Canvas pixels past which a preview image is skipped rather than allocated. */
+internal const val PREVIEW_PIXEL_CAP = 128_000_000
+
+/**
+ * Resolves a command's output subdirectory, named after the input file.
+ *
+ * @param File    inputFile       The input file.
+ * @param String? parentDirectory The caller's directory argument, when given.
+ * @param String  suffix          Appended to the input's name, so two commands' outputs never mix.
+ * @return File The directory the command writes into.
+ */
+internal fun resolveOutputDirectory(inputFile: File, parentDirectory: String?, suffix: String = ""): File {
+	val parent = if (parentDirectory != null) File(parentDirectory) else (inputFile.parentFile ?: File("."))
+	val directory = File(parent, inputFile.nameWithoutExtension + suffix)
+
+	if (directory.exists()) {
+		System.err.println("Note: ${directory.path} already exists; its matching files will be overwritten.")
+	}
+
+	return directory
 }
 
 /**
@@ -205,25 +261,35 @@ internal fun parseArguments(arguments: List<String>, knownFlags: Set<String>, kn
 	val positionals = mutableListOf<String>()
 	val flags = mutableSetOf<String>()
 	val options = mutableMapOf<String, String>()
+
 	for (argument in arguments) {
 		if (!argument.startsWith("--")) {
 			positionals.add(argument)
+
 			continue
 		}
+
 		val separatorIndex = argument.indexOf('=')
+
 		if (separatorIndex < 0) {
 			if (argument !in knownFlags) {
 				throw CliUsageException("unknown flag '$argument'")
 			}
+
 			flags.add(argument)
+
 			continue
 		}
+
 		val name = argument.substring(0, separatorIndex)
+
 		if (name !in knownOptions) {
 			throw CliUsageException("unknown option '$name'")
 		}
+
 		options[name] = argument.substring(separatorIndex + 1)
 	}
+
 	return CliArguments(positionals, flags, options)
 }
 
@@ -240,5 +306,6 @@ internal fun formatSixSignificant(value: Float): String {
 	val mantissa = if (exponentIndex >= 0) raw.substring(0, exponentIndex) else raw
 	val exponent = if (exponentIndex >= 0) raw.substring(exponentIndex) else ""
 	val trimmed = if (mantissa.contains('.')) mantissa.trimEnd('0').trimEnd('.') else mantissa
+
 	return trimmed + exponent
 }

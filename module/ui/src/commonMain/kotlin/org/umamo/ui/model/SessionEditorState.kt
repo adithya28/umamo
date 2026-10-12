@@ -62,5 +62,6 @@ class SessionEditorState internal constructor(
 fun rememberSessionEditorState(session: EditorSession): SessionEditorState {
 	val selectionMirror = session.selection.collectAsState()
 	val modeMirror = session.mode.collectAsState()
+
 	return remember(session) { SessionEditorState(session, selectionMirror, modeMirror) }
 }

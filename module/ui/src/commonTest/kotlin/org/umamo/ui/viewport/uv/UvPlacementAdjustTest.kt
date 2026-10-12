@@ -1,16 +1,16 @@
 package org.umamo.ui.viewport.uv
 
 import org.umamo.edit.EditorSession
-import org.umamo.edit.IndividualOriginScope
 import org.umamo.edit.MeshOperatorKind
-import org.umamo.edit.ModalCaptureSource
 import org.umamo.edit.OperatorParameter
 import org.umamo.edit.Selection
 import org.umamo.edit.SelectionTarget
 import org.umamo.edit.TransformPivotMode
-import org.umamo.edit.buildModalTransformCapture
+import org.umamo.edit.atlas.setAtlasPlacements
 import org.umamo.edit.intValue
-import org.umamo.edit.setAtlasPlacements
+import org.umamo.edit.transform.IndividualOriginScope
+import org.umamo.edit.transform.ModalCaptureSource
+import org.umamo.edit.transform.buildModalTransformCapture
 import org.umamo.edit.withParameter
 import org.umamo.format.art.LayerBounds
 import org.umamo.runtime.model.AtlasPage
@@ -64,7 +64,7 @@ class UvPlacementAdjustTest {
 						blendMode = BlendMode.Normal,
 						maskedBy = emptyList(),
 						mesh =
-							DrawableMesh(
+							DrawableMesh.withLocalEqualToCanvas(
 								floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f),
 								floatArrayOf(4f / 64, 4f / 64, 14f / 64, 4f / 64, 4f / 64, 14f / 64, 14f / 64, 14f / 64),
 								indices,
@@ -102,6 +102,7 @@ class UvPlacementAdjustTest {
 				),
 			)
 		val mover = PlacementMover(tileId, original, trim, null, null, null, emptyList(), transform.anchor.first, transform.anchor.second, crop = null)
+
 		return PlacementGesture(
 			transform = transform,
 			movers = listOf(mover),
@@ -132,6 +133,7 @@ class UvPlacementAdjustTest {
 		val dragged = evaluate(gesture, parameters)
 		session.setAtlasPlacements(changedPlacements(gesture.movers, dragged), gesture.transform.operatorKind)
 		assertNotNull(registerPlacementAdjustment(session, "uv-1", gesture, dragged, onLanded), "the gesture registers")
+
 		return dragged
 	}
 

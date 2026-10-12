@@ -18,5 +18,6 @@ public fun cubismEngine(diagnostics: SerializeDiagnostics = SerializeDiagnostics
 	registerMeshSubsystem(registry) // CoordType, PointInTriangle, PointOnCurve, MeshPointRef
 	registerCustomSubsystem(registry) // <file> + attribute-serialized leaves + CModelSource root
 	org.umamo.format.cmo3.serialize.gen.registerGeneratedSubsystem(registry) // bulk reflective (generated)
+
 	return SerializeEngine(registry, diagnostics)
 }

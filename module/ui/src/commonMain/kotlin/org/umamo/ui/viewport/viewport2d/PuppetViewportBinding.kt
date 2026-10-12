@@ -12,10 +12,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerInputScope
@@ -24,6 +25,8 @@ import androidx.compose.ui.input.pointer.isTertiaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -32,11 +35,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import org.umamo.edit.EditorMode
 import org.umamo.edit.EditorSession
-import org.umamo.edit.GridConfig
 import org.umamo.edit.NoticePlacement
 import org.umamo.edit.SelectionOps
 import org.umamo.edit.SelectionTarget
 import org.umamo.edit.pinsPose
+import org.umamo.edit.switchEditDrawable
 import org.umamo.render.DecodedImage
 import org.umamo.render.GridColors
 import org.umamo.render.LayerDrawPlan
@@ -56,8 +59,10 @@ import org.umamo.ui.theme.LocalUmamoColors
 import org.umamo.ui.theme.LocalUmamoCursors
 import org.umamo.ui.theme.umamoPointerIcon
 import org.umamo.ui.viewport.AreaCameraKey
+import org.umamo.ui.viewport.AreaOverlaysPublisher
 import org.umamo.ui.viewport.AtlasPageBinding
 import org.umamo.ui.viewport.LiveParams
+import org.umamo.ui.viewport.LocalAreaOverlays
 import org.umamo.ui.viewport.OverlapPickerPopup
 import org.umamo.ui.viewport.OverlapState
 import org.umamo.ui.viewport.PuppetViewportService
@@ -65,8 +70,12 @@ import org.umamo.ui.viewport.PuppetViewportServiceFactory
 import org.umamo.ui.viewport.ViewportColorSettings
 import org.umamo.ui.viewport.ViewportRegionOverlay
 import org.umamo.ui.viewport.ViewportSettings
+import org.umamo.ui.viewport.gizmo.editMeshOverlaySizes
 import org.umamo.ui.viewport.overlapStateFrom
 import org.umamo.ui.viewport.parseSelectionHighlightColor
+import org.umamo.ui.viewport.rememberViewportOverlayColors
+import org.umamo.ui.viewport.toMeshOverlayPalette
+import org.umamo.ui.viewport.tracksAreaPointer
 import org.umamo.ui.workspace.ViewportHost
 
 /*
@@ -80,7 +89,7 @@ import org.umamo.ui.workspace.ViewportHost
 /**
  * The viewport host plus its render service and preview seams, returned together so the app can inject
  * the host into the editor shell and provide the service / thumbnails / render-sync into their locals.
- * The per-area camera controllers are no longer carried here - each viewport / UV leaf registers its own
+ * The per-area camera controllers are not carried here: each viewport / UV leaf registers its own
  * into the shared AreaCameraHub, and the view commands resolve the hovered area through that hub.
  *
  * @property ViewportHost host The Viewport2D host injected into the editor shell.
@@ -137,9 +146,11 @@ private class SourceArtworkGaps {
 	 */
 	fun report(session: EditorSession) {
 		val total = plan.unresolvedDrawableCount + plan.drawableIdsUsing(undecodable).size
+
 		if (total <= reportedCount) {
 			return
 		}
+
 		reportedCount = total
 		// A partly-recoverable document displays from a mix, which must not read as a clean switch.  The
 		// count goes to the log because the notice carries no arguments; the message's job is only to stop
@@ -163,10 +174,13 @@ private class SourceArtworkGaps {
 		if (reportedUnavailable) {
 			return
 		}
+
 		val wanted = plan.layerByteCostByKey.keys - undecodable
+
 		if (wanted.isNotEmpty()) {
 			return
 		}
+
 		reportedUnavailable = true
 		UmamoLog.warn("source-artwork display: requested, but no artwork is displayable; the puppet stays on the atlas")
 		session.emitNotice("notice.display.sourceArtworkUnavailable", NoticePlacement.NearCursor)
@@ -230,11 +244,17 @@ fun rememberPuppetViewportHost(
 	LaunchedEffect(service, session) {
 		combine(session.selection, session.mode, session.previewSelection) { selection, mode, previewSelection ->
 			when {
-				mode == EditorMode.Edit -> emptySet<DrawableId>() to null
+				mode == EditorMode.Edit -> {
+					emptySet<DrawableId>() to null
+				}
+
 				// An in-flight object circle stroke paints a transient preview; while it is live the tint shows
 				// exactly what the stroke has painted (previewSelection) with no active drawable yet, so drawables
 				// light up plain under the brush before the stroke commits.
-				previewSelection != null -> previewSelection to null
+				previewSelection != null -> {
+					previewSelection to null
+				}
+
 				// Otherwise the committed object selection's drawables tint as usual, with its active
 				// (last-selected) drawable tinted apart. A Part/Deformer active target yields null, so every
 				// selected drawable tints plain - correct, since only drawables are tinted.
@@ -261,6 +281,17 @@ fun rememberPuppetViewportHost(
 			service.setModel(model)
 			service.setShownDrawables(model.visibleDrawableIds())
 		}
+	}
+	// The mesh overlay the renderer draws over the art in every 2D area - the Edit cage, and the wireframe of
+	// the shown meshes while some area asks for it: derived off the UI thread from the mode, the mesh selection
+	// (or a live brush stroke), the model, and the areas' demand, and published only when what it shows
+	// changes - a Grab's preview pushes and its confirm move positions, which the overlay does not carry.  The
+	// sizes reach the running derive as a flow rather than as an effect key, so a density change never
+	// restarts it mid-derive; the demand is keyed on the service, as the areas that fill it are.
+	val meshOverlaySizes = rememberUpdatedState(editMeshOverlaySizes(LocalDensity.current))
+	val wireframeDemand = remember(service) { WireframeDemand() }
+	LaunchedEffect(service, session) {
+		publishMeshOverlay(service, session, snapshotFlow { meshOverlaySizes.value }, wireframeDemand.wanted)
 	}
 	// How many drawables have no usable artwork: the mapping failures the plan knows up front, plus the
 	// ones whose layer turned out not to decode, which only a decode can discover.  Never residency -
@@ -295,12 +326,15 @@ fun rememberPuppetViewportHost(
 					delivered.clear()
 					artworkGaps.reset(LayerDrawPlan.EMPTY)
 					service.setSourceLayerPlan(LayerDrawPlan.EMPTY)
+
 					if (fromSourceLayers) {
 						// Requested with nothing to show: the toggle is set and nothing on screen moves.
 						artworkGaps.reportUnavailableIfUnengaged(session)
 					}
+
 					return@collectLatest
 				}
+
 				val model = session.model.value
 				val plan = withContext(Dispatchers.Default) { buildLayerDrawPlan(model) }
 				artworkGaps.reset(plan)
@@ -309,12 +343,14 @@ fun rememberPuppetViewportHost(
 
 				delivered.retainAll(plan.layerByteCostByKey.keys)
 				val outstanding = plan.layerByteCostByKey.keys.filterNot { layerKey -> layerKey in delivered }
+
 				for (chunk in outstanding.chunked(SOURCE_LAYER_FILL_CHUNK)) {
 					val decoded = HashMap<String, DecodedImage>()
 					val undecodable = HashSet<String>()
 					withContext(Dispatchers.Default) {
 						for (layerKey in chunk) {
 							val image = artRasters.decodeRaster(AtlasTileId(layerKey))
+
 							if (image == null) {
 								undecodable.add(layerKey)
 							} else {
@@ -324,10 +360,12 @@ fun rememberPuppetViewportHost(
 					}
 					delivered.addAll(chunk)
 					service.deliverSourceLayerRasters(LayerRasterBatch(decoded, undecodable))
+
 					if (artworkGaps.addUndecodable(undecodable)) {
 						artworkGaps.report(session)
 					}
 				}
+
 				// The fill is complete, so the displayable set is final: a mapping whose every layer
 				// proved undecodable (or that mapped nothing) has left the renderer unengaged for good.
 				artworkGaps.reportUnavailableIfUnengaged(session)
@@ -379,16 +417,6 @@ fun rememberPuppetViewportHost(
 			val (activeRed, activeGreen, activeBlue) =
 				parseSelectionHighlightColor(settings.getString(ViewportColorSettings.ACTIVE_SELECTION_HIGHLIGHT_KEY))
 			service.setActiveSelectionHighlightColor(activeRed, activeGreen, activeBlue)
-			// Resolve the global-default grid geometry into the session, the single source of truth the
-			// snap commands and the renderer both read.  A grid the document saved for itself takes precedence
-			// (docs/format/UMA.md § 7.4); a document without one - every CMO3 and MOC3 - keeps this default.
-			if (session.gridFollowsApplication) {
-				val gridScale =
-					(settings.getDouble(ViewportSettings.GRID_SCALE_KEY) ?: ViewportSettings.GRID_SCALE_DEFAULT).toFloat()
-				val gridSubdivisions =
-					settings.getInt(ViewportSettings.GRID_SUBDIVISIONS_KEY) ?: ViewportSettings.GRID_SUBDIVISIONS_DEFAULT
-				session.setGridConfig(GridConfig(gridScale, gridSubdivisions))
-			}
 		}
 		applyViewportSettings()
 		settings.changes.collect { key ->
@@ -397,17 +425,14 @@ fun rememberPuppetViewportHost(
 			}
 		}
 	}
-	// Feed the per-document grid geometry (the session's single source of truth, resolved from settings /
-	// per-file) into the render service so the drawn backdrop grid matches the snap increment.
-	LaunchedEffect(service, session) {
-		session.gridConfig.collect { config -> service.gridConfig = config }
-	}
 	// Feed the themed grid-backdrop colors into the service and keep them live: LocalUmamoColors already
 	// resolves the active scheme (including "system"), so a theme switch recomposes with new colors and this
 	// effect re-pushes them, re-tinting the viewport backdrop. Compose Color components are 0..1 sRGB, exactly
-	// what the grid shader mixes.
+	// what the grid shader mixes.  A UV area's scene also paints the panel color around its surface and the
+	// panel border, 1 dp wide, just outside the surface's edge; the 2D grid ignores both.
 	val gridPalette = LocalUmamoColors.current
-	LaunchedEffect(service, gridPalette) {
+	val surfaceFrameWidthPx = with(LocalDensity.current) { 1.dp.toPx() }
+	LaunchedEffect(service, gridPalette, surfaceFrameWidthPx) {
 		service.gridColors =
 			GridColors(
 				backgroundRed = gridPalette.viewportGridBackground.red,
@@ -419,8 +444,23 @@ fun rememberPuppetViewportHost(
 				minorRed = gridPalette.viewportGridLineMinor.red,
 				minorGreen = gridPalette.viewportGridLineMinor.green,
 				minorBlue = gridPalette.viewportGridLineMinor.blue,
+				surroundRed = gridPalette.panelBackground.red,
+				surroundGreen = gridPalette.panelBackground.green,
+				surroundBlue = gridPalette.panelBackground.blue,
+				frameRed = gridPalette.panelBorder.red,
+				frameGreen = gridPalette.panelBorder.green,
+				frameBlue = gridPalette.panelBorder.blue,
+				frameWidthPx = surfaceFrameWidthPx,
 			)
 	}
+	// The mesh overlay's colors, from the user's viewport.meshEdit settings, live: an edit in the preferences
+	// recomposes this with a new palette and the effect re-pushes it.  Its own effect rather than the
+	// settings listener above, which parses colors without their alpha.
+	val meshOverlayPalette = rememberViewportOverlayColors().toMeshOverlayPalette()
+	LaunchedEffect(service, meshOverlayPalette) {
+		service.setMeshOverlayPalette(meshOverlayPalette)
+	}
+
 	return remember(service, session) {
 		val host =
 			object : ViewportHost {
@@ -430,6 +470,12 @@ fun rememberPuppetViewportHost(
 					// a slot remembered across a service swap would keep collecting the disposed engine's
 					// flows and never register with the live one.
 					val imageFlow = remember(areaId, service) { service.register(areaId) }
+					// The area's render options - its grid geometry and which overlays its frames draw - follow
+					// the overlay state the body provides through the local; a standalone shell provides none.
+					// The same state says whether this area asks for the wireframe the document's overlay carries.
+					val overlayState = LocalAreaOverlays.current
+					AreaOverlaysPublisher(service, areaId, overlayState)
+					WireframeDemandPublisher(wireframeDemand, areaId, overlayState)
 					val cameraFlow = remember(areaId, service) { service.cameraFlow(areaId) }
 					DisposableEffect(areaId, service) {
 						onDispose { service.unregister(areaId) }
@@ -437,22 +483,12 @@ fun rememberPuppetViewportHost(
 					// The area-death cleanup: a leaf can leave composition MID-GESTURE (a corner-join, a
 					// space switch via the header dropdown, a workspace tab switch), which cancels the
 					// overlay's latch effect WITHOUT running its teardown branch - stranding the renderer
-					// on the un-committed preview and orphaning the latch.  Cancel anything this area
-					// initiated and resync the raster to the committed model.
+					// on the un-committed preview and orphaning the latch.  Release everything this area
+					// holds, and when that was a modal operator resync the raster to the committed model.
 					DisposableEffect(areaId, session) {
 						onDispose {
-							if (session.activeMeshOperator.value?.areaId == areaId ||
-								session.activeObjectOperator.value?.areaId == areaId
-							) {
-								session.clearMeshOperator()
-								session.clearObjectOperator()
+							if (session.releaseArea(areaId)) {
 								service.setModel(session.model.value)
-							}
-							if (session.activeSelectTool.value?.areaId == areaId) {
-								session.clearSelectTool()
-							}
-							if (session.zoomRegionArmedArea.value == areaId) {
-								session.disarmZoomRegion()
 							}
 						}
 					}
@@ -467,7 +503,7 @@ fun rememberPuppetViewportHost(
 					var overlap by remember(areaId) { mutableStateOf<OverlapState?>(null) }
 					// Where the pointer last was in this area, tracked at the HOST rather than inside a gizmo
 					// overlay.  A pointer-addressed command (Alt+Q switch-object, rip, select-linked) has to
-					// know where the cursor is, and the overlays that used to own that knowledge do not mount
+					// know where the cursor is, and a gizmo overlay holding that knowledge would not mount
 					// in the very states those commands exist to escape - Edit mode with every selected
 					// drawable behind a hidden ancestor, say.  Tracked here, it survives them.
 					val areaPointer = remember(areaId) { mutableStateOf(Offset.Zero) }
@@ -482,17 +518,7 @@ fun rememberPuppetViewportHost(
 								Modifier
 									.fillMaxSize()
 									.pointerHoverIcon(if (panning) grabCursor else PointerIcon.Default)
-									// Watch-only: it consumes nothing, so the navigation loop below and the
-									// gizmo overlays above all still see every event.  Initial pass so the
-									// position is current even while a child owns the gesture.
-									.pointerInput(areaId) {
-										awaitPointerEventScope {
-											while (true) {
-												val event = awaitPointerEvent(PointerEventPass.Initial)
-												event.changes.lastOrNull()?.let { change -> areaPointer.value = change.position }
-											}
-										}
-									}
+									.tracksAreaPointer(areaId, areaPointer)
 									.pointerInput(areaId) {
 										viewportNavigation(service, areaId, session) { panning = it }
 									},
@@ -517,21 +543,17 @@ fun rememberPuppetViewportHost(
 									onDismiss = { overlap = null },
 								)
 							}
-							// Edit-mode vertex gizmos draw over the puppet image; the overlay self-gates on Edit
-							// mode with an active drawable, so it is inert (and passes input through) otherwise.
-							// Project AND pose with the DISPLAYED frame, not the live state: the raster is produced
-							// asynchronously and lands a few frames behind. Locking the overlay to the frame's
-							// camera keeps the mesh glued to the art during pan/zoom; locking its geometry to the
-							// frame's model keeps the wireframe glued to the art during a vertex edit (both lag the
-							// gesture together as one unit instead of racing ahead). camera and model come from the
-							// same image in one composition, so they are always the same frame. In a static view
-							// at rest the frame equals the live state, so there is no lag.
+							// The Edit-mode gizmo over the puppet image: the element selection, the modal
+							// transforms, and their chrome; the mesh itself is in the image (the overlay
+							// published above).  It self-gates on Edit mode with an active drawable, so it is inert
+							// (and passes input through) otherwise.  It projects with the DISPLAYED frame's camera,
+							// not the live one: the raster lands a few frames behind, and the frame's camera keeps
+							// the chrome glued to it during pan and zoom.
 							ViewportEditGizmoOverlay(
 								areaId = areaId,
 								service = service,
 								session = session,
 								camera = image?.camera,
-								frameModel = image?.model,
 								widthPx = widthPx,
 								heightPx = heightPx,
 								areaPointer = areaPointer,
@@ -548,8 +570,7 @@ fun rememberPuppetViewportHost(
 							// its mode). It owns the whole primary-button surface in Object mode - the click pick
 							// (including the Alt overlap popup), the un-armed box drag, and the armed box / circle
 							// tools and object G / S / R. Same frame-camera projection as the Edit gizmo so the
-							// affordance stays glued to the art. It draws no posed mesh (only the rubber-band,
-							// affordances, and pivot HUD), so it needs the frame camera but no frame model.
+							// affordance stays glued to the art.
 							ViewportObjectGizmoOverlay(
 								areaId = areaId,
 								service = service,
@@ -665,9 +686,11 @@ private suspend fun PointerInputScope.viewportNavigation(
 ) {
 	awaitPointerEventScope {
 		var panAnchor: Offset? = null
+
 		while (true) {
 			val event = awaitPointerEvent()
 			val change = event.changes.firstOrNull() ?: continue
+
 			// THIS AREA'S modal operator (G / S / R), armed Box / Circle select tool, or armed Zoom Region
 			// - or an in-flight un-armed box drag (area-less: pointer capture pins its events to the
 			// dragging overlay) - owns the pointer: the overlay above consumes the event, but this
@@ -684,6 +707,7 @@ private suspend fun PointerInputScope.viewportNavigation(
 			) {
 				continue
 			}
+
 			when (event.type) {
 				PointerEventType.Scroll -> {
 					val shiftHeld = event.keyboardModifiers.isShiftPressed
@@ -698,6 +722,7 @@ private suspend fun PointerInputScope.viewportNavigation(
 						} else {
 							0f
 						}
+
 					if (scrollSteps != 0f) {
 						// One step per notch (wheel up = negative = zoom in); Shift selects the coarse step.
 						service.zoomAtCursor(
@@ -716,19 +741,24 @@ private suspend fun PointerInputScope.viewportNavigation(
 						if (panAnchor == null) {
 							setPanning(true)
 						}
+
 						val anchor = panAnchor
+
 						if (anchor != null) {
 							val delta = change.position - anchor
+
 							if (delta != Offset.Zero) {
 								service.pan(areaId, delta.x, delta.y)
 							}
 						}
+
 						panAnchor = change.position
 						change.consume()
 					} else {
 						if (panAnchor != null) {
 							setPanning(false)
 						}
+
 						panAnchor = null
 					}
 				}

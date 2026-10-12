@@ -9,8 +9,9 @@ import org.umamo.render.device.RenderPipelineSpec
 import org.umamo.runtime.model.BlendMode
 
 /**
- * The renderer's pipelines: the fixed-purpose ones, created together by [create], and the art-mesh draw
- * pipelines, created the first time a blend and cull state is drawn and reused every frame after.
+ * The renderer's pipelines: the fixed-purpose ones, created together by [create], the mesh overlay's,
+ * created on its first frame, and the art-mesh draw pipelines, created the first time a blend and cull
+ * state is drawn and reused every frame after.
  *
  * Render thread only.  Constructing it touches no device; [create] must run with the device's context
  * current.  Nothing here is ever freed: the device seam exposes no way to free a pipeline, so they live
@@ -31,6 +32,13 @@ internal class DrawPipelines(
 	private var compositePipeline: RenderPipeline? = null
 	private var capturePipeline: DeformCapturePipeline? = null
 
+	// The mesh overlay's four pipelines are created on the first overlay frame, not in create(), so a
+	// renderer that never shows an overlay links nothing for it.
+	private var overlayFaceFillPipeline: RenderPipeline? = null
+	private var overlayEdgePipeline: RenderPipeline? = null
+	private var overlayVertexDotPipeline: RenderPipeline? = null
+	private var overlayFaceDotPipeline: RenderPipeline? = null
+
 	/** The pipeline that captures glue meshes' deformed positions.  Read only after [create]. */
 	val capture: DeformCapturePipeline get() = capturePipeline!!
 
@@ -45,6 +53,22 @@ internal class DrawPipelines(
 
 	/** The pipeline that composites a rendered layer over its destination.  Read only after [create]. */
 	val composite: RenderPipeline get() = compositePipeline!!
+
+	/** The overlay's face-fill pipeline, created on first use. */
+	val overlayFaceFill: RenderPipeline
+		get() = overlayFaceFillPipeline ?: overlayPipeline(PipelinePurpose.OverlayFaceFill).also { created -> overlayFaceFillPipeline = created }
+
+	/** The overlay's edge pipeline, created on first use. */
+	val overlayEdge: RenderPipeline
+		get() = overlayEdgePipeline ?: overlayPipeline(PipelinePurpose.OverlayEdge).also { created -> overlayEdgePipeline = created }
+
+	/** The overlay's vertex-dot pipeline, created on first use. */
+	val overlayVertexDot: RenderPipeline
+		get() = overlayVertexDotPipeline ?: overlayPipeline(PipelinePurpose.OverlayVertexDot).also { created -> overlayVertexDotPipeline = created }
+
+	/** The overlay's face-dot pipeline, created on first use. */
+	val overlayFaceDot: RenderPipeline
+		get() = overlayFaceDotPipeline ?: overlayPipeline(PipelinePurpose.OverlayFaceDot).also { created -> overlayFaceDotPipeline = created }
 
 	/** Creates the fixed-purpose pipelines.  Must run with the device's context current. */
 	fun create() {
@@ -67,11 +91,21 @@ internal class DrawPipelines(
 	 */
 	fun drawPipelineFor(isGlueMesh: Boolean, blendMode: BlendMode, cullBackFaces: Boolean): RenderPipeline {
 		val cache = (if (isGlueMesh) gluePipelines else puppetPipelines)[if (cullBackFaces) 1 else 0]
+
 		return cache.getOrPut(blendMode) {
 			val purpose = if (isGlueMesh) PipelinePurpose.PuppetGlueDraw else PipelinePurpose.PuppetDeformDraw
 			device.createRenderPipeline(RenderPipelineSpec(purpose, blendOf(blendMode), cullBackFaces))
 		}
 	}
+
+	/**
+	 * One overlay pipeline: every overlay domain blends Normal over the art, premultiplied in-shader,
+	 * and culls nothing.
+	 *
+	 * @param PipelinePurpose purpose The overlay domain.
+	 * @return RenderPipeline The pipeline.
+	 */
+	private fun overlayPipeline(purpose: PipelinePurpose): RenderPipeline = device.createRenderPipeline(RenderPipelineSpec(purpose, PipelineBlend.Normal))
 
 	/**
 	 * The fixed-function blend a drawable's blend mode draws with.
@@ -82,14 +116,19 @@ internal class DrawPipelines(
 	private fun blendOf(mode: BlendMode): PipelineBlend =
 		when (mode) {
 			BlendMode.Normal -> PipelineBlend.Normal
+
 			BlendMode.AdditivePremultiplied -> PipelineBlend.Additive
+
 			BlendMode.MultiplyPremultiplied -> PipelineBlend.Multiply
+
 			// Scene draws never reach here with a 5.3 mode (renderPlanNodes routes extended blends
 			// through the destination-sampling composite pass); these branches are a safe fallback
 			// approximating with the legacy fixed-function analog where one exists - the same
 			// approximation the MOC3 constant-flags 2-bit field encodes for old runtimes.
 			BlendMode.Additive, BlendMode.AdditiveGlow -> PipelineBlend.Additive
+
 			BlendMode.Multiply -> PipelineBlend.Multiply
+
 			BlendMode.Darken,
 			BlendMode.ColorBurn,
 			BlendMode.LinearBurn,

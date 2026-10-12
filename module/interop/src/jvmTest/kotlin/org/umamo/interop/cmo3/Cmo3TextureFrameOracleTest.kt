@@ -101,6 +101,7 @@ class Cmo3TextureFrameOracleTest {
 	 */
 	private fun corpusPairs(): List<Pair<File, File>> {
 		val mocDirectory = System.getProperty("moc3.samples")?.let(::File)?.takeIf { directory -> directory.isDirectory } ?: return emptyList()
+
 		return (System.getProperty("cmo3.probe") ?: "")
 			.split(',')
 			.map { path -> path.trim() }
@@ -124,18 +125,22 @@ class Cmo3TextureFrameOracleTest {
 		val textureManager = root.textureManager as? CTextureManager ?: return emptySet()
 		val pages = elements(textureManager._textureAtlases).filterIsInstance<CTextureAtlas>().mapNotNull { atlas -> atlas.cachedAtlasImage as? CImageResource }.toHashSet()
 		val copies = HashSet<CImageResource>()
+
 		for (group in elements(textureManager._modelImageGroups).filterIsInstance<CModelImageGroup>()) {
 			for (modelImage in elements(group._modelImages).filterIsInstance<CModelImage>()) {
 				val raster = modelImage._filteredImage as? CImageResource
 				val manager = modelImage.cachedImageManager as? CCachedImageManager ?: continue
+
 				for (cached in elements(manager.cachedImages).filterIsInstance<CCachedImage>()) {
 					val resource = cached._cachedImageResource as? CImageResource ?: continue
+
 					if (resource !== raster && resource !in pages) {
 						copies.add(resource)
 					}
 				}
 			}
 		}
+
 		return copies
 	}
 
@@ -151,12 +156,16 @@ class Cmo3TextureFrameOracleTest {
 		if (!u.isFinite() || !v.isFinite()) {
 			return null
 		}
+
 		val column = kotlin.math.floor(u * image.width).toInt()
 		val row = kotlin.math.floor(v * image.height).toInt()
+
 		if (column < 0 || row < 0 || column >= image.width || row >= image.height) {
 			return null
 		}
+
 		val offset = (row * image.width + column) * 4
+
 		return IntArray(4) { channelIndex -> image.rgba[offset + channelIndex].toInt() and 0xFF }
 	}
 
@@ -179,17 +188,23 @@ class Cmo3TextureFrameOracleTest {
 	 */
 	private fun measure(cmo3File: File, mocFile: File): ModelTally? {
 		val manifestFile = File(mocFile.parentFile, "${Moc3Sidecars.basenameFor(mocFile.name)}.model3.json")
+
 		if (!manifestFile.isFile) {
 			println("[texture-frame] ${cmo3File.name}: no ${manifestFile.name} beside its MOC3; skipped")
+
 			return null
 		}
+
 		val manifest = Moc3.readModel3(manifestFile.readText())
 		// model3: FileReferences.Textures - the page paths, relative to the manifest.
 		val mocPageFiles = manifest.fileReferences.textures.map { path -> File(manifestFile.parentFile, path) }
+
 		if (mocPageFiles.isEmpty() || mocPageFiles.any { file -> !file.isFile }) {
 			println("[texture-frame] ${cmo3File.name}: its MOC3's texture files are not all on disk; skipped")
+
 			return null
 		}
+
 		val tally = ModelTally(cmo3File.name)
 		val cmo3: Cmo3Model = Cmo3.read(cmo3File)
 		val root = cmo3.root as CModelSource
@@ -216,9 +231,11 @@ class Cmo3TextureFrameOracleTest {
 		for (drawable in puppet.drawables) {
 			val mesh = drawable.mesh ?: continue
 			val mocMesh = mocMeshById[drawable.id.raw] ?: continue
+
 			if (mocMesh.uvs.size != mesh.uvs.size || mesh.indices.isEmpty()) {
 				continue
 			}
+
 			val mocPageIndex = mocPages.atlasIndexByDrawableId[drawable.id.raw] ?: continue
 			val mocPage = decodedMocPages.getOrPut(mocPageIndex) { PngCodec.read(mocPages.pageBytes[mocPageIndex]) }
 			val renderPage =
@@ -233,18 +250,22 @@ class Cmo3TextureFrameOracleTest {
 			val storedToArt = tileId?.let { id -> puppet.atlas.storedToArtAffineForTile(id) }
 			val reducedCopy = sampledResourceByDrawableId[drawable.id.raw]?.let { resource -> resource in reducedCopies } == true
 			tally.drawables++
+
 			if (reducedCopy) {
 				tally.reducedCopyDrawables++
 			}
+
 			var drawableSamples = 0
 			var drawableSourceMismatches = 0
 			var triangleStart = 0
+
 			while (triangleStart + 2 < mesh.indices.size) {
 				for (weights in SAMPLE_WEIGHTS) {
 					var mocU = 0f
 					var mocV = 0f
 					var modelU = 0f
 					var modelV = 0f
+
 					for (cornerIndex in 0 until 3) {
 						val vertex = mesh.indices[triangleStart + cornerIndex]
 						mocU += weights[cornerIndex] * mocMesh.uvs[vertex * 2]
@@ -252,34 +273,45 @@ class Cmo3TextureFrameOracleTest {
 						modelU += weights[cornerIndex] * mesh.uvs[vertex * 2]
 						modelV += weights[cornerIndex] * mesh.uvs[vertex * 2 + 1]
 					}
+
 					val reference = texelAt(mocPage, mocU, mocV) ?: continue
+
 					if (reference[3] < OPAQUE_ALPHA) {
 						continue
 					}
+
 					tally.samples++
 					drawableSamples++
+
 					if (reducedCopy) {
 						tally.reducedCopySamples++
 					}
+
 					if (renderPage != null && !matches(reference, texelAt(renderPage, modelU, modelV))) {
 						tally.atlasMismatches++
 					}
+
 					if (tile != null && storedToArt != null) {
 						val artU = storedToArt[0] * modelU + storedToArt[1] * modelV + storedToArt[2]
 						val artV = storedToArt[3] * modelU + storedToArt[4] * modelV + storedToArt[5]
+
 						if (!matches(reference, texelAt(tile, artU, artV))) {
 							tally.sourceMismatches++
 							drawableSourceMismatches++
 						}
 					}
 				}
+
 				triangleStart += 3
 			}
+
 			if (drawableSamples > 0 && drawableSourceMismatches * 5 > drawableSamples && tally.worstSourceDrawables.size < 5) {
 				tally.worstSourceDrawables.add("${drawable.id.raw} '${drawable.name}' $drawableSourceMismatches/$drawableSamples")
 			}
 		}
+
 		tally.renderImageBytes = decodedRenderPages.values.sumOf { page -> page.width.toLong() * page.height.toLong() * 4L }
+
 		return tally
 	}
 
@@ -295,6 +327,7 @@ class Cmo3TextureFrameOracleTest {
 		var checkedSamples = 0
 		var reducedCopyDrawables = 0
 		var reducedCopySamples = 0
+
 		for ((cmo3File, mocFile) in pairs) {
 			val tally = measure(cmo3File, mocFile) ?: continue
 			checkedSamples += tally.samples
@@ -307,13 +340,16 @@ class Cmo3TextureFrameOracleTest {
 					"${tally.samples} samples, atlas display $atlasFraction, source display $sourceFraction mismatched, " +
 					"render images ${tally.renderImageBytes / (1024 * 1024)} MiB decoded",
 			)
+
 			if (atlasFraction > MAXIMUM_MISMATCH_FRACTION) {
 				failures.add("${tally.name}: the atlas display misses $atlasFraction of the export's samples")
 			}
+
 			if (sourceFraction > MAXIMUM_MISMATCH_FRACTION) {
 				failures.add("${tally.name}: the source display misses $sourceFraction of the export's samples; worst ${tally.worstSourceDrawables}")
 			}
 		}
+
 		assertTrue(checkedSamples > 0, "no opaque sample was compared; the oracle checked nothing")
 		assertTrue(reducedCopyDrawables == 0 || reducedCopySamples > 0, "reduced-copy drawables were paired but none was sampled")
 		assertTrue(failures.isEmpty(), "displays disagree with the editor's own export:\n" + failures.joinToString("\n"))

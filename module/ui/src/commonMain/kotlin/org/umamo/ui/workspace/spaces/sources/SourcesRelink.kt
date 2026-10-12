@@ -5,6 +5,7 @@ import org.umamo.runtime.model.ArtSourceId
 import org.umamo.runtime.model.ArtSourceLayer
 import org.umamo.runtime.model.AtlasTile
 import org.umamo.runtime.model.SourceLayerRef
+import org.umamo.runtime.model.layerKeyLooksStable
 
 /**
  * One artwork file's rows in the relink list: the file as a heading, the layers beneath it.
@@ -29,6 +30,7 @@ internal class RelinkGroup(
  */
 internal fun relinkGroups(sources: List<ArtSource>, query: String): List<RelinkGroup> {
 	val trimmed = query.trim()
+
 	return sources.mapNotNull { source ->
 		// A row the file lost is kept for the review, never offered as a target; a layer erased to nothing
 		// has no art to give; an ignored layer is kept out of the rig until its row says otherwise.
@@ -63,5 +65,6 @@ internal fun relinkTargetRef(tiles: List<AtlasTile>, sourceId: ArtSourceId, laye
 			.mapNotNull { tile -> tile.source }
 			.filter { ref -> ref.sourceId == sourceId && ref.layerKey == layerKey }
 	val stable = if (bound.isEmpty()) layerKeyLooksStable(layerKey) else bound.any { ref -> ref.stableKey }
+
 	return SourceLayerRef(sourceId, layerKey, stableKey = stable)
 }

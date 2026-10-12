@@ -106,6 +106,7 @@ internal class ParameterPoseState(
 @Composable
 internal fun rememberParametersLocked(session: EditorSession?): Boolean {
 	val editorMode by remember(session) { session?.mode ?: MutableStateFlow(EditorMode.Object) }.collectAsState()
+
 	return editorMode.pinsPose
 }
 
@@ -119,6 +120,7 @@ internal fun rememberParametersLocked(session: EditorSession?): Boolean {
 @Composable
 internal fun rememberParameterPoseWriter(liveParams: LiveParamsHandle?, session: EditorSession?): ParameterPoseWriter {
 	val parametersLocked = rememberParametersLocked(session)
+
 	return remember(liveParams, parametersLocked) { ParameterPoseWriter(liveParams, parametersLocked) }
 }
 
@@ -180,6 +182,7 @@ internal fun rememberParameterPoseState(puppet: PuppetModel, liveParams: LivePar
 			followPose(values, pose)
 		}
 	}
+
 	// The values outlive the lock: a mode change builds a new writer around the same map, so the pose the
 	// panel holds carries across it.  Locked, the panel shows the rest pose, as the viewport does.
 	return remember(values, liveParams, parametersLocked) {

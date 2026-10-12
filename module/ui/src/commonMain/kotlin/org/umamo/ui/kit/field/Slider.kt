@@ -129,11 +129,13 @@ fun Slider(
 		// Key markers: a small dot at each key value so the user can see and scrub onto a key. Shape
 		// encodes the key's kind - a circle for a key-form (grid) key, a square for a blend-shape key.
 		val markRadius = SLIDER_KEY_MARK_RADIUS.toPx()
+
 		for (mark in keyMarks) {
 			val keyFraction = ((mark.value - valueRange.start) / span).coerceIn(0f, 1f)
 			val markX = (thumbRadius + keyFraction * usableWidth).coerceIn(0f, size.width)
 			drawSliderShape(mark.shape, tickColor, markX, centerY, markRadius)
 		}
+
 		drawSliderShape(thumbShape, thumbColor, thumbCenterX, centerY, thumbRadius)
 	}
 }
@@ -178,5 +180,6 @@ private fun DrawScope.drawSliderShape(shape: SliderKeyShape, color: Color, cente
 private fun valueAt(x: Float, width: Float, inset: Float, range: ClosedFloatingPointRange<Float>): Float {
 	val usableWidth = (width - 2f * inset).takeIf { it > 0f } ?: 1f
 	val fraction = ((x - inset) / usableWidth).coerceIn(0f, 1f)
+
 	return range.start + fraction * (range.endInclusive - range.start)
 }

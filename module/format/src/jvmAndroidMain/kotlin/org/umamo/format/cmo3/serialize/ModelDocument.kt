@@ -45,22 +45,29 @@ public class ModelDocument private constructor(
 
 		val parsedVersions = LinkedHashMap<String, Int>()
 		val parsedImports = ArrayList<String>()
+
 		// PIs live as document content before the root element.
 		for (content in document.content) {
 			if (content !is ProcessingInstruction) continue
+
 			when (content.target) {
 				PI_VERSION -> {
 					// data is "ClassName:version"
 					val data = content.data
 					val separator = data.lastIndexOf(':')
+
 					if (separator > 0) {
 						val className = data.substring(0, separator)
 						data.substring(separator + 1).trim().toIntOrNull()?.let { parsedVersions[className] = it }
 					}
 				}
-				PI_IMPORT -> parsedImports.add(content.data.trim())
+
+				PI_IMPORT -> {
+					parsedImports.add(content.data.trim())
+				}
 			}
 		}
+
 		versions = parsedVersions
 		imports = parsedImports
 

@@ -20,7 +20,7 @@ import org.umamo.edit.Selection
 import org.umamo.edit.SelectionOps
 import org.umamo.edit.SelectionTarget
 import org.umamo.edit.TransformPivotMode
-import org.umamo.edit.withPartVisibility
+import org.umamo.edit.structure.withPartVisibility
 import org.umamo.format.atlas.AtlasPackOptions
 import org.umamo.format.png.PngCodec
 import org.umamo.format.raster.RasterImage
@@ -89,6 +89,7 @@ class UmaSaveGateTest {
 		val partId = assertNotNull(session.model.value.parts.firstOrNull()?.id, "the sample has a part to edit")
 		session.mutate(PartChange.SetVisibility(partId, false)) { model -> model.withPartVisibility(partId, false) }
 		assertTrue(session.dirty.value, "the edit dirtied the document")
+
 		return partId
 	}
 
@@ -121,6 +122,7 @@ class UmaSaveGateTest {
 		assertFalse(session.dirty.value, "the save clears the dirty marker")
 		assertFalse(directory.listFiles().orEmpty().any { file -> file.name.contains(".tmp-") }, "no temporary is left behind")
 		val reopened = assertIs<UmaDocument>(assertIs<DocumentLoad.Loaded>(loadDocument(target.readBytes(), target.name, target.path)).document)
+
 		return Triple(written.uma, target, reopened)
 	}
 
@@ -314,6 +316,7 @@ class UmaSaveGateTest {
 			follower.cancel()
 			assertTrue(reopened.storedPages == null, "a repacked atlas stores no render pages")
 			assertEquals(binding.textures.atlases.size, reopened.textures.atlases.size, "the reopened document composes the same page count")
+
 			for ((pageIndex, page) in reopened.textures.atlases.withIndex()) {
 				assertTrue(page.rgba.contentEquals(binding.textures.atlases[pageIndex].rgba), "page $pageIndex composes as the session showed it")
 			}

@@ -59,6 +59,7 @@ class SourcesMenusTest {
 		val registry = CommandRegistry()
 		val ids = listOf("sources.replaceArtwork", "document.reloadArtwork", "sources.ignoreLayer")
 		registry.registerAll(ids.map { id -> Command(id, title = null) { argument -> dispatched.add(id to argument) } })
+
 		return registry
 	}
 

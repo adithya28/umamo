@@ -158,13 +158,13 @@
 	<string name="export_reason_drawable_has_no_mesh">A drawable with no mesh cannot be written.</string>
 	<!-- MOC3 lowering.  %1$s in the channel line is a channel_* label; %1$d/%2$d in the conversion line
 	     are the returned and expected coordinate counts; %1$s in the mask line is the mask drawable
-	     names; %1$d/%2$s in the id lines are the record width in bytes and the written id. -->
+	     names; %1$d/%2$s in the id lines are the record width in bytes and the written id; %1$d/%2$d in
+	     the index-width line are the mesh's vertex count and the most a mesh can have. -->
 	<string name="export_reason_channel_demoted_to_static">%1$s is keyed over a narrower span than the object's grid, so it was written as a constant.  MOC3 stores one grid per object.</string>
 	<string name="export_reason_sketch_part_not_runtime_content">A guide-image (sketch) part is not runtime content, so it was left out.</string>
 	<string name="export_reason_hidden_part_omitted_by_option">The part is hidden and the export options omit hidden parts, so its contents were left out.</string>
 	<string name="export_reason_hidden_drawable_omitted_by_option">The drawable is hidden and the export options omit hidden art meshes, so it was left out.</string>
-	<string name="export_reason_unkeyed_drawable_under_deformer">An unkeyed drawable under a deformer has no parent-space geometry to write, so it was left out.</string>
-	<string name="export_reason_rest_mesh_conversion_size_mismatch">The canvas-to-parent conversion returned %1$d coordinates for %2$d, so the rest mesh was written unconverted.</string>
+	<string name="export_reason_vertex_count_exceeds_index_width">The mesh has %1$d vertices, past the %2$d limit of a 16-bit triangle, so it was left out.</string>
 	<string name="export_reason_no_atlas_page_bound">No atlas page is bound to this drawable, so it was written pointing at page 0.</string>
 	<string name="export_reason_clipping_mask_not_in_export">The clipping mask %1$s is not in this export, so the mesh was written unclipped by it.</string>
 	<string name="export_reason_offscreen_mask_not_in_export">A clipping mask names a drawable that could not be written, so it was dropped from the offscreen.</string>
@@ -202,6 +202,9 @@
 	<string name="export_reason_keyform_cannot_bundle">%1$s  CMO3 stores one grid per object.</string>
 	<string name="export_reason_axis_parameter_no_source">The grid axis parameter %1$s has no CMO3 source, so the keyform grid was not written.</string>
 	<string name="export_reason_blend_shape_parameter_no_source">The blend-shape parameter %1$s has no CMO3 source, so the blend shape was not written.</string>
+	<string name="export_reason_physics_names_deleted_parameter">The physics settings %1$s still read or drive this deleted parameter.  They were written unchanged; retarget or remove them in the Cubism Editor.</string>
+	<string name="export_reason_sidecar_names_unwritten_parameters">%1$s names parameters this export does not contain (%2$s).  It was written unchanged, so a runtime finds nothing for those inputs and outputs.</string>
+	<string name="export_reason_sidecar_names_unwritten_parts">%1$s names parts this export does not contain (%2$s).  It was written unchanged, so a runtime finds nothing to switch or fade for them.</string>
 	<string name="export_reason_keyforms_without_base_mesh">Keyforms without a base mesh cannot be bundled into CMO3.</string>
 	<string name="export_reason_fractional_draw_order">CMO3 stores a whole-number draw order, so the fractional value was not written.</string>
 	<string name="export_reason_static_glue_intensity_without_keyforms">A static glue intensity with no keyforms has nowhere to live in CMO3.</string>
@@ -224,6 +227,7 @@
 	<string name="export_reason_atlas_page_not_recomposed">This artwork was moved on its atlas page, but the page image still shows it at its old spot; repack to redraw it.</string>
 	<string name="export_reason_atlas_tile_metadata">This artwork's pixels, name, or size changed, which an atlas placement cannot carry; re-import the artwork instead.</string>
 	<string name="export_reason_atlas_tile_rebinding">This drawable was bound to different artwork, which needs the artwork re-imported rather than repacked.</string>
+	<string name="export_reason_source_layer_binding_not_in_export">This artwork is bound to layer %2$s of %1$s, which the document does not list, so the binding could not be written; the CMO3 carries the artwork as a flat image of its own.  Relink it in the Sources space to export the binding.</string>
 	<string name="export_reason_fractional_canvas_size">CMO3 stores whole canvas pixels, so the fractional canvas size was not written.</string>
 	<!-- Export overwrite warning (the document.confirm command; %1$d is how many existing files the
 	     export would replace, %2$s the abbreviated file list). -->
@@ -515,12 +519,14 @@
 	<string name="sources_status_emptied">Needs review: The layer is empty in the file</string>
 	<string name="sources_status_replaced">Needs review: The replacement file has no layer under this key</string>
 	<string name="sources_status_ignored">Ignored: A reload never adds this layer</string>
+	<string name="sources_status_source_not_listed">Needs review: This document does not list the file this art is bound to</string>
 	<string name="sources_unbound_art">Unbound Art</string>
 	<string name="sources_source_detail">%1$s · %2$d layers</string>
 	<string name="sources_source_no_path">no path recorded</string>
 	<string name="sources_layer_detail">%1$d × %2$d at %3$d, %4$d</string>
 	<string name="sources_layer_detail_axes">%1$d × %2$d at %3$s x, %4$s z</string>
 	<string name="sources_tile_page">page %1$d</string>
+	<string name="sources_tile_unlisted_binding">bound to %2$s in %1$s</string>
 	<string name="sources_relink_title">Relink to a Layer</string>
 	<string name="sources_relink_clear">Unbind</string>
 	<string name="sources_relink_delete">Delete Art</string>
@@ -581,6 +587,7 @@
 	<string name="cmd_transform_pivot_individual">Individual Origins</string>
 	<string name="cmd_transform_pivot_active">Active Element</string>
 	<string name="cmd_transform_pivot_cursor">2D Cursor</string>
+	<string name="header_transform_pivot_point">Transform Pivot Point</string>
 	<string name="cmd_snap_pie">Snap</string>
 	<string name="cmd_snap_cursor_world_origin">Cursor to World Origin</string>
 	<string name="cmd_snap_cursor_selected">Cursor to Selected</string>
@@ -611,6 +618,7 @@
 	<!-- Topology operators (Shift+D / M / V / J), their history labels, and their refusal notices. -->
 	<string name="cmd_mesh_duplicate">Duplicate</string>
 	<string name="cmd_mesh_merge">Merge Vertices</string>
+	<string name="cmd_mesh_generate_from_art">Generate Mesh from Art</string>
 	<string name="cmd_mesh_merge_at_center">Merge at Center</string>
 	<string name="cmd_mesh_merge_at_first">Merge at First</string>
 	<string name="cmd_mesh_merge_at_last">Merge at Last</string>
@@ -621,6 +629,17 @@
 	<string name="history_mesh_merge">Merge Vertices</string>
 	<string name="history_mesh_rip">Rip</string>
 	<string name="history_mesh_connect">Connect Vertices</string>
+	<string name="history_mesh_generate_from_art">Generate Mesh from Art</string>
+	<!-- Generate Mesh from Art notices.  %1$d is the number of meshes generated, %2$d the number skipped. -->
+	<string name="notice_mesh_generated">Generated %1$d mesh(es) from art.</string>
+	<string name="notice_mesh_generated_with_skips">Generated %1$d mesh(es) from art; %2$d skipped.  See the log.</string>
+	<string name="notice_mesh_generated_coarser">Generated %1$d mesh(es) from art; %2$d built coarser than asked to stay within the Vertex Budget.  See the log.</string>
+	<string name="notice_mesh_pinned_without_room">Generated %1$d mesh(es); %2$d skipped because pinned art has no room to grow.  Unpin the art or lower the Outer Margin.</string>
+	<string name="notice_mesh_over_budget">Generated %1$d mesh(es); %2$d skipped because they need more vertices than the budget.  Raise the Vertex Budget or turn on Fill Holes.</string>
+	<string name="notice_mesh_none_generated">No mesh was generated.  See the log.</string>
+	<string name="notice_mesh_pack_refused">Nothing was generated: The atlas has no room for the larger meshes.</string>
+	<string name="notice_mesh_superseded">The document changed while the meshes were being generated; nothing was applied.</string>
+	<string name="notice_mesh_no_targets">Select a drawable with a mesh to generate one from its art.</string>
 	<string name="history_drawable_duplicate">Duplicate Drawable</string>
 	<string name="notice_merge_needs_vertices">Merge needs two or more selected vertices (vertex mode).</string>
 	<string name="notice_connect_needs_two_vertices">Connect needs exactly two selected vertices (vertex mode).</string>
@@ -641,7 +660,7 @@
 	<string name="notice_document_exported_model">Exported %1$s.</string>
 	<string name="notice_document_export_busy">An export is already in progress.</string>
 	<string name="notice_document_waiting_for_export">Waiting on export to finish…</string>
-	<string name="notice_document_cmo3_loss">Saved as UMA.  The CMO3 structure Umamo does not model is not carried in this file; exports from this session still reconcile onto the original.</string>
+	<string name="notice_document_cmo3_loss">Saved as UMA.  The CMO3's physics, guides, keyform notes, random pose, model state sets, user data, and other editor settings are not carried in this file.  CMO3 exports from this session still keep them, but a CMO3 exported after reopening the file will not.</string>
 	<string name="notice_document_moc3_loss">Saved as UMA.  Physics, motions, expressions, user data, and pose from the MOC3 family are not carried in this file.</string>
 	<string name="notice_import_artwork_superseded">The document changed while the artwork was being added; nothing was applied.</string>
 	<string name="notice_import_no_art_layers">The file has no layers with pixels to add.</string>
@@ -655,7 +674,9 @@
 	<string name="notice_reload_no_files">No artwork file could be read; nothing was reloaded.</string>
 	<string name="notice_relink_pulled">Art relinked and reloaded.</string>
 	<string name="notice_relink_binding_only">Art relinked; its file could not be read, so the art did not change.</string>
+	<string name="notice_relink_pulled_from_document">Art relinked from the art this document holds, since its file could not be read.</string>
 	<string name="notice_match_done">%1$d layer(s) matched, %2$d left for review.</string>
+	<string name="notice_match_no_files">No artwork could be read, from its file or from this document; nothing was matched.</string>
 	<string name="notice_match_nothing">No binding matched confidently enough; the suggestions are on the rows that need review.</string>
 	<string name="notice_match_no_candidates">Nothing left to match against: every candidate layer is already bound.  Adjust Match Threshold on the reload's strip, or relink manually.</string>
 	<string name="notice_replace_done">Artwork replaced: %1$d layer(s) reloaded by key, %2$d matched, %3$d left for review.</string>
@@ -663,6 +684,7 @@
 	<string name="notice_atlas_repack_unchanged">Atlas already packed; nothing changed.</string>
 	<string name="notice_uv_no_uvs">The selection has no editable UVs.</string>
 	<string name="notice_uv_no_selection">Nothing is selected to mirror.</string>
+	<string name="notice_uv_no_editable_geometry">Nothing to edit here.  None of the edited meshes are on the shown page or layer.</string>
 	<string name="notice_uv_placement_layer_addressed">The puppet's UVs address the source artwork and not the atlas so there is no placement to move.</string>
 	<string name="notice_uv_placement_no_placed_art">Nothing selected is packed on an atlas page or there is no source artwork.</string>
 	<string name="notice_uv_placement_page_view_only">Show an atlas page in the UV editor to move placements.</string>
@@ -678,15 +700,19 @@
 	<string name="cmd_mesh_proportional_falloff_smooth">Proportional Falloff: Smooth</string>
 	<string name="cmd_mesh_proportional_falloff_sphere">Proportional Falloff: Sphere</string>
 	<string name="cmd_mesh_proportional_falloff_root">Proportional Falloff: Root</string>
+	<string name="cmd_mesh_proportional_falloff_inverse_square">Proportional Falloff: Inverse Square</string>
 	<string name="cmd_mesh_proportional_falloff_sharp">Proportional Falloff: Sharp</string>
 	<string name="cmd_mesh_proportional_falloff_linear">Proportional Falloff: Linear</string>
 	<string name="cmd_mesh_proportional_falloff_constant">Proportional Falloff: Constant</string>
+	<string name="cmd_mesh_proportional_falloff_random">Proportional Falloff: Random</string>
 	<string name="falloff_smooth">Smooth</string>
 	<string name="falloff_sphere">Sphere</string>
 	<string name="falloff_root">Root</string>
+	<string name="falloff_inverse_square">Inverse Square</string>
 	<string name="falloff_sharp">Sharp</string>
 	<string name="falloff_linear">Linear</string>
 	<string name="falloff_constant">Constant</string>
+	<string name="falloff_random">Random</string>
 	<!-- %1$s is the falloff name, %2$d the influence radius in world units. -->
 	<string name="hud_proportional">Proportional %1$s · %2$d</string>
 	<string name="notice_proportional_on">Proportional editing on.</string>
@@ -694,6 +720,42 @@
 	<string name="header_proportional_falloff">Proportional Falloff</string>
 	<!-- The overflow chip at the end of a header strip, holding the controls that did not fit. -->
 	<string name="header_more">More</string>
+	<!-- The two-part overlays control at the end of the 2D viewport and UV editor headers: the Show Overlays
+	     toggle button and the chevron that opens the Viewport Overlays popover, whose rows sit under section
+	     headings. -->
+	<string name="header_show_overlays">Show Overlays</string>
+	<string name="header_viewport_overlays">Viewport Overlays</string>
+	<string name="overlay_section_guides">Guides</string>
+	<string name="overlay_section_text">Text</string>
+	<string name="overlay_section_geometry">Geometry</string>
+	<string name="overlay_row_grid">Grid</string>
+	<string name="overlay_row_axes">X/Z Axis</string>
+	<string name="overlay_row_cursor">2D Cursor</string>
+	<string name="overlay_row_info">General Information</string>
+	<string name="overlay_row_wireframe">Wireframe</string>
+	<string name="overlay_grid_scale">Scale</string>
+	<string name="overlay_grid_subdivisions">Subdivisions</string>
+	<string name="overlay_grid_follow_application">Follow Application Grid</string>
+	<string name="overlay_section_objects">Objects</string>
+	<string name="overlay_row_selection_tint">Selection Tint</string>
+	<string name="overlay_row_cull_hidden">Cull Hidden</string>
+	<string name="overlay_wireframe_opacity">Opacity</string>
+	<!-- The popover's descriptions, each heading's, row's, and field's hover tooltip; named after its label key like
+	     the Properties row descriptions below. -->
+	<string name="overlay_section_guides_description">The visual helpers for placement and alignment.</string>
+	<string name="overlay_section_text_description">Informational text shown around the edges of the viewport.</string>
+	<string name="overlay_section_geometry_description">The visual helpers for displaying drawables.</string>
+	<string name="overlay_row_grid_description">The divided grid behind the scene that is used for snapping and visual alignment.</string>
+	<string name="overlay_row_axes_description">The world X and Z axis lines through the origin.</string>
+	<string name="overlay_row_cursor_description">The 2D cursor used for snap and pivot operations.</string>
+	<string name="overlay_row_info_description">The general information such as the current selection and zoom level.</string>
+	<string name="overlay_row_wireframe_description">Show the mesh wireframe of drawables not currently selected for editing.</string>
+	<string name="overlay_grid_scale_description">The spacing of the major grid lines, in world units; in the UV editor, in texels.</string>
+	<string name="overlay_grid_subdivisions_description">How many minor lines divide each major grid cell.</string>
+	<string name="overlay_section_objects_description">The visual helpers for selected and active drawables.</string>
+	<string name="overlay_row_selection_tint_description">Tint the selected and active drawables so that they stand out in the art.</string>
+	<string name="overlay_row_cull_hidden_description">Hide parts of the wireframe that are covered by other drawables.</string>
+	<string name="overlay_wireframe_opacity_description">The opacity of the wireframe, or of the UV editor's islands, as a percentage.</string>
 	<string name="cmd_mesh_proportional_connected">Toggle Proportional Connected Only</string>
 	<string name="hud_connected">Connected</string>
 	<string name="hud_placement">Placement</string>
@@ -702,8 +764,11 @@
 	<string name="hud_delta_px">Δ %1$d, %2$d px</string>
 	<string name="hud_angle_degrees">%1$s°</string>
 	<string name="hud_scale_factor">×%1$s</string>
-	<string name="notice_proportional_connected_on">Proportional editing: connected only.</string>
-	<string name="notice_proportional_connected_off">Proportional editing: all within radius.</string>
+	<string name="notice_proportional_connected_on">Proportional editing: Connected only.</string>
+	<string name="notice_proportional_connected_off">Proportional editing: All within radius.</string>
+	<!-- %1$s is the drawable's name. -->
+	<string name="notice_reparent_place_not_kept">%1$s was bound without keeping its place: Its new deformer chain could not map it.</string>
+	<string name="notice_reparent_places_not_kept">%1$d object(s) re-homed without keeping their place: The deformer chain could not map them.</string>
 
 	<!-- Pie menu center titles (the pie's name, Blender-style). -->
 	<string name="pie_title_pivot">Pivot Point</string>
@@ -714,6 +779,15 @@
 	<!-- Viewport chrome: the left tool toolbar and the right sidebar drawer. -->
 	<string name="cmd_view_toggle_toolbar">Toggle Toolbar</string>
 	<string name="cmd_view_toggle_sidebar">Toggle Sidebar</string>
+	<!-- The per-area overlay toggles, routed to the work surface under the pointer. -->
+	<string name="cmd_view_overlay_all">Toggle Overlays</string>
+	<string name="cmd_view_overlay_grid">Toggle Grid Overlay</string>
+	<string name="cmd_view_overlay_axes">Toggle X/Z Axis Overlay</string>
+	<string name="cmd_view_overlay_cursor">Toggle 2D Cursor Overlay</string>
+	<string name="cmd_view_overlay_info">Toggle General Information Overlay</string>
+	<string name="cmd_view_overlay_selection_tint">Toggle Selection Tint Overlay</string>
+	<string name="cmd_view_overlay_wireframe">Toggle Wireframe Overlay</string>
+	<string name="cmd_view_overlay_wireframe_culling">Toggle Wireframe Cull Hidden</string>
 	<string name="sidebar_title">Sidebar</string>
 	<string name="sidebar_empty_hint">Tool and item panels will live here.</string>
 
@@ -832,6 +906,19 @@
 	<string name="merge_target_center">Center</string>
 	<string name="merge_target_first">First</string>
 	<string name="merge_target_last">Last</string>
+	<string name="mesh_options_preset">Preset</string>
+	<string name="mesh_preset_standard">Standard</string>
+	<string name="mesh_preset_fine">Fine</string>
+	<string name="mesh_preset_coarse">Coarse</string>
+	<string name="mesh_options_alpha_threshold">Alpha Threshold</string>
+	<string name="mesh_options_outline_spacing">Outline Spacing</string>
+	<string name="mesh_options_interior_spacing">Interior Spacing</string>
+	<string name="mesh_options_outer_margin">Outer Margin</string>
+	<string name="mesh_options_inner_margin">Inner Margin</string>
+	<string name="mesh_options_minimum_margin">Minimum Margin</string>
+	<string name="mesh_options_minimum_outline_points">Minimum Outline Points</string>
+	<string name="mesh_options_vertex_budget">Vertex Budget</string>
+	<string name="mesh_options_fill_holes">Fill Holes</string>
 	<string name="import_options_align">Align</string>
 	<string name="import_options_offset_x">Offset X</string>
 	<string name="import_options_offset_z">Offset Z</string>
@@ -925,6 +1012,16 @@
 	<string name="transform_options_connected_description">Limits the proportional influence to vertices joined to the selection by mesh edges, measuring distance along those edges.</string>
 	<string name="transform_options_slide_factor_description">Where along its edge the vertex landed: 0 is where it started, and 1 is the neighboring vertex.</string>
 	<string name="merge_options_target_description">Where the merged vertices come together: at their center, or on the first or last vertex selected.</string>
+	<string name="mesh_options_preset_description">Fills in the spacings, margins, and outline points from preset values.</string>
+	<string name="mesh_options_alpha_threshold_description">How opaque a pixel must be, up to 255, to be counted as part of the art.</string>
+	<string name="mesh_options_outline_spacing_description">The distance the mesher aims for between vertices along the outline, in pixels.</string>
+	<string name="mesh_options_interior_spacing_description">The distance the mesher aims for between vertices inside the art, the inner ring and the even grid, in pixels.</string>
+	<string name="mesh_options_outer_margin_description">How far outside the art the outline runs where the shape allows, in pixels.</string>
+	<string name="mesh_options_inner_margin_description">How far inside the art's edge the inner ring runs, in pixels.  0 for no inner ring.</string>
+	<string name="mesh_options_minimum_margin_description">The closest the outline may come to any art pixel, in pixels.</string>
+	<string name="mesh_options_minimum_outline_points_description">The fewest vertices one outline ring may have, however small its piece of art.</string>
+	<string name="mesh_options_vertex_budget_description">The maximum number of vertices one mesh may have.  Art that can't fit within this budget is skipped.</string>
+	<string name="mesh_options_fill_holes_description">Meshes over holes in the art as one sheet instead of cutting them out.</string>
 	<!-- Blend modes (Cubism color blend list). -->
 	<string name="blend_mode_normal">Normal</string>
 	<string name="blend_mode_additive">Additive</string>
@@ -1033,6 +1130,8 @@
 	<string name="settings_viewport_zoom_step_coarse">Coarse Zoom Step (%)</string>
 	<string name="settings_viewport_grid_scale">Grid Scale</string>
 	<string name="settings_viewport_grid_subdivisions">Grid Subdivisions</string>
+	<string name="settings_viewport_uv_grid_scale">UV Grid Scale</string>
+	<string name="settings_viewport_uv_grid_subdivisions">UV Grid Subdivisions</string>
 	<!-- Viewport section: rendering performance toggles (viewport.rendering.*). -->
 	<string name="settings_viewport_supersample">Supersampling (2x Render Quality)</string>
 	<string name="settings_viewport_supersample_while_resizing">Keep supersampling while resizing panels</string>
@@ -1085,4 +1184,5 @@
 	<string name="cmd_keyform_delete">Delete Keyframe</string>
 	<string name="notice_keyform_no_target">Point at a keyable property to insert a keyframe.</string>
 	<string name="notice_keyform_no_parameter">Select a parameter to key on.</string>
+	<string name="notice_parameter_delete_changed_rest">Parameter deleted.  %1$d object(s) now look different at the default pose.</string>
 </resources>

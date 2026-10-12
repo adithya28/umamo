@@ -20,6 +20,7 @@ import org.umamo.ui.workspace.AlertRequest
 internal fun openLogFolderOrAlert(services: EditorAppServices, hostOpensLogFolder: () -> String?) {
 	services.scope.launch {
 		val unopenedFolder = withContext(Dispatchers.IO) { hostOpensLogFolder() }
+
 		if (unopenedFolder != null) {
 			services.commandRegistry.invoke("document.alert", AlertRequest(Res.string.alert_log_folder_failed, listOf(unopenedFolder)))
 		}

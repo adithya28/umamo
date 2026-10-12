@@ -406,6 +406,7 @@ private fun ParameterValueRow(
 					Spacer(modifier = Modifier.width(12.dp))
 				}
 			}
+
 			if (rename.renaming) {
 				InlineRenameField(
 					initialName = name,
@@ -424,6 +425,7 @@ private fun ParameterValueRow(
 				)
 			}
 		}
+
 		if (abs(value - default) > RESET_EPSILON) {
 			IconButton(
 				icon = LocalUmamoIcons.reset,
@@ -434,6 +436,7 @@ private fun ParameterValueRow(
 			)
 			Spacer(modifier = Modifier.width(4.dp))
 		}
+
 		NumberField(
 			value = value,
 			onValueChange = onCommitValue,

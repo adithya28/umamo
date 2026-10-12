@@ -111,6 +111,7 @@ class Cmo3TextureFramesTest {
 	 */
 	private fun assertClose(expected: FloatArray, actual: FloatArray, message: String) {
 		assertEquals(expected.size, actual.size, message)
+
 		for (componentIndex in expected.indices) {
 			assertTrue(abs(expected[componentIndex] - actual[componentIndex]) < 1e-6f, "$message: component $componentIndex is ${actual[componentIndex]}, not ${expected[componentIndex]}")
 		}

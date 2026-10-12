@@ -20,6 +20,7 @@ class ValueTypeTest {
 	private fun roundTrip(value: Any): Pair<String, Any?> {
 		val xml = XmlCodec.write(engine.writeRoot(value)).decodeToString()
 		val restored = engine.readRoot(XmlCodec.parse(xml.toByteArray()))
+
 		return xml to restored
 	}
 

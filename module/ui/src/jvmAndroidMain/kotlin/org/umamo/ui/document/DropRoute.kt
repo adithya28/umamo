@@ -57,10 +57,13 @@ internal sealed interface DropRoute {
  */
 internal fun dropRouteFor(paths: List<String>): DropRoute {
 	val first = paths.firstOrNull() ?: return DropRoute.None
+
 	if (FormatRegistry.kindForFileName(first)?.role == FileRole.Artwork) {
 		val artwork = paths.filter { path -> FormatRegistry.kindForFileName(path)?.role == FileRole.Artwork }
+
 		return DropRoute.AddArtwork(artwork, paths - artwork.toSet())
 	}
+
 	return DropRoute.OpenDocument(first, paths.drop(1))
 }
 
@@ -77,9 +80,11 @@ internal fun dropRouteFor(paths: List<String>): DropRoute {
  */
 internal fun openDroppedFiles(paths: List<String>, commands: CommandRegistry) {
 	val route = dropRouteFor(paths)
+
 	if (route.ignored.isNotEmpty()) {
 		UmamoLog.info("drag and drop: ${route.ignored.size} dropped file(s) were not used - ${route.ignored.joinToString()}")
 	}
+
 	when (route) {
 		is DropRoute.OpenDocument -> commands.invoke("file.openPath", route.path)
 		is DropRoute.AddArtwork -> commands.invoke("file.importArtwork", ImportArtworkRequest(route.paths))

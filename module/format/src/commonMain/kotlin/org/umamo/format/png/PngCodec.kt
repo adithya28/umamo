@@ -84,14 +84,17 @@ public object PngCodec : RasterCodec {
 		// expanding until the process dies.  A stream that ends early leaves the rows it never
 		// reached transparent black (best-effort, mirroring the PSD/CLIP readers).
 		val scanlines = ZlibStreamReader(IdatSource(chunks.filter { it.type == "IDAT" }))
+
 		try {
 			if (header.interlace == 1) {
 				for (pass in ADAM7_PASSES) {
 					val passWidth = passExtent(header.width, pass[0], pass[2])
 					val passHeight = passExtent(header.height, pass[1], pass[3])
+
 					if (passWidth == 0 || passHeight == 0) {
 						continue
 					}
+
 					decodePass(scanlines, rgba, header, expander, passWidth, passHeight, pass[0], pass[1], pass[2], pass[3])
 				}
 			} else {
@@ -100,6 +103,7 @@ public object PngCodec : RasterCodec {
 		} finally {
 			scanlines.close()
 		}
+
 		return RasterImage(header.width, header.height, rgba)
 	}
 
@@ -133,14 +137,17 @@ public object PngCodec : RasterCodec {
 		val filtered = ByteArray(model.height * (1 + rowBytes))
 		var destination = 0
 		var source = 0
+
 		for (rowIndex in 0 until model.height) {
 			filtered[destination++] = FILTER_NONE.toByte()
 			model.rgba.copyInto(filtered, destination, source, source + rowBytes)
 			destination += rowBytes
 			source += rowBytes
 		}
+
 		writeChunk(out, "IDAT", deflateIdat(filtered))
 		writeChunk(out, "IEND", ByteArray(0))
+
 		return out.readByteArray()
 	}
 
@@ -199,6 +206,7 @@ public object PngCodec : RasterCodec {
 		// A 16-bit RGBA scanline is twice the width of its RGBA8888 row, so it can outgrow an array
 		// even when the image itself fits.
 		require((width.toLong() * channelCount(colorType) * bitDepth + 7) / 8 < Int.MAX_VALUE) { "PNG scanline is too long to decode: ${width}x$height" }
+
 		return PngHeader(width, height, bitDepth, colorType, interlace)
 	}
 
@@ -275,6 +283,7 @@ public object PngCodec : RasterCodec {
 		// PNG spec §9.2: the first scanline of each reduced image filters against an all-zero row.
 		var previous = ByteArray(rowBytes)
 		var current = ByteArray(rowBytes)
+
 		for (rowIndex in 0 until passHeight) {
 			// PNG spec §9.2: each scanline opens with its filter-type byte.  Past the end of a stream
 			// that stopped early, rows read as unfiltered zeros.
@@ -285,6 +294,7 @@ public object PngCodec : RasterCodec {
 					FILTER_NONE
 				}
 			val available = scanlines.readFully(current, 0, rowBytes)
+
 			if (available < rowBytes) {
 				current.fill(0, available, rowBytes)
 			}
@@ -334,9 +344,11 @@ public object PngCodec : RasterCodec {
 		 */
 		private fun keySample(colorType: Int, transparency: ByteArray?, offset: Int): Int {
 			val keyBytes = if (colorType == COLOR_RGB) 6 else 2
+
 			if (header.colorType != colorType || transparency == null || transparency.size < keyBytes) {
 				return NO_KEY
 			}
+
 			return readU16(transparency, offset)
 		}
 
@@ -351,27 +363,34 @@ public object PngCodec : RasterCodec {
 			if (header.bitDepth > 8) {
 				return null
 			}
+
 			val entries = 1 shl header.bitDepth
+
 			return when (header.colorType) {
 				COLOR_PALETTE -> {
 					val table = ByteArray(entries * 4)
+
 					for (index in 0 until entries) {
 						val paletteOffset = index * 3
+
 						// An index past the palette's end stays black.
 						if (palette != null && paletteOffset + 2 < palette.size) {
 							table[index * 4] = palette[paletteOffset]
 							table[index * 4 + 1] = palette[paletteOffset + 1]
 							table[index * 4 + 2] = palette[paletteOffset + 2]
 						}
+
 						// PNG spec §11.3.2.1 tRNS for palette: one alpha byte per entry; unlisted entries are opaque.
 						table[index * 4 + 3] = if (transparency != null && index < transparency.size) transparency[index] else OPAQUE
 					}
+
 					table
 				}
 
 				COLOR_GRAYSCALE -> {
 					val table = ByteArray(entries * 4)
 					val maximumSample = entries - 1
+
 					for (sample in 0 until entries) {
 						// PNG spec §12.5 linear scaling up to 8 bits; 255 is a multiple of 1, 3, and 15,
 						// so the equation's rounding never comes into play.
@@ -381,10 +400,13 @@ public object PngCodec : RasterCodec {
 						table[sample * 4 + 2] = gray
 						table[sample * 4 + 3] = if (sample == keyGray) 0 else OPAQUE
 					}
+
 					table
 				}
 
-				else -> null
+				else -> {
+					null
+				}
 			}
 		}
 
@@ -400,6 +422,7 @@ public object PngCodec : RasterCodec {
 		 */
 		fun expand(scanline: ByteArray, pixelCount: Int, rgba: ByteArray, destinationStart: Int, destinationStep: Int) {
 			val table = sampleColors
+
 			if (table != null) {
 				expandFromTable(table, scanline, pixelCount, rgba, destinationStart, destinationStep)
 			} else if (header.colorType == COLOR_RGBA && header.bitDepth == 8) {
@@ -423,6 +446,7 @@ public object PngCodec : RasterCodec {
 			val bitDepth = header.bitDepth
 			val sampleMask = (1 shl bitDepth) - 1
 			var destination = destinationStart
+
 			for (pixelIndex in 0 until pixelCount) {
 				val sample =
 					if (bitDepth == 8) {
@@ -454,10 +478,13 @@ public object PngCodec : RasterCodec {
 		private fun expandRgba8(scanline: ByteArray, pixelCount: Int, rgba: ByteArray, destinationStart: Int, destinationStep: Int) {
 			if (destinationStep == 4) {
 				scanline.copyInto(rgba, destinationStart, 0, pixelCount * 4)
+
 				return
 			}
+
 			var source = 0
 			var destination = destinationStart
+
 			for (pixelIndex in 0 until pixelCount) {
 				rgba[destination] = scanline[source]
 				rgba[destination + 1] = scanline[source + 1]
@@ -486,8 +513,10 @@ public object PngCodec : RasterCodec {
 			val pixelBytes = channels * sampleBytes
 			var source = 0
 			var destination = destinationStart
+
 			for (pixelIndex in 0 until pixelCount) {
 				val first = sampleAt(scanline, source, sixteenBit)
+
 				if (channels >= 3) {
 					val green = sampleAt(scanline, source + sampleBytes, sixteenBit)
 					val blue = sampleAt(scanline, source + 2 * sampleBytes, sixteenBit)
@@ -516,6 +545,7 @@ public object PngCodec : RasterCodec {
 							OPAQUE
 						}
 				}
+
 				source += pixelBytes
 				destination += destinationStep
 			}

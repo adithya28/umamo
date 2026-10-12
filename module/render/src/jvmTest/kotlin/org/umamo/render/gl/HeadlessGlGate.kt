@@ -59,15 +59,20 @@ private var lastGlfwErrorText: String? = null
  */
 internal fun requireHeadlessGl(tag: String) {
 	val window = acquireSharedGlWindow()
+
 	if (window == MemoryUtil.NULL) {
 		val message = "$tag no GL context (${acquireFailureReason ?: "cause not reported"})"
+
 		if (System.getProperty(REQUIRE_GL_PROPERTY).toBoolean()) {
 			// CI opted in: a missing context means the GL suite would cover nothing, so fail loudly.
 			throw AssertionError("$message, and -D$REQUIRE_GL_PROPERTY=true requires one")
 		}
+
 		Assume.assumeTrue(message, false)
+
 		return
 	}
+
 	resetSharedGlState()
 }
 
@@ -83,19 +88,25 @@ private fun acquireSharedGlWindow(): Long {
 	if (sharedGlAttempted) {
 		return sharedGlWindow
 	}
+
 	sharedGlAttempted = true
 	installGlfwErrorReporting()
+
 	for (attempt in 1..ACQUIRE_ATTEMPT_LIMIT) {
 		lastGlfwErrorText = null
 		val window = createHeadlessGlWindow()
+
 		if (window != MemoryUtil.NULL) {
 			sharedGlWindow = window
 			GLFW.glfwMakeContextCurrent(window)
 			GL.createCapabilities()
+
 			return sharedGlWindow
 		}
+
 		System.err.println("[headless-gl] attempt $attempt/$ACQUIRE_ATTEMPT_LIMIT failed: $acquireFailureReason")
 	}
+
 	return MemoryUtil.NULL
 }
 
@@ -111,20 +122,25 @@ private fun acquireSharedGlWindow(): Long {
 private fun createHeadlessGlWindow(): Long {
 	if (!GLFW.glfwInit()) {
 		acquireFailureReason = describeAcquireFailure("glfwInit() returned false")
+
 		return MemoryUtil.NULL
 	}
+
 	GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE)
 	GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 3)
 	GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 3)
 	GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE, GLFW.GLFW_OPENGL_CORE_PROFILE)
 	GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_FORWARD_COMPAT, GLFW.GLFW_TRUE)
 	val window = GLFW.glfwCreateWindow(HIDDEN_WINDOW_SIZE, HIDDEN_WINDOW_SIZE, "umamo-headless", MemoryUtil.NULL, MemoryUtil.NULL)
+
 	if (window == MemoryUtil.NULL) {
 		acquireFailureReason = describeAcquireFailure("glfwCreateWindow() returned NULL")
 		// glfwInit succeeded, so the platform layer is up and owes a matching terminate before a retry.
 		GLFW.glfwTerminate()
+
 		return MemoryUtil.NULL
 	}
+
 	return window
 }
 

@@ -23,6 +23,7 @@ class ScissorRectsTest {
 	 */
 	private fun affineOf(zoom: Float, viewportSize: Int): WorldToNdc {
 		val transform = ViewportCamera(0f, 0f, zoom).worldToNdc(viewportSize, viewportSize)
+
 		return WorldToNdc(transform[0], transform[1], transform[2], transform[3])
 	}
 

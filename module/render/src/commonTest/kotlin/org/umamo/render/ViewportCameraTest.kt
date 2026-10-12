@@ -17,6 +17,7 @@ class ViewportCameraTest {
 		val ndc = camera.worldToNdc(width, height)
 		val ndcX = worldX * ndc[0] + ndc[2]
 		val ndcY = worldZ * ndc[1] + ndc[3]
+
 		return Pair((ndcX + 1f) / 2f * width, (1f - ndcY) / 2f * height)
 	}
 

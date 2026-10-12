@@ -88,5 +88,6 @@ internal fun lowerParts(
 				isVisible = part.isVisible,
 			)
 		}
+
 	return Moc3LoweredParts(records, partKeyformsById)
 }

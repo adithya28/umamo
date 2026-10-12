@@ -70,6 +70,7 @@ class RuntimeGatingTest {
 		alphaBlendMode: AlphaBlendMode = AlphaBlendMode.Over,
 	): PropertyContext {
 		val selected = SelectionTarget.Drawable(drawableId)
+
 		return PropertyContext(
 			puppetWith(target, drawables = listOf(drawable(blendMode, alphaBlendMode))),
 			Selection(setOf(selected), selected),
@@ -81,6 +82,7 @@ class RuntimeGatingTest {
 	private fun isolatedPartContext(target: RuntimeTarget): PropertyContext {
 		val selected = SelectionTarget.Part(partId)
 		val isolated = Part(partId, "part", children = emptyList(), groupMode = PartGroupMode.Isolated)
+
 		return PropertyContext(
 			puppetWith(target, parts = listOf(isolated)),
 			Selection(setOf(selected), selected),
@@ -199,6 +201,7 @@ class RuntimeGatingTest {
 					rootPartId = null,
 					runtimeTarget = target,
 				)
+
 			return PropertyContext(puppet, Selection(setOf(selected), selected), selected, session = null)
 		}
 

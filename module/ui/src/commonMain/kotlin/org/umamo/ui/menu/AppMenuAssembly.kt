@@ -51,6 +51,7 @@ internal fun buildAppMenu(
 	// the session swaps.
 	val canUndo by produceState(false, session) {
 		val activeSession = session
+
 		if (activeSession == null) {
 			value = false
 		} else {
@@ -59,6 +60,7 @@ internal fun buildAppMenu(
 	}
 	val canRedo by produceState(false, session) {
 		val activeSession = session
+
 		if (activeSession == null) {
 			value = false
 		} else {
@@ -71,6 +73,7 @@ internal fun buildAppMenu(
 		settings.changes.collect { value = settings.recentFiles() }
 	}
 	val locale by rememberLocaleTag(settings)
+
 	return key(locale) {
 		remember(locale) { applyAppLocale(locale) }
 		listOf(

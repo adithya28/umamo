@@ -27,6 +27,7 @@ class Cmo3FacadeTest {
 		val file =
 			sample ?: run {
 				println("cmo3.sample not present; skipping facade test")
+
 				return
 			}
 		val model = Cmo3.read(file)
@@ -36,6 +37,7 @@ class Cmo3FacadeTest {
 		assertEquals("CModelSource", model.root!!::class.simpleName)
 		val resources = model.imageResources()
 		assertEquals(180, resources.size, "layer image resources")
+
 		for (resource in resources) {
 			val png = model.extractLayerPng(resource)
 			assertNotNull(png, "layer png for ${resource.imageFileBuf?.archivePath}")
@@ -75,6 +77,7 @@ class Cmo3FacadeTest {
 		val file =
 			sample ?: run {
 				println("cmo3.sample not present; skipping the archive reread test")
+
 				return
 			}
 		val model = Cmo3.read(file)

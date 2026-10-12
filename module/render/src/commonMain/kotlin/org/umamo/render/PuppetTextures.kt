@@ -87,6 +87,7 @@ fun buildPuppetTextures(
 	undecodablePage: UndecodablePagePolicy = UndecodablePagePolicy.Fail,
 ): PuppetTextures? {
 	val failOnBadPage = undecodablePage == UndecodablePagePolicy.Fail
+
 	// An index outside the page list must never reach the renderer: PuppetRenderer resolves pages by
 	// direct list indexing, so broken atlas wiring is caught here rather than crashing the render
 	// thread at first frame.  Under Skip the same guard applies per drawable instead of per build -
@@ -100,6 +101,7 @@ fun buildPuppetTextures(
 	// Under Fail nothing is ever dropped and the remap is an identity copy.
 	val atlases = ArrayList<DecodedImage>(pageBytes.size)
 	val keptIndexBySourceIndex = HashMap<Int, Int>(pageBytes.size)
+
 	for ((sourceIndex, bytes) in pageBytes.withIndex()) {
 		val image =
 			try {
@@ -108,6 +110,7 @@ fun buildPuppetTextures(
 				if (failOnBadPage) {
 					return null
 				}
+
 				continue
 			}
 		keptIndexBySourceIndex[sourceIndex] = atlases.size
@@ -115,9 +118,11 @@ fun buildPuppetTextures(
 	}
 
 	val keptIndexByDrawableId = LinkedHashMap<String, Int>(atlasIndexByDrawableId.size)
+
 	for ((drawableId, sourceIndex) in atlasIndexByDrawableId) {
 		keptIndexBySourceIndex[sourceIndex]?.let { keptIndex -> keptIndexByDrawableId[drawableId] = keptIndex }
 	}
+
 	return PuppetTextures(atlases, keptIndexByDrawableId, premultipliedAlpha)
 }
 
@@ -158,6 +163,7 @@ fun withTexturePagesFrom(puppet: PuppetModel, textures: PuppetTextures): PuppetM
 	val drawables =
 		puppet.drawables.map { drawable ->
 			val page = textures.atlasIndexByDrawableId[drawable.id.raw] ?: return@map drawable
+
 			if (page == drawable.texturePage) {
 				drawable
 			} else {
@@ -165,5 +171,6 @@ fun withTexturePagesFrom(puppet: PuppetModel, textures: PuppetTextures): PuppetM
 				drawable.copy(texturePage = page)
 			}
 		}
+
 	return if (moved) puppet.copy(drawables = drawables) else puppet
 }

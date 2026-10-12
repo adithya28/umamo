@@ -158,6 +158,7 @@ fun keyformSheetRows(
 	filter: KeyformTrackFilter = KeyformTrackFilter.All,
 ): KeyformSheetProjection {
 	val builder = ProjectionBuilder(labels, parameterId, filter)
+
 	for (part in puppet.parts) {
 		builder.addOwner(
 			ownerKey = "part:${part.id.raw}",
@@ -170,6 +171,7 @@ fun keyformSheetRows(
 			parameterId = parameterId,
 		)
 	}
+
 	for (deformer in puppet.deformers) {
 		val geometry =
 			when (deformer) {
@@ -196,6 +198,7 @@ fun keyformSheetRows(
 			parameterId = parameterId,
 		)
 	}
+
 	for (drawable in puppet.drawables) {
 		builder.addOwner(
 			ownerKey = "drawable:${drawable.id.raw}",
@@ -208,7 +211,9 @@ fun keyformSheetRows(
 			parameterId = parameterId,
 		)
 	}
+
 	val drawableNameById = puppet.drawables.associate { drawable -> drawable.id to drawable.name }
+
 	for (glue in puppet.glues) {
 		// Keyed by the MESH PAIR, the same stable identity KeyformOwner.Glue encodes - a list ordinal
 		// renumbers every later glue when one is removed, silently migrating selection and collapse state
@@ -224,6 +229,7 @@ fun keyformSheetRows(
 			parameterId = parameterId,
 		)
 	}
+
 	return builder.build()
 }
 
@@ -271,11 +277,13 @@ private class ProjectionBuilder(
 		parameterId: ParameterId,
 	) {
 		val children = ArrayList<TrackRow>()
+
 		// Recorded per DROPPED row rather than per enabled flag: a flag that is off but hides nothing on this
 		// rig must not make an empty sheet blame the filter for a rig that simply keys nothing here.
 		if (geometryMarks != null && !filter.geometry) {
 			hiddenByFilter = true
 		}
+
 		if (geometryMarks != null && filter.geometry) {
 			val rowKey = "$ownerKey/geometry"
 			children.add(
@@ -291,12 +299,16 @@ private class ProjectionBuilder(
 			// every gesture on what is, after compaction, nearly every row a corpus rig shows.
 			tracks[rowKey] = KeyformTrackRef.Geometry(owner)
 		}
+
 		for ((channel, track) in channelGrids.gridsByChannel) {
 			val marks = marksOf(track, parameterId, TrackKeyShape.Circle) ?: continue
+
 			if (!filter.channels) {
 				hiddenByFilter = true
+
 				continue
 			}
+
 			val rowKey = "$ownerKey/${channel.name}"
 			children.add(
 				TrackRow(
@@ -308,11 +320,13 @@ private class ProjectionBuilder(
 			)
 			tracks[rowKey] = KeyformTrackRef.Channel(KeyableTarget(owner, channel))
 		}
+
 		// A blend-shape binding is not a keyform grid, so it gets a row but no track ref: the sheet's ops
 		// would have nothing to apply, and offering a drag that reverts is worse than offering none.
 		if (blendShapeMarks.isNotEmpty() && !filter.blendShapes) {
 			hiddenByFilter = true
 		}
+
 		for ((bindingIndex, marks) in (if (filter.blendShapes) blendShapeMarks else emptyList()).withIndex()) {
 			children.add(
 				TrackRow(
@@ -323,9 +337,11 @@ private class ProjectionBuilder(
 				),
 			)
 		}
+
 		if (children.isEmpty()) {
 			return
 		}
+
 		rows.add(
 			TrackRow(
 				key = ownerKey,
@@ -382,6 +398,7 @@ private class ProjectionBuilder(
  */
 private fun marksOf(grid: KeyformGrid<*>?, parameterId: ParameterId, shape: TrackKeyShape): List<TrackKeyMark>? {
 	val axis = grid?.axes?.firstOrNull { axis -> axis.parameterId == parameterId } ?: return null
+
 	return axis.keys.mapIndexed { keyIndex, keyValue -> TrackKeyMark(keyIndex, keyValue, shape) }
 }
 

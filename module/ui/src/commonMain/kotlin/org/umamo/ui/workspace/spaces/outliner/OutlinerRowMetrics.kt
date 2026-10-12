@@ -90,6 +90,7 @@ internal fun outlinerContentWidth(
 		// The row's padding, on both of its sides.
 		val trailingPx = OUTLINER_ROW_PADDING_HORIZONTAL.toPx() * 2f
 		var maxPx = viewportWidth.toPx()
+
 		for (row in rows) {
 			val style = if (row.node.target is SelectionTarget.Drawable) drawableStyle else bodyStyle
 			val labelPx = measurer.measure(row.node.label, style).size.width.toFloat()
@@ -103,9 +104,11 @@ internal fun outlinerContentWidth(
 					(if (showVisibilityColumn && showEye) restrictionSlotPx else 0f) +
 					(if (hasTarget) trailingSpacerPx else 0f)
 			val rowPx = basePx + perDepthPx * row.depth + fixedPx + labelPx + trailingSlotsPx + trailingPx
+
 			if (rowPx > maxPx) {
 				maxPx = rowPx
 			}
 		}
+
 		maxPx.toDp()
 	}

@@ -3,7 +3,6 @@ package org.umamo.ui.viewport
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import org.umamo.edit.GridConfig
 import org.umamo.format.raster.RasterImage
 import org.umamo.render.ContentBounds
 import org.umamo.render.FrameBackdrop
@@ -12,6 +11,8 @@ import org.umamo.render.LayerDrawPlan
 import org.umamo.render.LayerRasterBatch
 import org.umamo.render.ViewportCamera
 import org.umamo.render.pick.PickCandidate
+import org.umamo.render.puppet.MeshOverlay
+import org.umamo.render.puppet.MeshOverlayPalette
 import org.umamo.runtime.model.DrawableId
 import org.umamo.runtime.model.PartId
 import org.umamo.runtime.model.PuppetModel
@@ -19,12 +20,28 @@ import org.umamo.ui.model.DrawableThumbnailProvider
 
 /**
  * A render service with no renderer behind it, for tests of the viewport overlays: it records every model
- * an overlay pushes through [setModel] (a gesture's previews and the resync that ends it) and answers the
- * picks from a table the test fills.  Everything else does nothing, since no overlay under test reads it.
+ * an overlay pushes through [setModel] (a gesture's previews and the resync that ends it), every mesh
+ * overlay, palette, and UV scene content published to it, and answers the picks from a table the test
+ * fills.  Everything else does nothing, since no overlay under test reads it.
  */
 internal class StubPuppetViewportService : PuppetViewportService {
 	/** Every model pushed through [setModel], oldest first. */
 	val pushedModels = ArrayList<PuppetModel>()
+
+	/** Every mesh overlay published through [setMeshOverlay], oldest first, nulls included. */
+	val pushedOverlays = ArrayList<MeshOverlay?>()
+
+	/** Every palette published through [setMeshOverlayPalette], oldest first. */
+	val pushedPalettes = ArrayList<MeshOverlayPalette>()
+
+	/** Every UV scene content published through [setUvSceneContent], in order. */
+	val pushedUvContents = ArrayList<UvContentPush>()
+
+	/** Every per-area render option push through [setAreaOverlays], in order, as the area and its options. */
+	val pushedAreaOverlays = ArrayList<Pair<String, AreaOverlays>>()
+
+	/** Every capture asked through [renderImage], in order, as its backdrop and the overlays it was to draw. */
+	val renderImageRequests = ArrayList<Pair<FrameBackdrop, AreaOverlays>>()
 
 	/** What [pickAllAt] answers per area, front-most first; an area with no entry answers nothing. */
 	val stackByArea = HashMap<String, List<PickCandidate>>()
@@ -52,8 +69,6 @@ internal class StubPuppetViewportService : PuppetViewportService {
 
 	override var gridColors: GridColors = GridColors.Classic
 
-	override var gridConfig: GridConfig = GridConfig()
-
 	/**
 	 * Registers nothing; no frame ever lands.
 	 *
@@ -73,13 +88,33 @@ internal class StubPuppetViewportService : PuppetViewportService {
 	override fun registerUvScene(areaId: String, content: UvSceneContent, islandExtent: ContentBounds?): StateFlow<RenderedFrame?> = MutableStateFlow(null)
 
 	/**
-	 * Does nothing.
+	 * Records the content a UV area publishes.
 	 *
 	 * @param String areaId The area.
 	 * @param UvSceneContent content The scene.
 	 * @param ContentBounds? islandExtent The island extent.
 	 */
-	override fun setUvSceneContent(areaId: String, content: UvSceneContent, islandExtent: ContentBounds?) {}
+	override fun setUvSceneContent(areaId: String, content: UvSceneContent, islandExtent: ContentBounds?) {
+		pushedUvContents.add(UvContentPush(areaId, content, islandExtent))
+	}
+
+	/**
+	 * Records the render options an area publishes.
+	 *
+	 * @param String areaId The area.
+	 * @param AreaOverlays overlays The options.
+	 */
+	override fun setAreaOverlays(areaId: String, overlays: AreaOverlays) {
+		pushedAreaOverlays.add(areaId to overlays)
+	}
+
+	/**
+	 * The render options an area last published.
+	 *
+	 * @param String areaId The area.
+	 * @return AreaOverlays? The area's last push, or null.
+	 */
+	override fun areaOverlays(areaId: String): AreaOverlays? = pushedAreaOverlays.lastOrNull { (id, _) -> id == areaId }?.second
 
 	/**
 	 * Does nothing.
@@ -256,6 +291,24 @@ internal class StubPuppetViewportService : PuppetViewportService {
 	override fun setActiveSelectionHighlightColor(red: Float, green: Float, blue: Float) {}
 
 	/**
+	 * Records the overlay.
+	 *
+	 * @param MeshOverlay? overlay The overlay, or null.
+	 */
+	override fun setMeshOverlay(overlay: MeshOverlay?) {
+		pushedOverlays.add(overlay)
+	}
+
+	/**
+	 * Records the palette.
+	 *
+	 * @param MeshOverlayPalette palette The palette.
+	 */
+	override fun setMeshOverlayPalette(palette: MeshOverlayPalette) {
+		pushedPalettes.add(palette)
+	}
+
+	/**
 	 * The front-most entry of the area's stack.
 	 *
 	 * @param String areaId The area.
@@ -275,6 +328,7 @@ internal class StubPuppetViewportService : PuppetViewportService {
 	 */
 	override fun pickAllAt(areaId: String, cursorXpx: Float, cursorYpx: Float): List<PickCandidate> {
 		stackRequests.add(areaId to (cursorXpx to cursorYpx))
+
 		return stackByArea[areaId].orEmpty()
 	}
 
@@ -286,17 +340,23 @@ internal class StubPuppetViewportService : PuppetViewportService {
 	 */
 	override fun drawableWorldCentroids(): Map<DrawableId, FloatArray> {
 		centroidSnapshots++
+
 		return centroids.toMap()
 	}
 
 	/**
-	 * Renders nothing.
+	 * Records what was asked and renders nothing.
 	 *
 	 * @param ImageFrame frame The frame.
 	 * @param FrameBackdrop backdrop The backdrop.
+	 * @param AreaOverlays overlays The grid and axes a grid backdrop draws.
 	 * @return RasterImage? Always null.
 	 */
-	override suspend fun renderImage(frame: ImageFrame, backdrop: FrameBackdrop): RasterImage? = null
+	override suspend fun renderImage(frame: ImageFrame, backdrop: FrameBackdrop, overlays: AreaOverlays): RasterImage? {
+		renderImageRequests.add(backdrop to overlays)
+
+		return null
+	}
 
 	/**
 	 * No view.
@@ -366,3 +426,16 @@ internal class StubPuppetViewportService : PuppetViewportService {
 		override fun partThumbnailFor(id: PartId): ImageBitmap? = null
 	}
 }
+
+/**
+ * One UV scene content publish, as the stub recorded it.
+ *
+ * @property String areaId The area.
+ * @property UvSceneContent content The content, with its overlay.
+ * @property ContentBounds? islandExtent The island extent.
+ */
+internal class UvContentPush(
+	val areaId: String,
+	val content: UvSceneContent,
+	val islandExtent: ContentBounds?,
+)

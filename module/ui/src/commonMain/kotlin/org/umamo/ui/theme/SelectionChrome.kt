@@ -125,6 +125,7 @@ fun DrawScope.drawRubberBand(start: Offset?, end: Offset?, style: SelectionOverl
 	if (start == null || end == null) {
 		return
 	}
+
 	val topLeft = Offset(min(start.x, end.x), min(start.y, end.y))
 	val boxSize = Size(abs(end.x - start.x), abs(end.y - start.y))
 	drawSelectionBox(topLeft, boxSize, style)

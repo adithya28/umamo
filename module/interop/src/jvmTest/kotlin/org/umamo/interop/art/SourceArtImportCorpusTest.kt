@@ -21,26 +21,33 @@ import kotlin.test.assertTrue
 class SourceArtImportCorpusTest {
 	private fun locateSamples(): List<File> {
 		var directory: File? = File(System.getProperty("user.dir"))
+
 		while (directory != null) {
 			val corpus = File(directory, "test/corpus")
+
 			if (corpus.isDirectory) {
 				return listOf("psd", "clip", "krita")
 					.flatMap { folder -> File(corpus, folder).listFiles { file -> file.isFile }.orEmpty().toList() }
 					.filter { file -> file.extension.lowercase() in setOf("psd", "clip", "kra") }
 					.sortedBy { file -> file.name }
 			}
+
 			directory = directory.parentFile
 		}
+
 		return emptyList()
 	}
 
 	@Test
 	fun everyCorpusArtworkImportsToARig() {
 		val samples = locateSamples()
+
 		if (samples.isEmpty()) {
 			println("no test/corpus artwork samples; skipping the artwork import corpus test")
+
 			return
 		}
+
 		for (sample in samples) {
 			checkSample(sample)
 		}
@@ -73,6 +80,7 @@ class SourceArtImportCorpusTest {
 			assertEquals(puppet.sources.single().id, source.sourceId)
 			assertTrue(puppet.sources.single().layers.any { entry -> entry.key == source.layerKey }, "${sample.name}: the binding names an inventory layer")
 		}
+
 		assertEquals(art.layers.size, puppet.sources.single().layers.size, "${sample.name}: the inventory lists every layer")
 		assertTrue(puppet.parts.size >= art.groups.size, "${sample.name}: every described folder is a part")
 		assertEquals(art.widthPx.toFloat(), puppet.canvasWidth, "${sample.name}: canvas width")

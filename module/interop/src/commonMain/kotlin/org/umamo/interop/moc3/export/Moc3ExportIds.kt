@@ -169,12 +169,28 @@ class Moc3WrittenIds internal constructor(
 	fun parameterId(id: ParameterId): String = parameters[id.raw] ?: id.raw
 
 	/**
+	 * Every parameter id the moc contains, as written - what a sidecar carried through verbatim must name to
+	 * find a parameter.
+	 *
+	 * @return Set<String> The written ids.
+	 */
+	fun writtenParameterIds(): Set<String> = parameters.values.toSet()
+
+	/**
 	 * The id [id] was written under.
 	 *
 	 * @param PartId id The part's model id.
 	 * @return String The written id.
 	 */
 	fun partId(id: PartId): String = parts[id.raw] ?: id.raw
+
+	/**
+	 * Every part id the moc contains, as written - what a pose, or a motion's part-opacity curve, carried
+	 * through verbatim must name to find a part.
+	 *
+	 * @return Set<String> The written ids.
+	 */
+	fun writtenPartIds(): Set<String> = parts.values.toSet()
 
 	/**
 	 * The id [id] was written under.
@@ -241,17 +257,21 @@ private class Moc3IdSpace(
 	private fun claim(modelId: String): String {
 		if (fitsIdRecord(modelId)) {
 			claimedIds.add(modelId)
+
 			return modelId
 		}
+
 		val truncated = fittedToIdRecord(modelId)
 		var written = truncated
 		var disambiguator = 2
+
 		// The suffix has to be part of what gets fitted, not appended after it, or disambiguating would
 		// push the id back over the record width it was just trimmed to.
 		while (!claimedIds.add(written)) {
 			written = fittedToIdRecord(modelId, "-$disambiguator")
 			disambiguator++
 		}
+
 		noticeSink.unsupported(
 			category,
 			modelId,
@@ -261,6 +281,7 @@ private class Moc3IdSpace(
 				ExportNoticeReason.IdTruncatedAndDisambiguated(Sections.ID_STRIDE, written)
 			},
 		)
+
 		return written
 	}
 }
@@ -288,14 +309,17 @@ private fun fittedToIdRecord(
 	// Trimmed by CHARACTER so the result stays valid UTF-8; cutting at a byte offset could land
 	// mid-sequence and write a broken code point into the record.
 	var fitted = id
+
 	while (fitted.isNotEmpty() && fitted.encodeToByteArray().size + suffixBytes >= Sections.ID_STRIDE) {
 		fitted = fitted.dropLast(1)
 	}
+
 	// A Kotlin Char is a UTF-16 code unit, so an astral character (emoji, rarer CJK) is TWO of them:
 	// trimming can leave the leading half behind, which encodes as a replacement byte rather than as
 	// the character it was part of.  Dropping it only shortens the result, so it cannot re-overflow.
 	if (fitted.isNotEmpty() && fitted.last().isHighSurrogate()) {
 		fitted = fitted.dropLast(1)
 	}
+
 	return fitted + suffix
 }

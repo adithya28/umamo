@@ -6,7 +6,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import org.umamo.edit.SelectionTarget
-import org.umamo.edit.rename
+import org.umamo.edit.structure.rename
 import org.umamo.ui.workspace.spaces.parameters.ComposableRunCounter
 import org.umamo.ui.workspace.spaces.parameters.PanelIds
 import kotlin.test.Test
@@ -30,6 +30,7 @@ class KeyformSheetRecompositionTest {
 	private fun counting(body: ComposeUiTest.(ComposableRunCounter) -> Unit) {
 		val counter = ComposableRunCounter(SHEET_PACKAGE_PREFIX)
 		Composer.setTracer(counter)
+
 		try {
 			runComposeUiTest { body(counter) }
 		} finally {

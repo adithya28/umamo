@@ -51,6 +51,7 @@ class Cmo3ToMoc3OracleTest {
 				?.filter { file -> file.isFile && file.extension == "moc3" && file.parentFile?.name != "work" }
 				?.associateBy { file -> file.nameWithoutExtension }
 				.orEmpty()
+
 		return cmo3Files.keys
 			.intersect(moc3Files.keys)
 			.sorted()
@@ -70,6 +71,7 @@ class Cmo3ToMoc3OracleTest {
 		var comparedDrawables = 0
 		var geometryMatches = 0
 		val perModel = ArrayList<String>()
+
 		for ((name, cmo3File, moc3File) in twins) {
 			val baked = Moc3.decode(MocCodec.read(moc3File.readBytes()))
 			val root = Cmo3.read(cmo3File).root as? CModelSource ?: continue
@@ -77,6 +79,7 @@ class Cmo3ToMoc3OracleTest {
 			val (bytes, _) =
 				runCatching { Moc3Export.write(puppet, baked.version) }.getOrElse { failure ->
 					failures.add("$name: the CMO3 would not lower to a moc ($failure)")
+
 					continue
 				}
 			val exportedFile = File(outputDir, "$name.moc3").apply { writeBytes(bytes) }
@@ -86,9 +89,11 @@ class Cmo3ToMoc3OracleTest {
 			// A twin pair is only an oracle when both files are the same revision of the model; the
 			// structural gate (Cmo3ToMoc3CrossFormatTest) names the one corpus pair that is not.
 			val shared = bakedDump.entries.keys.intersect(ourDump.entries.keys)
+
 			if (shared.size < bakedDump.entries.size * 9 / 10) {
 				continue
 			}
+
 			comparedModels++
 			var modelCompared = 0
 			var modelMatches = 0
@@ -96,25 +101,33 @@ class Cmo3ToMoc3OracleTest {
 			for (drawableId in shared) {
 				val expected = bakedDump.entries.getValue(drawableId)
 				val actual = ourDump.entries.getValue(drawableId)
+
 				if (oracleNeverEvaluated(expected)) {
 					continue
 				}
+
 				comparedDrawables++
+
 				if (expected.vtx != actual.vtx) {
 					failures.add("$name $drawableId: ${expected.vtx} vertices in the bake, ${actual.vtx} in ours")
+
 					continue
 				}
+
 				// Opacity is a pose result, not a derived coordinate - the two files must agree exactly on
 				// what the default pose makes this drawable.
 				if (!oracleCloseEnough(expected.opacity.toDouble(), actual.opacity.toDouble())) {
 					failures.add("$name $drawableId op: ${expected.opacity} vs ${actual.opacity}")
 				}
+
 				modelCompared++
+
 				if (oracleCloseEnough(expected.vposH, actual.vposH)) {
 					geometryMatches++
 					modelMatches++
 				}
 			}
+
 			if (modelCompared > 0 && modelMatches < modelCompared) {
 				// Printed per model so the residue is legible rather than a single percentage: it sits at
 				// roughly one drawable in ten across EVERY real model, which is what says it is authoring
@@ -122,6 +135,7 @@ class Cmo3ToMoc3OracleTest {
 				perModel.add("$name $modelMatches/$modelCompared")
 			}
 		}
+
 		assertTrue(comparedModels > 0, "no twin pair could be compared")
 		val geometryRatio = if (comparedDrawables == 0) 0.0 else geometryMatches.toDouble() / comparedDrawables
 		println(

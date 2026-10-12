@@ -86,47 +86,68 @@ fun exportEntityCategoryLabelRes(category: ExportEntityCategory): StringResource
 fun exportNoticeReasonPhrase(reason: ExportNoticeReason): ExportNoticePhrase =
 	when (reason) {
 		// Shared by both export paths.
-		ExportNoticeReason.DrawableHasNoMesh ->
+		ExportNoticeReason.DrawableHasNoMesh -> {
 			ExportNoticePhrase(Res.string.export_reason_drawable_has_no_mesh)
+		}
 
 		// MOC3 lowering.
-		is ExportNoticeReason.ChannelDemotedToStatic ->
+		is ExportNoticeReason.ChannelDemotedToStatic -> {
 			ExportNoticePhrase(
 				Res.string.export_reason_channel_demoted_to_static,
 				listOf(ExportNoticeArgument.Nested(channelPhrase(reason.channel))),
 			)
-		ExportNoticeReason.SketchPartIsNotRuntimeContent ->
+		}
+
+		ExportNoticeReason.SketchPartIsNotRuntimeContent -> {
 			ExportNoticePhrase(Res.string.export_reason_sketch_part_not_runtime_content)
-		ExportNoticeReason.HiddenPartOmittedByExportOption ->
+		}
+
+		ExportNoticeReason.HiddenPartOmittedByExportOption -> {
 			ExportNoticePhrase(Res.string.export_reason_hidden_part_omitted_by_option)
-		ExportNoticeReason.HiddenDrawableOmittedByExportOption ->
+		}
+
+		ExportNoticeReason.HiddenDrawableOmittedByExportOption -> {
 			ExportNoticePhrase(Res.string.export_reason_hidden_drawable_omitted_by_option)
-		ExportNoticeReason.UnkeyedDrawableUnderDeformerHasNoParentGeometry ->
-			ExportNoticePhrase(Res.string.export_reason_unkeyed_drawable_under_deformer)
-		is ExportNoticeReason.RestMeshConversionSizeMismatch ->
+		}
+
+		is ExportNoticeReason.VertexCountExceedsIndexWidth -> {
 			ExportNoticePhrase(
-				Res.string.export_reason_rest_mesh_conversion_size_mismatch,
+				Res.string.export_reason_vertex_count_exceeds_index_width,
 				listOf(
-					ExportNoticeArgument.Literal(reason.convertedCoordinateCount),
-					ExportNoticeArgument.Literal(reason.expectedCoordinateCount),
+					ExportNoticeArgument.Literal(reason.vertexCount),
+					ExportNoticeArgument.Literal(reason.maximumVertexCount),
 				),
 			)
-		ExportNoticeReason.NoAtlasPageBound ->
+		}
+
+		ExportNoticeReason.NoAtlasPageBound -> {
 			ExportNoticePhrase(Res.string.export_reason_no_atlas_page_bound)
-		is ExportNoticeReason.ClippingMaskNotInExport ->
+		}
+
+		is ExportNoticeReason.ClippingMaskNotInExport -> {
 			ExportNoticePhrase(
 				Res.string.export_reason_clipping_mask_not_in_export,
 				listOf(ExportNoticeArgument.Literal(reason.maskDrawableIds.joinToString())),
 			)
-		ExportNoticeReason.OffscreenMaskNotInExport ->
+		}
+
+		ExportNoticeReason.OffscreenMaskNotInExport -> {
 			ExportNoticePhrase(Res.string.export_reason_offscreen_mask_not_in_export)
-		ExportNoticeReason.WarpDeformerHasNoLattice ->
+		}
+
+		ExportNoticeReason.WarpDeformerHasNoLattice -> {
 			ExportNoticePhrase(Res.string.export_reason_warp_has_no_lattice)
-		ExportNoticeReason.RotationDeformerHasNoPivot ->
+		}
+
+		ExportNoticeReason.RotationDeformerHasNoPivot -> {
 			ExportNoticePhrase(Res.string.export_reason_rotation_has_no_pivot)
-		ExportNoticeReason.GlueNamesAnUnknownDrawable ->
+		}
+
+		ExportNoticeReason.GlueNamesAnUnknownDrawable -> {
 			ExportNoticePhrase(Res.string.export_reason_glue_names_unknown_drawable)
-		is ExportNoticeReason.IdTruncated ->
+		}
+
+		is ExportNoticeReason.IdTruncated -> {
 			ExportNoticePhrase(
 				Res.string.export_reason_id_truncated,
 				listOf(
@@ -134,7 +155,9 @@ fun exportNoticeReasonPhrase(reason: ExportNoticeReason): ExportNoticePhrase =
 					ExportNoticeArgument.Literal(reason.writtenId),
 				),
 			)
-		is ExportNoticeReason.IdTruncatedAndDisambiguated ->
+		}
+
+		is ExportNoticeReason.IdTruncatedAndDisambiguated -> {
 			ExportNoticePhrase(
 				Res.string.export_reason_id_truncated_disambiguated,
 				listOf(
@@ -142,47 +165,80 @@ fun exportNoticeReasonPhrase(reason: ExportNoticeReason): ExportNoticePhrase =
 					ExportNoticeArgument.Literal(reason.writtenId),
 				),
 			)
+		}
 
 		// CMO3 reconcile.
-		ExportNoticeReason.NoMatchingSourceToReconcile ->
+		ExportNoticeReason.NoMatchingSourceToReconcile -> {
 			ExportNoticePhrase(Res.string.export_reason_no_matching_source)
-		ExportNoticeReason.ParameterKindChangeNotLowered ->
+		}
+
+		ExportNoticeReason.ParameterKindChangeNotLowered -> {
 			ExportNoticePhrase(Res.string.export_reason_parameter_kind_change)
-		ExportNoticeReason.DeformerKindChangeNotLowered ->
+		}
+
+		ExportNoticeReason.DeformerKindChangeNotLowered -> {
 			ExportNoticePhrase(Res.string.export_reason_deformer_kind_change)
-		ExportNoticeReason.DeformerEditNeedsWarpSource ->
+		}
+
+		ExportNoticeReason.DeformerEditNeedsWarpSource -> {
 			ExportNoticePhrase(Res.string.export_reason_deformer_needs_warp_source)
-		ExportNoticeReason.DeformerEditNeedsRotationSource ->
+		}
+
+		ExportNoticeReason.DeformerEditNeedsRotationSource -> {
 			ExportNoticePhrase(Res.string.export_reason_deformer_needs_rotation_source)
-		ExportNoticeReason.TextureSourceRebindingIsEditorOnly ->
+		}
+
+		ExportNoticeReason.TextureSourceRebindingIsEditorOnly -> {
 			ExportNoticePhrase(Res.string.export_reason_texture_rebinding_editor_only)
-		ExportNoticeReason.BaseGeometryVertexCountMismatch ->
+		}
+
+		ExportNoticeReason.BaseGeometryVertexCountMismatch -> {
 			ExportNoticePhrase(Res.string.export_reason_base_geometry_vertex_mismatch)
-		ExportNoticeReason.NoUvsToReconcile ->
+		}
+
+		ExportNoticeReason.NoUvsToReconcile -> {
 			ExportNoticePhrase(Res.string.export_reason_no_uvs_to_reconcile)
-		ExportNoticeReason.DeformerHasNoPartToMoveTo ->
+		}
+
+		ExportNoticeReason.DeformerHasNoPartToMoveTo -> {
 			ExportNoticePhrase(Res.string.export_reason_deformer_no_part_to_move_to)
-		ExportNoticeReason.StaticDrawOrderShadowedByKeyforms ->
+		}
+
+		ExportNoticeReason.StaticDrawOrderShadowedByKeyforms -> {
 			ExportNoticePhrase(Res.string.export_reason_static_draw_order_shadowed)
-		ExportNoticeReason.CompositeStaticsShadowedByKeyforms ->
+		}
+
+		ExportNoticeReason.CompositeStaticsShadowedByKeyforms -> {
 			ExportNoticePhrase(Res.string.export_reason_composite_statics_shadowed)
-		ExportNoticeReason.PartMasksFlattenToDrawables ->
+		}
+
+		ExportNoticeReason.PartMasksFlattenToDrawables -> {
 			ExportNoticePhrase(Res.string.export_reason_part_masks_flatten)
+		}
 
 		// CMO3 structural creation.
-		ExportNoticeReason.NoSourceSetToCreateInto ->
+		ExportNoticeReason.NoSourceSetToCreateInto -> {
 			ExportNoticePhrase(Res.string.export_reason_no_source_set_to_create_into)
-		ExportNoticeReason.CreatedEntityHasNoSourceYet ->
+		}
+
+		ExportNoticeReason.CreatedEntityHasNoSourceYet -> {
 			ExportNoticePhrase(Res.string.export_reason_created_entity_has_no_source)
-		ExportNoticeReason.CreatedGroupIsNotInTheEditedTree ->
+		}
+
+		ExportNoticeReason.CreatedGroupIsNotInTheEditedTree -> {
 			ExportNoticePhrase(Res.string.export_reason_created_group_not_in_tree)
-		ExportNoticeReason.CreatedDrawableHasNoTextureSource ->
+		}
+
+		ExportNoticeReason.CreatedDrawableHasNoTextureSource -> {
 			ExportNoticePhrase(Res.string.export_reason_created_drawable_no_texture_source)
-		ExportNoticeReason.GluedDrawableHasNoSource ->
+		}
+
+		ExportNoticeReason.GluedDrawableHasNoSource -> {
 			ExportNoticePhrase(Res.string.export_reason_glued_drawable_has_no_source)
+		}
 
 		// CMO3 mesh topology and glue re-binding.
-		is ExportNoticeReason.VertexCountExceedsEdgeTable ->
+		is ExportNoticeReason.VertexCountExceedsEdgeTable -> {
 			ExportNoticePhrase(
 				Res.string.export_reason_vertex_count_exceeds_edge_table,
 				listOf(
@@ -190,44 +246,89 @@ fun exportNoticeReasonPhrase(reason: ExportNoticeReason): ExportNoticePhrase =
 					ExportNoticeArgument.Literal(reason.maximumVertexCount),
 				),
 			)
-		ExportNoticeReason.GluedMeshHasNoUidTable ->
+		}
+
+		ExportNoticeReason.GluedMeshHasNoUidTable -> {
 			ExportNoticePhrase(Res.string.export_reason_glued_mesh_no_uid_table)
-		ExportNoticeReason.GluePairIndexesPastUidTable ->
+		}
+
+		ExportNoticeReason.GluePairIndexesPastUidTable -> {
 			ExportNoticePhrase(Res.string.export_reason_glue_pair_past_uid_table)
+		}
 
 		// CMO3 keyforms.
-		is ExportNoticeReason.KeyformCannotBundle ->
+		is ExportNoticeReason.KeyformCannotBundle -> {
 			ExportNoticePhrase(
 				Res.string.export_reason_keyform_cannot_bundle,
 				listOf(ExportNoticeArgument.Nested(keyformBundleRejectionPhrase(reason.rejection))),
 			)
-		is ExportNoticeReason.AxisParameterHasNoSource ->
+		}
+
+		is ExportNoticeReason.AxisParameterHasNoSource -> {
 			ExportNoticePhrase(
 				Res.string.export_reason_axis_parameter_no_source,
 				listOf(ExportNoticeArgument.Literal(reason.parameterId)),
 			)
-		is ExportNoticeReason.BlendShapeParameterHasNoSource ->
+		}
+
+		is ExportNoticeReason.BlendShapeParameterHasNoSource -> {
 			ExportNoticePhrase(
 				Res.string.export_reason_blend_shape_parameter_no_source,
 				listOf(ExportNoticeArgument.Literal(reason.parameterId)),
 			)
-		ExportNoticeReason.KeyformsWithoutBaseMesh ->
+		}
+
+		is ExportNoticeReason.PhysicsNamesDeletedParameter -> {
+			ExportNoticePhrase(
+				Res.string.export_reason_physics_names_deleted_parameter,
+				listOf(ExportNoticeArgument.Literal(reason.settingNames.joinToString(", "))),
+			)
+		}
+
+		is ExportNoticeReason.SidecarNamesUnwrittenParameters -> {
+			ExportNoticePhrase(
+				Res.string.export_reason_sidecar_names_unwritten_parameters,
+				listOf(ExportNoticeArgument.Literal(reason.fileName), ExportNoticeArgument.Literal(reason.parameterIds.joinToString(", "))),
+			)
+		}
+
+		is ExportNoticeReason.SidecarNamesUnwrittenParts -> {
+			ExportNoticePhrase(
+				Res.string.export_reason_sidecar_names_unwritten_parts,
+				listOf(ExportNoticeArgument.Literal(reason.fileName), ExportNoticeArgument.Literal(reason.partIds.joinToString(", "))),
+			)
+		}
+
+		ExportNoticeReason.KeyformsWithoutBaseMesh -> {
 			ExportNoticePhrase(Res.string.export_reason_keyforms_without_base_mesh)
-		ExportNoticeReason.FractionalDrawOrderNotStorable ->
+		}
+
+		ExportNoticeReason.FractionalDrawOrderNotStorable -> {
 			ExportNoticePhrase(Res.string.export_reason_fractional_draw_order)
-		ExportNoticeReason.StaticGlueIntensityWithoutKeyforms ->
+		}
+
+		ExportNoticeReason.StaticGlueIntensityWithoutKeyforms -> {
 			ExportNoticePhrase(Res.string.export_reason_static_glue_intensity_without_keyforms)
+		}
 
 		// CMO3 document fields.
-		ExportNoticeReason.NoAuthoredWorldOrigin ->
+		ExportNoticeReason.NoAuthoredWorldOrigin -> {
 			ExportNoticePhrase(Res.string.export_reason_no_authored_world_origin)
-		ExportNoticeReason.NoRootParameterGroup ->
+		}
+
+		ExportNoticeReason.NoRootParameterGroup -> {
 			ExportNoticePhrase(Res.string.export_reason_no_root_parameter_group)
-		ExportNoticeReason.NoRootPart ->
+		}
+
+		ExportNoticeReason.NoRootPart -> {
 			ExportNoticePhrase(Res.string.export_reason_no_root_part)
-		ExportNoticeReason.NoParameterSourceSet ->
+		}
+
+		ExportNoticeReason.NoParameterSourceSet -> {
 			ExportNoticePhrase(Res.string.export_reason_no_parameter_source_set)
-		is ExportNoticeReason.CombinedPairReordered ->
+		}
+
+		is ExportNoticeReason.CombinedPairReordered -> {
 			ExportNoticePhrase(
 				Res.string.export_reason_combined_pair_reordered,
 				listOf(
@@ -235,22 +336,46 @@ fun exportNoticeReasonPhrase(reason: ExportNoticeReason): ExportNoticePhrase =
 					ExportNoticeArgument.Literal(reason.verticalParameterId),
 				),
 			)
-		ExportNoticeReason.NoCanvasToReconcile ->
+		}
+
+		ExportNoticeReason.NoCanvasToReconcile -> {
 			ExportNoticePhrase(Res.string.export_reason_no_canvas_to_reconcile)
-		ExportNoticeReason.FractionalCanvasSizeNotStorable ->
+		}
+
+		ExportNoticeReason.FractionalCanvasSizeNotStorable -> {
 			ExportNoticePhrase(Res.string.export_reason_fractional_canvas_size)
-		ExportNoticeReason.NoTextureManagerToReconcile ->
+		}
+
+		ExportNoticeReason.NoTextureManagerToReconcile -> {
 			ExportNoticePhrase(Res.string.export_reason_no_texture_manager)
-		ExportNoticeReason.NoTextureInputForDisplayMode ->
+		}
+
+		ExportNoticeReason.NoTextureInputForDisplayMode -> {
 			ExportNoticePhrase(Res.string.export_reason_no_texture_input_for_display)
-		ExportNoticeReason.NoAtlasEntryToReconcile ->
+		}
+
+		ExportNoticeReason.NoAtlasEntryToReconcile -> {
 			ExportNoticePhrase(Res.string.export_reason_no_atlas_entry)
-		ExportNoticeReason.AtlasPageNotRecomposed ->
+		}
+
+		ExportNoticeReason.AtlasPageNotRecomposed -> {
 			ExportNoticePhrase(Res.string.export_reason_atlas_page_not_recomposed)
-		ExportNoticeReason.AtlasTileMetadataNotReconcilable ->
+		}
+
+		ExportNoticeReason.AtlasTileMetadataNotReconcilable -> {
 			ExportNoticePhrase(Res.string.export_reason_atlas_tile_metadata)
-		ExportNoticeReason.AtlasTileRebindingNotLowered ->
+		}
+
+		ExportNoticeReason.AtlasTileRebindingNotLowered -> {
 			ExportNoticePhrase(Res.string.export_reason_atlas_tile_rebinding)
+		}
+
+		is ExportNoticeReason.SourceLayerBindingNotInExport -> {
+			ExportNoticePhrase(
+				Res.string.export_reason_source_layer_binding_not_in_export,
+				listOf(ExportNoticeArgument.Literal(reason.sourceName), ExportNoticeArgument.Literal(reason.layerKey)),
+			)
+		}
 	}
 
 /**
@@ -261,15 +386,20 @@ fun exportNoticeReasonPhrase(reason: ExportNoticeReason): ExportNoticePhrase =
  */
 private fun keyformBundleRejectionPhrase(rejection: KeyformBundleRejection): ExportNoticePhrase =
 	when (rejection) {
-		KeyformBundleRejection.KeysOutsideGeometrySpan ->
+		KeyformBundleRejection.KeysOutsideGeometrySpan -> {
 			ExportNoticePhrase(Res.string.export_bundle_keys_outside_geometry_span)
-		KeyformBundleRejection.ChannelKeysWithoutGeometry ->
+		}
+
+		KeyformBundleRejection.ChannelKeysWithoutGeometry -> {
 			ExportNoticePhrase(Res.string.export_bundle_channel_keys_without_geometry)
-		is KeyformBundleRejection.KeysOutsideChannelSpan ->
+		}
+
+		is KeyformBundleRejection.KeysOutsideChannelSpan -> {
 			ExportNoticePhrase(
 				Res.string.export_bundle_keys_outside_channel_span,
 				listOf(ExportNoticeArgument.Nested(channelPhrase(rejection.channel))),
 			)
+		}
 	}
 
 /**
@@ -295,7 +425,9 @@ fun exportNoticePhraseText(phrase: ExportNoticePhrase): String {
 	if (phrase.arguments.isEmpty()) {
 		return stringResource(phrase.resource)
 	}
+
 	val resolved = ArrayList<Any>(phrase.arguments.size)
+
 	for (argument in phrase.arguments) {
 		resolved.add(
 			when (argument) {
@@ -304,6 +436,7 @@ fun exportNoticePhraseText(phrase: ExportNoticePhrase): String {
 			},
 		)
 	}
+
 	return stringResource(phrase.resource, *resolved.toTypedArray())
 }
 
@@ -333,6 +466,7 @@ internal fun exportReportMessage(report: ExportReport): String {
 			},
 		),
 	)
+
 	for (notice in report.notices) {
 		when (notice) {
 			is ExportNotice.UnsupportedChange -> {
@@ -348,16 +482,19 @@ internal fun exportReportMessage(report: ExportReport): String {
 				)
 			}
 
-			is ExportNotice.WeldDivergence ->
+			is ExportNotice.WeldDivergence -> {
 				lines.add("• " + stringResource(Res.string.export_weld_divergence, notice.drawableNames.joinToString()))
+			}
 
-			is ExportNotice.MissingSourceArt ->
+			is ExportNotice.MissingSourceArt -> {
 				lines.add("• " + stringResource(Res.string.export_missing_source_art, notice.pageCount))
+			}
 
-			is ExportNotice.SharedAtlasSlotKept ->
+			is ExportNotice.SharedAtlasSlotKept -> {
 				lines.add("• " + stringResource(Res.string.export_shared_atlas_slot_kept, abbreviatedSubjects(notice.drawableNames)))
+			}
 
-			is ExportNotice.FeatureStripped ->
+			is ExportNotice.FeatureStripped -> {
 				lines.add(
 					"• " +
 						stringResource(
@@ -366,8 +503,10 @@ internal fun exportReportMessage(report: ExportReport): String {
 							abbreviatedSubjects(notice.subjects),
 						),
 				)
+			}
 		}
 	}
+
 	return lines.joinToString("\n")
 }
 
@@ -384,8 +523,10 @@ internal fun exportReportMessage(report: ExportReport): String {
 @Composable
 private fun abbreviatedSubjects(subjects: List<String>): String {
 	val shown = subjects.take(SUBJECTS_SHOWN)
+
 	if (shown.size == subjects.size) {
 		return shown.joinToString()
 	}
+
 	return shown.joinToString() + " " + stringResource(Res.string.export_more_subjects, subjects.size - shown.size)
 }

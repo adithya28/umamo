@@ -45,6 +45,7 @@ fun RowDragController<*>.parkCancelOnSeam() {
 		if (isDragging) {
 			seam.cancel = { cancel() }
 		}
+
 		onDispose {
 			seam.cancel = null
 		}

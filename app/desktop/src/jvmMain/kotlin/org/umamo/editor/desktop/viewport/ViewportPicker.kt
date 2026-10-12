@@ -75,22 +75,30 @@ internal class ViewportPicker(
 		if (next === textures) {
 			return
 		}
+
 		textures = next
 		thumbnailer.setTextures(next)
 	}
 
 	/**
-	 * Rebuilds the model-derived lookup maps and the thumbnail provider after a committed edit or undo, so
-	 * session-created drawables and visibility edits stay pickable, sampleable, and labeled.
+	 * Rebuilds the model-derived state after a committed edit, an undo, or a preview push, so
+	 * session-created drawables and visibility edits stay pickable, sampleable, and labeled.  The lookup
+	 * maps read visibility, topology, names, and texture sources, never positions, so a positions-only
+	 * push keeps them; the thumbnailer always takes the model, because its bounds and part caches key on
+	 * positions, and the commit after a gesture is itself positions-only relative to the last preview.
 	 *
 	 * @param PuppetModel model The current model.
+	 * @param Boolean positionsOnly True when only mesh positions changed since the last update.
 	 */
-	fun updateModel(model: PuppetModel) {
-		pickableIndices = model.pickableIndicesByDrawable()
-		pickableUvs = model.pickableUvsByDrawable()
-		partNameByDrawableId = model.partNameByDrawable()
-		drawableNameByDrawableId = model.drawableNameByDrawable()
-		atlasKeyByDrawableId = model.atlasKeyByDrawable()
+	fun updateModel(model: PuppetModel, positionsOnly: Boolean = false) {
+		if (!positionsOnly) {
+			pickableIndices = model.pickableIndicesByDrawable()
+			pickableUvs = model.pickableUvsByDrawable()
+			partNameByDrawableId = model.partNameByDrawable()
+			drawableNameByDrawableId = model.drawableNameByDrawable()
+			atlasKeyByDrawableId = model.atlasKeyByDrawable()
+		}
+
 		thumbnailer.updateModel(model)
 	}
 
@@ -111,10 +119,12 @@ internal class ViewportPicker(
 		if (width <= 0 || height <= 0) {
 			return null
 		}
+
 		val geometry = renderer.pickGeometry() ?: return null
 		// Screen (y-down) to world (y-up), the inverse of the camera's worldToNdc - see ScreenSpacePick.
 		val worldX = screenToWorldX(cursorXpx, camera, width)
 		val worldZ = screenToWorldZ(cursorYpx, camera, height)
+
 		return pickDrawable(
 			worldX,
 			worldZ,
@@ -147,9 +157,11 @@ internal class ViewportPicker(
 		if (width <= 0 || height <= 0) {
 			return emptyList()
 		}
+
 		val geometry = renderer.pickGeometry() ?: return emptyList()
 		val worldX = screenToWorldX(cursorXpx, camera, width)
 		val worldZ = screenToWorldZ(cursorYpx, camera, height)
+
 		return pickAllDrawables(
 			worldX,
 			worldZ,
@@ -171,6 +183,7 @@ internal class ViewportPicker(
 	 */
 	fun drawableWorldCentroids(): Map<DrawableId, FloatArray> {
 		val geometry = renderer.pickGeometry() ?: return emptyMap()
+
 		return drawableCentroids(geometry.worldPositions)
 	}
 
@@ -229,12 +242,15 @@ internal class ViewportPicker(
 	private fun sampleTexelAlpha(id: DrawableId, u: Float, v: Float): Float {
 		val atlasIndex = textures.atlasIndexByDrawableId[atlasKeyByDrawableId[id] ?: id.raw] ?: return 1f
 		val image = textures.atlases.getOrNull(atlasIndex) ?: return 1f
+
 		if (!(u >= 0f && u < 1f && v >= 0f && v < 1f)) {
 			return 0f
 		}
+
 		val px = (u * image.width).toInt().coerceAtMost(image.width - 1)
 		val py = (v * image.height).toInt().coerceAtMost(image.height - 1)
 		val alpha = image.rgba[(py * image.width + px) * 4 + 3].toInt() and 0xFF
+
 		return alpha / 255f
 	}
 }

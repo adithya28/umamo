@@ -20,10 +20,12 @@ package org.umamo.render.puppet
 internal fun flipRowsVertically(rgba: ByteArray, width: Int, height: Int): ByteArray {
 	val rowBytes = width * 4
 	val flipped = ByteArray(rgba.size)
+
 	for (rowIndex in 0 until height) {
 		val sourceStart = rowIndex * rowBytes
 		val destinationStart = (height - 1 - rowIndex) * rowBytes
 		rgba.copyInto(flipped, destinationStart, sourceStart, sourceStart + rowBytes)
 	}
+
 	return flipped
 }

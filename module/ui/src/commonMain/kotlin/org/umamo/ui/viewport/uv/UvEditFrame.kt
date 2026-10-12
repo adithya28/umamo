@@ -1,10 +1,13 @@
 package org.umamo.ui.viewport.uv
 
-import org.umamo.edit.UvFrame
+import org.umamo.edit.transform.UvFrame
+import org.umamo.runtime.model.DrawableId
 import org.umamo.runtime.model.DrawableLayerBinding
+import org.umamo.runtime.model.PuppetModel
 import org.umamo.runtime.model.identityUvAffine
 import org.umamo.runtime.model.invertUvAffine
 import org.umamo.runtime.model.layerUvAffineOf
+import org.umamo.runtime.model.meshOf
 
 /*
  * The UV editor's surface, in display (texel) space: the frame an edit happens in (this file, over
@@ -54,6 +57,7 @@ class UvEditFrame(
 		val frameU = displayToUvU(displayX, displayWidth)
 		val frameV = displayToUvV(displayY, displayHeight)
 		val affine = storedFromFrame ?: return frameU to frameV
+
 		return (affine[0] * frameU + affine[1] * frameV + affine[2]) to
 			(affine[3] * frameU + affine[4] * frameV + affine[5])
 	}
@@ -69,6 +73,7 @@ class UvEditFrame(
 		val affine = frameFromStored
 		val frameU = if (affine == null) u else affine[0] * u + affine[1] * v + affine[2]
 		val frameV = if (affine == null) v else affine[3] * u + affine[4] * v + affine[5]
+
 		return uvToDisplayX(frameU, displayWidth) to uvToDisplayY(frameV, displayHeight)
 	}
 
@@ -81,12 +86,14 @@ class UvEditFrame(
 	fun storedUvs(displayPositions: FloatArray): FloatArray {
 		val storedUvs = FloatArray(displayPositions.size)
 		var componentIndex = 0
+
 		while (componentIndex + 1 < displayPositions.size) {
 			val (u, v) = storedUvAt(displayPositions[componentIndex], displayPositions[componentIndex + 1])
 			storedUvs[componentIndex] = u
 			storedUvs[componentIndex + 1] = v
 			componentIndex += 2
 		}
+
 		return storedUvs
 	}
 
@@ -98,6 +105,7 @@ class UvEditFrame(
 	fun asUvFrame(): UvFrame? {
 		val toFrame = frameFromStored ?: return null
 		val fromFrame = storedFromFrame ?: return null
+
 		return UvFrame(toFrame, fromFrame)
 	}
 }
@@ -125,16 +133,45 @@ fun storedUvsWithMoved(
 	frame: UvEditFrame,
 ): FloatArray {
 	val committed = storedUvs.copyOf()
+
 	for (vertexIndex in movedIndices) {
 		val componentIndex = vertexIndex * 2
+
 		if (componentIndex + 1 >= committed.size || componentIndex + 1 >= displayPositions.size) {
 			continue
 		}
+
 		val (u, v) = frame.storedUvAt(displayPositions[componentIndex], displayPositions[componentIndex + 1])
 		committed[componentIndex] = u
 		committed[componentIndex + 1] = v
 	}
+
 	return committed
+}
+
+/**
+ * The stored coordinates a texture-coordinate edit commits for one mesh, the confirm's and an adjustment
+ * rerun's alike: the model's current values with only the moved vertices overwritten (see
+ * [storedUvsWithMoved]), or, for a drawable the model holds no coordinates for, the whole transformed array
+ * converted.
+ *
+ * @param PuppetModel model The model the edit lands over.
+ * @param DrawableId drawableId The mesh.
+ * @param Collection<Int> movedIndices The vertices the edit moved.
+ * @param FloatArray displayPositions The transformed display coordinates, interleaved (x, y).
+ * @param UvEditFrame frame The space the coordinates are in.
+ * @return FloatArray The coordinates to commit, a fresh array.
+ */
+internal fun storedUvsForCommit(
+	model: PuppetModel,
+	drawableId: DrawableId,
+	movedIndices: Collection<Int>,
+	displayPositions: FloatArray,
+	frame: UvEditFrame,
+): FloatArray {
+	val storedUvs = model.meshOf(drawableId)?.uvs
+
+	return if (storedUvs == null) frame.storedUvs(displayPositions) else storedUvsWithMoved(storedUvs, movedIndices, displayPositions, frame)
 }
 
 /**
@@ -167,10 +204,12 @@ fun atlasPageEditFrame(pageWidth: Int, pageHeight: Int): UvEditFrame =
 fun sourceLayerEditFrame(binding: DrawableLayerBinding, layerWidth: Int, layerHeight: Int): UvEditFrame? {
 	val frameFromStored = layerUvAffineOf(binding, layerWidth, layerHeight) ?: return null
 	val storedFromFrame = invertUvAffine(frameFromStored) ?: return null
+
 	// An unpacked drawable's art IS its stored frame, so it takes the page view's own null-conversion
 	// path rather than carrying a pair of identity matrices through every commit.
 	if (frameFromStored.contentEquals(identityUvAffine())) {
 		return atlasPageEditFrame(layerWidth, layerHeight)
 	}
+
 	return UvEditFrame(layerWidth, layerHeight, storedFromFrame, frameFromStored)
 }

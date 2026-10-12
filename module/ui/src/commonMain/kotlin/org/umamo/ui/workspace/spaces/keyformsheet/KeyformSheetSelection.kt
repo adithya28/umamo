@@ -2,8 +2,8 @@ package org.umamo.ui.workspace.spaces.keyformsheet
 
 import org.umamo.edit.EditorSession
 import org.umamo.edit.TrackKeyRef
-import org.umamo.edit.dragTrackKeysKeepingSelection
-import org.umamo.edit.limitedDragFraction
+import org.umamo.edit.keyform.dragTrackKeysKeepingSelection
+import org.umamo.edit.keyform.limitedDragFraction
 import org.umamo.runtime.model.KeyformTrackRef
 import org.umamo.runtime.model.Parameter
 import org.umamo.runtime.model.ParameterId
@@ -105,7 +105,9 @@ internal fun groupDragFraction(
 	if (!selection.containsAll(draggedKeys) || (!summary && selection.size < 2)) {
 		return null
 	}
+
 	val span = maxOf(parameter.max, parameter.min) - minOf(parameter.max, parameter.min)
+
 	return if (span > 0f) (at - mark.position) / span else null
 }
 
@@ -196,6 +198,7 @@ internal fun KeyformSheetViewState.dragKeySelection(
 	commit: Boolean,
 ) {
 	val plan = resolveTrackKeys(session?.keySelection?.value.orEmpty(), projections)
+
 	if (session == null || plan.isEmpty()) {
 		dragPreviewFraction = null
 	} else if (commit) {

@@ -47,6 +47,7 @@ public object XmlCodec {
 	public fun write(document: Document): ByteArray {
 		val sink = ByteArrayOutputStream()
 		XMLOutputter(editorFormat()).output(document, sink)
+
 		return sink.toByteArray()
 	}
 }

@@ -72,6 +72,7 @@ fun atlasPlacementFromPack(packPlacement: AtlasPackPlacement): AtlasPlacement {
 	require(packPlacement.quarterTurns in 0..1) {
 		"tile '${packPlacement.key}' has an unsupported rotation: ${packPlacement.quarterTurns} quarter turns"
 	}
+
 	return if (packPlacement.quarterTurns == 0) {
 		AtlasPlacement(
 			pageIndex = packPlacement.pageIndex,
@@ -128,15 +129,20 @@ fun planAtlasDerivation(model: PuppetModel, artRasters: SourceArtRasters): Atlas
 	val items = ArrayList<AtlasPackItem>()
 	val placements = ArrayList<AtlasTilePlacement>()
 	val trimByTile = HashMap<AtlasTileId, LayerBounds>()
+
 	for (tile in atlas.tiles) {
 		val placement = tile.placement ?: continue
+
 		if (placement.pageIndex !in atlas.pages.indices) {
 			return null
 		}
+
 		val raster = artRasters.decodeRaster(tile.id) ?: return null
+
 		if (raster.width != tile.width || raster.height != tile.height) {
 			return null
 		}
+
 		// The packer trimmed each tile to its opaque bounds before placing it; the placement holds only
 		// the untrimmed origin, so the same analysis on the same pixels, under the threshold the atlas
 		// records, reconstructs the trim exactly.
@@ -145,6 +151,7 @@ fun planAtlasDerivation(model: PuppetModel, artRasters: SourceArtRasters): Atlas
 		items.add(AtlasPackItem(tile.id.raw, raster.width, raster.height, raster.rgba))
 		placements.add(AtlasTilePlacement(tile.id.raw, placement.pageIndex, trim, placementAffine(placement)))
 	}
+
 	return AtlasDerivationPlan(items, placements, trimByTile)
 }
 
@@ -185,6 +192,7 @@ fun deriveAtlasTextures(
 			placements = plan.placements,
 			extrude = atlas.composition.extrude,
 		)
+
 	return generatedPuppetTextures(pages, model, premultipliedAlpha)
 }
 
@@ -222,6 +230,7 @@ fun generatedPuppetTextures(
 fun generatedAtlasIndexByDrawableId(model: PuppetModel): Map<String, Int> {
 	val placementByTileId = model.atlas.tiles.associateBy({ tile -> tile.id }, { tile -> tile.placement })
 	val atlasIndexByDrawableId = HashMap<String, Int>()
+
 	for (drawable in model.drawables) {
 		val tileId = drawable.atlasTileId ?: continue
 		val placement = placementByTileId[tileId] ?: continue
@@ -229,5 +238,6 @@ fun generatedAtlasIndexByDrawableId(model: PuppetModel): Map<String, Int> {
 		// drawable it was duplicated from (Drawable.textureSourceId), and shared sources share a tile.
 		atlasIndexByDrawableId[(drawable.textureSourceId ?: drawable.id).raw] = placement.pageIndex
 	}
+
 	return atlasIndexByDrawableId
 }

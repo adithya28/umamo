@@ -83,6 +83,7 @@ fun OverlapPickerPopup(
 	if (entries.isEmpty()) {
 		return
 	}
+
 	val colors = LocalUmamoColors.current
 	val typography = LocalUmamoTypography.current
 	var highlighted by remember(entries) { mutableStateOf(defaultIndex.coerceIn(0, entries.size - 1)) }
@@ -127,7 +128,9 @@ fun OverlapPickerPopup(
 									true
 								}
 
-								else -> false
+								else -> {
+									false
+								}
 							}
 						}
 					},
@@ -152,6 +155,7 @@ fun OverlapPickerPopup(
 									awaitPointerEventScope {
 										while (true) {
 											val event = awaitPointerEvent()
+
 											// Move only, deliberately not Enter: the popup opens under a
 											// stationary cursor, and a synthesized hover on open would stomp
 											// the pre-highlighted centrality winner. Real movement over a row

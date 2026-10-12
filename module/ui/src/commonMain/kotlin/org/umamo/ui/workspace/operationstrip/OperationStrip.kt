@@ -32,10 +32,10 @@ import org.umamo.edit.OperatorParameter
 import org.umamo.edit.withParameter
 import org.umamo.ui.kit.container.SectionHeader
 import org.umamo.ui.kit.field.NumberField
+import org.umamo.ui.kit.field.PropertyCheckboxRow
+import org.umamo.ui.kit.field.PropertyFieldRow
 import org.umamo.ui.kit.field.SelectField
 import org.umamo.ui.model.LocalEditorSession
-import org.umamo.ui.properties.PropertyCheckboxRow
-import org.umamo.ui.properties.PropertyFieldRow
 import org.umamo.ui.theme.LocalUmamoColors
 import org.umamo.ui.theme.LocalUmamoShapes
 import org.umamo.ui.workspace.LocalOperationStripInset
@@ -73,6 +73,15 @@ class OperationStripState {
 /** The window's strip state; the shell provides one instance. */
 val LocalOperationStrip = staticCompositionLocalOf { OperationStripState() }
 
+/**
+ * Where a panel-driven operation shows its strip: the same answer the command routing gives a command
+ * fired from a panel (the hovered work surface, else the last one the pointer touched, else the
+ * workspace's first), or null when the workspace has none.  Called as the operation commits, never read
+ * during composition - it answers from the pointer's dispatch-time state.  Defaults to no area, so a
+ * panel hosted without the shell registers a record that shows nowhere.
+ */
+val LocalOperationStripArea = staticCompositionLocalOf<() -> String?> { { null } }
+
 /** The strip's inset from the area's bottom and left edges. */
 private val STRIP_MARGIN = 8.dp
 
@@ -108,6 +117,7 @@ internal fun OperationStripHost(areaId: String?, kind: SpaceKind, content: @Comp
 	CompositionLocalProvider(LocalOperationStripInset provides inset) {
 		content()
 	}
+
 	if (session != null && record != null) {
 		Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomStart) {
 			OperationStrip(
@@ -153,6 +163,7 @@ internal fun OperationStrip(
 			expanded = strip.expanded,
 			onToggle = { strip.expanded = !strip.expanded },
 		)
+
 		if (strip.expanded) {
 			// The Properties section body's own insets and row spacing, so a strip row and a panel row
 			// sit identically inside their card.
@@ -189,6 +200,7 @@ private fun OperationParameterRow(
 ) {
 	val label = operatorParameterLabel(parameter.labelKey)
 	val description = operatorParameterDescription(parameter.labelKey)
+
 	when (parameter) {
 		is OperatorParameter.IntParameter -> {
 			val unitSuffix = parameterUnitSuffix(parameter.unit)
@@ -203,6 +215,7 @@ private fun OperationParameterRow(
 				)
 			}
 		}
+
 		is OperatorParameter.FloatParameter -> {
 			val unitSuffix = parameterUnitSuffix(parameter.unit)
 			PropertyFieldRow(label, description = description) {
@@ -217,6 +230,7 @@ private fun OperationParameterRow(
 				)
 			}
 		}
+
 		is OperatorParameter.BooleanParameter -> {
 			PropertyCheckboxRow(
 				checked = parameter.value,
@@ -225,6 +239,7 @@ private fun OperationParameterRow(
 				description = description,
 			)
 		}
+
 		is OperatorParameter.ChoiceParameter -> {
 			// Choice labels resolve here, in composable scope, because the dropdown's label lambda is not one.
 			val labelByKey =

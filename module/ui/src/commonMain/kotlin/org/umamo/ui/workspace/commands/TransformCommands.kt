@@ -3,6 +3,9 @@ package org.umamo.ui.workspace.commands
 import org.umamo.edit.EditorMode
 import org.umamo.edit.EditorSession
 import org.umamo.edit.MeshOperatorKind
+import org.umamo.edit.transform.beginMeshOperator
+import org.umamo.edit.transform.beginObjectOperator
+import org.umamo.edit.transform.beginUvOperator
 import org.umamo.ui.action.Command
 import org.umamo.ui.action.CommandHint
 import org.umamo.ui.action.CommandSpaces
@@ -80,15 +83,23 @@ private fun beginTransform(session: EditorSession?, kind: MeshOperatorKind, rout
 	if (session == null) {
 		return
 	}
+
 	when (val target = routing.transformTarget()) {
-		is TransformTarget.Uv -> session.beginUvOperator(kind, target.areaId)
-		is TransformTarget.Viewport ->
+		is TransformTarget.Uv -> {
+			session.beginUvOperator(kind, target.areaId)
+		}
+
+		is TransformTarget.Viewport -> {
 			if (session.mode.value == EditorMode.Edit) {
 				session.beginMeshOperator(kind, target.areaId)
 			} else {
 				session.beginObjectOperator(kind, target.areaId)
 			}
+		}
+
 		// The pointer has never touched a viewport and is not over a UV editor: nowhere to run it.
-		null -> Unit
+		null -> {
+			Unit
+		}
 	}
 }

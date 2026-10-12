@@ -73,6 +73,7 @@ class SingleOrDoubleClickTest {
 								awaitPointerEventScope {
 									while (true) {
 										val event = awaitPointerEvent()
+
 										if (event.type == PointerEventType.Press) {
 											event.changes.forEach { change -> change.consume() }
 										}
@@ -252,6 +253,7 @@ class SingleOrDoubleClickTest {
 									while (true) {
 										val event = awaitPointerEvent()
 										val unconsumed = event.changes.none { change -> change.isConsumed }
+
 										if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed && unconsumed) {
 											secondaryPresses += 1
 										}

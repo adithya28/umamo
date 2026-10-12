@@ -70,9 +70,11 @@ internal fun countInfoSection(context: MocLoweringContext): ByteArray {
 	// and the per-parameter unions (whose counts are section 104).  Each term is the same value the
 	// grid producer wrote, taken from the shared context rather than recomputed.
 	countInfo[14] = context.mainGridKeyTotal + context.blendLayout.bindingKeys.sumOf { it.size }
+
 	if (context.writesUnionRegion) {
 		countInfo[14] += context.unionKeysByParameter.sumOf { it.size }
 	}
+
 	countInfo[15] = 2 * doc.artMeshes.sumOf { it.vertexCount }
 	countInfo[16] = doc.artMeshes.sumOf { it.triangleIndices.size }
 	// 17 sizes MASK_INDEX_DATA, which on MOC3 v6 includes the offscreens' mask prefix (§5.6).
@@ -106,10 +108,12 @@ internal fun countInfoSection(context: MocLoweringContext): ByteArray {
 		} else {
 			countInfo[7] + countInfo[8] + countInfo[9] + offscreenKeyformTotal
 		}
+
 	if (blendLayout != null || doc.offscreens.isNotEmpty()) {
 		putField(23, colorRowTotal)
 		putField(24, colorRowTotal)
 	}
+
 	if (blendLayout != null) {
 		putField(25, blendLayout.bindingKeys.size)
 		putField(26, blendLayout.recordsInFileOrder.size)
@@ -122,8 +126,10 @@ internal fun countInfoSection(context: MocLoweringContext): ByteArray {
 		putField(33, blendLayout.rotationRecords.map { it.targetIndex }.distinct().size)
 		// 34: glue blend shapes - corpus-empty, unmodeled (stays zero).
 	}
+
 	putField(35, doc.offscreens.size)
 	putField(36, offscreenKeyformTotal)
+
 	return intList(countInfo.toList())
 }
 
@@ -136,5 +142,6 @@ internal fun countInfoSection(context: MocLoweringContext): ByteArray {
 private fun intList(values: List<Int>): ByteArray {
 	val writer = LittleEndianWriter(values.size * 4)
 	values.forEach(writer::writeInt32)
+
 	return writer.toByteArray()
 }

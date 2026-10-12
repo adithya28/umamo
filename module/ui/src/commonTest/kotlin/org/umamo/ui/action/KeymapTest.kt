@@ -65,6 +65,7 @@ class KeymapTest {
 			val specs = keymapPresetSpecs(presetId)
 			assertEquals(specs.size, specs.keys.distinct().size, "$presetId: chords are unique")
 		}
+
 		assertEquals("frame.all", keymapPresetSpecs("default")["Home"], "default Home is the context-aware frame")
 		assertEquals("frame.all", keymapPresetSpecs("blender")["Home"], "blender Home is the context-aware frame")
 	}
@@ -143,9 +144,47 @@ class KeymapTest {
 			assertEquals("mesh.selectMode.edge", keymap.commandFor(KeyChord(keyName = "Digit2")), "Digit2 in $presetId")
 			assertEquals("mesh.selectMode.face", keymap.commandFor(KeyChord(keyName = "Digit3")), "Digit3 in $presetId")
 		}
+
 		val cubism = Keymap.fromSpecs(keymapPresetSpecs("cubism"))
 		assertNull(cubism.commandFor(KeyChord(keyName = "Digit1")))
 		assertNull(cubism.commandFor(KeyChord(keyName = "Digit2")))
 		assertNull(cubism.commandFor(KeyChord(keyName = "Digit3")))
+	}
+
+	/**
+	 * Shift+Alt+Z toggles the hovered area's overlays (Blender's chord) in the default and blender presets, and
+	 * stays unbound in the cubism preset.
+	 */
+	@Test
+	fun overlayMasterBindsInDefaultAndBlenderButNotCubism() {
+		val chord = KeyChord(keyName = "KeyZ", shift = true, alt = true)
+
+		for (presetId in listOf("default", "blender")) {
+			val keymap = Keymap.fromSpecs(keymapPresetSpecs(presetId))
+			assertEquals("view.overlay.all", keymap.commandFor(chord), "Shift+Alt+Z in $presetId")
+			assertEquals(chord, keymap.chordFor("view.overlay.all"), "the chord reads back in $presetId")
+		}
+
+		val cubism = Keymap.fromSpecs(keymapPresetSpecs("cubism"))
+		assertNull(cubism.commandFor(chord))
+		assertNull(cubism.chordFor("view.overlay.all"))
+	}
+
+	/**
+	 * Shift+M generates meshes from art in the default and blender presets (beside M's Merge), and stays
+	 * unbound in the cubism preset.
+	 */
+	@Test
+	fun generateMeshFromArtBindsInDefaultAndBlenderButNotCubism() {
+		val chord = KeyChord(keyName = "KeyM", shift = true)
+
+		for (presetId in listOf("default", "blender")) {
+			val keymap = Keymap.fromSpecs(keymapPresetSpecs(presetId))
+			assertEquals("mesh.generateFromArt", keymap.commandFor(chord), "Shift+M in $presetId")
+			assertEquals(chord, keymap.chordFor("mesh.generateFromArt"), "the chord reads back in $presetId")
+		}
+
+		val cubism = Keymap.fromSpecs(keymapPresetSpecs("cubism"))
+		assertNull(cubism.commandFor(chord))
 	}
 }

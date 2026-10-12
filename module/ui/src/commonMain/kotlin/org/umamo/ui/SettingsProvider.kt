@@ -74,5 +74,6 @@ fun seedFirstRunSettings(settings: Settings, systemTags: List<String> = systemLa
 	if (settings.foundUserFile) {
 		return
 	}
+
 	settings.setString(LOCALE_SETTINGS_KEY, matchUiLanguage(systemTags, UI_LANGUAGE_ENDONYMS.keys))
 }

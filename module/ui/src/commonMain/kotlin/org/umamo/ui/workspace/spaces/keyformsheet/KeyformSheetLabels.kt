@@ -46,6 +46,7 @@ internal data class KeyformSheetLabels(
 @Composable
 internal fun keyformSheetLabels(): KeyformSheetLabels {
 	val ownerKindNames = ownerKindLabels()
+
 	return KeyformSheetLabels(
 		channelNames = channelLabels(),
 		ownerKindNames = ownerKindNames,
@@ -68,6 +69,7 @@ internal fun keyformSheetLabels(): KeyformSheetLabels {
 internal fun rememberKeyformTrackLabels(labels: KeyformSheetLabels): KeyformTrackLabels {
 	val channelNames = labels.channelNames
 	val ownerKindNames = labels.ownerKindNames
+
 	return remember(channelNames, ownerKindNames, labels.geometry, labels.blendShape) {
 		KeyformTrackLabels(
 			channelName = { channel -> channelNames.getValue(channel) },

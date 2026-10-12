@@ -18,6 +18,7 @@ import org.umamo.ui.action.CommandRegistry
 import org.umamo.ui.model.EditorModeHandle
 import org.umamo.ui.model.SelectionHandle
 import org.umamo.ui.workspace.AreaCameraHub
+import org.umamo.ui.workspace.AreaOverlayHub
 import org.umamo.ui.workspace.KeyformSheetViews
 import org.umamo.ui.workspace.ShellOverlayState
 import org.umamo.ui.workspace.area.AreaDragController
@@ -50,7 +51,7 @@ internal fun commandFixtureSession(mode: EditorMode): EditorSession {
 			parentDeformerId = null,
 			blendMode = BlendMode.Normal,
 			maskedBy = emptyList(),
-			mesh = DrawableMesh(floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f), floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f), intArrayOf(0, 1, 2)),
+			mesh = DrawableMesh.withLocalEqualToCanvas(floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f), floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f), intArrayOf(0, 1, 2)),
 			geometryGrid = null,
 		)
 	val session =
@@ -70,6 +71,7 @@ internal fun commandFixtureSession(mode: EditorMode): EditorSession {
 	// A case reading the mode through a command's availability would pass its "is hidden" half against a
 	// fixture that quietly stayed in Object mode, while testing nothing.
 	assertEquals(mode, session.mode.value, "the fixture must really be in the mode the case names")
+
 	return session
 }
 
@@ -112,6 +114,7 @@ internal fun inMemorySettings(): Settings {
 	val configDirectory = "/config".toPath()
 	val fileSystem = FakeFileSystem()
 	fileSystem.createDirectories(configDirectory)
+
 	return Settings.load(OkioAppStorage(fileSystem, configDirectory, "/data".toPath()), "{}")
 }
 
@@ -148,19 +151,22 @@ internal fun shellCommandTables(session: EditorSession? = null): List<Command> {
 	val availability = SessionAvailability(session)
 	val sheets = KeyformSheetViews()
 	val handles = session?.let { live -> SessionHandles(live) }
+
 	return chromeCommands(overlays, AreaDragController(), SplitterDragCancelController(), RowDragCancelController(), workspaces) {} +
 		workspaceCommands(workspaces, overlays) { "Workspace" } +
 		documentCommands(overlays) +
 		viewCommands(AreaCameraHub(), routing, viewportPresent = false) +
+		overlayCommands(AreaOverlayHub(), routing, viewportPresent = false) +
 		frameCommands(CommandRegistry(), routing) +
 		modeCommands(handles, handles) +
 		historyCommands(session, availability, OperationStripState()) +
 		objectCommands(session, handles, availability) +
 		transformCommands(session, routing, availability) +
 		selectCommands(session, routing, sheets, availability) +
-		snapCommands(session, routing, availability) +
+		snapCommands(session, routing, availability, AreaOverlayHub()) +
 		uvCommands(session, routing, availability) +
 		topologyCommands(session, routing, availability) +
+		meshGenerationCommands(availability, routing, null) +
 		proportionalCommands(session, availability) +
 		displayCommands(session, availability) +
 		atlasCommands(availability, routing, null) +

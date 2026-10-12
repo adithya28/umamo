@@ -3,6 +3,13 @@ package org.umamo.ui.workspace.commands
 import org.umamo.edit.EditorMode
 import org.umamo.edit.EditorSession
 import org.umamo.edit.MeshSelectMode
+import org.umamo.edit.invertMeshSelection
+import org.umamo.edit.invertObjectSelection
+import org.umamo.edit.selectAllMeshElements
+import org.umamo.edit.selectAllObjects
+import org.umamo.edit.setMeshSelectMode
+import org.umamo.edit.transform.beginBoxSelect
+import org.umamo.edit.transform.beginCircleSelect
 import org.umamo.ui.action.Command
 import org.umamo.ui.action.CommandHint
 import org.umamo.ui.action.CommandSpaces
@@ -93,6 +100,7 @@ internal fun selectCommands(
 			// to the lone open sheet when handed no area, so asking it unconditionally would hijack B in the
 			// viewport for any layout that happens to have a keyform sheet open.
 			val hoveredSheetArea = routing.areaOf(SpaceKind.KeyformSheet)
+
 			if (hoveredSheetArea != null) {
 				keyformSheets.resolve(hoveredSheetArea)?.armBoxSelect?.invoke()
 			} else {

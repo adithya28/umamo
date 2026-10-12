@@ -65,16 +65,19 @@ class EmptyModelRenderTest {
 
 		var redPixels = 0
 		var backgroundPixels = 0
+
 		for (pixelIndex in 0 until viewportSize * viewportSize) {
 			val red = frame.get(pixelIndex * 4).toInt() and 0xFF
 			val green = frame.get(pixelIndex * 4 + 1).toInt() and 0xFF
 			val blue = frame.get(pixelIndex * 4 + 2).toInt() and 0xFF
+
 			if (red > green + 60 && red > blue + 60) {
 				redPixels++
 			} else if (red < 40 && green < 40 && blue < 40) {
 				backgroundPixels++
 			}
 		}
+
 		assertTrue(redPixels > viewportSize, "the grid's major lines are on screen ($redPixels red pixels)")
 		assertTrue(backgroundPixels > redPixels, "as lines over a backdrop, not a flooded frame ($backgroundPixels background pixels)")
 	}
@@ -82,6 +85,7 @@ class EmptyModelRenderTest {
 	private fun readPixels(width: Int, height: Int): ByteBuffer {
 		val buffer = BufferUtils.createByteBuffer(width * height * 4)
 		GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer)
+
 		return buffer
 	}
 }

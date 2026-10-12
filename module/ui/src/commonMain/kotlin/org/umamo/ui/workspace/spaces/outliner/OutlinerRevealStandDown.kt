@@ -43,6 +43,7 @@ internal class OutlinerRevealStandDown {
 	fun claims(active: SelectionTarget?): Boolean {
 		val standing = mark
 		mark = null
+
 		return standing != null && standing.active == active
 	}
 }

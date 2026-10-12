@@ -38,5 +38,6 @@ actual fun warpViewportCursor(screenX: Float, screenY: Float): Offset? {
 	// MouseInfo can be unavailable (headless edge cases): fall back to the rounded request, the best
 	// available estimate of where the cursor landed.
 	val landed = MouseInfo.getPointerInfo()?.location ?: return Offset(screenX.roundToInt().toFloat(), screenY.roundToInt().toFloat())
+
 	return Offset(landed.x.toFloat(), landed.y.toFloat())
 }

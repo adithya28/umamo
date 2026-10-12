@@ -75,18 +75,22 @@ suspend fun writeUmaDocument(
 				UmaWriteOutcome.Written(written) to Uma.write(written)
 			} catch (failure: UmaWriteException) {
 				UmamoLog.error("save: ${destination.name} refused", failure)
+
 				return@withContext UmaWriteOutcome.Failed(failure.message ?: failure.detail) to null
 			} catch (failure: IllegalStateException) {
 				// The codec's own refusal of a read-only document; the app gates that earlier, so reaching it is a bug
 				// worth a log line, not a crash.
 				UmamoLog.error("save: ${destination.name} refused", failure)
+
 				return@withContext UmaWriteOutcome.Failed(failure.message.orEmpty()) to null
 			}
 		}
 	val (outcome, bytes) = encoded
+
 	if (bytes == null) {
 		return outcome
 	}
+
 	return try {
 		// Not cancellable: a composition torn down mid-save (Android's back, a closing window) cancels the
 		// scope this runs in, and a write interrupted there leaves a partial file - in place on Android,
@@ -119,11 +123,13 @@ suspend fun writeUmaDocument(
 private fun pixelSourceFor(document: PuppetDocument, base: UmaModel, model: PuppetModel, binding: AtlasPageBinding, thumbnail: RasterImage?): UmaPixelSource {
 	val heldByBase = base.textures?.tiles.orEmpty().mapNotNull { tile -> tile.path?.let { tile.id } }.toHashSet()
 	val tilePngs = HashMap<String, ByteArray?>()
+
 	for (tile in model.atlas.tiles) {
 		if (tile.id.raw !in heldByBase) {
 			tilePngs[tile.id.raw] = tilePngFor(document, tile.id)
 		}
 	}
+
 	val atBaseline = binding.textures === document.textures
 	val renderPages: UmaRenderPagePixels =
 		when {
@@ -134,6 +140,7 @@ private fun pixelSourceFor(document: PuppetDocument, base: UmaModel, model: Pupp
 			else -> UmaRenderPagePixels.Derived
 		}
 	val thumbnailRaster = thumbnail ?: DrawableThumbnailer(model, binding.textures).modelRasterFor()?.fittedInto(UMA_THUMBNAIL_SIZE)
+
 	return UmaPixelSource({ tileId -> tilePngs[tileId] }, renderPages, thumbnailRaster?.let(PngCodec::write))
 }
 
@@ -148,9 +155,12 @@ private fun pixelSourceFor(document: PuppetDocument, base: UmaModel, model: Pupp
  */
 private fun tilePngFor(document: PuppetDocument, tileId: AtlasTileId): ByteArray? {
 	val embedded = (document as? Cmo3Document)?.tilePng?.invoke(tileId)
+
 	if (embedded != null) {
 		return embedded
 	}
+
 	val decoded = document.artRasters.decodeRaster(tileId) ?: return null
+
 	return PngCodec.write(RasterImage(decoded.width, decoded.height, decoded.rgba))
 }

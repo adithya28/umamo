@@ -25,26 +25,32 @@ internal fun fillDeform(deform: DeformUniforms, gpuDrawable: GpuDrawable) {
 	val corners = gpuDrawable.corners ?: return
 	val cornerCount = minOf(MAX_CORNERS, corners.size)
 	deform.cornerCount = cornerCount
+
 	for (cornerIndex in 0 until cornerCount) {
 		deform.cornerCell[cornerIndex] = corners[cornerIndex].linearIndex
 		deform.cornerWeight[cornerIndex] = corners[cornerIndex].weight
 	}
+
 	// Blend-shape columns: map the pose's active contributions through the static layout.
 	// Surplus beyond MAX_BLEND_CORNERS is dropped deterministically (corpus max is 18).
 	var blendCount = 0
 	val blend = gpuDrawable.blend
+
 	if (blend != null) {
 		for (contribution in blend.contributions) {
 			if (blendCount >= MAX_BLEND_CORNERS) {
 				break
 			}
+
 			val column = gpuDrawable.blendLayout.columnOf(contribution.bindingIndex, contribution.keyIndex) ?: continue
 			deform.blendCell[blendCount] = column
 			deform.blendWeight[blendCount] = contribution.weight
 			blendCount++
 		}
 	}
+
 	deform.blendCount = blendCount
+
 	when (val parentWorld = gpuDrawable.parentWorld) {
 		is RotationWorld -> {
 			deform.parentType = 1
@@ -64,7 +70,9 @@ internal fun fillDeform(deform: DeformUniforms, gpuDrawable: GpuDrawable) {
 			deform.warpBilinear = parentWorld.bilinear
 		}
 
-		else -> deform.parentType = 0
+		else -> {
+			deform.parentType = 0
+		}
 	}
 }
 
@@ -90,8 +98,10 @@ internal fun fillFragment(
 	// The CHOSEN handle, not the atlas one: a drawable rendering from its source artwork has no atlas
 	// binding in play, and keying off the wrong field would draw it as a flat color.
 	val activeTexture = gpuDrawable.activeTexture()
+
 	if (activeTexture != null) {
 		fragment.useTexture = true
+
 		// Identity unless this drawable is sampling its artwork, in which case the affine is what
 		// makes its stored (atlas-frame) coordinates address that image instead.
 		if (activeTexture === gpuDrawable.layerTexture) {
@@ -103,6 +113,7 @@ internal fun fillFragment(
 		fragment.colorBlue = gpuDrawable.color[2]
 		fragment.colorAlpha = gpuDrawable.color[3]
 	}
+
 	fragment.opacity = opacity
 	fragment.useMask = masked
 	fragment.invertMask = masked && gpuDrawable.invertMask
@@ -138,6 +149,8 @@ internal fun FragmentUniforms.reset() {
 	highlightRed = 0f
 	highlightGreen = 0f
 	highlightBlue = 0f
+	drawOrder = 0
+	orderOpacity = 1f
 	// IDENTITY, not zero.  Every other field here resets to a harmless zero; this one cannot - a zeroed
 	// affine maps every texture coordinate onto texel (0, 0), so the whole draw samples one pixel.
 	setIdentityUvAffine(uvAffine)

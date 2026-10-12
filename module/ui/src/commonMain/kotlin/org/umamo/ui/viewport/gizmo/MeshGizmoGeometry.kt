@@ -8,15 +8,16 @@ import org.umamo.edit.MeshSelectMode
 import org.umamo.edit.MeshSelection
 import org.umamo.edit.MeshSelectionOps
 import org.umamo.edit.MeshTopology
-import org.umamo.edit.MeshTransforms
+import org.umamo.edit.transform.MeshTransforms
 import org.umamo.render.ViewportCamera
 import org.umamo.render.pick.distanceToSegment
 import org.umamo.runtime.model.DrawableId
 
 /*
  * The gizmo kit both work surfaces share, the 2D viewport and the UV editor: screen-space hit tests and
- * box / circle queries (ViewportGeometryAdapters.kt and this file), the wireframe draw
- * (MeshWireframeDraw.kt), the draw helpers every overlay renders alike (GizmoChrome.kt), selection input
+ * box / circle queries (ViewportGeometryAdapters.kt and this file), the Edit overlay's derive for the
+ * renderer (EditMeshOverlayProducer.kt; the renderer draws every wireframe), the draw helpers every
+ * overlay renders alike (GizmoChrome.kt), selection input
  * (GizmoSelectionInput.kt, MarqueeSelectController.kt, ObjectPickController.kt), and the modal transform
  * (TransformOperators.kt, ModalTransformController.kt, ModalGestureState.kt, CursorWrap.kt,
  * ViewportCursor.kt).  Nothing here knows which surface it serves: a surface hands its geometry in as
@@ -26,8 +27,8 @@ import org.umamo.runtime.model.DrawableId
 /**
  * One mesh's geometry as the gizmo machinery sees it: positions plus topology, agnostic of WHERE the
  * positions came from.  The Edit overlay feeds deformer-projected world shapes; a UV editor feeds raw
- * texture coordinates mapped into its own space.  The shared element queries below and the wireframe
- * draw take this record, so a new editor space reuses them by constructing one - never by
+ * texture coordinates mapped into its own space.  The shared element queries below and the UV scene's
+ * overlays take this record, so a new editor space reuses them by constructing one - never by
  * re-implementing the hit / box / circle rules.
  *
  * @property DrawableId drawableId The drawable the mesh belongs to (the selection key).
@@ -56,6 +57,7 @@ internal fun activeElementMedian(selection: MeshSelection, geometries: List<Gizm
 	val active = selection.activeElement ?: return null
 	val activeGeometry = geometries.firstOrNull { geometry -> geometry.drawableId == active.drawableId } ?: return null
 	val activeCovered = MeshTopology.coveredVertexIndices(setOf(active.element), activeGeometry.indices)
+
 	return if (activeCovered.isEmpty()) {
 		null
 	} else {
@@ -85,12 +87,14 @@ internal fun hitTestMeshes(
 ): ActiveMeshElement? {
 	var best: ActiveMeshElement? = null
 	var bestMetric = Float.MAX_VALUE
+
 	for (geometry in geometries) {
 		when (selectMode) {
 			MeshSelectMode.Vertex -> {
 				val vertexIndex = hitTestVertex(geometry.positions, pointer, camera, size) ?: continue
 				val screen = worldToScreen(geometry.positions[vertexIndex * 2], geometry.positions[vertexIndex * 2 + 1], camera, size)
 				val metric = (screen - pointer).getDistance()
+
 				if (metric < bestMetric) {
 					bestMetric = metric
 					best = ActiveMeshElement(geometry.drawableId, MeshElement.Vertex(vertexIndex))
@@ -102,6 +106,7 @@ internal fun hitTestMeshes(
 				val start = worldToScreen(geometry.positions[edge.endpointLow * 2], geometry.positions[edge.endpointLow * 2 + 1], camera, size)
 				val end = worldToScreen(geometry.positions[edge.endpointHigh * 2], geometry.positions[edge.endpointHigh * 2 + 1], camera, size)
 				val metric = distanceToSegment(pointer.x, pointer.y, start.x, start.y, end.x, end.y)
+
 				if (metric < bestMetric) {
 					bestMetric = metric
 					best = ActiveMeshElement(geometry.drawableId, edge)
@@ -118,6 +123,7 @@ internal fun hitTestMeshes(
 				val screenC = worldToScreen(geometry.positions[cornerC * 2], geometry.positions[cornerC * 2 + 1], camera, size)
 				val centroid = Offset((screenA.x + screenB.x + screenC.x) / 3f, (screenA.y + screenB.y + screenC.y) / 3f)
 				val metric = (centroid - pointer).getDistance()
+
 				if (metric < bestMetric) {
 					bestMetric = metric
 					best = ActiveMeshElement(geometry.drawableId, face)
@@ -125,6 +131,7 @@ internal fun hitTestMeshes(
 			}
 		}
 	}
+
 	return best
 }
 
@@ -149,14 +156,19 @@ internal fun elementsInBox(
 	size: IntSize,
 ): Set<MeshElement> =
 	when (selectMode) {
-		MeshSelectMode.Vertex ->
+		MeshSelectMode.Vertex -> {
 			verticesInBox(geometry.positions, cornerA, cornerB, camera, size)
 				.map { vertexIndex -> MeshElement.Vertex(vertexIndex) }
 				.toSet<MeshElement>()
+		}
 
-		MeshSelectMode.Edge -> edgesInBox(geometry.positions, geometry.edges, cornerA, cornerB, camera, size)
+		MeshSelectMode.Edge -> {
+			edgesInBox(geometry.positions, geometry.edges, cornerA, cornerB, camera, size)
+		}
 
-		MeshSelectMode.Face -> facesInBox(geometry.positions, geometry.indices, cornerA, cornerB, camera, size)
+		MeshSelectMode.Face -> {
+			facesInBox(geometry.positions, geometry.indices, cornerA, cornerB, camera, size)
+		}
 	}
 
 /**
@@ -186,17 +198,23 @@ internal fun circleSelection(
 		geometries.associate { geometry ->
 			val inside: Set<MeshElement> =
 				when (working.selectMode) {
-					MeshSelectMode.Vertex ->
+					MeshSelectMode.Vertex -> {
 						verticesInCircle(geometry.positions, center, radiusPx, camera, size)
 							.map { vertexIndex -> MeshElement.Vertex(vertexIndex) }
 							.toSet<MeshElement>()
+					}
 
-					MeshSelectMode.Edge -> edgesInCircle(geometry.positions, geometry.edges, center, radiusPx, camera, size)
+					MeshSelectMode.Edge -> {
+						edgesInCircle(geometry.positions, geometry.edges, center, radiusPx, camera, size)
+					}
 
-					MeshSelectMode.Face -> facesInCircle(geometry.positions, geometry.indices, center, radiusPx, camera, size)
+					MeshSelectMode.Face -> {
+						facesInCircle(geometry.positions, geometry.indices, center, radiusPx, camera, size)
+					}
 				}
 			geometry.drawableId to inside
 		}
+
 	return if (erasing) {
 		MeshSelectionOps.remove(working, insideByDrawable)
 	} else {

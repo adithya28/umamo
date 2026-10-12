@@ -38,10 +38,13 @@ class CompositePerfProbeTest {
 				?.takeIf { it.isDirectory }
 				?.walkTopDown()
 				?.firstOrNull { it.name == "modelA.moc3" }
+
 		if (mocFile == null) {
 			println("modelA.moc3 not present; skipping perf probe")
+
 			return
 		}
+
 		requireHeadlessGl("[composite-perf]")
 		val puppet = restMeshesToCanvasSpace(Moc3Import.fromMocDocument(Moc3.read(mocFile.readBytes()), null))
 		// Demote Isolated to Grouped (not PassThrough) so the stripped model keeps the same
@@ -84,6 +87,7 @@ class CompositePerfProbeTest {
 			renderer.render(target, viewportWidth, viewportHeight)
 		}
 		GL11.glFinish()
+
 		return (System.nanoTime() - startNanos) / 1e6 / timedFrames
 	}
 }

@@ -15,6 +15,7 @@ import org.umamo.format.uma.puppet.UmaDeformerKind
 import org.umamo.format.uma.puppet.UmaDrawable
 import org.umamo.format.uma.puppet.UmaFormChannel
 import org.umamo.format.uma.puppet.UmaGlue
+import org.umamo.format.uma.puppet.UmaMesh
 import org.umamo.format.uma.puppet.UmaMeshBlendShape
 import org.umamo.format.uma.puppet.UmaMeshGrid
 import org.umamo.format.uma.puppet.UmaOrgRef
@@ -104,6 +105,7 @@ object UmaPuppetImport {
 				runtimeTarget = puppet.runtimeTarget?.toRuntime() ?: RuntimeTarget.NoTarget,
 				rendersFromSourceLayers = puppet.rendersFromSourceLayers ?: false,
 			)
+
 		// UMA §4.2: the render root is never written; it is always the organizational tree's derivation.
 		return model.withDerivedRenderRoot()
 	}
@@ -133,9 +135,11 @@ object UmaPuppetImport {
 	 */
 	private fun parameterNodeOf(record: UmaParameterNode): ParameterNode {
 		val leaf = record.parameter
+
 		if (leaf != null) {
 			return ParameterNode.Param(ParameterId(leaf))
 		}
+
 		return ParameterNode.Group(
 			id = ParameterGroupId(checkNotNull(record.group) { "the codec checked a tree node names a parameter or a group" }),
 			name = checkNotNull(record.name) { "the codec checked a group has a name" },
@@ -152,9 +156,11 @@ object UmaPuppetImport {
 	 */
 	private fun orgChildOf(record: UmaOrgRef): OrgChild {
 		val part = record.part
+
 		if (part != null) {
 			return OrgChild.Part(PartId(part))
 		}
+
 		return OrgChild.Drawable(DrawableId(checkNotNull(record.drawable) { "the codec checked an org reference names a part or a drawable" }))
 	}
 
@@ -206,8 +212,9 @@ object UmaPuppetImport {
 	private fun deformerOf(record: UmaDeformer): Deformer {
 		val multiplyColor = colorOf(record.multiplyColor, ColorRgb.MultiplyIdentity)
 		val screenColor = colorOf(record.screenColor, ColorRgb.ScreenIdentity)
+
 		return when (record.kind) {
-			UmaDeformerKind.Warp ->
+			UmaDeformerKind.Warp -> {
 				Deformer.Warp(
 					id = DeformerId(record.id),
 					name = record.name,
@@ -226,8 +233,9 @@ object UmaPuppetImport {
 					isVisible = record.isVisible ?: true,
 					isEnabled = record.isEnabled ?: true,
 				)
+			}
 
-			UmaDeformerKind.Rotation ->
+			UmaDeformerKind.Rotation -> {
 				Deformer.Rotation(
 					id = DeformerId(record.id),
 					name = record.name,
@@ -246,6 +254,7 @@ object UmaPuppetImport {
 					isVisible = record.isVisible ?: true,
 					isEnabled = record.isEnabled ?: true,
 				)
+			}
 		}
 	}
 
@@ -262,7 +271,7 @@ object UmaPuppetImport {
 			parentDeformerId = record.parentDeformer?.let(::DeformerId),
 			blendMode = record.blendMode?.toRuntime() ?: BlendMode.Normal,
 			maskedBy = record.maskedBy.orEmpty().map(::DrawableId),
-			mesh = record.mesh?.let { mesh -> DrawableMesh(mesh.positions, mesh.uvs, mesh.indices) },
+			mesh = record.mesh?.let(::drawableMeshOf),
 			geometryGrid = record.geometry?.let(::meshGridOf),
 			channelGrids = channelsOf(record.channels),
 			drawOrder = record.drawOrder ?: DEFAULT_DRAW_ORDER.toFloat(),
@@ -288,6 +297,7 @@ object UmaPuppetImport {
 	 */
 	private fun glueOf(record: UmaGlue): Glue {
 		val pairs = record.pairs
+
 		return Glue(
 			meshA = DrawableId(record.meshA),
 			meshB = DrawableId(record.meshB),
@@ -359,11 +369,14 @@ object UmaPuppetImport {
 		if (records.isNullOrEmpty()) {
 			return ChannelGrids.Empty
 		}
+
 		val tracks = LinkedHashMap<FormChannel, KeyformGrid<ChannelValue>>()
+
 		for ((umaChannel, record) in records) {
 			val channel = umaChannel.toRuntime()
 			tracks[channel] = KeyformGrid(axesOf(record.axes), record.cells.map { cell -> KeyformCell(cell.coordinate.toIntArray(), channelValueOf(cell.value, channel.valueKind)) })
 		}
+
 		return ChannelGrids(tracks)
 	}
 
@@ -377,13 +390,18 @@ object UmaPuppetImport {
 	 */
 	private fun channelValueOf(value: JsonElement, kind: ChannelValueKind): ChannelValue =
 		when (kind) {
-			ChannelValueKind.SCALAR -> ChannelValue.Scalar(numberOf(value))
+			ChannelValueKind.SCALAR -> {
+				ChannelValue.Scalar(numberOf(value))
+			}
+
 			ChannelValueKind.COLOR -> {
 				val channels = (value as JsonArray).map(::numberOf)
 				ChannelValue.Color(ColorRgb(channels[0], channels[1], channels[2]))
 			}
 
-			ChannelValueKind.FLAG -> ChannelValue.Flag(checkNotNull((value as JsonPrimitive).booleanOrNull) { "the codec checked a flag value is a boolean" })
+			ChannelValueKind.FLAG -> {
+				ChannelValue.Flag(checkNotNull((value as JsonPrimitive).booleanOrNull) { "the codec checked a flag value is a boolean" })
+			}
 		}
 
 	/**
@@ -521,3 +539,17 @@ object UmaPuppetImport {
 	/** The failure a rotation form without its whole pivot reports, which the codec has already refused. */
 	private const val PIVOT_CHECKED = "the codec checked a rotation form carries its whole pivot"
 }
+
+/**
+ * A UMA mesh as the model's [DrawableMesh] (UMA §4.10): both position arrays as they were, equal ones as one
+ * shared array, the shape a deformer-less drawable's mesh has in the model.
+ *
+ * @param UmaMesh mesh The mesh as read; the shape rules have already passed.
+ * @return DrawableMesh The model's mesh.
+ */
+private fun drawableMeshOf(mesh: UmaMesh): DrawableMesh =
+	if (mesh.localPositions.contentEquals(mesh.canvasPositions)) {
+		DrawableMesh.withLocalEqualToCanvas(mesh.canvasPositions, mesh.uvs, mesh.indices)
+	} else {
+		DrawableMesh(positions = mesh.canvasPositions, localPositions = mesh.localPositions, uvs = mesh.uvs, indices = mesh.indices)
+	}

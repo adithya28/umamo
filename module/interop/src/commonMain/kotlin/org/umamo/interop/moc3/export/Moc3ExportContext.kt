@@ -30,7 +30,6 @@ internal class Moc3ExportContext(
 	val version: MocVersion,
 	val eligibility: Moc3ExportEligibility,
 	val plan: Moc3IndexPlan,
-	val canvasToParentSpace: CanvasToParentSpace?,
 	options: Moc3ExportOptions = Moc3ExportOptions.Default,
 ) {
 	/**
@@ -95,6 +94,7 @@ internal class Moc3ExportContext(
 	 */
 	fun spaceOfParent(parentId: DeformerId?): PointSpace {
 		val index = plan.deformerIndex(parentId)
+
 		return when (plan.deformers.getOrNull(index)) {
 			is Deformer.Warp -> PointSpace.WarpLattice
 			is Deformer.Rotation -> PointSpace.RotationLocal

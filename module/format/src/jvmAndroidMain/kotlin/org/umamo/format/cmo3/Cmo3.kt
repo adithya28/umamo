@@ -61,29 +61,44 @@ public class Cmo3Model internal constructor(
 		val stack = ArrayDeque<Any?>()
 		graph.root?.let(stack::addLast)
 		graph.sharedOrder.forEach(stack::addLast)
+
 		while (stack.isNotEmpty()) {
 			val obj = stack.removeLast() ?: continue
 			if (obj is CharSequence || obj is Number || obj is Boolean || obj is Char || obj is Enum<*>) continue
 			if (!seen.add(obj)) continue
 			if (obj is CImageResource) out.add(obj)
+
 			when (obj) {
-				is Iterable<*> -> obj.forEach(stack::addLast)
-				is Map<*, *> -> obj.values.forEach(stack::addLast)
-				is Array<*> -> obj.forEach(stack::addLast)
-				else ->
+				is Iterable<*> -> {
+					obj.forEach(stack::addLast)
+				}
+
+				is Map<*, *> -> {
+					obj.values.forEach(stack::addLast)
+				}
+
+				is Array<*> -> {
+					obj.forEach(stack::addLast)
+				}
+
+				else -> {
 					if (obj::class.java.name.startsWith(MODEL_PACKAGE)) {
 						var cls: Class<*>? = obj::class.java
+
 						while (cls != null && cls != Any::class.java) {
 							for (field in cls.declaredFields) {
 								if (java.lang.reflect.Modifier.isStatic(field.modifiers)) continue
 								field.isAccessible = true
 								stack.addLast(field.get(obj))
 							}
+
 							cls = cls.superclass
 						}
 					}
+				}
 			}
 		}
+
 		return out
 	}
 
@@ -99,6 +114,7 @@ public class Cmo3Model internal constructor(
 	 */
 	public fun extractLayerPng(resource: CImageResource): ByteArray? {
 		val path = resource.imageFileBuf?.archivePath ?: return null
+
 		return archive.byPath(path)?.content
 	}
 
@@ -216,6 +232,7 @@ public class Cmo3Model internal constructor(
 	 */
 	private fun nextPathInSequence(stem: String): String {
 		var highestUsed = -2
+
 		for (entry in archive.entries) {
 			if (entry.path == "$stem.png") {
 				highestUsed = maxOf(highestUsed, -1)
@@ -226,12 +243,15 @@ public class Cmo3Model internal constructor(
 						.removeSuffix(".png")
 						.takeIf { middle -> "${stem}_$middle.png" == entry.path }
 						?.toIntOrNull()
+
 				if (suffix != null) {
 					highestUsed = maxOf(highestUsed, suffix)
 				}
 			}
 		}
+
 		val next = highestUsed + 1
+
 		return if (next == -1) "$stem.png" else "${stem}_$next.png"
 	}
 }
@@ -272,11 +292,13 @@ public object Cmo3 : FormatCodec<Cmo3Model> {
 		if (!CaffCodec.isCaff(bytes)) {
 			return null
 		}
+
 		// A probe never throws: a truncated or corrupt container reports null instead.
 		val mainXml =
 			runCatching { CaffCodec.readFirstEntryByTag(bytes, CaffArchive.TAG_MAIN_XML)?.content }.getOrNull()
 				?: return null
 		val rawVersion = extractFileFormatVersion(mainXml) ?: return null
+
 		return Cmo3Version.fromFileFormatVersion(rawVersion)
 	}
 
@@ -293,23 +315,30 @@ public object Cmo3 : FormatCodec<Cmo3Model> {
 		val quoteByte = '"'.code.toByte()
 		val lastNeedleStart = mainXml.size - needle.size
 		var scanIndex = 0
+
 		scan@ while (scanIndex <= lastNeedleStart) {
 			for (needleIndex in needle.indices) {
 				if (mainXml[scanIndex + needleIndex] != needle[needleIndex]) {
 					scanIndex++
+
 					continue@scan
 				}
 			}
+
 			val valueStart = scanIndex + needle.size
 			var valueEnd = valueStart
+
 			while (valueEnd < mainXml.size && mainXml[valueEnd] != quoteByte) {
 				valueEnd++
 			}
+
 			if (valueEnd >= mainXml.size) {
 				return null
 			}
+
 			return mainXml.decodeToString(valueStart, valueEnd)
 		}
+
 		return null
 	}
 
@@ -345,6 +374,7 @@ public object Cmo3 : FormatCodec<Cmo3Model> {
 			archive.firstByTag(CaffArchive.TAG_MAIN_XML)?.content
 				?: error("not a CMO3: no main_xml entry")
 		val graph = cubismEngine().readModel(XmlCodec.parse(mainXml))
+
 		return Cmo3Model(archive, graph)
 	}
 
@@ -371,6 +401,7 @@ public object Cmo3 : FormatCodec<Cmo3Model> {
 					entry
 				}
 			}
+
 		return CaffCodec.write(model.archive.withEntries(entries))
 	}
 

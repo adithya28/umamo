@@ -64,6 +64,7 @@ private fun applyDumpParamOverrides(liveParams: LiveParams) {
 	spec.split(",").forEach { pair ->
 		val parts = pair.split("=")
 		val value = parts.getOrNull(1)?.trim()?.toFloatOrNull()
+
 		if (parts.size == 2 && value != null) {
 			values[ParameterId(parts[0].trim())] = value
 		}
@@ -91,6 +92,7 @@ private fun loadInitialDocument(initialPath: String?): Document? {
 	// headless first-frame dump, which always opens via argv / -Dumamo.testCmo3.  PuppetDocument
 	// covers both CMO3 and MOC3 documents, so a .moc3 argv dump poses correctly too.
 	(document as? PuppetDocument)?.let { applyDumpParamOverrides(it.liveParams) }
+
 	return document
 }
 
@@ -114,6 +116,7 @@ private fun windowTitleFor(document: Document?, savedPath: String?, readOnly: Bo
 	val readOnlyMarker = stringResource(Res.string.title_read_only)
 	val name = savedPath?.let(::fileDisplayName) ?: document?.let { open -> if (open.path == null) untitled else open.displayName }
 	val markers = (if (dirty) " *" else "") + (if (readOnly) " $readOnlyMarker" else "")
+
 	return stringResource(Res.string.app_name) + (name?.let { " - $it$markers" }.orEmpty())
 }
 
@@ -155,6 +158,7 @@ fun main(args: Array<String>) {
 		prepareSelfCheckProcess()
 		exitProcess(runSelfCheck(args.getOrNull(1)))
 	}
+
 	// Before anything else the editor does, a jar started with too little memory starts itself again with enough
 	// and does not return (JarRelaunch.kt): ahead of AWT, so macOS shows one Dock icon, and ahead of the session
 	// log, so the short-lived first launch does not spend one of the ten kept.  The launch's facts are gathered
@@ -169,12 +173,14 @@ fun main(args: Array<String>) {
 	val hostHeap = detectHostHeap(jarLaunch)
 	logLaunchFacts(hostHeap, sessionLog)
 	relaunchNote?.let { note -> UmamoLog.warn(note) }
+
 	// The update check's one request goes through the operating system's proxy settings, as a browser's would, so a
 	// studio behind a proxy is not left without it.  Read once, when the first connection is made; a value given on
 	// the command line stands.
 	if (System.getProperty("java.net.useSystemProxies") == null) {
 		System.setProperty("java.net.useSystemProxies", "true")
 	}
+
 	// FileKit's native dialogs need a one-time init; `appId` names the per-OS data/cache dirs it uses.
 	FileKit.init(appId = "umamo")
 	// Pick the first document argument; loadDocument then does the real magic-byte detection once the file
@@ -185,11 +191,13 @@ fun main(args: Array<String>) {
 	// app runs.  Installed before the window exists: a cold launch's event can arrive before the first
 	// composition, and the requests wait in their buffer until the shell collects them.
 	val openRequests = HostOpenRequests()
+
 	if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_OPEN_FILE)) {
 		Desktop.getDesktop().setOpenFileHandler { event ->
 			event.files.map { file -> file.absolutePath }.firstOrNull(::isOpenableDocumentPath)?.let(openRequests::request)
 		}
 	}
+
 	// Synchronous load, like the settings below: the window opens with the document already in hand.
 	// The document reaches the first composition through a one-shot holder rather than a plain local:
 	// the application closure lives for the whole run, so a direct capture would keep the first
@@ -233,12 +241,14 @@ fun main(args: Array<String>) {
 		// unsupported, and nothing is installed, on Windows and Linux.
 		DisposableEffect(exitGuard) {
 			val quitHandlerSupported = Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_QUIT_HANDLER)
+
 			if (quitHandlerSupported) {
 				Desktop.getDesktop().setQuitHandler { _, response ->
 					response.cancelQuit()
 					exitGuard.request { closeApp() }
 				}
 			}
+
 			onDispose {
 				if (quitHandlerSupported) {
 					Desktop.getDesktop().setQuitHandler(null)
@@ -270,6 +280,7 @@ fun main(args: Array<String>) {
 			}
 			LaunchedEffect(session) {
 				val activeSession = session
+
 				if (activeSession == null) {
 					dirty = false
 				} else {

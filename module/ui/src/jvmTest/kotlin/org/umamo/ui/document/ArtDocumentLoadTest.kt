@@ -44,13 +44,17 @@ class ArtDocumentLoadTest {
 	@Test
 	fun aCorpusPsdOpensPackedAndExportsToARigThatReimports() {
 		val file = sample
+
 		if (file == null) {
 			println("psd.sample not present; skipping the artwork document gate")
+
 			return
 		}
+
 		val load = loadDocument(file.readBytes(), file.name, file.path)
 		val document = assertIs<ArtDocument>(assertIs<DocumentLoad.Loaded>(load).document)
 		val puppet = document.puppet
+
 		for (notice in document.importNotices) {
 			println("import note: $notice")
 		}
@@ -71,21 +75,25 @@ class ArtDocumentLoadTest {
 					else -> null
 				}
 			}.toSet()
+
 		for (drawable in puppet.drawables) {
 			val tile = assertNotNull(puppet.atlas.tileById[assertNotNull(drawable.atlasTileId)])
 			val placement = tile.placement
+
 			if (placement == null) {
 				assertTrue(tile.name in notedUnpacked, "unpacked tile '${tile.name}' is named in the import notes")
 			} else {
 				assertTrue(placement.pageIndex in puppet.atlas.pages.indices, "tile '${tile.name}' sits on a page the model has")
 				assertEquals(placement.pageIndex, document.textures.atlasIndexByDrawableId[drawable.id.raw], "the renderer's page map agrees")
 			}
+
 			assertNotNull(document.artRasters.rasterFor(tile.id), "tile '${tile.name}' has its pixels")
 		}
 
 		// The pack's pages ARE the derivation's pages, byte for byte.
 		val derived = assertNotNull(deriveAtlasTextures(puppet, document.artRasters, premultipliedAlpha = false), "the packed model derives")
 		assertEquals(document.textures.atlases.size, derived.atlases.size, "derived page count")
+
 		for ((pageIndex, page) in document.textures.atlases.withIndex()) {
 			val derivedPage = derived.atlases[pageIndex]
 			assertEquals(page.width, derivedPage.width, "page $pageIndex width")
@@ -116,6 +124,7 @@ class ArtDocumentLoadTest {
 		// file that opens in Cubism and one that fills its log and crashes.
 		val artMeshes = graphElements((rereadRoot.drawableSourceSet as? CDrawableSourceSet)?._sources).filterIsInstance<CArtMeshSource>()
 		assertEquals(puppet.drawables.size, artMeshes.size, "one art mesh per drawable in the written graph")
+
 		for (artMesh in artMeshes) {
 			val gridSource = assertNotNull(artMesh.keyformGridSource as? KeyformGridSource, "art mesh '${artMesh.localName}' has a keyform grid")
 			assertTrue(graphElements(gridSource.keyformsOnGrid).isNotEmpty(), "art mesh '${artMesh.localName}' grid has its default cell")
@@ -131,6 +140,7 @@ class ArtDocumentLoadTest {
 		var iconMaxX = -1
 		var iconMinY = 64
 		var iconMaxY = -1
+
 		for (y in 0 until 64) {
 			for (x in 0 until 64) {
 				if ((modelIcon.rgba[(y * 64 + x) * 4 + 3].toInt() and 0xFF) > 0) {
@@ -141,6 +151,7 @@ class ArtDocumentLoadTest {
 				}
 			}
 		}
+
 		assertTrue(iconMaxX >= 0, "the model icon is not blank")
 		val iconAspect = (iconMaxX - iconMinX + 1).toFloat() / (iconMaxY - iconMinY + 1)
 		val thumbnailAspect = modelThumbnail.width.toFloat() / modelThumbnail.height
@@ -165,17 +176,20 @@ class ArtDocumentLoadTest {
 			"every seeded parameter is in the root parameter group, in order",
 		)
 		assertEquals(puppet.atlas.pages, reimported.atlas.pages, "the page inventory")
+
 		for (drawable in puppet.drawables) {
 			val expected = assertNotNull(drawable.mesh)
 			val reread = assertNotNull(rereadById[drawable.id], "${drawable.name} re-imports")
 			assertEquals(drawable.name, reread.name, "${drawable.id.raw} keeps its name")
 			val actual = assertNotNull(reread.mesh, "${drawable.name} keeps its mesh")
 			assertEquals(expected.vertexCount, actual.vertexCount, "${drawable.name} vertex count")
+
 			for (componentIndex in expected.uvs.indices) {
 				assertEquals(expected.uvs[componentIndex], actual.uvs[componentIndex], 1e-4f, "${drawable.name} uv component $componentIndex")
 				assertEquals(expected.positions[componentIndex], actual.positions[componentIndex], 1e-2f, "${drawable.name} position component $componentIndex")
 			}
 		}
+
 		// The written web is the real art: the file's record, every layer under its key with its canvas
 		// rect, every tile's placement, and every layer's pixels.
 		val ingest = cmo3AtlasIngest(rereadRoot)
@@ -186,18 +200,23 @@ class ArtDocumentLoadTest {
 		assertEquals(source.lastModified, rereadSource.lastModified, "and its modification time")
 		val rowsByKey = source.layers.associateBy { row -> row.key }
 		assertTrue(rereadSource.layers.isNotEmpty(), "the layers came back")
+
 		for (row in rereadSource.layers) {
 			val original = assertNotNull(rowsByKey[row.key], "layer '${row.name}' comes back under its key")
 			assertEquals(listOf(original.left, original.top, original.width, original.height), listOf(row.left, row.top, row.width, row.height), "'${row.name}' keeps its canvas rect")
 		}
+
 		val rereadTileByKey = ingest.atlas.tiles.associateBy { tile -> tile.source?.layerKey }
+
 		for (tile in puppet.atlas.tiles) {
 			val key = assertNotNull(tile.source?.layerKey)
 			val rereadTile = assertNotNull(rereadTileByKey[key], "tile '${tile.name}' comes back bound to its layer")
 			assertEquals(tile.placement, rereadTile.placement, "'${tile.name}' keeps its placement")
 			assertEquals(tile.width to tile.height, rereadTile.width to rereadTile.height, "'${tile.name}' keeps its size")
 		}
+
 		val rereadArt = assertNotNull(cmo3SourceArtOf(rereadRoot, rereadSource.id) { resource -> reread.extractLayerPng(resource) }, "the layers read back as source art")
+
 		for (tile in puppet.atlas.tiles) {
 			val layer = rereadArt.layers.first { layer -> layer.id.raw == tile.source?.layerKey }
 			val original = assertNotNull(document.artRasters.rasterFor(tile.id))

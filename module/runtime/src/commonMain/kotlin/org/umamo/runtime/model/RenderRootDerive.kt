@@ -39,9 +39,11 @@ fun PuppetModel.deriveRenderRoot(): RenderGroup {
 
 	fun resolvedComposite(part: Part): PartComposite? {
 		val composite = part.activeComposite ?: return null
+
 		if (composite.maskedByParts.isEmpty()) {
 			return composite
 		}
+
 		// maskedByParts is CLEARED, not just expanded: PartComposite documents that the render tree sees the
 		// expansion and never these ids, so leaving them would let any consumer that later honors them apply
 		// the same drawables twice.
@@ -52,13 +54,15 @@ fun PuppetModel.deriveRenderRoot(): RenderGroup {
 		// Panel order is top = front; render order is back-to-front, so walk reversed.
 		for (child in children.asReversed()) {
 			when (child) {
-				is OrgChild.Drawable ->
+				is OrgChild.Drawable -> {
 					if (child.id in drawableIds) {
 						into.add(RenderDrawable(child.id))
 					}
+				}
 
 				is OrgChild.Part -> {
 					val part = partById[child.id] ?: continue
+
 					if (part.groupMode is PartGroupMode.PassThrough) {
 						collect(part.children, into) // transparent: hoist its children up
 					} else {
@@ -95,6 +99,7 @@ fun PuppetModel.deriveRenderRoot(): RenderGroup {
 	}
 	collectPlaced(root)
 	val missing = drawables.map { it.id }.filter { it !in placed }.map { RenderDrawable(it) }
+
 	return if (missing.isEmpty()) {
 		root
 	} else {

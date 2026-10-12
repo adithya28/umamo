@@ -79,6 +79,7 @@ internal class ArtResidency(
 		// The atlas mapping is keyed by the SOURCE format's drawable ids, so a session-created copy resolves
 		// its page through the drawable it was duplicated from (Drawable.textureSourceId).
 		val atlasIndex = textures.atlasIndexByDrawableId[(drawable.textureSourceId ?: drawable.id).raw]
+
 		return atlasIndex?.let { atlasHandles[it] }
 	}
 
@@ -114,6 +115,7 @@ internal class ArtResidency(
 		if (plan === layerPlan) {
 			return
 		}
+
 		layerPlan = plan
 		// A new plan is a new document or a new drawable set; a layer that would not decode for the old
 		// one deserves another chance rather than being written off for the renderer's life.
@@ -134,10 +136,12 @@ internal class ArtResidency(
 	 */
 	fun deliverSourceLayerRasters(batch: LayerRasterBatch) {
 		undecodableLayerKeys.addAll(batch.undecodableLayerKeys)
+
 		for ((layerKey, image) in batch.rastersByLayerKey) {
 			if (layerKey in layerTextures || layerKey !in layerPlan.layerByteCostByKey) {
 				continue
 			}
+
 			layerTextures[layerKey] =
 				device.createTexture(
 					image.width,
@@ -152,6 +156,7 @@ internal class ArtResidency(
 					TextureWrap.ClampToTransparentBorder,
 				)
 		}
+
 		applySourceLayerDisplay()
 	}
 
@@ -181,14 +186,27 @@ internal class ArtResidency(
 		// Artwork no longer mapped is freed whether or not the mode is engaged: it is dead either way, and
 		// holding it would let a document switch leak the previous one's pages.
 		val obsolete = layerTextures.keys.filter { layerKey -> layerKey !in wanted }
+
 		for (layerKey in obsolete) {
 			layerTextures.remove(layerKey)?.let { texture -> device.destroyTexture(texture) }
 		}
+
 		sourceLayerDisplayReady = wanted.isNotEmpty() && layerTextures.keys.containsAll(wanted)
+
 		for ((drawableId, gpuDrawable) in residency.residents) {
 			stampSourceLayer(gpuDrawable, drawableId)
 		}
 	}
+
+	/**
+	 * The resident layer texture of one tile, or null when its art is not uploaded (outside source-art
+	 * display mode, or before its batch arrives).  It holds the tile's whole decoded raster, so a UV scene can
+	 * sample a placement crop through it rather than upload one.
+	 *
+	 * @param String layerKey The tile's layer key (its atlas tile id).
+	 * @return GpuTexture? The texture, or null.
+	 */
+	fun layerTexture(layerKey: String): GpuTexture? = layerTextures[layerKey]
 
 	/**
 	 * Whether the puppet is displaying from source artwork, for tests and diagnostics.
@@ -213,9 +231,11 @@ internal class ArtResidency(
 			// The set the handles already came from - a re-published wrapper around unchanged pages.
 			return
 		}
+
 		for (handle in atlasHandles) {
 			device.destroyTexture(handle)
 		}
+
 		textures = next
 		atlasHandles = next.atlases.map(::atlasPageTexture)
 		applyAtlasBinding(model)
@@ -232,10 +252,13 @@ internal class ArtResidency(
 		for (texture in layerTextures.values) {
 			device.destroyTexture(texture)
 		}
+
 		layerTextures.clear()
+
 		for (texture in atlasHandles) {
 			device.destroyTexture(texture)
 		}
+
 		atlasHandles = emptyList()
 	}
 
@@ -285,6 +308,7 @@ internal class ArtResidency(
 	 */
 	private fun applyAtlasBinding(model: PuppetModel) {
 		val bindingSourceById = model.drawables.associateBy({ it.id }, { it.textureSourceId ?: it.id })
+
 		for ((drawableId, gpuDrawable) in residency.residents) {
 			// The atlas mapping is keyed by the SOURCE format's drawable ids, exactly as at upload: a
 			// session-created copy resolves its page through the drawable it was duplicated from.

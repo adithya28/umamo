@@ -41,17 +41,21 @@ internal fun lowerRenderOrder(puppet: PuppetModel, plan: Moc3IndexPlan): List<Re
 		// Placeholder, replaced below: the slot must exist before the children can reference it.
 		groups.add(RenderOrderGroup(emptyList()))
 		val children = ArrayList<RenderOrderChild>(group.children.size)
+
 		for (child: RenderNode in group.children) {
 			when (child) {
 				is RenderDrawable -> {
 					val drawableIndex = plan.drawableIndex(child.id)
+
 					if (drawableIndex >= 0) {
 						// MOC3 §5.6 render-order child kind 0: an art-mesh leaf.  groupIndex is unused for a leaf.
 						children.add(RenderOrderChild(kind = 0, index = drawableIndex, groupIndex = 0))
 					}
 				}
+
 				is RenderGroup -> {
 					val partIndex = plan.partIndex(child.partId)
+
 					// The part check comes BEFORE the record is allocated.  Allocating first and then
 					// declining to reference it leaves a group in the table that no child names - an
 					// unreachable record still counted by CI_RENDER_ORDER_GROUPS and still consuming a slot
@@ -70,10 +74,13 @@ internal fun lowerRenderOrder(puppet: PuppetModel, plan: Moc3IndexPlan): List<Re
 				}
 			}
 		}
+
 		groups[recordIndex] = RenderOrderGroup(children)
+
 		return recordIndex
 	}
 
 	allocate(puppet.renderRoot)
+
 	return groups
 }

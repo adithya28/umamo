@@ -132,9 +132,11 @@ kotlin {
 compose.desktop {
 	application {
 		mainClass = "org.umamo.editor.desktop.MainKt"
+
 		if (packagingJavaHome != null) {
 			javaHome = packagingJavaHome
 		}
+
 		// Everything in this jvmArgs list is baked into the PACKAGED launcher too — the plugin
 		// hands application.jvmArgs straight to jpackage as --java-options, which end up in
 		// umamo.cfg. So only put things here that are true for a shipped build. The corpus-preview
@@ -285,6 +287,7 @@ tasks.matching { task -> task.name == "createDistributable" }
 			if (!resealsBundle) {
 				return@doLast
 			}
+
 			checkNotNull(identity) { "compose.desktop.mac.sign is on, but compose.desktop.mac.signing.identity names no identity" }
 			val commands =
 				listOf(
@@ -292,6 +295,7 @@ tasks.matching { task -> task.name == "createDistributable" }
 						keychainArguments + bundle.absolutePath,
 					listOf("/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", bundle.absolutePath),
 				)
+
 			for (command in commands) {
 				val process = ProcessBuilder(command).redirectErrorStream(true).start()
 				val output = process.inputStream.bufferedReader().readText()
@@ -471,6 +475,7 @@ val linuxInstallerResources =
 		}
 	}
 val isLinuxHost = System.getProperty("os.name").startsWith("Linux")
+
 for (packageType in listOf("deb", "rpm")) {
 	val imageDirectory = layout.buildDirectory.dir("compose/binaries/main/app/$packageBaseName").get().asFile
 	val destinationDirectory = layout.buildDirectory.dir("compose/binaries/main/$packageType").get().asFile
@@ -517,9 +522,11 @@ for (packageType in listOf("deb", "rpm")) {
 				"--linux-rpm-license-type" to appLicenseIdentifier,
 				"--linux-app-category" to "graphics",
 			)
+
 		if (packageType == "rpm") {
 			options += "--linux-package-deps" to linuxRpmLibraryRequirements.joinToString(", ")
 		}
+
 		val arguments =
 			listOf(File(imageJavaHome, "bin/jpackage").absolutePath) +
 				options.flatMap { (option, value) -> listOf(option, value) } +

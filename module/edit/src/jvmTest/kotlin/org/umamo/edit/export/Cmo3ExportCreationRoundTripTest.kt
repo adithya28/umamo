@@ -46,6 +46,7 @@ class Cmo3ExportCreationRoundTripTest {
 		val report = Cmo3Export.apply(edited, cmo3)
 		val reimportedSource =
 			Cmo3.read(Cmo3.write(cmo3)).root as? CModelSource ?: error("re-read root is not a CModelSource")
+
 		return RoundTrip(edited, Cmo3Import.fromModelSource(reimportedSource), report)
 	}
 
@@ -57,9 +58,11 @@ class Cmo3ExportCreationRoundTripTest {
 
 	private fun skipMessageOrNull(): File? {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.sample not present; skipping creation round-trip test")
 		}
+
 		return file
 	}
 

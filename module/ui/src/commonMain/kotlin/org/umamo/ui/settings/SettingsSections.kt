@@ -70,6 +70,8 @@ import org.umamo.ui.resources.settings_viewport_grid_scale
 import org.umamo.ui.resources.settings_viewport_grid_subdivisions
 import org.umamo.ui.resources.settings_viewport_supersample
 import org.umamo.ui.resources.settings_viewport_supersample_while_resizing
+import org.umamo.ui.resources.settings_viewport_uv_grid_scale
+import org.umamo.ui.resources.settings_viewport_uv_grid_subdivisions
 import org.umamo.ui.resources.settings_viewport_zoom_step
 import org.umamo.ui.resources.settings_viewport_zoom_step_coarse
 import org.umamo.ui.theme.LocalUmamoColors
@@ -124,6 +126,7 @@ internal fun UpdateCheckSettingRow() {
 	if (!LocalUpdateChecks.current) {
 		return
 	}
+
 	var checkForUpdates by rememberBooleanSetting(CHECK_FOR_UPDATES_KEY, true)
 	Checkbox(
 		checked = checkForUpdates,
@@ -190,6 +193,9 @@ internal const val IMPORT_DELETE_ART_IGNORES_LAYER_KEY = "import.deleteArtIgnore
 
 /** The settings key for whether the Sources layer rows measure positions from the world axes instead of the art file's top-left corner. */
 internal const val IMPORT_LAYER_POSITIONS_FROM_WORLD_AXES_KEY = "import.layerPositionsFromWorldAxes"
+
+/** The settings key for the preset Generate Mesh from Art starts from before any run; the values are ArtMeshPreset keys. */
+internal const val MESH_GENERATION_PRESET_KEY = "meshGeneration.preset"
 
 /**
  * The Import section: what an artwork import seeds a new model with, where a later file is anchored
@@ -360,9 +366,12 @@ private fun ColorSettingRow(label: String, key: String, defaultHex: String) {
 /**
  * The Viewport section: pointer-interaction tuning plus the rendering performance toggles.  The zoom
  * steps are the percent change per wheel notch (fine) and per Shift-wheel notch (coarse); the grid
- * scale is the default major-line spacing in world units for files that do not store their own
- * (CMO3); the supersampling pair trades render quality for speed on weak GPUs (off = 1x everywhere;
- * the resize toggle keeps 2x during panel drags).  The viewport binding reads every key live, so a
+ * scale and subdivisions are what a 2D viewport area draws and snaps to while it follows the application's
+ * grid (world units), and the UV grid pair is the UV editor's own, in texels, so a page's cells land on texel
+ * boundaries independent of the world grid (an area given its own grid in its overlays popover keeps it);
+ * the supersampling pair
+ * trades render quality for speed on weak GPUs (off = 1x everywhere; the resize toggle keeps 2x during
+ * panel drags).  The viewport binding and each area's render-options publisher read every key live, so a
  * committed edit re-tunes wheel zoom / re-draws the grid / re-renders at the new quality immediately.
  * Each number field commits clamped to its [ViewportSettings] range (the [NumberField] contract).
  */
@@ -372,6 +381,8 @@ internal fun ViewportSection() {
 	var zoomStepCoarse by rememberDoubleSetting(ViewportSettings.ZOOM_STEP_COARSE_KEY, ViewportSettings.ZOOM_STEP_COARSE_DEFAULT)
 	var gridScale by rememberDoubleSetting(ViewportSettings.GRID_SCALE_KEY, ViewportSettings.GRID_SCALE_DEFAULT)
 	var gridSubdivisions by rememberIntSetting(ViewportSettings.GRID_SUBDIVISIONS_KEY, ViewportSettings.GRID_SUBDIVISIONS_DEFAULT)
+	var uvGridScale by rememberDoubleSetting(ViewportSettings.UV_GRID_SCALE_KEY, ViewportSettings.UV_GRID_SCALE_DEFAULT)
+	var uvGridSubdivisions by rememberIntSetting(ViewportSettings.UV_GRID_SUBDIVISIONS_KEY, ViewportSettings.UV_GRID_SUBDIVISIONS_DEFAULT)
 	var supersample by rememberBooleanSetting(ViewportSettings.SUPERSAMPLE_KEY, ViewportSettings.SUPERSAMPLE_DEFAULT)
 	var supersampleWhileResizing by
 		rememberBooleanSetting(ViewportSettings.SUPERSAMPLE_WHILE_RESIZING_KEY, ViewportSettings.SUPERSAMPLE_WHILE_RESIZING_DEFAULT)
@@ -405,6 +416,22 @@ internal fun ViewportSection() {
 			NumberField(
 				value = gridSubdivisions,
 				onValueChange = { committed -> gridSubdivisions = committed },
+				range = ViewportSettings.GRID_SUBDIVISIONS_RANGE,
+				modifier = Modifier.width(80.dp),
+			)
+		}
+		SettingRow(label = stringResource(Res.string.settings_viewport_uv_grid_scale)) {
+			NumberField(
+				value = uvGridScale.toFloat(),
+				onValueChange = { committed -> uvGridScale = committed.toDouble() },
+				range = ViewportSettings.GRID_SCALE_RANGE,
+				modifier = Modifier.width(80.dp),
+			)
+		}
+		SettingRow(label = stringResource(Res.string.settings_viewport_uv_grid_subdivisions)) {
+			NumberField(
+				value = uvGridSubdivisions,
+				onValueChange = { committed -> uvGridSubdivisions = committed },
 				range = ViewportSettings.GRID_SUBDIVISIONS_RANGE,
 				modifier = Modifier.width(80.dp),
 			)

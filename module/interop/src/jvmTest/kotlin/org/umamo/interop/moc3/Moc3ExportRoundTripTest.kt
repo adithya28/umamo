@@ -44,17 +44,23 @@ class Moc3ExportRoundTripTest {
 	@Test
 	fun exportedDocumentMatchesTheImportedOne() {
 		val files = samples()
+
 		if (files.isEmpty()) {
 			println("moc3.samples not present; skipping export round trip")
+
 			return
 		}
+
 		val failures = ArrayList<String>()
 		var covered = 0
+
 		for (file in files) {
 			val source = Moc3.decode(MocCodec.read(file.readBytes()))
+
 			if (source.version.byteValue !in supportedVersions) {
 				continue
 			}
+
 			covered++
 			val puppet = Moc3Import.fromMocDocument(source, displayInfo = null)
 			val exported = Moc3Export.toMocDocument(puppet, source.version).document
@@ -88,12 +94,16 @@ class Moc3ExportRoundTripTest {
 			// Parts and drawables are compared by id: the export re-derives file order from the runtime
 			// tree, which need not reproduce the source's ordering.
 			val sourcePartsById = source.parts.associateBy { it.id }
+
 			for (part in exported.parts) {
 				val expected = sourcePartsById[part.id]
+
 				if (expected == null) {
 					failures.add("${file.name}: exported an unknown part ${part.id}")
+
 					continue
 				}
+
 				// A part has no geometry, so its only axes come from its draw-order track - and compaction
 				// lifts a CONSTANT track into the static, collapsing the grid to one cell.  That is
 				// value-preserving, so the invariant is that the collapse says the same thing, not that the
@@ -102,6 +112,7 @@ class Moc3ExportRoundTripTest {
 					val collapsedToConstant =
 						part.drawOrderKeyforms.size == 1 &&
 							expected.drawOrderKeyforms.all { value -> value == part.drawOrderKeyforms[0] }
+
 					if (!collapsedToConstant) {
 						failures.add(
 							"${file.name}: part ${part.id} draw order collapsed lossily " +
@@ -110,16 +121,21 @@ class Moc3ExportRoundTripTest {
 						)
 					}
 				}
+
 				check("part ${part.id} visibility", expected.isVisible, part.isVisible)
 			}
 
 			val sourceMeshesById = source.artMeshes.associateBy { it.id }
+
 			for (mesh in exported.artMeshes) {
 				val expected = sourceMeshesById[mesh.id]
+
 				if (expected == null) {
 					failures.add("${file.name}: exported an unknown art mesh ${mesh.id}")
+
 					continue
 				}
+
 				check("mesh ${mesh.id} vertex count", expected.vertexCount, mesh.vertexCount)
 				check("mesh ${mesh.id} texture", expected.textureIndex, mesh.textureIndex)
 				check("mesh ${mesh.id} constant flags", expected.constantFlags, mesh.constantFlags)
@@ -146,6 +162,7 @@ class Moc3ExportRoundTripTest {
 					exported.parts.getOrNull(offscreen.ownerPartIndex)?.id?.to(offscreen)
 				}.toMap()
 			check("offscreen owners", sourceOffscreensByOwner.keys.sorted(), exportedOffscreensByOwner.keys.sorted())
+
 			for ((ownerId, expected) in sourceOffscreensByOwner) {
 				val actual = exportedOffscreensByOwner[ownerId] ?: continue
 				val exportedOwnerPart = exported.parts.first { it.id == ownerId }
@@ -166,16 +183,21 @@ class Moc3ExportRoundTripTest {
 			}
 
 			val sourceDeformersById = source.deformers.associateBy { it.id }
+
 			for (deformer in exported.deformers) {
 				val expected = sourceDeformersById[deformer.id]
+
 				if (expected == null) {
 					failures.add("${file.name}: exported an unknown deformer ${deformer.id}")
+
 					continue
 				}
+
 				check("deformer ${deformer.id} kind", expected::class.simpleName, deformer::class.simpleName)
 				check("deformer ${deformer.id} visibility", expected.isVisible, deformer.isVisible)
 			}
 		}
+
 		assertTrue(covered > 0, "no v1-v6 corpus model to round trip")
 		println("[export] round-tripped $covered v1-v6 models, ${failures.size} mismatches")
 		assertEquals(emptyList(), failures.take(25), "export round trip diverged")

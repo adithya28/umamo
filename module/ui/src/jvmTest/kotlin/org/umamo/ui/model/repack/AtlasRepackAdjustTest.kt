@@ -5,8 +5,8 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
 import org.umamo.edit.EditorSession
 import org.umamo.edit.OperatorParameter
-import org.umamo.edit.withAtlasPins
-import org.umamo.edit.withAtlasPlacements
+import org.umamo.edit.atlas.withAtlasPins
+import org.umamo.edit.atlas.withAtlasPlacements
 import org.umamo.edit.withParameter
 import org.umamo.format.atlas.AtlasPackOptions
 import org.umamo.format.atlas.packAtlas
@@ -48,6 +48,7 @@ class AtlasRepackAdjustTest {
 
 	private fun tileRaster(width: Int, height: Int, margin: Int, red: Int): DecodedImage {
 		val rgba = ByteArray(width * height * 4)
+
 		for (rowIndex in margin until height - margin) {
 			for (columnIndex in margin until width - margin) {
 				val offset = (rowIndex * width + columnIndex) * 4
@@ -57,6 +58,7 @@ class AtlasRepackAdjustTest {
 				rgba[offset + 3] = 0xFF.toByte()
 			}
 		}
+
 		return DecodedImage(rgba, width, height)
 	}
 
@@ -85,7 +87,7 @@ class AtlasRepackAdjustTest {
 					blendMode = BlendMode.Normal,
 					maskedBy = emptyList(),
 					mesh =
-						DrawableMesh(
+						DrawableMesh.withLocalEqualToCanvas(
 							floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f),
 							floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f),
 							intArrayOf(0, 1, 2, 1, 3, 2),
@@ -109,6 +111,7 @@ class AtlasRepackAdjustTest {
 				atlas = PuppetAtlas(pages = emptyList(), tiles = tiles),
 			)
 		val pngByTile = tileIds.withIndex().associate { (tileIndex, tileId) -> tileId to encodeAtlasPng(rasters[tileIndex]) }
+
 		return Fixture(model, SourceArtRasters.fromPng { tileId -> pngByTile[tileId] })
 	}
 
@@ -159,11 +162,14 @@ class AtlasRepackAdjustTest {
 			val freshByKey = fresh.placements.associateBy { placement -> placement.key }
 			val adjustedAtlas = session.model.value.atlas
 			assertEquals(fresh.pages.map { page -> AtlasPage(page.width, page.height) }, adjustedAtlas.pages)
+
 			for (tile in adjustedAtlas.tiles) {
 				assertEquals(freshByKey[tile.id.raw]?.let(::atlasPlacementFromPack), tile.placement, "tile ${tile.id.raw} sits where the fresh pack put it")
 			}
+
 			assertEquals(atlasCompositionOf(expectedOptions), adjustedAtlas.composition, "the composition follows the adjusted options")
 			val derived = assertNotNull(deriveAtlasTextures(session.model.value, fixture.store, false))
+
 			for (pageIndex in fresh.pages.indices) {
 				assertContentEquals(fresh.pages[pageIndex].rgba, derived.atlases[pageIndex].rgba, "page $pageIndex derives byte-identically under the recorded composition")
 			}
@@ -214,19 +220,23 @@ class AtlasRepackAdjustTest {
 			assertEquals(kept, keptTile.placement, "the pinned tile stayed exactly where it was")
 			assertTrue(keptTile.pinned, "and stays pinned")
 			assertSame(uvsBefore, repacked.drawables.first { drawable -> drawable.atlasTileId == pinnedTileId }.mesh!!.uvs, "its coordinates did not move")
+
 			for (tile in repacked.atlas.tiles) {
 				if (tile.id != pinnedTileId) {
 					assertNotNull(tile.placement, "tile ${tile.id.raw} packed around the pin")
 				}
 			}
+
 			// The pages the pack composed (what the resolver is pre-warmed with) are what the model derives.
 			val packInput = buildRepackPackInput(pinnedModel) { tileId -> fixture.store.decodeRaster(tileId) }
 			val fresh = packAtlas(packInput.itemsFor(keepPinned = true), options)
 			assertEquals(pinnedTileId.raw, fresh.fixed.single().key)
 			val derived = assertNotNull(deriveAtlasTextures(repacked, fixture.store, false))
+
 			for (pageIndex in fresh.pages.indices) {
 				assertContentEquals(fresh.pages[pageIndex].rgba, derived.atlases[pageIndex].rgba, "page $pageIndex derives byte-identically, pinned tile included")
 			}
+
 			val stepsAfterRepack = session.historyView.value.steps.size
 
 			// Keep Pinned Tiles off: the same decoded input re-packs with the pinned tile free.

@@ -16,12 +16,24 @@
 6.) (Everything required for glue, deformers, and so on.)
 7.) UMA Format (Phase G - Art Sourcing Pipeline) - Mostly done, a few final pieces to go through.
 
+## 0.5.0 Goals
+0.) Merge in the existing language translations.
+1.) Work on the 2D Viewport sidebar that is empty.
+2.) Deformer Gizmos and Editing
+3.) Glue Gizmos and Editing
+
+Don't forgot to credit the other research papers for meshing and so on.
+
 ## VERY IMPORTANT
 * Hire translators for localization.
 * Final pass on keyboard shortcuts.
 * Final pass on default settings.
 * Final pass on default workspace layouts.
 * Final pass on theme colors.
+* Hire artist to make the application.
+	* Horse is critical.
+* Hire artist to make the DMG background art.
+	* Chibi Tamamo carrying the icon to the application folder.
 
 ## User Stories
 * glTF export for easy import into game engines.  (Requested; far future.)
@@ -36,6 +48,9 @@
 * We need to properly handle different blending mode imports from artwork to setup the drawables automatically.
 * Automatic visual matching of imported artwork layers to layers cut from a texture atlas after a MOC3 to CMO3 conversion.
 
+## Automatic Meshing
+* Automatic repack or expand texture atlases when generated meshes won't fit.  Birth quads on LimeBirb prevent most mesh generation operations.
+
 ## Puppet Model, CMO3, MOC3
 * Parameter Repeat
 * Glue
@@ -46,6 +61,12 @@
 	* (Check the bullshit the AI did without my permission.)  CDI3 - Export mesh display names as a separate array.
 	* Reconcile isVisible/isEnabled from MOC3 for deformers.  Maybe for CMO3 too.
 
+## Deleted References (Unused Data)
+* Add a Blender like unused data to inspect and clean up dead references.
+
+# Object/Edit Mode Switch
+* When there is no drawable selected, a default is found to select.  However, this does not update the selection and leaves the Properties and Outliner panels in a bad state.  The Properties shows nothing and Outliner has nothing selected.
+
 ## Tools, Shortcuts, and Gizmos
 * Improvements
 	* Unconnected proportional editing should edit all meshes when multiple meshes are selected for edit mode.  I would like to merge the proportional button and falloff settings into one menu with the connected checkbox.
@@ -54,12 +75,10 @@
 	* Replace magnet from the cursor/selection menu.
 	* The Tabler icons on the toolbar are probably fine, but I will check what is available from the Blender icons.
 
-## Overlays Toggle
-* Overlay visibility toggles from viewport header.
-	* General Information - The spot in the AreaHeader showing the selected item will be moved here.  It's too much in the AreaHeader.
-	* Wireframe (Object Mode)
-	* Grid - Ability to change scale and divisions.
-	* 2D Cursor
+## Overlay Toggles
+* Improvements
+	* Objects:
+		* Deformers (Deferred until deformer overlays are built after this work.)
 
 ## Object and Mesh Editing
 * Improvements
@@ -79,6 +98,7 @@
 	* Support renaming images.
 * Improvements
 	* Long running atlas packing should have a progress visible in the status bar.  We can also reuse this for other operations such as file open/import/export.
+	* Ability to have unplaced tiles.  For example, guide images don't need to be in the atlas, but any imported at the moment are forced into an atlas.
 * Bugs
 	* When relinking EricaTamamo.psd in EricaTamamo.cmo3 it results in some layers getting fringe artifacts like what was experienced in the past.
 
@@ -89,6 +109,7 @@
 	* Mirror UVs are shown in the command palette when editing a mesh in the 2D viewport.
 		* This is actually kind of useful, but technically breaks the border of the command palette only showing what is available per area.
 	* Pixels outside of the canvas still need to render.
+	* B(Armed box select) is not working in object mode.
 * UV Snap Pie
 	* (Deferred) Selected to Adjacent Unselected - Moves selection to adjacent unselected element.
 		* Implementation difficulty: This moves the UV vertex that has been disconnected from its sibling, which is one vertex in the mesh, on top of each other.  We will have to either walk the UV/mesh to find the sibling or store it.  Selected to Adjacent Unselected is only needed if rip is supported in UVs.
@@ -102,10 +123,8 @@
 https://hollisbrown.github.io/blendershortcuts/ - I should make a page like this demonstrating the shortcuts for Umamo.
 
 ## Properties Panel
-* The document-level **runtime-compatibility target data model** behind Document › Runtime — the enabled export targets (Cubism, Ayagami, …) + each target's options, how it persists on the document, and how it drives CMO3/MOC3 export. Scaffolded as a placeholder section now; its data design is a separate pass (depends on cataloguing each target runtime's capabilities).
-* UMA serialization of the latent composite (the format work this unblocks).
 * Improvements
-	* Parts and deformers still have no editable transform — needs the deformer → part → mesh cascade.
+	* Parts and deformers still have no editable transform: Needs the deformer → part → mesh cascade.
 	* Do another pass on the keyed parameter/property highlight colors.  Why does off key filled color appear as grey over green?
 	* Transform Position and Size should update the render while scrubbing.  They should also show the rest pose data after changing to edit mode.
 	* Aspect locked properties(Size) should update the other control while one is being scrubbed.
@@ -163,6 +182,7 @@ See format planning document: docs/plan/uma-format.md
 * Viewport loading overlay and mouse busy pointer.
 * AreaHeader/Viewport2DHeaderControls
 	* Font size and icon sizes don't line up resulting in the font being 1px offset.(Lots of manual tweaking is required.)
+* Merge pie menu icons.
 
 * Menu - New Items
 	* Edit
@@ -187,6 +207,7 @@ See format planning document: docs/plan/uma-format.md
 * The settings UI needs a design pass since it is basically just squares and whatever thrown together right now.
 * New Settings
 	* Setting to make Left Click, instead of ALT+Left Click, the default to activate the popup overlap picker.
+	* Mesh Generation default preset - It exists, but it is not placed yet.
 
 ## Keybindings
 * Audit default keybinding maps for Blender and Cubism styles.
@@ -240,15 +261,17 @@ Right now the goal is to support sRGB from ingest to output with full correctnes
 ## GPU glue: multi-pair seam vertices (deferred 2026-06-21)
 
 **What.** The GPU glue weld (`PuppetRenderer` two-pass; `module/render/src/commonMain/.../puppet/`) stores **one
-partner per vertex** in its per-vertex glue attribute (partner global index, glue index, weld weight; built
-in `buildGlueAttributes`, consumed by `GLUE_VERTEX_SHADER`). If a single mesh vertex participates in **more
+partner per vertex** in its per-vertex glue attribute (partner global index, glue index, weld weight; planned
+by `planGlueLayout`, consumed by `glueVertexShader`). If a single mesh vertex participates in **more
 than one** glue pair — e.g. a corner vertex shared by two seams — only the last-written pair survives, so the
 GPU applies **one** weld where the CPU `applyGluesResolved` applies **both, sequentially**. That would diverge
 from the CPU/oracle at such shared verts.
 
 **Why it's fine right now.** Erica's four glues have **disjoint** seam vertices (no vertex is in two pairs),
-so the GPU render is pixel-perfect vs the CPU (maxDiff 3/255, 0 px >8). This is a **latent** gap that only a
-model with shared seam verts would expose.
+so the GPU render is pixel-perfect vs the CPU (maxDiff 3/255, 0 px >8). The corpus has one model with shared
+seam verts: modelF, whose SIDE_HAIR_BLUE_R3 (280 vertices) is glued to four color variants with up to four
+pairs per vertex; `GlueSeamGapProbeTest` (2026-10-04) puts the CPU/GPU difference there at most 0.26 px at
+a 1600x900 fit, so the gap is real but sub-pixel on the corpus.
 
 **Detection.** Add a glue-aware per-vertex check: run the two-pass GPU glue, transform-feedback-capture the
 **post-weld** positions, and diff against the CPU `applyCpuDeform` (which includes glue) on a model whose
@@ -260,24 +283,18 @@ glue pairs share vertices. (The existing `GpuDeformValidationTest` only validate
 2. Detect shared seam verts at import and fall those specific glue meshes back to CPU glue (the hybrid path),
 	keeping the rest on the GPU.
 
-## Deformer keeps no rest geometry once its last axis is collapsed (found 2026-09-04)
+## Glue strength past its keyed range (found 2026-10-06)
 
-**What.** `withAxisCollapsed` returns null when the last axis goes, and `withParameterDeleted` stores that
-null as a warp's or rotation's `geometryGrid` - so the deformer's lattice / pivot, which lived only in that
-grid, is gone from the model.  The CMO3 export then has nothing to write for it and removes the source's
-`keyformGridSource`; the official editor refuses a source without a default keyform (`setKeyformGridSource`
-rejects null, `getDefaultKeyForm` throws "no KeyForms" - the same refusal that crashed it on the first
-artwork-origin export, fixed for drawables/parts/glue by writing one default cell in
-`Cmo3KeyformLowering.buildBundle`).
+**What.** A glue intensity track sampled at a parameter outside its keys falls back to the glue's static
+intensity (1 for every MOC3 import): `ChannelGrids.scalarAt` returns the static when the pose is out of the
+track's range (`module/runtime/.../eval/ChannelSampling.kt`, read by `preparePose` in `DeformPrepare.kt`).
+That is the sampler's deliberate rule for every channel ("out of range never hides", so keying opacity on a
+narrow parameter cannot make art vanish).  `docs/format/MOC3-ThirdParty.md` (around L109) says an
+out-of-range parameter sets a glue's strength to 0 instead, and marks that claim untested itself.
 
-**Why it's fine right now.** Nothing in the editor deletes a parameter that keys a deformer's geometry
-except the parameter-delete flow, and the structure round-trip gate only reaches the case by choosing a
-victim parameter that keys deformer geometry.
-
-**Fix sketch.** Keep the rest cell: a last-axis collapse should yield an axis-less one-cell grid holding the
-form at the kept key (the deformer's rest lattice / pivot), not null - for drawables too, since the export
-then writes the same shape the corpus does.  Once that holds, `writeGridWeb`'s empty-bundle branch becomes
-unreachable and can go.
+**Why it is not fixed.** No corpus glue is out of range at rest (`GlueSeamGapProbeTest`), the behavior
+changes the art in both the CPU and GPU paths, and which value the official runtime uses is a question for
+the oracle against the official Core, not for a guess.
 
 ## Glue intensity has no editable home (deferred 2026-07-29)
 

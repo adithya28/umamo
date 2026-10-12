@@ -12,28 +12,28 @@ import org.umamo.edit.DrawableChange
 import org.umamo.edit.EditorSession
 import org.umamo.edit.PartChange
 import org.umamo.edit.SelectionTarget
-import org.umamo.edit.editKeyedChannel
-import org.umamo.edit.previewChannelEdit
-import org.umamo.edit.setAtlasPins
-import org.umamo.edit.setDeformerBaseAngle
-import org.umamo.edit.setDeformerFlipX
-import org.umamo.edit.setDeformerFlipY
-import org.umamo.edit.setDeformerMultiplyColor
-import org.umamo.edit.setDeformerOpacity
-import org.umamo.edit.setDeformerQuadTransform
-import org.umamo.edit.setDeformerScreenColor
-import org.umamo.edit.setDrawableAlphaBlendMode
-import org.umamo.edit.setDrawableBlendMode
-import org.umamo.edit.setDrawableCulling
-import org.umamo.edit.setDrawableDrawOrder
-import org.umamo.edit.setDrawableInvertMask
-import org.umamo.edit.setDrawableMultiplyColor
-import org.umamo.edit.setDrawableOpacity
-import org.umamo.edit.setDrawableScreenColor
-import org.umamo.edit.setPartComposite
-import org.umamo.edit.setPartDrawOrder
-import org.umamo.edit.setPartGroupMode
-import org.umamo.edit.setPartSketch
+import org.umamo.edit.atlas.setAtlasPins
+import org.umamo.edit.keyform.cancelChannelPreview
+import org.umamo.edit.keyform.editKeyedChannel
+import org.umamo.edit.keyform.previewChannelEdit
+import org.umamo.edit.property.setDeformerFlipX
+import org.umamo.edit.property.setDeformerFlipY
+import org.umamo.edit.property.setDeformerMultiplyColor
+import org.umamo.edit.property.setDeformerOpacity
+import org.umamo.edit.property.setDeformerQuadTransform
+import org.umamo.edit.property.setDeformerScreenColor
+import org.umamo.edit.property.setDrawableAlphaBlendMode
+import org.umamo.edit.property.setDrawableBlendMode
+import org.umamo.edit.property.setDrawableCulling
+import org.umamo.edit.property.setDrawableDrawOrder
+import org.umamo.edit.property.setDrawableInvertMask
+import org.umamo.edit.property.setDrawableMultiplyColor
+import org.umamo.edit.property.setDrawableOpacity
+import org.umamo.edit.property.setDrawableScreenColor
+import org.umamo.edit.property.setPartComposite
+import org.umamo.edit.property.setPartDrawOrder
+import org.umamo.edit.property.setPartGroupMode
+import org.umamo.edit.property.setPartSketch
 import org.umamo.runtime.model.AlphaBlendMode
 import org.umamo.runtime.model.ChannelValue
 import org.umamo.runtime.model.ColorRgb
@@ -50,12 +50,17 @@ import org.umamo.runtime.model.displayScreenColor
 import org.umamo.runtime.model.multiplyColor
 import org.umamo.runtime.model.opacity
 import org.umamo.runtime.model.screenColor
+import org.umamo.ui.action.LocalCommands
 import org.umamo.ui.graphics.formatHexColor
 import org.umamo.ui.graphics.parseHexColor
 import org.umamo.ui.graphics.toColorRgb
 import org.umamo.ui.graphics.toComposeColor
+import org.umamo.ui.kit.button.Button
 import org.umamo.ui.kit.field.HexColorField
 import org.umamo.ui.kit.field.NumberField
+import org.umamo.ui.kit.field.PropertyCheckboxRow
+import org.umamo.ui.kit.field.PropertyFieldRow
+import org.umamo.ui.kit.field.PropertyLine
 import org.umamo.ui.kit.field.SelectField
 import org.umamo.ui.resources.*
 import org.umamo.ui.theme.LocalUmamoIcons
@@ -68,24 +73,46 @@ import kotlin.math.roundToInt
  * deformer, and a part each get their own face of this tab.
  */
 
-/** Data (drawable): mesh vertex / triangle counts. */
+/** Data (drawable): mesh vertex / triangle counts, and Generate Mesh from Art for a drawable with a mesh. */
 internal val MeshSection =
 	PropertySection(
 		id = "data.mesh",
 		title = Res.string.properties_section_mesh,
 		rows = { context ->
 			val mesh = context.activeDrawable()?.mesh
-			listOf(
-				PropertyRow(terms = listOf(Res.string.properties_mesh)) { _ ->
-					if (mesh != null) {
-						PropertyLine(stringResource(Res.string.properties_mesh, mesh.vertexCount, mesh.triangleCount))
-					} else {
-						PropertyLine(stringResource(Res.string.properties_no_mesh))
-					}
-				},
-			)
+			buildList {
+				add(
+					PropertyRow(terms = listOf(Res.string.properties_mesh)) { _ ->
+						if (mesh != null) {
+							PropertyLine(stringResource(Res.string.properties_mesh, mesh.vertexCount, mesh.triangleCount))
+						} else {
+							PropertyLine(stringResource(Res.string.properties_no_mesh))
+						}
+					},
+				)
+
+				if (mesh != null) {
+					add(PropertyRow(terms = listOf(Res.string.cmd_mesh_generate_from_art)) { _ -> GenerateMeshFromArtButton() })
+				}
+			}
 		},
 	)
+
+/**
+ * The Generate Mesh from Art button: it dispatches the command (so the chord, the palette, and this
+ * button run the same thing over the same selection) and is enabled exactly when the command is.
+ */
+@Composable
+private fun GenerateMeshFromArtButton() {
+	val commands = LocalCommands.current
+	val available = commands["mesh.generateFromArt"]?.availability?.isAvailable() == true
+	Button(
+		label = stringResource(Res.string.cmd_mesh_generate_from_art),
+		onClick = { commands.invoke("mesh.generateFromArt") },
+		primary = false,
+		enabled = available,
+	)
+}
 
 /**
  * Data (drawable): the atlas texture binding, and the pin on the tile's placement when the drawable's
@@ -110,6 +137,7 @@ internal val TextureSection =
 						}
 					},
 				)
+
 				if (tile != null && tile.placement != null) {
 					add(
 						PropertyRow(terms = listOf(Res.string.properties_field_pinned)) { _ ->
@@ -133,6 +161,7 @@ internal val BlendSection =
 		title = Res.string.properties_section_blend,
 		rows = { context ->
 			val drawable = context.activeDrawable()
+
 			if (drawable != null) {
 				val session = context.session
 				val target = context.puppet.runtimeTarget
@@ -280,8 +309,9 @@ internal val DeformerSection =
 		rows = { context ->
 			val session = context.session
 			val target = context.puppet.runtimeTarget
+
 			when (val deformer = context.activeDeformer()) {
-				is Deformer.Warp ->
+				is Deformer.Warp -> {
 					deformerRenderChannelRows(deformer, session, target) +
 						listOfNotNull(
 							PropertyRow(terms = listOf(Res.string.properties_warp_grid)) { _ ->
@@ -302,24 +332,13 @@ internal val DeformerSection =
 								}
 							},
 						)
+				}
 
-				is Deformer.Rotation ->
+				is Deformer.Rotation -> {
 					deformerRenderChannelRows(deformer, session, target) +
 						listOf(
 							PropertyRow(terms = listOf(Res.string.properties_field_base_angle)) { _ ->
-								PropertyFieldRow(
-									stringResource(Res.string.properties_field_base_angle),
-									description = stringResource(Res.string.properties_field_base_angle_description),
-								) {
-									NumberField(
-										value = deformer.baseAngle,
-										onValueChange = { newAngle -> session?.setDeformerBaseAngle(deformer.id, newAngle) },
-										modifier = Modifier.fillMaxWidth(),
-										range = UNBOUNDED_RANGE,
-										decimals = 1,
-										unitSuffix = stringResource(Res.string.unit_degrees),
-									)
-								}
+								DeformerBaseAngleField(deformer, session)
 							},
 							PropertyRow(terms = listOf(Res.string.properties_field_flip_x)) { _ ->
 								KeyableFlagChannelRow(
@@ -346,8 +365,11 @@ internal val DeformerSection =
 								)
 							},
 						)
+				}
 
-				null -> emptyList()
+				null -> {
+					emptyList()
+				}
 			}
 		},
 	)
@@ -359,6 +381,7 @@ internal val PartSection =
 		title = Res.string.properties_section_part,
 		rows = { context ->
 			val part = context.activePart()
+
 			if (part != null) {
 				val session = context.session
 				val target = context.puppet.runtimeTarget
@@ -404,6 +427,7 @@ internal val PartSection =
 										onPreview = { order: Int ->
 											session?.previewChannelEdit(target, ChannelValue.Scalar(order.toFloat()))
 										},
+										onScrubCancel = { session?.cancelChannelPreview(target) },
 										range = 0..1000,
 										modifier = Modifier.fillMaxWidth(),
 									)
@@ -436,6 +460,7 @@ internal val PartSection =
 					// stops being editable.  No inner gates - 5.3 support implies every lower tier (colors, alpha,
 					// reversed mask).
 					val composite = part.activeComposite
+
 					if (composite != null && target.supports(RuntimeFeature.PartComposite)) {
 						add(
 							PropertyRow(terms = listOf(Res.string.properties_field_opacity)) { _ ->
@@ -473,6 +498,7 @@ internal val PartSection =
 								}
 							},
 						)
+
 						if (!composite.blendMode.ignoresAlphaBlend) {
 							add(
 								PropertyRow(terms = listOf(Res.string.properties_field_alpha_mode)) { _ ->
@@ -492,6 +518,7 @@ internal val PartSection =
 								},
 							)
 						}
+
 						add(
 							PropertyRow(terms = listOf(Res.string.properties_field_multiply_color)) { _ ->
 								KeyableColorChannelRow(
@@ -571,15 +598,24 @@ internal fun dataTabSections(context: PropertyContext): List<PropertySection> =
  */
 internal fun dataTabIcon(context: PropertyContext): UmamoIcon =
 	when (val target = context.activeTarget) {
-		is SelectionTarget.Drawable -> LocalUmamoIcons.mesh
+		is SelectionTarget.Drawable -> {
+			LocalUmamoIcons.mesh
+		}
+
 		// Through the shared glyph so the tab icon and the Relations row can never disagree about a deformer.
-		is SelectionTarget.Deformer ->
+		is SelectionTarget.Deformer -> {
 			context.puppet.deformers.firstOrNull { it.id == target.id }
 				?.let { deformer -> deformerIcon(deformer) }
 				?: LocalUmamoIcons.warpDeformer
+		}
 
-		is SelectionTarget.Part -> LocalUmamoIcons.part
-		null -> LocalUmamoIcons.mesh
+		is SelectionTarget.Part -> {
+			LocalUmamoIcons.part
+		}
+
+		null -> {
+			LocalUmamoIcons.mesh
+		}
 	}
 
 /**
@@ -693,6 +729,7 @@ private fun deformerRenderChannelRows(
 	target: RuntimeTarget,
 ): List<PropertyRow> {
 	val owner = KeyformOwner.Deformer(deformer.id)
+
 	return listOfNotNull(
 		PropertyRow(terms = listOf(Res.string.properties_field_opacity)) { _ ->
 			KeyableScalarChannelRow(
@@ -795,6 +832,9 @@ private fun KeyableScalarChannelRow(
 				onPreview = { previewed: Float ->
 					session?.previewChannelEdit(target, ChannelValue.Scalar(previewed))
 				},
+				// A cancelled scrub retires its preview the way a commit would, or the last frame would stay
+				// pending - the viewport stuck on it and the field tinted as an edit nobody made.
+				onScrubCancel = { session?.cancelChannelPreview(target) },
 			)
 		}
 	}

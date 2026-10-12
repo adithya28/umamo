@@ -52,10 +52,13 @@ class AddedArtCmo3ExportGateTest {
 	fun addedArtworkExportsAsALayeredImageAndReopensBoundByKey() =
 		runBlocking {
 			val file = sample
+
 			if (file == null) {
 				println("cmo3.sample not present; skipping the added-art export gate")
+
 				return@runBlocking
 			}
+
 			val load = loadDocument(file.readBytes(), file.name, file.path)
 			val document = assertIs<Cmo3Document>(assertIs<DocumentLoad.Loaded>(load).document)
 			val session = EditorSession(document.puppet, document.liveParams.values)
@@ -104,9 +107,11 @@ class AddedArtCmo3ExportGateTest {
 				)
 			follower.cancel()
 			println("export report: ${prepared.report}")
+
 			for (reason in listOf(ExportNoticeReason.AtlasPageNotRecomposed, ExportNoticeReason.CreatedDrawableHasNoTextureSource, ExportNoticeReason.AtlasTileMetadataNotReconcilable)) {
 				assertTrue(prepared.report.notices.none { notice -> notice is ExportNotice.UnsupportedChange && notice.reason == reason }, "the added art reconciled without $reason")
 			}
+
 			val exportedBytes = Cmo3.write(prepared.model)
 
 			// Read back: the file, its layers under their keys with their rects and pixels, the tiles,
@@ -126,8 +131,10 @@ class AddedArtCmo3ExportGateTest {
 			assertContentEquals(layerB.raster.rgba, assertNotNull(rereadArt.layers.firstOrNull { layer -> layer.id.raw == "lyid:9002" }).raster.rgba)
 			// The added drawables carry thumbnails of their art, one 32px and one 16px entry each.
 			val rereadMeshes = graphElements((rereadRoot.drawableSourceSet as? CDrawableSourceSet)?._sources).filterIsInstance<CArtMeshSource>()
+
 			for (drawable in addedDrawables) {
 				val mesh = assertNotNull(rereadMeshes.firstOrNull { candidate -> (candidate.id as? Id)?.idstr == drawable.id.raw }, "${drawable.name} is written")
+
 				for ((icon, size) in listOf(mesh.icon32 to 32, mesh.icon16 to 16)) {
 					val path = assertNotNull(((icon as? CImageIcon)?.image as? CWritableImage)?.image?.archivePath, "${drawable.name} has a ${size}px icon")
 					val decoded = PngCodec.read(assertNotNull(reread.archive.byPath(path), "icon '$path' is embedded").content)
@@ -135,7 +142,9 @@ class AddedArtCmo3ExportGateTest {
 					assertTrue((0 until decoded.width * decoded.height).any { pixel -> (decoded.rgba[pixel * 4 + 3].toInt() and 0xFF) == 255 }, "${drawable.name}'s ${size}px icon shows its opaque art")
 				}
 			}
+
 			val reimported = Cmo3Import.fromModelSource(rereadRoot)
+
 			for (drawable in addedDrawables) {
 				val back = assertNotNull(reimported.drawables.firstOrNull { candidate -> candidate.id == drawable.id }, "${drawable.name} re-imports")
 				assertContentEquals(drawable.mesh?.uvs, back.mesh?.uvs, "${drawable.name} uvs are verbatim")

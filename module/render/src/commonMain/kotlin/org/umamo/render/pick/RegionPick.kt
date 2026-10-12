@@ -27,21 +27,25 @@ import org.umamo.runtime.model.DrawableId
  */
 fun drawableCentroids(worldPositions: Map<DrawableId, FloatArray>): Map<DrawableId, FloatArray> {
 	val centroids = LinkedHashMap<DrawableId, FloatArray>(worldPositions.size)
+
 	for ((drawableId, positions) in worldPositions) {
 		var sumX = 0f
 		var sumY = 0f
 		var vertexCount = 0
 		var slotIndex = 0
+
 		while (slotIndex + 1 < positions.size) {
 			sumX += positions[slotIndex]
 			sumY += positions[slotIndex + 1]
 			vertexCount++
 			slotIndex += 2
 		}
+
 		if (vertexCount > 0) {
 			centroids[drawableId] = floatArrayOf(sumX / vertexCount, sumY / vertexCount)
 		}
 	}
+
 	return centroids
 }
 
@@ -64,11 +68,13 @@ fun drawablesInBox(
 	maxY: Float,
 ): Set<DrawableId> {
 	val enclosed = LinkedHashSet<DrawableId>()
+
 	for ((drawableId, centroid) in centroids) {
 		if (centroid[0] in minX..maxX && centroid[1] in minY..maxY) {
 			enclosed.add(drawableId)
 		}
 	}
+
 	return enclosed
 }
 
@@ -90,12 +96,15 @@ fun drawablesInCircle(
 ): Set<DrawableId> {
 	val radiusSquared = radius * radius
 	val enclosed = LinkedHashSet<DrawableId>()
+
 	for ((drawableId, centroid) in centroids) {
 		val offsetX = centroid[0] - centerX
 		val offsetY = centroid[1] - centerY
+
 		if (offsetX * offsetX + offsetY * offsetY <= radiusSquared) {
 			enclosed.add(drawableId)
 		}
 	}
+
 	return enclosed
 }

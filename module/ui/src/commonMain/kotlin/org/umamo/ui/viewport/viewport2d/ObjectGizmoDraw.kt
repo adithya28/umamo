@@ -9,6 +9,7 @@ import org.umamo.edit.ActiveOperator
 import org.umamo.edit.ActiveSelectTool
 import org.umamo.edit.Selection
 import org.umamo.edit.TransformAxisConstraint
+import org.umamo.edit.mesh.MeshRestPositions
 import org.umamo.render.ViewportCamera
 import org.umamo.ui.theme.LocalUmamoCursors
 import org.umamo.ui.theme.SelectionOverlayStyle
@@ -26,7 +27,7 @@ import org.umamo.ui.viewport.gizmo.drawSelectToolAffordances
  * the gesture this area owns.  What Object mode draws over the puppet beyond the chrome joins this file.
  *
  * @param MarqueeSelectController<Selection> marquee The area's box / circle machinery.
- * @param ModalGestureState<ObjectGesture> gesture The area's modal gesture state.
+ * @param ModalGestureState<ObjectGesture, MeshRestPositions> gesture The area's modal gesture state.
  * @param ActiveSelectTool? ownedSelectTool The select tool armed in this area, or null.
  * @param ActiveOperator? hudOperator The latched object operator, whichever area owns it.
  * @param State axisConstraint The session's axis constraint.
@@ -37,7 +38,7 @@ import org.umamo.ui.viewport.gizmo.drawSelectToolAffordances
  */
 internal fun DrawScope.drawObjectGizmoChrome(
 	marquee: MarqueeSelectController<Selection>,
-	gesture: ModalGestureState<ObjectGesture>,
+	gesture: ModalGestureState<ObjectGesture, MeshRestPositions>,
 	ownedSelectTool: ActiveSelectTool?,
 	hudOperator: ActiveOperator?,
 	axisConstraint: State<TransformAxisConstraint?>,

@@ -80,9 +80,11 @@ internal fun UvLayerPickerChip() {
 	val items =
 		buildList {
 			add(MenuItem.Search(value = query, onValueChange = { updated -> query = updated }, width = LAYER_PICKER_WIDTH))
+
 			if (rows.isEmpty()) {
 				add(MenuItem.Action(label = emptyLabel, onSelect = {}, enabled = false))
 			}
+
 			addAll(rows)
 		}
 	DropdownChip(

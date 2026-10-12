@@ -55,10 +55,13 @@ class ReloadedCmo3ExportGateTest {
 	fun aReloadedTileExportsAsItsLineageRootMoving() =
 		runBlocking {
 			val file = sample
+
 			if (file == null) {
 				println("cmo3.sample not present; skipping the reloaded export gate")
+
 				return@runBlocking
 			}
+
 			val load = loadDocument(file.readBytes(), file.name, file.path)
 			val document = assertIs<Cmo3Document>(assertIs<DocumentLoad.Loaded>(load).document)
 			val session = EditorSession(document.puppet, document.liveParams.values)
@@ -149,16 +152,19 @@ class ReloadedCmo3ExportGateTest {
 			val iconPath = assertNotNull(((rereadCLayer.icon64 as? CImageIcon)?.image as? CWritableImage)?.image?.archivePath, "the layer has a 64px icon")
 			val icon = PngCodec.read(assertNotNull(reread.archive.byPath(iconPath), "the icon is embedded").content)
 			var opaquePixels = 0
+
 			for (pixel in 0 until icon.width * icon.height) {
 				if ((icon.rgba[pixel * 4 + 3].toInt() and 0xFF) == 255) {
 					opaquePixels += 1
 					assertEquals(listOf(0x5A, 0x5A, 0x5A), (0 until 3).map { channel -> icon.rgba[pixel * 4 + channel].toInt() and 0xFF }, "icon pixel $pixel is the repainted gray")
 				}
 			}
+
 			assertTrue(opaquePixels > 0, "the icon shows the repainted art")
 			val exportedPages = cmo3AtlasPages(reread.root as CModelSource) { resource -> reread.extractLayerPng(resource) }.pageBytes
 			val expectedPages = effective.atlases.map { page -> encodeAtlasPng(page) }
 			assertEquals(expectedPages.size, exportedPages.size, "exported page count")
+
 			for ((pageIndex, bytes) in exportedPages.withIndex()) {
 				assertTrue(expectedPages.any { expected -> expected.contentEquals(bytes) }, "exported page $pageIndex is not one of the reload's pages")
 			}
@@ -182,6 +188,7 @@ class ReloadedCmo3ExportGateTest {
 			}
 		}
 		(image._rootLayer as? ACLayerGroup)?.let(::walk)
+
 		return layers
 	}
 
@@ -208,10 +215,13 @@ class ReloadedCmo3ExportGateTest {
 	fun aRelinkReadsTheDecomposedLayerWhenTheFileIsMissing() =
 		runBlocking {
 			val file = sample
+
 			if (file == null) {
 				println("cmo3.sample not present; skipping the decomposed relink gate")
+
 				return@runBlocking
 			}
+
 			val load = loadDocument(file.readBytes(), file.name, file.path)
 			val document = assertIs<Cmo3Document>(assertIs<DocumentLoad.Loaded>(load).document)
 			val session = EditorSession(document.puppet, document.liveParams.values)
@@ -236,8 +246,8 @@ class ReloadedCmo3ExportGateTest {
 			// Read the way the app's relink reads it: the artist's file is not on this machine, so the read
 			// falls back to the layers the official editor decomposed into the CMO3.
 			val listed = before.sources.first { source -> source.id == targetRef.sourceId }
-			val read = assertNotNull(readSourceArt(document, listed) { false }, "the file reads back from the CMO3")
-			assertTrue(read.fromCmo3)
+			val read = assertNotNull(readSourceArt(document, before, listed) { false }, "the file reads back from the CMO3")
+			assertEquals(SourceReadOrigin.Cmo3Layers, read.origin)
 			val art = read.art
 			assertTrue(runRelinkArtwork(host, RelinkArtworkRequest(tile.id, targetRef, art, SourceArtImportOptions()), areaId = null), "the relink pulls the decomposed layer")
 			val relinked = session.model.value

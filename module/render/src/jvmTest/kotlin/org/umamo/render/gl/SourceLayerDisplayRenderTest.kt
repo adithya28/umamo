@@ -78,12 +78,14 @@ class SourceLayerDisplayRenderTest {
 
 	private fun solidImage(red: Int, green: Int, size: Int = 8): DecodedImage {
 		val rgba = ByteArray(size * size * 4)
+
 		for (pixel in rgba.indices step 4) {
 			rgba[pixel] = red.toByte()
 			rgba[pixel + 1] = green.toByte()
 			rgba[pixel + 2] = 0
 			rgba[pixel + 3] = 0xFF.toByte()
 		}
+
 		return DecodedImage(rgba, size, size)
 	}
 
@@ -95,7 +97,7 @@ class SourceLayerDisplayRenderTest {
 				parentDeformerId = null,
 				blendMode = BlendMode.Normal,
 				maskedBy = emptyList(),
-				mesh = DrawableMesh(quadPositions.copyOf(), uvs.copyOf(), quadIndices),
+				mesh = DrawableMesh.withLocalEqualToCanvas(quadPositions.copyOf(), uvs.copyOf(), quadIndices),
 				// One zero-delta keyform so the drawable is keyed; the base mesh alone drives its shape.
 				geometryGrid =
 					KeyformGrid(
@@ -103,6 +105,7 @@ class SourceLayerDisplayRenderTest {
 						listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(quadPositions.size)))),
 					),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),
@@ -142,6 +145,7 @@ class SourceLayerDisplayRenderTest {
 	 */
 	private fun compositeEditedModel(source: PuppetModel): PuppetModel {
 		val drawable = source.drawables.single()
+
 		return source.copy(drawables = listOf(drawable.copy(culling = !drawable.culling)))
 	}
 
@@ -166,6 +170,7 @@ class SourceLayerDisplayRenderTest {
 			renderer.setPose(emptyMap())
 			GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer)
 			renderer.render(target, viewportSize, viewportSize)
+
 			return readPixels(viewportSize, viewportSize)
 		}
 
@@ -257,6 +262,7 @@ class SourceLayerDisplayRenderTest {
 			renderer.setPose(emptyMap())
 			GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer)
 			renderer.render(target, viewportSize, viewportSize)
+
 			return readPixels(viewportSize, viewportSize)
 		}
 
@@ -317,6 +323,7 @@ class SourceLayerDisplayRenderTest {
 			renderer.setPose(emptyMap())
 			GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer)
 			renderer.render(target, viewportSize, viewportSize)
+
 			return readPixels(viewportSize, viewportSize)
 		}
 
@@ -368,6 +375,7 @@ class SourceLayerDisplayRenderTest {
 			renderer.setPose(emptyMap())
 			GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer)
 			renderer.render(target, viewportSize, viewportSize)
+
 			return readPixels(viewportSize, viewportSize)
 		}
 
@@ -470,12 +478,14 @@ class SourceLayerDisplayRenderTest {
 			renderer.setPose(emptyMap())
 			GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer)
 			renderer.render(target, viewportSize, viewportSize)
+
 			return readPixels(viewportSize, viewportSize)
 		}
 
 		renderer.setShownDrawables(emptySet())
 		val background = frame()
 		renderer.setShownDrawables(setOf(probeId))
+
 		if (fromArtwork) {
 			renderer.setSourceLayerPlan(
 				LayerDrawPlan(
@@ -487,14 +497,18 @@ class SourceLayerDisplayRenderTest {
 			val (ready, _, _) = renderer.sourceLayerDisplayState()
 			assertTrue(ready, "the artwork display did not engage, so the probe would measure the atlas")
 		}
+
 		val drawn = frame()
 		var largest = 0
+
 		for (index in 0 until viewportSize * viewportSize * 4) {
 			if (index % 4 == 3) {
 				continue
 			}
+
 			largest = maxOf(largest, abs((drawn.get(index).toInt() and 0xFF) - (background.get(index).toInt() and 0xFF)))
 		}
+
 		return largest
 	}
 
@@ -513,13 +527,16 @@ class SourceLayerDisplayRenderTest {
 		val centerX = size * 0.7f
 		val centerY = size * 0.5f
 		val radius = size * 0.4f
+
 		for (row in 0 until size) {
 			for (column in 0 until size) {
 				val coverage = (radius - hypot(column + 0.5f - centerX, row + 0.5f - centerY) + 0.5f).coerceIn(0f, 1f)
 				val alpha = (coverage * 255f).roundToInt()
+
 				if (alpha == 0) {
 					continue
 				}
+
 				val pixel = (row * size + column) * 4
 				rgba[pixel] = SKIN_RED.toByte()
 				rgba[pixel + 1] = SKIN_GREEN.toByte()
@@ -527,6 +544,7 @@ class SourceLayerDisplayRenderTest {
 				rgba[pixel + 3] = alpha.toByte()
 			}
 		}
+
 		return DecodedImage(rgba, size, size)
 	}
 
@@ -550,6 +568,7 @@ class SourceLayerDisplayRenderTest {
 		var sumX = 0.0
 		var sumY = 0.0
 		var count = 0
+
 		for (row in 0 until height) {
 			for (col in 0 until width) {
 				val pixel = (row * width + col) * 4
@@ -559,6 +578,7 @@ class SourceLayerDisplayRenderTest {
 				val deltaRed = abs(red - (background.get(pixel).toInt() and 0xFF))
 				val deltaGreen = abs(green - (background.get(pixel + 1).toInt() and 0xFF))
 				val deltaBlue = abs(blue - (background.get(pixel + 2).toInt() and 0xFF))
+
 				if (maxOf(deltaRed, deltaGreen, deltaBlue) > threshold) {
 					sumRed += red
 					sumGreen += green
@@ -568,9 +588,11 @@ class SourceLayerDisplayRenderTest {
 				}
 			}
 		}
+
 		if (count == 0) {
 			return ArtColorStats(0, 0f, 0f, 0f, 0f)
 		}
+
 		return ArtColorStats(count, (sumRed / count).toFloat(), (sumGreen / count).toFloat(), (sumX / count).toFloat(), (sumY / count).toFloat())
 	}
 
@@ -578,6 +600,7 @@ class SourceLayerDisplayRenderTest {
 	private fun readPixels(width: Int, height: Int): ByteBuffer {
 		val buffer = BufferUtils.createByteBuffer(width * height * 4)
 		GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer)
+
 		return buffer
 	}
 }

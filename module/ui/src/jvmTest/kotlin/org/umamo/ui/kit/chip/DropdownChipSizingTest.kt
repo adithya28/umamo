@@ -60,7 +60,7 @@ class DropdownChipSizingTest {
 							expanded = false,
 							onExpandRequest = {},
 							contentDescription = CHIP_LABEL,
-							icon = LocalUmamoIcons.transformPivot,
+							icon = LocalUmamoIcons.pivotMedian,
 							label = "Median Point",
 						) {}
 					}
@@ -69,6 +69,7 @@ class DropdownChipSizingTest {
 			waitForIdle()
 			measured = onNodeWithContentDescription(CHIP_LABEL, useUnmergedTree = true).getUnclippedBoundsInRoot().width
 		}
+
 		return measured
 	}
 

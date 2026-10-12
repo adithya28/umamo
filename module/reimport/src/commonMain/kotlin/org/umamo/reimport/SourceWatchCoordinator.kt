@@ -136,31 +136,42 @@ class SourceWatchCoordinator(
 	fun track(sources: List<WatchedSource>) {
 		if (mode() == WatchMode.Off) {
 			stopAll()
+
 			return
 		}
+
 		val wanted = sources.associateBy { source -> source.sourceId }
+
 		for (sourceId in tracked.keys.toList()) {
 			val entry = tracked.getValue(sourceId)
 			val next = wanted[sourceId]
+
 			if (next == null || next.path != entry.source.path) {
 				stop(sourceId)
 			}
 		}
+
 		val toCheck = ArrayList<TrackedSource>()
+
 		for (source in sources) {
 			val existing = tracked[source.sourceId]
+
 			if (existing != null) {
 				existing.source = source
+
 				// A reload landed: the record caught up with the disk, and this file is no longer owed one.
 				if (source.recordedHash != null && source.recordedHash == existing.observedHash) {
 					setPending(source.sourceId, false)
 				}
+
 				continue
 			}
+
 			val entry = TrackedSource(source, watcher.watch(source.path) { onChanged(source.sourceId) })
 			tracked[source.sourceId] = entry
 			toCheck.add(entry)
 		}
+
 		if (toCheck.isNotEmpty()) {
 			scope.launch { checkAtOpen(toCheck) }
 		}
@@ -175,7 +186,10 @@ class SourceWatchCoordinator(
 	fun reloadFinished(sourceIds: Set<ArtSourceId>, result: WatchedReloadResult) {
 		when (result) {
 			// The model's new hashes arrive through track(); nothing to do until then.
-			WatchedReloadResult.Applied -> Unit
+			WatchedReloadResult.Applied -> {
+				Unit
+			}
+
 			WatchedReloadResult.NothingChanged, WatchedReloadResult.Abandoned -> {
 				for (sourceId in sourceIds) {
 					val entry = tracked[sourceId] ?: continue
@@ -183,6 +197,7 @@ class SourceWatchCoordinator(
 					setPending(sourceId, false)
 				}
 			}
+
 			WatchedReloadResult.Superseded -> {
 				for (sourceId in sourceIds) {
 					if (tracked.containsKey(sourceId)) {
@@ -220,19 +235,25 @@ class SourceWatchCoordinator(
 	 */
 	private suspend fun settle(entry: TrackedSource) {
 		var attempts = 0
+
 		while (true) {
 			delay(settleMillis)
 			val hash = hashOf(entry.source.path)
+
 			if (hash != null) {
 				val returned = entry.missing
 				entry.missing = false
 				entry.observedHash = hash
+
 				if (returned) {
 					mutableSerial.value = mutableSerial.value + 1
 				}
+
 				decide(entry, hash)
+
 				return
 			}
+
 			if (exists(entry.source.path) == false) {
 				if (!entry.missing) {
 					entry.missing = true
@@ -241,9 +262,12 @@ class SourceWatchCoordinator(
 					mutableSerial.value = mutableSerial.value + 1
 					mutableEvents.tryEmit(SourceWatchEvent.Missing(entry.source.sourceId))
 				}
+
 				return
 			}
+
 			attempts++
+
 			if (attempts >= MAX_SETTLE_ATTEMPTS) {
 				return
 			}
@@ -258,11 +282,15 @@ class SourceWatchCoordinator(
 	 */
 	private fun decide(entry: TrackedSource, hash: String) {
 		val sourceId = entry.source.sourceId
+
 		if (hash == entry.source.recordedHash || hash == entry.acknowledgedHash) {
 			setPending(sourceId, false)
+
 			return
 		}
+
 		setPending(sourceId, true)
+
 		when (mode()) {
 			WatchMode.Auto -> requestReload()
 			WatchMode.Notify -> mutableEvents.tryEmit(SourceWatchEvent.ChangedOnDisk(setOf(sourceId)))
@@ -278,12 +306,15 @@ class SourceWatchCoordinator(
 		if (dueWait?.isActive == true) {
 			return
 		}
+
 		dueWait =
 			scope.launch {
 				while (!isIdle()) {
 					delay(idlePollMillis)
 				}
+
 				val due = mutablePending.value
+
 				if (due.isNotEmpty()) {
 					mutableEvents.tryEmit(SourceWatchEvent.ReloadDue(due))
 				}
@@ -305,22 +336,30 @@ class SourceWatchCoordinator(
 	 */
 	private suspend fun checkAtOpen(entries: List<TrackedSource>) {
 		val stale = LinkedHashSet<ArtSourceId>()
+
 		for (entry in entries) {
 			entry.handle.awaitArmed()
+
 			if (!tracked.containsValue(entry)) {
 				continue
 			}
+
 			val hash = hashOf(entry.source.path)
+
 			if (hash == null) {
 				entry.missing = exists(entry.source.path) == false
+
 				continue
 			}
+
 			entry.observedHash = hash
+
 			if (isStaleAtOpen(entry.source, hash)) {
 				stale.add(entry.source.sourceId)
 				setPending(entry.source.sourceId, true)
 			}
 		}
+
 		if (stale.isNotEmpty()) {
 			mutableEvents.tryEmit(SourceWatchEvent.StaleAtOpen(stale))
 		}
@@ -336,11 +375,14 @@ class SourceWatchCoordinator(
 	 */
 	private suspend fun isStaleAtOpen(source: WatchedSource, hash: String): Boolean {
 		val recordedHash = source.recordedHash
+
 		if (recordedHash != null) {
 			return hash != recordedHash
 		}
+
 		val recordedModifiedAt = source.recordedModifiedAt ?: return false
 		val modifiedAt = modifiedAtOf(source.path) ?: return false
+
 		return modifiedAt != recordedModifiedAt
 	}
 
@@ -353,6 +395,7 @@ class SourceWatchCoordinator(
 	private fun setPending(sourceId: ArtSourceId, pending: Boolean) {
 		val current = mutablePending.value
 		val next = if (pending) current + sourceId else current - sourceId
+
 		if (next != current) {
 			mutablePending.value = next
 		}

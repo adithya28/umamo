@@ -7,8 +7,8 @@ import kotlinx.coroutines.yield
 import org.umamo.edit.DocumentChange
 import org.umamo.edit.EditorSession
 import org.umamo.edit.OperatorParameter
-import org.umamo.edit.commitArtworkReloaded
-import org.umamo.edit.withAtlasRepack
+import org.umamo.edit.atlas.commitArtworkReloaded
+import org.umamo.edit.atlas.withAtlasRepack
 import org.umamo.format.FileKind
 import org.umamo.format.art.LayerBounds
 import org.umamo.interop.art.SourceArtImportOptions
@@ -122,9 +122,11 @@ class ReloadArtworkFlowTest {
 			val published = sessionAtlasPages.binding.value.textures
 			val derived = assertNotNull(deriveAtlasTextures(withoutBig, document.artRasters, premultipliedAlpha = false))
 			assertEquals(2, published.atlases.size)
+
 			for ((pageIndex, page) in published.atlases.withIndex()) {
 				assertTrue(page.rgba.contentEquals(derived.atlases[pageIndex].rgba), "published page $pageIndex equals its derivation")
 			}
+
 			follower.cancel()
 		}
 
@@ -174,9 +176,11 @@ class ReloadArtworkFlowTest {
 			}
 			val published = sessionAtlasPages.binding.value.textures
 			val derived = assertNotNull(deriveAtlasTextures(reloaded, document.artRasters, premultipliedAlpha = false), "the reloaded model derives")
+
 			for ((pageIndex, page) in published.atlases.withIndex()) {
 				assertTrue(page.rgba.contentEquals(derived.atlases[pageIndex].rgba), "published page $pageIndex equals its derivation")
 			}
+
 			assertTrue(published.atlases.any { page -> page.rgba.any { byte -> byte == 9.toByte() } }, "the pages carry the repainted pixels")
 
 			// An adjustment re-lands the SAME step with wider re-born quads.  Before any undo, which
@@ -228,6 +232,9 @@ class ReloadArtworkFlowTest {
 			val refA = SourceLayerRef(sourceId, "lyid:1", true)
 			assertFalse(runRelinkArtwork(host, RelinkArtworkRequest(pulled.id, refA, art = null, options), areaId = null), "no file, no art")
 			assertEquals(refA, session.model.value.atlas.tileById.getValue(pulled.id).source, "but the binding changed")
+			// Art read from the document's own tiles pulls the same way, and the notice says where it came from.
+			assertTrue(runRelinkArtwork(host, RelinkArtworkRequest(listOf(pulled.id), refB, InMemoryArt(listOf(layerARepainted, layerB, layerC)), options, fromDocument = true), areaId = null))
+			assertEquals("notice.relink.pulledFromDocument", session.notice.value?.messageKey)
 			follower.cancel()
 		}
 

@@ -77,9 +77,11 @@ internal fun blendScalar(lower: Float, upper: Float, fraction: Float): Float = (
 internal fun blendComponents(lower: FloatArray, upper: FloatArray, fraction: Float): FloatArray {
 	val length = minOf(lower.size, upper.size)
 	val blended = FloatArray(length)
+
 	for (componentIndex in 0 until length) {
 		blended[componentIndex] = blendScalar(lower[componentIndex], upper[componentIndex], fraction)
 	}
+
 	return blended
 }
 
@@ -153,7 +155,9 @@ object ChannelValueInterpolator : FormInterpolator<ChannelValue> {
 			}
 
 			// A boolean has no midpoint: the floor cell wins for the whole span, matching the evaluator.
-			is ChannelValue.Flag -> lower
+			is ChannelValue.Flag -> {
+				lower
+			}
 		}
 
 	override fun isExactlyEqual(left: ChannelValue, right: ChannelValue): Boolean = left == right

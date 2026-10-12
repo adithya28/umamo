@@ -11,7 +11,6 @@ import org.umamo.interop.moc3.Moc3Sidecars
 import org.umamo.render.PuppetTextures
 import org.umamo.render.UndecodablePagePolicy
 import org.umamo.render.buildPuppetTextures
-import org.umamo.render.canvasToParentSpaceFor
 import org.umamo.render.encodeAtlasPng
 import org.umamo.render.withTexturePagesFrom
 import java.io.File
@@ -34,10 +33,12 @@ internal fun runConvert(arguments: List<String>): Int {
 	if (arguments.size != 2) {
 		throw CliUsageException("Usage: convert <in> <out>")
 	}
+
 	val loaded = loadInput(arguments[0])
 	val outputFile = File(arguments[1])
 	val outputExtension = outputFile.name.substringAfterLast('.', "").lowercase(Locale.ROOT)
 	outputFile.parentFile?.mkdirs()
+
 	when {
 		loaded is LoadedInput.Cmo3Input && outputExtension == "cmo3" -> {
 			// An unedited graph re-emits its main.xml byte-identically; only the CAFF wrapper differs.
@@ -59,8 +60,11 @@ internal fun runConvert(arguments: List<String>): Int {
 			convertMoc3ToCmo3(loaded, outputFile)
 		}
 
-		else -> throw CliUsageException("Unsupported conversion: ${arguments[0]} -> ${outputFile.name}")
+		else -> {
+			throw CliUsageException("Unsupported conversion: ${arguments[0]} -> ${outputFile.name}")
+		}
 	}
+
 	return 0
 }
 
@@ -102,17 +106,18 @@ private fun convertCmo3ToMoc3Family(loaded: LoadedInput.Cmo3Input, outputFile: F
 			puppet = puppet,
 			basename = basename,
 			pages = pages,
-			canvasToParentSpace = canvasToParentSpaceFor(puppet),
 		)
 
 	// Overwrites without confirmation.
 	val outputDirectory = outputFile.parentFile ?: File(".")
+
 	for (bundleFile in bundle.files) {
 		val target = File(outputDirectory, bundleFile.name)
 		target.parentFile?.mkdirs()
 		target.writeBytes(bundleFile.bytes)
 		println("Wrote ${target.path} (${bundleFile.bytes.size} bytes)")
 	}
+
 	reportNotices(bundle.report)
 }
 
@@ -128,11 +133,13 @@ private fun convertCmo3ToMoc3Family(loaded: LoadedInput.Cmo3Input, outputFile: F
 private fun convertMoc3ToCmo3(loaded: LoadedInput.Moc3Input, outputFile: File) {
 	val puppet = importPuppet(loaded)
 	val presentTextureFiles = loaded.family.textureFiles.filter { textureFile -> textureFile.isFile }
+
 	if (loaded.family.manifest == null) {
 		System.err.println("Warning: no model3.json manifest found beside ${loaded.family.mocFile.name}; converting textureless")
 	} else if (presentTextureFiles.size < loaded.family.textureFiles.size) {
 		System.err.println("Warning: ${loaded.family.textureFiles.size - presentTextureFiles.size} manifest texture(s) missing on disk")
 	}
+
 	val pages =
 		presentTextureFiles.map { textureFile ->
 			val pngBytes = textureFile.readBytes()
@@ -165,7 +172,9 @@ private fun reportNotices(report: ExportReport) {
 	if (report.isEmpty) {
 		return
 	}
+
 	System.err.println("Export notices (${report.notices.size}):")
+
 	for (notice in report.notices) {
 		System.err.println("  ${describeExportNotice(notice)}")
 	}

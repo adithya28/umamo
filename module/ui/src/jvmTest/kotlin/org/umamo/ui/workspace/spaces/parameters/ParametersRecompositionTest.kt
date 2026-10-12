@@ -11,8 +11,8 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.DpSize
 import org.umamo.edit.Selection
 import org.umamo.edit.SelectionTarget
-import org.umamo.edit.rename
-import org.umamo.edit.renameParameter
+import org.umamo.edit.parameter.renameParameter
+import org.umamo.edit.structure.rename
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -84,14 +84,18 @@ internal class ComposableRunCounter(
 	override fun traceEventStart(key: Int, dirty1: Int, dirty2: Int, info: String) {
 		// The name only: the file and the line move with every edit, and the name is what is being pinned.
 		val qualifiedName = info.substringBefore(" (")
+
 		if (!qualifiedName.startsWith(packagePrefix)) {
 			return
 		}
+
 		val name = qualifiedName.removePrefix(packagePrefix)
+
 		// The fixture mounts the panel from this same package; its own lambdas are not the panel's.
 		if (name.startsWith(fixtureFunction)) {
 			return
 		}
+
 		runsByName[name] = (runsByName[name] ?: 0) + 1
 	}
 
@@ -131,6 +135,7 @@ class ParametersRecompositionTest {
 	private fun counting(body: ComposeUiTest.(ComposableRunCounter) -> Unit) {
 		val counter = ComposableRunCounter()
 		Composer.setTracer(counter)
+
 		try {
 			runComposeUiTest { body(counter) }
 		} finally {
@@ -369,6 +374,7 @@ class ParametersRecompositionTest {
 	 */
 	private fun byGrip(test: ComposeUiTest, harness: ParametersPanelHarness, rowIndex: Int, below: Float): Offset {
 		val grip = test.gripBounds(harness, rowIndex).center
+
 		return Offset(grip.x, grip.y + below)
 	}
 

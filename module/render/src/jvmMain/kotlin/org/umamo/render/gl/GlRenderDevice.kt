@@ -10,6 +10,7 @@ import org.lwjgl.opengl.GL21
 import org.lwjgl.opengl.GL30
 import org.lwjgl.opengl.GL31
 import org.lwjgl.opengl.GL32
+import org.lwjgl.opengl.GL33
 import org.umamo.format.raster.RasterImage
 import org.umamo.render.device.DeformCapturePipeline
 import org.umamo.render.device.DeformedPositionStore
@@ -17,6 +18,8 @@ import org.umamo.render.device.FrameEncoder
 import org.umamo.render.device.GpuMesh
 import org.umamo.render.device.GpuTexture
 import org.umamo.render.device.MeshSpec
+import org.umamo.render.device.OverlayMeshBuffers
+import org.umamo.render.device.OverlayMeshSpec
 import org.umamo.render.device.PipelinePurpose
 import org.umamo.render.device.ReadbackTicket
 import org.umamo.render.device.RenderDevice
@@ -29,6 +32,7 @@ import org.umamo.render.device.TextureFilter
 import org.umamo.render.device.TextureFormat
 import org.umamo.render.device.TextureWrap
 import org.umamo.render.glsl.GlslDialect
+import org.umamo.render.glsl.OverlayShape
 import org.umamo.render.glsl.atlasPageVertexShader
 import org.umamo.render.glsl.axisFragmentShader
 import org.umamo.render.glsl.axisVertexShader
@@ -37,6 +41,10 @@ import org.umamo.render.glsl.compositeVertexShader
 import org.umamo.render.glsl.glueVertexShader
 import org.umamo.render.glsl.gridFragmentShader
 import org.umamo.render.glsl.gridVertexShader
+import org.umamo.render.glsl.overlayDotVertexShader
+import org.umamo.render.glsl.overlayEdgeVertexShader
+import org.umamo.render.glsl.overlayFaceFillVertexShader
+import org.umamo.render.glsl.overlayFragmentShader
 import org.umamo.render.glsl.puppetFragmentShader
 import org.umamo.render.glsl.puppetVertexShader
 import org.umamo.render.glsl.tfDeformVertexShader
@@ -53,11 +61,11 @@ import java.nio.ByteBuffer
  *
  * A near-transliteration of this becomes the Android GLES 3.0 device: the calls are the same, differing
  * only in binding style (LWJGL statics vs the GLES out-param form) and the one place GLES 3.0 lacks a
- * texture buffer (the glue store, [createDeformedPositionStore], where the GLES port repacks as a 2D
- * texture behind [DeformedPositionStore]).
+ * texture buffer (the glue and overlay stores, [createDeformedPositionStore], where the GLES port repacks
+ * as a 2D texture behind [DeformedPositionStore]).
  */
 class GlRenderDevice : RenderDevice {
-	// An empty VAO for the attribute-less draws (grid, axis lines, atlas page): a core profile still
+	// An empty VAO for the attribute-less draws (grid, axis lines, image quads): a core profile still
 	// requires a bound VAO even when the vertex shader synthesises its positions from gl_VertexID.
 	private var emptyVao = 0
 
@@ -69,6 +77,7 @@ class GlRenderDevice : RenderDevice {
 		if (emptyVao == 0) {
 			emptyVao = GL30.glGenVertexArrays()
 		}
+
 		return emptyVao
 	}
 
@@ -101,6 +110,7 @@ class GlRenderDevice : RenderDevice {
 			pixelTypeOf(format),
 			pixelBuffer,
 		)
+
 		return GlTexture(handle, filter, wrap)
 	}
 
@@ -114,6 +124,7 @@ class GlRenderDevice : RenderDevice {
 				flip()
 			}
 		GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RG32F, width, height, 0, GL30.GL_RG, GL11.GL_FLOAT, texelBuffer)
+
 		return GlTexture(handle, filter, TextureWrap.ClampToEdge)
 	}
 
@@ -159,6 +170,7 @@ class GlRenderDevice : RenderDevice {
 		}
 
 		var indexEbo = 0
+
 		if (spec.indices.isNotEmpty()) {
 			val indexBuffer =
 				BufferUtils.createIntBuffer(spec.indices.size).apply {
@@ -171,6 +183,7 @@ class GlRenderDevice : RenderDevice {
 		}
 
 		GL30.glBindVertexArray(0)
+
 		return GlMesh(vao, positionVbo, uvVbo, glueVbo, indexEbo, vertexCount, spec.indices.size)
 	}
 
@@ -187,6 +200,7 @@ class GlRenderDevice : RenderDevice {
 		GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer)
 		var colorTexture = 0
 		var colorRenderbuffer = 0
+
 		if (spec.sampled) {
 			colorTexture = GL11.glGenTextures()
 			GL11.glBindTexture(GL11.GL_TEXTURE_2D, colorTexture)
@@ -210,16 +224,22 @@ class GlRenderDevice : RenderDevice {
 			GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, internalFormatOf(spec.format), spec.width, spec.height)
 			GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL30.GL_RENDERBUFFER, colorRenderbuffer)
 		}
+
 		return GlRenderTarget(framebuffer, colorTexture, colorRenderbuffer, spec.width, spec.height)
 	}
 
 	override fun createDeformedPositionStore(vertexCapacity: Int): DeformedPositionStore {
+		// The overlay store is the first one sized to a whole rig, so the texture-buffer limit is checked
+		// here rather than found as a silent read of zeros past the end.
+		val maxTexels = GL11.glGetInteger(GL31.GL_MAX_TEXTURE_BUFFER_SIZE)
+		check(vertexCapacity <= maxTexels) { "a deformed-position store of $vertexCapacity vertices exceeds this GL's texture buffer limit of $maxTexels texels" }
 		val buffer = GL15.glGenBuffers()
 		GL15.glBindBuffer(GL31.GL_TEXTURE_BUFFER, buffer)
 		GL15.glBufferData(GL31.GL_TEXTURE_BUFFER, vertexCapacity.toLong() * 2 * Float.SIZE_BYTES, GL15.GL_DYNAMIC_COPY)
 		val textureBuffer = GL11.glGenTextures()
 		GL11.glBindTexture(GL31.GL_TEXTURE_BUFFER, textureBuffer)
 		GL31.glTexBuffer(GL31.GL_TEXTURE_BUFFER, GL30.GL_RG32F, buffer)
+
 		return GlDeformedPositionStore(buffer, textureBuffer, vertexCapacity)
 	}
 
@@ -227,7 +247,9 @@ class GlRenderDevice : RenderDevice {
 		renderPipelines.getOrPut(spec) {
 			val (vertexSource, fragmentSource) = sourcesFor(spec.purpose)
 			val program = linkGlProgram(vertexSource, fragmentSource, spec.purpose.name)
-			GlRenderPipeline(program, spec.blend, spec.cullBackFaces, GlUniformLocations(program))
+			// The art programs alone write a pass's draw-order buffer; every other program's single output stays on the color target.
+			val writesDrawOrder = spec.purpose == PipelinePurpose.PuppetDeformDraw || spec.purpose == PipelinePurpose.PuppetGlueDraw
+			GlRenderPipeline(program, spec.blend, spec.cullBackFaces, GlUniformLocations(program), writesDrawOrder)
 		}
 
 	override fun createDeformCapturePipeline(): DeformCapturePipeline =
@@ -250,20 +272,133 @@ class GlRenderDevice : RenderDevice {
 		GL30.glDeleteVertexArrays(glMesh.vao)
 		GL15.glDeleteBuffers(glMesh.positionVbo)
 		GL15.glDeleteBuffers(glMesh.uvVbo)
+
 		if (glMesh.glueVbo != 0) {
 			GL15.glDeleteBuffers(glMesh.glueVbo)
 		}
+
 		if (glMesh.indexEbo != 0) {
 			GL15.glDeleteBuffers(glMesh.indexEbo)
+		}
+	}
+
+	override fun updateDeformedPositions(store: DeformedPositionStore, vertexOffset: Int, positions: FloatArray) {
+		val glStore = store as GlDeformedPositionStore
+		check(positions.size % 2 == 0) { "positions come in x, y pairs: ${positions.size} floats" }
+		check(vertexOffset >= 0 && vertexOffset + positions.size / 2 <= glStore.vertexCapacity) {
+			"${positions.size / 2} vertices at $vertexOffset overrun a store of ${glStore.vertexCapacity}"
+		}
+
+		if (uploadScratch.capacity() < positions.size) {
+			uploadScratch = BufferUtils.createFloatBuffer(positions.size)
+		}
+
+		uploadScratch.clear()
+		uploadScratch.put(positions).flip()
+		GL15.glBindBuffer(GL31.GL_TEXTURE_BUFFER, glStore.buffer)
+		GL15.glBufferSubData(GL31.GL_TEXTURE_BUFFER, vertexOffset.toLong() * 2 * Float.SIZE_BYTES, uploadScratch)
+	}
+
+	override fun destroyDeformedPositionStore(store: DeformedPositionStore) {
+		val glStore = store as GlDeformedPositionStore
+		GL11.glDeleteTextures(glStore.textureBuffer)
+		GL15.glDeleteBuffers(glStore.buffer)
+	}
+
+	override fun createOverlayMeshBuffers(spec: OverlayMeshSpec): OverlayMeshBuffers {
+		val edgeCount = spec.edgeEndpoints.size / 2
+		val faceCount = spec.faceCorners.size / 3
+		val vertexCount = spec.vertexFlags.size
+		check(spec.edgeFlags.size == edgeCount) { "one edge flag per edge: ${spec.edgeFlags.size} flags for $edgeCount edges" }
+		check(spec.faceFlags.size == faceCount) { "one face flag per triangle: ${spec.faceFlags.size} flags for $faceCount triangles" }
+		var edgeVao = 0
+		var edgeVbo = 0
+		var edgeFlagVbo = 0
+
+		if (edgeCount > 0) {
+			edgeVao = GL30.glGenVertexArrays()
+			GL30.glBindVertexArray(edgeVao)
+			edgeVbo = uploadIntArrayBuffer(spec.edgeEndpoints)
+			GL20.glEnableVertexAttribArray(0)
+			GL30.glVertexAttribIPointer(0, 2, GL11.GL_INT, 2 * Int.SIZE_BYTES, 0L)
+			GL33.glVertexAttribDivisor(0, 1)
+			edgeFlagVbo = uploadFlagBuffer(spec.edgeFlags)
+			bindFlagAttribute()
+		}
+
+		var faceVao = 0
+		var faceVbo = 0
+		var faceFlagVbo = 0
+
+		if (faceCount > 0) {
+			faceVao = GL30.glGenVertexArrays()
+			GL30.glBindVertexArray(faceVao)
+			faceVbo = uploadIntArrayBuffer(spec.faceCorners)
+			GL20.glEnableVertexAttribArray(0)
+			GL30.glVertexAttribIPointer(0, 3, GL11.GL_INT, 3 * Int.SIZE_BYTES, 0L)
+			GL33.glVertexAttribDivisor(0, 1)
+			faceFlagVbo = uploadFlagBuffer(spec.faceFlags)
+			bindFlagAttribute()
+		}
+
+		var vertexVao = 0
+		var vertexFlagVbo = 0
+
+		if (vertexCount > 0) {
+			vertexVao = GL30.glGenVertexArrays()
+			GL30.glBindVertexArray(vertexVao)
+			vertexFlagVbo = uploadFlagBuffer(spec.vertexFlags)
+			bindFlagAttribute()
+		}
+
+		GL30.glBindVertexArray(0)
+
+		return GlOverlayMeshBuffers(edgeVao, edgeVbo, edgeFlagVbo, edgeCount, faceVao, faceVbo, faceFlagVbo, faceCount, vertexVao, vertexFlagVbo, vertexCount)
+	}
+
+	override fun updateOverlayMeshFlags(buffers: OverlayMeshBuffers, vertexFlags: ByteArray, edgeFlags: ByteArray, faceFlags: ByteArray) {
+		val glBuffers = buffers as GlOverlayMeshBuffers
+		check(vertexFlags.size == glBuffers.vertexCount) { "vertex flags must keep their size: ${vertexFlags.size} for ${glBuffers.vertexCount} vertices" }
+		check(edgeFlags.size == glBuffers.edgeCount) { "edge flags must keep their size: ${edgeFlags.size} for ${glBuffers.edgeCount} edges" }
+		check(faceFlags.size == glBuffers.faceCount) { "face flags must keep their size: ${faceFlags.size} for ${glBuffers.faceCount} triangles" }
+
+		if (glBuffers.vertexFlagVbo != 0) {
+			subDataFlagBuffer(glBuffers.vertexFlagVbo, vertexFlags)
+		}
+
+		if (glBuffers.edgeFlagVbo != 0) {
+			subDataFlagBuffer(glBuffers.edgeFlagVbo, edgeFlags)
+		}
+
+		if (glBuffers.faceFlagVbo != 0) {
+			subDataFlagBuffer(glBuffers.faceFlagVbo, faceFlags)
+		}
+	}
+
+	override fun destroyOverlayMeshBuffers(buffers: OverlayMeshBuffers) {
+		val glBuffers = buffers as GlOverlayMeshBuffers
+
+		for (vao in intArrayOf(glBuffers.edgeVao, glBuffers.faceVao, glBuffers.vertexVao)) {
+			if (vao != 0) {
+				GL30.glDeleteVertexArrays(vao)
+			}
+		}
+
+		for (vbo in intArrayOf(glBuffers.edgeVbo, glBuffers.edgeFlagVbo, glBuffers.faceVbo, glBuffers.faceFlagVbo, glBuffers.vertexFlagVbo)) {
+			if (vbo != 0) {
+				GL15.glDeleteBuffers(vbo)
+			}
 		}
 	}
 
 	override fun destroyRenderTarget(target: RenderTarget) {
 		val glTarget = target as GlRenderTarget
 		GL30.glDeleteFramebuffers(glTarget.framebuffer)
+
 		if (glTarget.colorTexture != 0) {
 			GL11.glDeleteTextures(glTarget.colorTexture)
 		}
+
 		if (glTarget.colorRenderbuffer != 0) {
 			GL30.glDeleteRenderbuffers(glTarget.colorRenderbuffer)
 		}
@@ -290,6 +425,7 @@ class GlRenderDevice : RenderDevice {
 		val glDestination = destination as GlRenderTarget
 		GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, glSource.framebuffer)
 		GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, glDestination.framebuffer)
+
 		// Content sits at GL (0, 0): every pass runs glViewport(0, 0, used, used), so the used region
 		// IS the bottom-left rows.  GL_LINEAR makes the downscale a box filter - the supersample
 		// resolve. On GL this whole primitive IS a blit; on Metal it cannot be (a blit encoder neither
@@ -325,6 +461,7 @@ class GlRenderDevice : RenderDevice {
 				GL11.GL_NEAREST,
 			)
 		}
+
 		GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, glDestination.framebuffer)
 	}
 
@@ -349,6 +486,7 @@ class GlRenderDevice : RenderDevice {
 
 	override fun beginReadback(target: RenderTarget): ReadbackTicket {
 		val glTarget = target as GlRenderTarget
+
 		return beginReadback(glTarget, glTarget.width, glTarget.height)
 	}
 
@@ -364,6 +502,7 @@ class GlRenderDevice : RenderDevice {
 		GL15.glBindBuffer(GL21.GL_PIXEL_PACK_BUFFER, 0)
 		val fence = GL32.glFenceSync(GL32.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
 		GL11.glFlush() // submit the commands + fence so the fence can eventually signal
+
 		return GlReadbackTicket(pbo, fence, usedWidth, usedHeight)
 	}
 
@@ -371,9 +510,11 @@ class GlRenderDevice : RenderDevice {
 		val glTicket = ticket as GlReadbackTicket
 		check(!glTicket.spent) { "pollReadback on a spent ticket" }
 		val status = GL32.glClientWaitSync(glTicket.fence, 0, 0L)
+
 		if (status != GL32.GL_ALREADY_SIGNALED && status != GL32.GL_CONDITION_SATISFIED) {
 			return null // still in flight; the ticket stays live to poll again
 		}
+
 		// The fence signaled, so the read is done and the ticket is consumed HERE - exactly once, whether or
 		// not the map below succeeds. Returning null past this point would make the caller treat a consumed
 		// ticket as still-in-flight and re-poll it, tripping the spent check and killing the render thread.
@@ -384,6 +525,7 @@ class GlRenderDevice : RenderDevice {
 		val mapped: ByteBuffer? = GL15.glMapBuffer(GL21.GL_PIXEL_PACK_BUFFER, GL15.GL_READ_ONLY)
 		val rowBytes = glTicket.width * 4
 		val topDown = ByteArray(rowBytes * glTicket.height)
+
 		if (mapped != null) {
 			// Flip the GL bottom-up rows straight out of the mapped PBO into the API's top-first contract -
 			// one bulk get per row, the direct-buffer equivalent of System.arraycopy.
@@ -391,21 +533,26 @@ class GlRenderDevice : RenderDevice {
 				mapped.position((glTicket.height - 1 - row) * rowBytes)
 				mapped.get(topDown, row * rowBytes, rowBytes)
 			}
+
 			GL15.glUnmapBuffer(GL21.GL_PIXEL_PACK_BUFFER) // only when the map actually succeeded
 		}
+
 		// A map failure (a driver error that should never happen) leaves topDown zero-filled: one black
 		// frame rather than a permanently frozen viewport, and null keeps meaning "still in flight".
 		GL15.glBindBuffer(GL21.GL_PIXEL_PACK_BUFFER, 0)
 		GL32.glDeleteSync(glTicket.fence)
 		freePbos.addLast(glTicket.pbo)
+
 		return RasterImage(glTicket.width, glTicket.height, topDown)
 	}
 
 	override fun cancelReadback(ticket: ReadbackTicket) {
 		val glTicket = ticket as GlReadbackTicket
+
 		if (glTicket.spent) {
 			return
 		}
+
 		glTicket.spent = true
 		GL32.glDeleteSync(glTicket.fence)
 		freePbos.addLast(glTicket.pbo)
@@ -420,17 +567,20 @@ class GlRenderDevice : RenderDevice {
 	 */
 	private fun acquirePbo(capacity: Int): Pbo {
 		val pbo = freePbos.removeFirstOrNull() ?: Pbo(GL15.glGenBuffers(), 0)
+
 		if (pbo.capacity < capacity) {
 			GL15.glBindBuffer(GL21.GL_PIXEL_PACK_BUFFER, pbo.id)
 			GL15.glBufferData(GL21.GL_PIXEL_PACK_BUFFER, capacity.toLong(), GL15.GL_STREAM_READ)
 			GL15.glBindBuffer(GL21.GL_PIXEL_PACK_BUFFER, 0)
 			pbo.capacity = capacity
 		}
+
 		return pbo
 	}
 
 	override fun readPixels(target: RenderTarget): RasterImage {
 		val glTarget = target as GlRenderTarget
+
 		return readPixels(glTarget, glTarget.width, glTarget.height)
 	}
 
@@ -442,6 +592,7 @@ class GlRenderDevice : RenderDevice {
 		GL11.glReadPixels(0, 0, usedWidth, usedHeight, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixels)
 		val bottomUp = ByteArray(usedWidth * usedHeight * 4)
 		pixels.get(bottomUp)
+
 		// GL reads bottom-up; RasterImage is top-first. The flip is this backend's; no caller asks.
 		return RasterImage(usedWidth, usedHeight, flipRowsVertically(bottomUp, usedWidth, usedHeight))
 	}
@@ -451,6 +602,7 @@ class GlRenderDevice : RenderDevice {
 		GL11.glGetIntegerv(GL11.GL_MAX_VIEWPORT_DIMS, viewportDimensions)
 		val textureSize = GL11.glGetInteger(GL11.GL_MAX_TEXTURE_SIZE)
 		val renderbufferSize = GL11.glGetInteger(GL30.GL_MAX_RENDERBUFFER_SIZE)
+
 		return minOf(textureSize, renderbufferSize, viewportDimensions[0], viewportDimensions[1])
 	}
 
@@ -459,6 +611,7 @@ class GlRenderDevice : RenderDevice {
 		val version = GL11.glGetString(GL11.GL_VERSION)
 		val vendor = GL11.glGetString(GL11.GL_VENDOR)
 		val glsl = GL11.glGetString(GL20.GL_SHADING_LANGUAGE_VERSION)
+
 		return "renderer=$renderer | version=$version | vendor=$vendor | glsl=$glsl"
 	}
 
@@ -471,6 +624,10 @@ class GlRenderDevice : RenderDevice {
 			PipelinePurpose.GridBackdrop -> gridVertexShader(DIALECT) to gridFragmentShader(DIALECT)
 			PipelinePurpose.WorldAxisLine -> axisVertexShader(DIALECT) to axisFragmentShader(DIALECT)
 			PipelinePurpose.Composite -> compositeVertexShader(DIALECT) to compositeFragmentShader(DIALECT)
+			PipelinePurpose.OverlayFaceFill -> overlayFaceFillVertexShader(DIALECT) to overlayFragmentShader(DIALECT, OverlayShape.Fill)
+			PipelinePurpose.OverlayEdge -> overlayEdgeVertexShader(DIALECT) to overlayFragmentShader(DIALECT, OverlayShape.Band)
+			PipelinePurpose.OverlayVertexDot -> overlayDotVertexShader(DIALECT, fromFaceCentroid = false) to overlayFragmentShader(DIALECT, OverlayShape.Round)
+			PipelinePurpose.OverlayFaceDot -> overlayDotVertexShader(DIALECT, fromFaceCentroid = true) to overlayFragmentShader(DIALECT, OverlayShape.Round)
 		}
 
 	/**
@@ -489,6 +646,7 @@ class GlRenderDevice : RenderDevice {
 		val glWrap = if (wrap == TextureWrap.ClampToTransparentBorder) GL13.GL_CLAMP_TO_BORDER else GL12.GL_CLAMP_TO_EDGE
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, glWrap)
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, glWrap)
+
 		if (wrap == TextureWrap.ClampToTransparentBorder) {
 			// Transparent AND black: under linear filtering the border's RGB joins the blend across the
 			// art's outermost half-texel, so a border that is merely alpha-zero but colored tints that
@@ -503,6 +661,73 @@ class GlRenderDevice : RenderDevice {
 
 	private fun pixelTypeOf(format: TextureFormat): Int = if (format == TextureFormat.Rgba8) GL11.GL_UNSIGNED_BYTE else GL11.GL_FLOAT
 
+	/**
+	 * Uploads [values] as a static array buffer and leaves it bound, for a VAO being built.
+	 *
+	 * @param IntArray values The per-instance indices.
+	 * @return Int The buffer name.
+	 */
+	private fun uploadIntArrayBuffer(values: IntArray): Int {
+		val buffer =
+			BufferUtils.createIntBuffer(values.size).apply {
+				put(values)
+				flip()
+			}
+		val vbo = GL15.glGenBuffers()
+		GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo)
+		GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buffer, GL15.GL_STATIC_DRAW)
+
+		return vbo
+	}
+
+	/**
+	 * Uploads [flags] as a dynamic array buffer and leaves it bound, for a VAO being built: the flags are
+	 * the part a selection change replaces in place.
+	 *
+	 * @param ByteArray flags The per-instance flags.
+	 * @return Int The buffer name.
+	 */
+	private fun uploadFlagBuffer(flags: ByteArray): Int {
+		val vbo = GL15.glGenBuffers()
+		GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo)
+		GL15.glBufferData(GL15.GL_ARRAY_BUFFER, flagBufferOf(flags), GL15.GL_DYNAMIC_DRAW)
+
+		return vbo
+	}
+
+	/**
+	 * Replaces a flag buffer's contents in place.
+	 *
+	 * @param Int vbo The buffer name.
+	 * @param ByteArray flags The new flags, at the buffer's size.
+	 */
+	private fun subDataFlagBuffer(vbo: Int, flags: ByteArray) {
+		GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo)
+		GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0L, flagBufferOf(flags))
+	}
+
+	/**
+	 * Declares the bound array buffer as the per-instance flag attribute (location 1, one unsigned byte
+	 * per instance) of the VAO being built.
+	 */
+	private fun bindFlagAttribute() {
+		GL20.glEnableVertexAttribArray(1)
+		GL30.glVertexAttribIPointer(1, 1, GL11.GL_UNSIGNED_BYTE, 1, 0L)
+		GL33.glVertexAttribDivisor(1, 1)
+	}
+
+	/**
+	 * A native buffer holding [flags], ready to upload.
+	 *
+	 * @param ByteArray flags The flags.
+	 * @return ByteBuffer The buffer, flipped for reading.
+	 */
+	private fun flagBufferOf(flags: ByteArray): ByteBuffer =
+		BufferUtils.createByteBuffer(flags.size).apply {
+			put(flags)
+			flip()
+		}
+
 	/** Uploads a float array into a fresh GL_ARRAY_BUFFER with the given usage; leaves it bound. */
 	private fun uploadArrayBuffer(values: FloatArray, usage: Int): Int {
 		val buffer =
@@ -513,6 +738,7 @@ class GlRenderDevice : RenderDevice {
 		val vbo = GL15.glGenBuffers()
 		GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo)
 		GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buffer, usage)
+
 		return vbo
 	}
 
@@ -524,6 +750,7 @@ class GlRenderDevice : RenderDevice {
 		if (uploadScratch.capacity() < values.size) {
 			uploadScratch = BufferUtils.createFloatBuffer(values.size)
 		}
+
 		uploadScratch.clear()
 		uploadScratch.put(values).flip()
 		GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo)
@@ -548,12 +775,15 @@ private val DIALECT = GlslDialect.Core330
 private fun interleaveGlueAttributes(attributes: org.umamo.render.puppet.GlueVertexAttributes): ByteBuffer {
 	val vertexCount = attributes.partnerIndex.size
 	val buffer = BufferUtils.createByteBuffer(vertexCount * 3 * Int.SIZE_BYTES)
+
 	for (vertexIndex in 0 until vertexCount) {
 		buffer.putInt(attributes.partnerIndex[vertexIndex])
 		buffer.putInt(attributes.glueIndex[vertexIndex])
 		buffer.putFloat(attributes.weldWeight[vertexIndex])
 	}
+
 	buffer.flip()
+
 	return buffer
 }
 
@@ -571,6 +801,7 @@ internal fun linkGlProgram(vertexSource: String, fragmentSource: String, label: 
 	check(GL20.glGetProgrami(program, GL20.GL_LINK_STATUS) != GL11.GL_FALSE) {
 		"$label program link failed: ${GL20.glGetProgramInfoLog(program)}"
 	}
+
 	return program
 }
 
@@ -581,6 +812,7 @@ internal fun attachGlShaders(vertexSource: String, fragmentSource: String): Int 
 	val program = GL20.glCreateProgram()
 	GL20.glAttachShader(program, vertexShader)
 	GL20.glAttachShader(program, fragmentShader)
+
 	return program
 }
 
@@ -592,5 +824,6 @@ internal fun compileGlShader(stage: Int, source: String): Int {
 	check(GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) != GL11.GL_FALSE) {
 		"GL shader compile failed: ${GL20.glGetShaderInfoLog(shader)}"
 	}
+
 	return shader
 }

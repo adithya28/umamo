@@ -1,5 +1,6 @@
 package org.umamo.render.device
 
+import org.umamo.render.ContentBounds
 import org.umamo.render.GridColors
 import org.umamo.render.glsl.MAX_BLEND_CORNERS
 import org.umamo.render.glsl.MAX_CORNERS
@@ -76,6 +77,10 @@ public class DeformUniforms {
  * @property Float   highlightRed   Highlight tint red.
  * @property Float   highlightGreen Highlight tint green.
  * @property Float   highlightBlue  Highlight tint blue.
+ * @property Int     drawOrder    The drawable's back-to-front index (1 = the backmost) its covering fragments
+ *   write into a pass's draw-order target; 0 writes nothing (a drawable that tints rather than covers).
+ * @property Float   orderOpacity The product of the enclosing composites' opacities, which the drawn alpha is
+ *   scaled by before the order threshold, since a composite's layer draws its children at full opacity.
  * @property FloatArray uvAffine   The 2x3 row-major affine (m00, m01, m02, m10, m11, m12) applied to the
  *   interpolated texture coordinate before sampling.  Identity leaves the stored mapping alone; a
  *   drawable sampling its SOURCE ARTWORK instead of the packed atlas carries the transform between
@@ -102,6 +107,8 @@ public class FragmentUniforms {
 	var highlightRed: Float = 0f
 	var highlightGreen: Float = 0f
 	var highlightBlue: Float = 0f
+	var drawOrder: Int = 0
+	var orderOpacity: Float = 1f
 
 	// Six floats reused in place, like every other value here - see the class contract.  Identity, NOT
 	// zeroes: a zeroed affine collapses every coordinate onto one texel.
@@ -181,7 +188,12 @@ public class CompositeUniforms {
  * @property Float      majorSpacingY  Major line spacing along Y, in world units.
  * @property Int        subdivisions   Minor lines per major cell.
  * @property Float      lineWidthPx    Line half-width in framebuffer pixels (accounts for supersampling).
- * @property GridColors colors         The background / major / minor colors.
+ * @property GridColors colors         The background / major / minor colors, and a UV scene's surround and
+ *   border colors.
+ * @property ContentBounds? surface    The shown surface a UV scene draws (world units), or null for the 2D
+ *   viewport's unbounded grid: with a surface the grid paints only inside it, the border just outside its
+ *   edge, and the surround color beyond.
+ * @property Float      frameWidthPx   The border's width in framebuffer pixels (render scale applied).
  */
 public data class GridUniforms(
 	val worldToNdc: WorldToNdc,
@@ -194,6 +206,8 @@ public data class GridUniforms(
 	val subdivisions: Int,
 	val lineWidthPx: Float,
 	val colors: GridColors,
+	val surface: ContentBounds? = null,
+	val frameWidthPx: Float = 0f,
 )
 
 /**
@@ -212,3 +226,32 @@ public data class AxisLineUniforms(
 	val green: Float,
 	val blue: Float,
 )
+
+/**
+ * One mesh-overlay draw's inputs.  MUTABLE AND REUSED on the [DeformUniforms] contract: the backend
+ * marshals every field at the draw and retains nothing.
+ *
+ * The camera comes from [RenderPassEncoder.setCamera]; the viewport here is the PASS viewport in
+ * framebuffer pixels (not the side-target capacity the screen-texture size names), since the lines and
+ * dots are expanded in pixels.  The size is the line half-width or the dot radius, with the render scale
+ * already applied.  The colors are STRAIGHT RGBA; the shader premultiplies.  An active draw paints ONE
+ * primitive, the one at the active indices (a vertex dot uses A, an edge A and B, a face dot all three),
+ * in the active color, ignoring the instance buffers.  The face fill has no active draw.  An edge draw
+ * with a cull order at or above zero reads the frame's draw-order texture and leaves out every fragment
+ * under a drawable drawn in front of its own; -1 culls nothing, the other domains never read it.
+ */
+public class OverlayDrawUniforms {
+	var baseOffset: Int = 0
+	var viewportWidth: Float = 0f
+	var viewportHeight: Float = 0f
+	var sizePx: Float = 0f
+	var fillIdle: Boolean = true
+	val idleColor: FloatArray = FloatArray(4)
+	val selectedColor: FloatArray = FloatArray(4)
+	val activeColor: FloatArray = FloatArray(4)
+	var activeDraw: Boolean = false
+	var activeIndexA: Int = -1
+	var activeIndexB: Int = -1
+	var activeIndexC: Int = -1
+	var cullOrder: Int = -1
+}

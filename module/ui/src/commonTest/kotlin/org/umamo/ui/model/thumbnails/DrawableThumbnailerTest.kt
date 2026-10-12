@@ -39,14 +39,17 @@ class DrawableThumbnailerTest {
 		val width = 4
 		val height = 4
 		val rgba = ByteArray(width * height * 4)
+
 		// Black fill, then four distinct corners within the left-half crop (columns 0..1).
 		for (offset in 3 until rgba.size step 4) {
 			rgba[offset] = 255.toByte() // opaque
 		}
+
 		setPixel(rgba, width, 0, 0, Color.Red)
 		setPixel(rgba, width, 1, 0, Color.Green)
 		setPixel(rgba, width, 0, 3, Color.Blue)
 		setPixel(rgba, width, 1, 3, Color.Yellow)
+
 		return DecodedImage(rgba, width, height)
 	}
 
@@ -57,7 +60,7 @@ class DrawableThumbnailerTest {
 			parentDeformerId = null,
 			blendMode = BlendMode.Normal,
 			maskedBy = emptyList(),
-			mesh = DrawableMesh(positions = positions, uvs = uvs, indices = intArrayOf()),
+			mesh = DrawableMesh.withLocalEqualToCanvas(positions = positions, uvs = uvs, indices = intArrayOf()),
 			geometryGrid = null,
 		)
 
@@ -75,6 +78,7 @@ class DrawableThumbnailerTest {
 	/** A one-part model: [part] owns every [drawables] entry (membership lives in the org tree). */
 	private fun partModel(partId: String, drawables: List<Drawable>): PuppetModel {
 		val part = Part(PartId(partId), partId.uppercase(), drawables.map { OrgChild.Drawable(it.id) })
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = listOf(part),
@@ -90,11 +94,13 @@ class DrawableThumbnailerTest {
 		val width = 4
 		val height = 4
 		val rgba = ByteArray(width * height * 4)
+
 		for (y in 0 until height) {
 			for (x in 0 until width) {
 				setPixel(rgba, width, x, y, if (x < 2) Color.Red else Color.Green)
 			}
 		}
+
 		return DecodedImage(rgba, width, height)
 	}
 
@@ -167,11 +173,13 @@ class DrawableThumbnailerTest {
 		assertEquals(Color.Red.toArgb(), thumbnailer.thumbnailFor(DrawableId("mesh"))!!.toPixelMap()[0, 0].toArgb())
 
 		val greenEverywhere = ByteArray(4 * 4 * 4)
+
 		for (y in 0 until 4) {
 			for (x in 0 until 4) {
 				setPixel(greenEverywhere, 4, x, y, Color.Green)
 			}
 		}
+
 		thumbnailer.setTextures(
 			PuppetTextures(listOf(DecodedImage(greenEverywhere, 4, 4)), mapOf("mesh" to 0), premultipliedAlpha = false),
 		)

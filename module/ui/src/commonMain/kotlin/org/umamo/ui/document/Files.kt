@@ -36,6 +36,7 @@ fun isFileSystemPath(path: String): Boolean = !path.contains("://")
 fun saveSuggestedName(displayName: String): String {
 	val dot = displayName.lastIndexOf('.')
 	val extension = if (dot > 0) displayName.substring(dot + 1) else ""
+
 	return if (extension.length in 1..MAXIMUM_EXTENSION_LENGTH && extension.all { character -> character.isLetterOrDigit() }) {
 		displayName.substring(0, dot)
 	} else {

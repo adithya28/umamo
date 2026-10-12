@@ -63,6 +63,7 @@ internal fun selfChecks(): List<SelfCheck> =
 	listOf(
 		SelfCheck("runtime") {
 			val javaHome = System.getProperty("java.home")
+
 			// Under a jpackage launcher the runtime must be the one the image carries, not a JDK on the machine that
 			// happens to satisfy every other check.
 			if (System.getProperty(PACKAGED_VERSION_PROPERTY) != null) {
@@ -71,6 +72,7 @@ internal fun selfChecks(): List<SelfCheck> =
 					"the runtime at ${Path.of(javaHome).toRealPath()} is not the app's own, under ${Path.of(launcherPath).toRealPath().parent.parent}"
 				}
 			}
+
 			"Java ${System.getProperty("java.version")} (${System.getProperty("java.vendor")}) at $javaHome"
 		},
 		SelfCheck("modules") {
@@ -185,6 +187,7 @@ internal fun runSelfCheck(
 	val reportFile = reportPath?.let { path -> File(path) }
 	reportFile?.writeText("")
 	var failures = 0
+
 	for (selfCheck in checks) {
 		val line =
 			try {
@@ -196,9 +199,11 @@ internal fun runSelfCheck(
 		output(line)
 		reportFile?.appendText(line + "\n")
 	}
+
 	val summary = if (failures == 0) "self-check: every check passed" else "self-check: $failures check(s) failed"
 	output(summary)
 	reportFile?.appendText(summary + "\n")
+
 	return if (failures == 0) 0 else 1
 }
 

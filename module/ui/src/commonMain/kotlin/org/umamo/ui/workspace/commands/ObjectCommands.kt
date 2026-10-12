@@ -6,8 +6,8 @@ import org.umamo.edit.PartChange
 import org.umamo.edit.Selection
 import org.umamo.edit.SelectionOps
 import org.umamo.edit.SelectionTarget
-import org.umamo.edit.visibilityOf
-import org.umamo.edit.withSelectionVisibility
+import org.umamo.edit.structure.visibilityOf
+import org.umamo.edit.structure.withSelectionVisibility
 import org.umamo.ui.action.Command
 import org.umamo.ui.action.CommandHint
 import org.umamo.ui.model.SelectionHandle
@@ -40,6 +40,7 @@ internal fun objectCommands(
 		) {
 			val current = selection?.selection
 			val active = current?.active
+
 			if (editorSession != null && active != null && !current.isEmpty) {
 				// Flip relative to the active target's current state, applied to the whole selection, so a
 				// mixed selection toggles consistently rather than each entity independently.
@@ -47,10 +48,13 @@ internal fun objectCommands(
 				val change =
 					when (active) {
 						is SelectionTarget.Part -> PartChange.SetVisibility(active.id, newVisible)
+
 						is SelectionTarget.Drawable -> DrawableChange.SetVisibility(active.id, newVisible)
+
 						// A deformer has no visibility flag; nothing to toggle.
 						is SelectionTarget.Deformer -> null
 					}
+
 				if (change != null) {
 					editorSession.mutate(change) { model -> model.withSelectionVisibility(current.targets, newVisible) }
 				}
@@ -60,6 +64,7 @@ internal fun objectCommands(
 		// subtree replaces the selection; without one (the palette) the current selection expands in place.
 		Command("outliner.selectHierarchy", title = Res.string.cmd_outliner_select_hierarchy, availability = availability.hasDocument) { argument ->
 			val live = editorSession
+
 			if (live != null) {
 				val seed = (argument as? SelectionTarget)?.let { target -> Selection(setOf(target), target) } ?: live.selection.value
 				live.setSelection(SelectionOps.selectHierarchy(seed, live.model.value))

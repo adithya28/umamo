@@ -53,10 +53,13 @@ class MorphTargetJoinProbeTest {
 	fun joinModelAMorphTargetsAgainstBakedRecords() {
 		val cmo3File = modelACmo3
 		val moc3File = modelAMoc3
+
 		if (cmo3File == null || moc3File == null) {
 			println("Model A corpus pair not present; skipping morph-target join probe")
+
 			return
 		}
+
 		val root = Cmo3.read(cmo3File).root as? CModelSource ?: error("root is not a CModelSource")
 
 		val parameterSources =
@@ -87,9 +90,11 @@ class MorphTargetJoinProbeTest {
 		fun groupsOf(kind: String, morphSet: Any?, sourceId: Any?, orderIndex: Int): List<MorphGroup> {
 			val set = morphSet as? KeyFormMorphTargetSet ?: return emptyList()
 			val targets = elements(set._morphTargets).filterIsInstance<KeyFormMorphTarget>()
+
 			if (targets.isEmpty()) {
 				return emptyList()
 			}
+
 			return targets.groupBy { (it.parameterGuid as? Guid)?.uuid }.mapNotNull { (uuid, group) ->
 				val parameter = uuid?.let(parameterByUuid::get) ?: return@mapNotNull null
 				MorphGroup(
@@ -131,12 +136,15 @@ class MorphTargetJoinProbeTest {
 			parameterSources.filter { (it.paramType as? Type) == Type.MORPH_TARGET }
 				.mapNotNull { (it.id as? Id)?.idstr }
 		println("[probe] E4: distinct driving params=${drivingParams.size}, MORPH_TARGET-typed params=${morphTypedParams.size}")
+
 		for ((parameterId, parameterType) in drivingParams) {
 			if (parameterType != "MORPH_TARGET") {
 				println("[probe] E4: driving param $parameterId has paramType=$parameterType")
 			}
 		}
+
 		val unusedMorphParams = morphTypedParams.toSet() - drivingParams.map { it.first }.toSet()
+
 		if (unusedMorphParams.isNotEmpty()) {
 			println("[probe] E4: MORPH_TARGET params driving nothing: $unusedMorphParams")
 		}
@@ -153,40 +161,58 @@ class MorphTargetJoinProbeTest {
 		var neutralAtDefault = 0
 		var neutralInCmo3Keys = 0
 		var keySetMatchesWithNeutralAdded = 0
+
 		for (record in records) {
 			val parameterId = document.parameters[record.parameterIndex].id
 			val group =
 				when (record.target) {
-					BlendShapeTarget.PART -> null // part morph targets are not collected CMO3-side yet
-					BlendShapeTarget.ART_MESH ->
+					BlendShapeTarget.PART -> {
+						null
+					}
+
+					// part morph targets are not collected CMO3-side yet
+					BlendShapeTarget.ART_MESH -> {
 						meshGroups.firstOrNull { it.sourceId == document.artMeshes[record.targetIndex].id && it.parameterId == parameterId }
-					BlendShapeTarget.WARP ->
+					}
+
+					BlendShapeTarget.WARP -> {
 						warpGroups.firstOrNull { warpIndexToDeformer.getOrNull(it.sourceOrderIndex) == record.targetIndex && it.parameterId == parameterId }
-					BlendShapeTarget.ROTATION ->
+					}
+
+					BlendShapeTarget.ROTATION -> {
 						rotationGroups.firstOrNull { rotationIndexToDeformer.getOrNull(it.sourceOrderIndex) == record.targetIndex && it.parameterId == parameterId }
+					}
 				}
 			val mocKeys = record.keyPositions.toList()
 			val neutralValue = record.keyPositions.getOrNull(record.neutralKeyIndex)
 			val parameterDefault = document.parameters[record.parameterIndex].defaultValue
+
 			if (group == null) {
 				println("[probe] UNMATCHED moc record: ${record.target} target=${record.targetIndex} param=$parameterId keys=$mocKeys neutral=$neutralValue")
+
 				continue
 			}
+
 			matched++
+
 			if (neutralValue == parameterDefault) {
 				neutralAtDefault++
 			}
+
 			if (group.keyValues.any { it == neutralValue }) {
 				neutralInCmo3Keys++
 			}
+
 			if ((group.keyValues + listOfNotNull(neutralValue)).distinct().sorted() == mocKeys.distinct().sorted()) {
 				keySetMatchesWithNeutralAdded++
 			}
+
 			println(
 				"[probe] ${record.target} ${group.sourceId} param=$parameterId cmo3Keys=${group.keyValues} " +
 					"mocKeys=$mocKeys neutralIdx=${record.neutralKeyIndex} neutralVal=$neutralValue default=$parameterDefault",
 			)
 		}
+
 		println(
 			"[probe] E3 summary: records=${records.size} matched=$matched groups=${allGroups.size} " +
 				"neutralAtDefault=$neutralAtDefault neutralInCmo3Keys=$neutralInCmo3Keys keySetMatchesWithNeutralAdded=$keySetMatchesWithNeutralAdded",
@@ -217,6 +243,7 @@ class MorphTargetJoinProbeTest {
 			mocMultiset,
 			"E3 rule: moc keys = cmo3 keys + neutral inserted at the parameter default",
 		)
+
 		for (record in records) {
 			kotlin.test.assertEquals(
 				document.parameters[record.parameterIndex].defaultValue,
@@ -253,16 +280,21 @@ class MorphTargetJoinProbeTest {
 			System.getProperty("moc3.samples")?.let(::File)?.takeIf { it.isDirectory }
 				?.walkTopDown()?.filter { it.isFile && it.extension == "moc3" }?.sortedBy { it.name }?.toList()
 				.orEmpty()
+
 		if (samples.isEmpty()) {
 			println("moc3.samples not present; skipping neutral-delta probe")
+
 			return
 		}
+
 		for (file in samples) {
 			val model = org.umamo.format.moc3.moc.MocCodec.read(file.readBytes())
 			val document = Moc3.decode(model)
+
 			if (document.blendShapes.isEmpty()) {
 				continue
 			}
+
 			val sections = model.sections
 			val positionValues = sections.floatArray(org.umamo.format.moc3.moc.Section.KEYFORM_POSITION_VALUES)
 			val meshPositionIndex = sections.intArray(org.umamo.format.moc3.moc.Section.KEYFORM_POSITION_INDEX)
@@ -276,6 +308,7 @@ class MorphTargetJoinProbeTest {
 			val recordBinding = sections.intArray(org.umamo.format.moc3.moc.Section.BLENDSHAPE_RECORD_BINDING)
 			val bindingKeyCount = sections.intArray(org.umamo.format.moc3.moc.Section.BLENDSHAPE_BINDING_KEY_COUNT)
 			val recordKeyCount = sections.intArray(org.umamo.format.moc3.moc.Section.BLENDSHAPE_RECORD_KEY_COUNT)
+
 			for (recordIndex in document.blendShapes.indices) {
 				kotlin.test.assertEquals(
 					bindingKeyCount[recordBinding[recordIndex]],
@@ -290,19 +323,24 @@ class MorphTargetJoinProbeTest {
 			var meshChecked = 0
 			var warpChecked = 0
 			var rotationChecked = 0
+
 			for (record in document.blendShapes) {
 				val neutralRow = record.recordBase + record.neutralKeyIndex
+
 				when (record.target) {
 					BlendShapeTarget.ART_MESH -> {
 						val blockLength = document.artMeshes[record.targetIndex].keyforms.first().vertexPositions.size
 						val offset = meshPositionIndex[neutralRow]
+
 						for (valueIndex in offset until offset + blockLength) {
 							assertTrue(positionValues[valueIndex] == 0f, "${file.name}: mesh neutral delta zero at $valueIndex")
 						}
+
 						for (keyIndex in record.keyforms.indices) {
 							val typed = record.keyforms[keyIndex] as org.umamo.format.moc3.model.BlendShapeKeyform.Mesh
 							val rawOffset = meshPositionIndex[record.recordBase + keyIndex]
 							kotlin.test.assertEquals(blockLength, typed.form.vertexPositions.size, "${file.name}: typed mesh block length")
+
 							for (valueIndex in 0 until blockLength) {
 								assertTrue(
 									typed.form.vertexPositions[valueIndex] == positionValues[rawOffset + valueIndex],
@@ -310,19 +348,24 @@ class MorphTargetJoinProbeTest {
 								)
 							}
 						}
+
 						meshChecked++
 					}
+
 					BlendShapeTarget.WARP -> {
 						val warp = document.deformers[record.targetIndex] as org.umamo.format.moc3.model.WarpDeformer
 						val blockLength = warp.keyforms.first().controlPoints.size
 						val offset = warpPositionIndex[neutralRow]
+
 						for (valueIndex in offset until offset + blockLength) {
 							assertTrue(positionValues[valueIndex] == 0f, "${file.name}: warp neutral delta zero at $valueIndex")
 						}
+
 						for (keyIndex in record.keyforms.indices) {
 							val typed = record.keyforms[keyIndex] as org.umamo.format.moc3.model.BlendShapeKeyform.Warp
 							val rawOffset = warpPositionIndex[record.recordBase + keyIndex]
 							kotlin.test.assertEquals(blockLength, typed.form.controlPoints.size, "${file.name}: typed warp block length")
+
 							for (valueIndex in 0 until blockLength) {
 								assertTrue(
 									typed.form.controlPoints[valueIndex] == positionValues[rawOffset + valueIndex],
@@ -330,13 +373,16 @@ class MorphTargetJoinProbeTest {
 								)
 							}
 						}
+
 						warpChecked++
 					}
+
 					BlendShapeTarget.ROTATION -> {
 						assertTrue(rotationAngle[neutralRow] == 0f, "${file.name}: rotation neutral angle zero")
 						assertTrue(rotationOriginX[neutralRow] == 0f, "${file.name}: rotation neutral originX zero")
 						assertTrue(rotationOriginY[neutralRow] == 0f, "${file.name}: rotation neutral originY zero")
 						assertTrue(rotationScale[neutralRow] == 0f, "${file.name}: rotation neutral scale zero")
+
 						for (keyIndex in record.keyforms.indices) {
 							val typed = record.keyforms[keyIndex] as org.umamo.format.moc3.model.BlendShapeKeyform.Rotation
 							val rawRow = record.recordBase + keyIndex
@@ -345,8 +391,10 @@ class MorphTargetJoinProbeTest {
 							assertTrue(typed.form.originY == rotationOriginY[rawRow], "${file.name}: typed rotation originY equals raw at key $keyIndex")
 							assertTrue(typed.form.scale == rotationScale[rawRow], "${file.name}: typed rotation scale equals raw at key $keyIndex")
 						}
+
 						rotationChecked++
 					}
+
 					BlendShapeTarget.PART -> {
 						// MOC3 v5+ §5.6: part delta rows are draw-order floats in section 58 at
 						// recordBase (verified on Model C: [-900, 0], neutral zero) - the typed
@@ -354,6 +402,7 @@ class MorphTargetJoinProbeTest {
 					}
 				}
 			}
+
 			println("[probe] ${file.name}: neutral-zero + typed-extraction verified mesh=$meshChecked warp=$warpChecked rotation=$rotationChecked")
 		}
 	}

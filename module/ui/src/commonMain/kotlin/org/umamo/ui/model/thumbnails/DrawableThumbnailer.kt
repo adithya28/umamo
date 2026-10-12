@@ -101,6 +101,7 @@ class DrawableThumbnailer(
 		if (next === textures) {
 			return
 		}
+
 		textures = next
 		cropCache.clear()
 		boundsCache.clear()
@@ -121,16 +122,20 @@ class DrawableThumbnailer(
 	fun updateModel(model: PuppetModel) {
 		val previousById = drawableById
 		val newById = model.drawables.associateBy { it.id }
+
 		for (drawable in model.drawables) {
 			val previous = previousById[drawable.id] ?: continue
+
 			if (drawable.mesh?.uvs !== previous.mesh?.uvs) {
 				cropCache.remove(drawable.id)
 				thumbnailCache.remove(drawable.id)
 			}
+
 			if (drawable.mesh?.positions !== previous.mesh?.positions) {
 				boundsCache.remove(drawable.id)
 			}
 		}
+
 		for (removedId in previousById.keys) {
 			if (removedId !in newById) {
 				cropCache.remove(removedId)
@@ -138,6 +143,7 @@ class DrawableThumbnailer(
 				boundsCache.remove(removedId)
 			}
 		}
+
 		drawableById = newById
 		uvsByDrawable = uvsFor(model.drawables)
 		currentDrawables = model.drawables
@@ -187,15 +193,19 @@ class DrawableThumbnailer(
 	fun partRasterFor(id: PartId): RasterImage? {
 		val subtree = partSubtree(id)
 		val members = ArrayList<Pair<RawCrop, ModelBounds>>()
+
 		for (drawable in currentDrawables) {
 			val owningPartId = currentDrawableOwner[drawable.id] ?: continue
+
 			if (owningPartId !in subtree) {
 				continue
 			}
+
 			val crop = croppedFor(drawable.id) ?: continue
 			val bounds = modelBoundsOf(drawable.id) ?: continue
 			members += crop to bounds
 		}
+
 		return compositeOf(members)?.let { composite -> RasterImage(composite.width, composite.height, composite.rgba) }
 	}
 
@@ -210,14 +220,17 @@ class DrawableThumbnailer(
 	 */
 	fun modelRasterFor(): RasterImage? {
 		val members = ArrayList<Pair<RawCrop, ModelBounds>>()
+
 		for (drawable in currentDrawables) {
 			if (!drawable.isVisible) {
 				continue
 			}
+
 			val crop = croppedFor(drawable.id) ?: continue
 			val bounds = modelBoundsOf(drawable.id) ?: continue
 			members += crop to bounds
 		}
+
 		return compositeOf(members)?.let { composite -> RasterImage(composite.width, composite.height, composite.rgba) }
 	}
 
@@ -239,31 +252,40 @@ class DrawableThumbnailer(
 		val atlasIndex = textures.atlasIndexByDrawableId[(drawable.textureSourceId ?: drawable.id).raw] ?: return null
 		val image = textures.atlases.getOrNull(atlasIndex) ?: return null
 		val uvs = uvsByDrawable[id] ?: return null
+
 		if (uvs.isEmpty()) {
 			return null
 		}
+
 		var minU = Float.POSITIVE_INFINITY
 		var maxU = Float.NEGATIVE_INFINITY
 		var minV = Float.POSITIVE_INFINITY
 		var maxV = Float.NEGATIVE_INFINITY
 		var pairIndex = 0
+
 		while (pairIndex < uvs.size - 1) {
 			val texU = uvs[pairIndex]
 			val texV = uvs[pairIndex + 1]
+
 			if (texU < minU) {
 				minU = texU
 			}
+
 			if (texU > maxU) {
 				maxU = texU
 			}
+
 			if (texV < minV) {
 				minV = texV
 			}
+
 			if (texV > maxV) {
 				maxV = texV
 			}
+
 			pairIndex += 2
 		}
+
 		// UV bounding box → texel rectangle, clamped to the atlas and at least one texel on each side.
 		val cropLeft = floor(minU * image.width).toInt().coerceIn(0, image.width - 1)
 		val cropTop = floor(minV * image.height).toInt().coerceIn(0, image.height - 1)
@@ -278,10 +300,12 @@ class DrawableThumbnailer(
 		val rowBytes = thumbWidth * 4
 		val pixels = ByteArray(rowBytes * thumbHeight)
 		var destRow = 0
+
 		while (destRow < thumbHeight) {
 			// Nearest-neighbor: map the destination texel back to a source texel within the crop rectangle.
 			val sourceRow = cropTop + (destRow * cropHeight) / thumbHeight
 			var destColumn = 0
+
 			while (destColumn < thumbWidth) {
 				val sourceColumn = cropLeft + (destColumn * cropWidth) / thumbWidth
 				val sourceOffset = (sourceRow * image.width + sourceColumn) * 4
@@ -292,8 +316,10 @@ class DrawableThumbnailer(
 				pixels[destOffset + 3] = image.rgba[sourceOffset + 3]
 				destColumn += 1
 			}
+
 			destRow += 1
 		}
+
 		return RawCrop(pixels, thumbWidth, thumbHeight)
 	}
 
@@ -308,34 +334,44 @@ class DrawableThumbnailer(
 	 */
 	private fun computeBounds(id: DrawableId): ModelBounds? {
 		val positions = drawableById[id]?.mesh?.positions ?: return null
+
 		if (positions.size < 2) {
 			return null
 		}
+
 		var minX = Float.POSITIVE_INFINITY
 		var maxX = Float.NEGATIVE_INFINITY
 		var minY = Float.POSITIVE_INFINITY
 		var maxY = Float.NEGATIVE_INFINITY
 		var pairIndex = 0
+
 		while (pairIndex < positions.size - 1) {
 			val positionX = positions[pairIndex]
 			val positionY = positions[pairIndex + 1]
+
 			if (positionX < minX) {
 				minX = positionX
 			}
+
 			if (positionX > maxX) {
 				maxX = positionX
 			}
+
 			if (positionY < minY) {
 				minY = positionY
 			}
+
 			if (positionY > maxY) {
 				maxY = positionY
 			}
+
 			pairIndex += 2
 		}
+
 		if (minX > maxX || minY > maxY) {
 			return null
 		}
+
 		return ModelBounds(minX, minY, maxX, maxY)
 	}
 
@@ -344,13 +380,17 @@ class DrawableThumbnailer(
 		val collected = LinkedHashSet<PartId>()
 		val pending = ArrayDeque<PartId>()
 		pending.addLast(rootPartId)
+
 		while (pending.isNotEmpty()) {
 			val partId = pending.removeLast()
+
 			if (!collected.add(partId)) {
 				continue
 			}
+
 			currentPartChildren[partId]?.forEach { childPartId -> pending.addLast(childPartId) }
 		}
+
 		return collected
 	}
 
@@ -369,32 +409,41 @@ class DrawableThumbnailer(
 		var unionMaxX = Float.NEGATIVE_INFINITY
 		var unionMinY = Float.POSITIVE_INFINITY
 		var unionMaxY = Float.NEGATIVE_INFINITY
+
 		for ((_, bounds) in members) {
 			if (bounds.minX < unionMinX) {
 				unionMinX = bounds.minX
 			}
+
 			if (bounds.maxX > unionMaxX) {
 				unionMaxX = bounds.maxX
 			}
+
 			if (bounds.minY < unionMinY) {
 				unionMinY = bounds.minY
 			}
+
 			if (bounds.maxY > unionMaxY) {
 				unionMaxY = bounds.maxY
 			}
 		}
+
 		if (members.isEmpty()) {
 			return null
 		}
+
 		val unionWidth = unionMaxX - unionMinX
 		val unionHeight = unionMaxY - unionMinY
+
 		if (unionWidth <= 0f || unionHeight <= 0f) {
 			return null
 		}
+
 		val scale = PART_COMPOSITE_MAX_DIMENSION.toFloat() / max(unionWidth, unionHeight)
 		val compositeWidth = (unionWidth * scale).roundToInt().coerceIn(1, PART_COMPOSITE_MAX_DIMENSION)
 		val compositeHeight = (unionHeight * scale).roundToInt().coerceIn(1, PART_COMPOSITE_MAX_DIMENSION)
 		val pixels = ByteArray(compositeWidth * compositeHeight * 4)
+
 		for ((crop, bounds) in members) {
 			// Map model bounds straight into composite pixels: Cubism's rest-pose mesh Y runs top-down, the
 			// same direction as the atlas crop's rows (which display upright as the single-drawable preview),
@@ -406,6 +455,7 @@ class DrawableThumbnailer(
 			val bottom = (bounds.maxY - unionMinY) / unionHeight * compositeHeight
 			blitOver(pixels, compositeWidth, compositeHeight, crop, left, top, right, bottom)
 		}
+
 		return RawCrop(pixels, compositeWidth, compositeHeight)
 	}
 
@@ -435,28 +485,35 @@ class DrawableThumbnailer(
 	) {
 		val spanWidth = rightEdge - leftEdge
 		val spanHeight = bottomEdge - topEdge
+
 		if (spanWidth <= 0f || spanHeight <= 0f) {
 			return
 		}
+
 		val firstColumn = floor(leftEdge).toInt().coerceIn(0, destinationWidth)
 		val lastColumn = ceil(rightEdge).toInt().coerceIn(0, destinationWidth)
 		val firstRow = floor(topEdge).toInt().coerceIn(0, destinationHeight)
 		val lastRow = ceil(bottomEdge).toInt().coerceIn(0, destinationHeight)
 		var destRow = firstRow
+
 		while (destRow < lastRow) {
 			val normalizedY = (destRow + 0.5f - topEdge) / spanHeight
 			val sourceRow = (normalizedY * crop.height).toInt().coerceIn(0, crop.height - 1)
 			var destColumn = firstColumn
+
 			while (destColumn < lastColumn) {
 				val normalizedX = (destColumn + 0.5f - leftEdge) / spanWidth
 				val sourceColumn = (normalizedX * crop.width).toInt().coerceIn(0, crop.width - 1)
 				val sourceOffset = (sourceRow * crop.width + sourceColumn) * 4
 				val sourceAlpha = crop.rgba[sourceOffset + 3].toInt() and 0xFF
+
 				if (sourceAlpha != 0) {
 					overComposite(destination, (destRow * destinationWidth + destColumn) * 4, crop.rgba, sourceOffset, sourceAlpha)
 				}
+
 				destColumn += 1
 			}
+
 			destRow += 1
 		}
 	}
@@ -474,10 +531,13 @@ class DrawableThumbnailer(
 		val sourceAlphaFraction = sourceAlpha / 255f
 		val destinationAlphaFraction = (destination[destinationOffset + 3].toInt() and 0xFF) / 255f
 		val outAlphaFraction = sourceAlphaFraction + destinationAlphaFraction * (1f - sourceAlphaFraction)
+
 		if (outAlphaFraction <= 0f) {
 			return
 		}
+
 		var channelIndex = 0
+
 		while (channelIndex < 3) {
 			val sourceChannel = (source[sourceOffset + channelIndex].toInt() and 0xFF) / 255f
 			val destinationChannel = (destination[destinationOffset + channelIndex].toInt() and 0xFF) / 255f
@@ -485,6 +545,7 @@ class DrawableThumbnailer(
 			destination[destinationOffset + channelIndex] = (outChannel * 255f).roundToInt().coerceIn(0, 255).toByte()
 			channelIndex += 1
 		}
+
 		destination[destinationOffset + 3] = (outAlphaFraction * 255f).roundToInt().coerceIn(0, 255).toByte()
 	}
 

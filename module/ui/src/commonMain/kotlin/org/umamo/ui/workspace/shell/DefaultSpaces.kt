@@ -43,7 +43,7 @@ fun defaultSpaceRegistry(): SpaceRegistry {
 					SpaceKind.Viewport2D,
 					Res.string.space_viewport2d,
 					LocalUmamoIcons.spaceViewport,
-					headerContent = { viewport2DHeaderControls() },
+					headerContent = { scope -> viewport2DHeaderControls(scope) },
 				) { scope -> Viewport2DBody(scope) },
 			SpaceKind.UvEditor to
 				SpaceDescriptor(
@@ -107,5 +107,6 @@ fun defaultSpaceRegistry(): SpaceRegistry {
 					headerContent = { logsHeaderControls() },
 				) { LogsSpace() },
 		)
+
 	return SpaceRegistry(descriptors)
 }

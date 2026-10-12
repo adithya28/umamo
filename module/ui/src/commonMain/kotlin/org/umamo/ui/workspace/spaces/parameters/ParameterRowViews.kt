@@ -20,9 +20,11 @@ import androidx.compose.ui.unit.dp
 import org.umamo.edit.EditorSession
 import org.umamo.edit.ParameterMoveSubject
 import org.umamo.edit.ParameterSelection
-import org.umamo.edit.RowDropBand
-import org.umamo.edit.renameParameter
-import org.umamo.edit.renameParameterGroup
+import org.umamo.edit.parameter.renameParameter
+import org.umamo.edit.parameter.renameParameterGroup
+import org.umamo.edit.parameter.setParameterLink
+import org.umamo.edit.parameter.setParameterRange
+import org.umamo.edit.structure.RowDropBand
 import org.umamo.runtime.model.ParameterId
 import org.umamo.ui.kit.menu.ContextMenuArea
 import org.umamo.ui.kit.menu.MenuItem
@@ -131,6 +133,7 @@ internal fun ParameterRowView(
 				}
 			},
 		)
+
 		// The row's content takes the width the grip leaves.  The weight is handed down from here because
 		// it exists only in this Row's scope.
 		when (row) {
@@ -235,6 +238,7 @@ private fun ParameterGroupRow(
 					if (!foldLocked) {
 						expandedGroups[row.groupId] = !(expandedGroups[row.groupId] ?: row.expanded)
 					}
+
 					viewState.renamingGroupId = row.groupId
 				},
 			)
@@ -316,6 +320,7 @@ private fun ParameterSliderRow(
 				onCommitValue = { newValue -> pose.commitValue(parameter.id, newValue) },
 				link = link,
 			)
+
 			if (rangeOpen) {
 				RangeFieldsRow(
 					parameter = parameter,
@@ -409,6 +414,7 @@ private fun ParameterPadRow(
 				onCommitValue = { id, newValue -> pose.commitValue(id, newValue) },
 				link = link,
 			)
+
 			if (rangeOpen) {
 				// One range row per axis, each captioned with its axis name (user
 				// data, never localized).

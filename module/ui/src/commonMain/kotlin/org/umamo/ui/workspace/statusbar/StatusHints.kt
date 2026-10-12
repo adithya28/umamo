@@ -72,11 +72,14 @@ internal fun everyStatusHintFor(commands: List<Command>, keymap: Keymap, hovered
 	// groupBy keeps first-occurrence order (a LinkedHashMap), so a group sits where its first member does.
 	val membersByLabel = tiered.groupBy({ (label, _) -> label }, { (_, command) -> command })
 	val hints = mutableListOf<StatusHint>()
+
 	for ((label, members) in membersByLabel) {
 		val chords = members.mapNotNull { member -> keymap.chordFor(member.id) }
+
 		if (chords.size == members.size) {
 			hints.add(StatusHint(chords, label))
 		}
 	}
+
 	return hints
 }

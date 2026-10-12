@@ -77,10 +77,17 @@ data class ImageExportOptions(
  */
 fun ImageExportOptions.frameBackdrop(): FrameBackdrop =
 	when (background) {
-		ImageBackground.Transparent -> FrameBackdrop.Transparent
-		ImageBackground.Grid -> FrameBackdrop.Grid
+		ImageBackground.Transparent -> {
+			FrameBackdrop.Transparent
+		}
+
+		ImageBackground.Grid -> {
+			FrameBackdrop.Grid
+		}
+
 		ImageBackground.Solid -> {
 			val color = parseHexColor(solidColorHex)
+
 			if (color == null) {
 				FrameBackdrop.Clear(1f, 1f, 1f, 1f)
 			} else {
@@ -164,12 +171,19 @@ fun resolveImageFrame(
 				)
 			}
 
-			ImageRegion.Canvas -> framedBounds(canvasBounds ?: return ImageFrameResult.NoCanvas, scale)
-			ImageRegion.Content -> framedBounds(contentBounds ?: return ImageFrameResult.NothingVisible, scale)
+			ImageRegion.Canvas -> {
+				framedBounds(canvasBounds ?: return ImageFrameResult.NoCanvas, scale)
+			}
+
+			ImageRegion.Content -> {
+				framedBounds(contentBounds ?: return ImageFrameResult.NothingVisible, scale)
+			}
 		}
+
 	if (frame.width > MAX_IMAGE_EDGE || frame.height > MAX_IMAGE_EDGE) {
 		return ImageFrameResult.TooLarge(frame.width, frame.height)
 	}
+
 	return ImageFrameResult.Framed(frame)
 }
 
@@ -184,6 +198,7 @@ fun resolveImageFrame(
 fun fitSquare(bounds: ContentBounds, edge: Int): ImageFrame {
 	require(edge > 0) { "a square frame needs a positive edge, got $edge" }
 	val zoom = edge / maxOf(bounds.width, bounds.height)
+
 	return ImageFrame(ViewportCamera(bounds.minX + bounds.width / 2f, bounds.minY + bounds.height / 2f, zoom), edge, edge)
 }
 

@@ -41,6 +41,7 @@ class AtlasRepackFlowTest {
 				geometryGrid = null,
 				atlasTileId = boundId,
 			)
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = emptyList(),
@@ -149,5 +150,8 @@ class AtlasRepackFlowTest {
 		val fixingPlaced = input.itemsFor(keepPinned = true, fixPlaced = true)
 		assertEquals(listOf(pinnedForm, placedForm, null), fixingPlaced.map { item -> item.fixed }, "placed fixed: every placed tile stays, the fresh one packs")
 		assertTrue(fixingPlaced[2] === fresh, "a free item is the same instance")
+		val freeingOne = input.itemsFor(keepPinned = true, fixPlaced = true, freeKeys = setOf("placed"))
+		assertEquals(listOf(pinnedForm, null, null), freeingOne.map { item -> item.fixed }, "a tile named free packs again while the rest hold still")
+		assertTrue(freeingOne[1] === placed, "the freed item is the same instance")
 	}
 }

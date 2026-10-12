@@ -32,16 +32,21 @@ data class KeyChord(
  */
 fun parseKeyChord(spec: String): KeyChord? {
 	val tokens = spec.split('+').map { token -> token.trim() }.filter { token -> token.isNotEmpty() }
+
 	if (tokens.isEmpty()) {
 		return null
 	}
+
 	val keyName = tokens.last()
+
 	if (keyName.isEmpty()) {
 		return null
 	}
+
 	var primaryModifier = false
 	var shift = false
 	var alt = false
+
 	for (modifierIndex in 0 until tokens.size - 1) {
 		when (tokens[modifierIndex].lowercase()) {
 			"primary", "cmd", "ctrl", "control" -> primaryModifier = true
@@ -50,6 +55,7 @@ fun parseKeyChord(spec: String): KeyChord? {
 			else -> return null
 		}
 	}
+
 	return KeyChord(keyName, primaryModifier, shift, alt)
 }
 
@@ -67,12 +73,15 @@ fun chordToSpec(chord: KeyChord): String =
 		if (chord.primaryModifier) {
 			add("primary")
 		}
+
 		if (chord.shift) {
 			add("shift")
 		}
+
 		if (chord.alt) {
 			add("alt")
 		}
+
 		add(chord.keyName)
 	}.joinToString(separator = "+")
 
@@ -107,6 +116,7 @@ class Keymap(private val commandIdByChord: Map<KeyChord, String>) {
 				return chord
 			}
 		}
+
 		return null
 	}
 
@@ -128,10 +138,12 @@ class Keymap(private val commandIdByChord: Map<KeyChord, String>) {
 		 */
 		fun fromSpecs(specs: Map<String, String>): Keymap {
 			val resolved = LinkedHashMap<KeyChord, String>()
+
 			for ((spec, commandId) in specs) {
 				val chord = parseKeyChord(spec) ?: continue
 				resolved[chord] = commandId
 			}
+
 			return Keymap(resolved)
 		}
 	}
@@ -197,6 +209,7 @@ private val DEFAULT_KEYMAP_SPECS: Map<String, String> =
 		"NumpadDecimal" to "view.frameSelected",
 		"shift+KeyD" to "mesh.duplicate",
 		"KeyM" to "mesh.merge",
+		"shift+KeyM" to "mesh.generateFromArt",
 		"KeyV" to "mesh.rip",
 		"KeyJ" to "mesh.connect",
 		"shift+KeyV" to "mesh.vertexSlide",
@@ -204,6 +217,7 @@ private val DEFAULT_KEYMAP_SPECS: Map<String, String> =
 		"alt+KeyO" to "mesh.proportional.connectedToggle",
 		"KeyT" to "view.toggleToolbar",
 		"KeyN" to "view.toggleSidebar",
+		"shift+alt+KeyZ" to "view.overlay.all",
 		"primary+Comma" to "edit.preferences",
 		"primary+Digit0" to "view.fit",
 		"primary+Digit1" to "view.zoomActualSize",
@@ -300,6 +314,7 @@ private val BLENDER_KEYMAP_SPECS: Map<String, String> =
 		"NumpadDecimal" to "view.frameSelected",
 		"shift+KeyD" to "mesh.duplicate",
 		"KeyM" to "mesh.merge",
+		"shift+KeyM" to "mesh.generateFromArt",
 		"KeyV" to "mesh.rip",
 		"KeyJ" to "mesh.connect",
 		"shift+KeyV" to "mesh.vertexSlide",
@@ -307,6 +322,7 @@ private val BLENDER_KEYMAP_SPECS: Map<String, String> =
 		"alt+KeyO" to "mesh.proportional.connectedToggle",
 		"KeyT" to "view.toggleToolbar",
 		"KeyN" to "view.toggleSidebar",
+		"shift+alt+KeyZ" to "view.overlay.all",
 		"primary+Comma" to "edit.preferences",
 		// Blender's Home is Frame All in WHICHEVER editor the pointer is over, so a single context-aware
 		// binding covers both cases; two separate Home entries would collide silently under mapOf's
@@ -331,10 +347,12 @@ private val BLENDER_KEYMAP_SPECS: Map<String, String> =
  */
 private fun presetSpecs(vararg bindings: Pair<String, String>): Map<String, String> {
 	val byChord = LinkedHashMap<String, String>(bindings.size)
+
 	for ((chord, commandId) in bindings) {
 		val previous = byChord.put(chord, commandId)
 		require(previous == null) { "duplicate chord $chord: bound to both $previous and $commandId" }
 	}
+
 	return byChord
 }
 

@@ -50,6 +50,7 @@ public object FormatRegistry {
 	public fun detect(bytes: ByteArray, fileName: String? = null): FormatCodec<*>? {
 		codecs.firstOrNull { codec -> codec.matches(bytes) }?.let { return it }
 		val kind = fileName?.let(::kindForFileName) ?: return null
+
 		return forKind(kind)
 	}
 
@@ -66,9 +67,11 @@ public object FormatRegistry {
 	 */
 	public fun kindForFileName(fileName: String): FileKind? {
 		val extension = fileName.substringAfterLast('.', "").lowercase()
+
 		if (extension.isEmpty()) {
 			return null
 		}
+
 		return codecs.map { codec -> codec.kind }
 			.firstOrNull { kind -> kind.extension == extension || extension in kind.extensionAliases }
 	}

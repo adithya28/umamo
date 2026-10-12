@@ -25,11 +25,13 @@ class Cmo3AtlasUndedupTest {
 
 	private fun page(): Cmo3Conversion.AtlasPage {
 		val rgba = ByteArray(pageSize * pageSize * 4)
+
 		for (rowIndex in 12 until 19) {
 			for (columnIndex in 10 until 15) {
 				rgba.fill(0xFF.toByte(), (rowIndex * pageSize + columnIndex) * 4, (rowIndex * pageSize + columnIndex) * 4 + 4)
 			}
 		}
+
 		return Cmo3Conversion.AtlasPage(PngCodec.write(RasterImage(pageSize, pageSize, rgba)), pageSize, pageSize)
 	}
 
@@ -40,7 +42,7 @@ class Cmo3AtlasUndedupTest {
 			parentDeformerId = null,
 			blendMode = BlendMode.Normal,
 			maskedBy = emptyList(),
-			mesh = DrawableMesh(positions = positions, uvs = uvs.copyOf(), indices = indices.copyOf()),
+			mesh = DrawableMesh.withLocalEqualToCanvas(positions = positions, uvs = uvs.copyOf(), indices = indices.copyOf()),
 			geometryGrid = null,
 		)
 
@@ -81,6 +83,7 @@ class Cmo3AtlasUndedupTest {
 		val sourcePage = PngCodec.read(page().pngBytes)
 		val extraPage = PngCodec.read(result.pages[1].pngBytes)
 		var componentIndex = 0
+
 		while (componentIndex + 1 < uvs.size) {
 			// Sample just inside the quad corner so both lookups stay in range.
 			val sourceX = (uvs[componentIndex] * pageSize).toInt().coerceIn(0, pageSize - 1)
@@ -92,6 +95,7 @@ class Cmo3AtlasUndedupTest {
 			val insideSourceY = sourceY + (14 - 4)
 			val insideNewX = newX + (12 - 4)
 			val insideNewY = newY + (14 - 4)
+
 			if (insideSourceX in 0 until pageSize &&
 				insideSourceY in 0 until pageSize &&
 				insideNewX in 0 until extraPage.width &&
@@ -103,8 +107,10 @@ class Cmo3AtlasUndedupTest {
 					"pixel content under the remapped uvs matches",
 				)
 			}
+
 			componentIndex += 2
 		}
+
 		// The block itself must be present somewhere opaque on the synthesized page.
 		assertTrue(extraPage.rgba.indices.step(4).any { offset -> extraPage.rgba[offset + 3].toInt() != 0 }, "the extra page carries pixels")
 	}
@@ -129,6 +135,7 @@ class Cmo3AtlasUndedupTest {
 
 	private fun widePage(blocks: List<IntArray>): Cmo3Conversion.AtlasPage {
 		val rgba = ByteArray(wideSize * wideSize * 4)
+
 		for (block in blocks) {
 			for (rowIndex in block[1] until block[3]) {
 				for (columnIndex in block[0] until block[2]) {
@@ -140,6 +147,7 @@ class Cmo3AtlasUndedupTest {
 				}
 			}
 		}
+
 		return Cmo3Conversion.AtlasPage(PngCodec.write(RasterImage(wideSize, wideSize, rgba)), wideSize, wideSize)
 	}
 
@@ -150,7 +158,7 @@ class Cmo3AtlasUndedupTest {
 			parentDeformerId = null,
 			blendMode = BlendMode.Normal,
 			maskedBy = emptyList(),
-			mesh = DrawableMesh(positions = FloatArray(slotUvs.size) { index -> slotUvs[index] * wideSize + if (index % 2 == 0) shiftX else 0f }, uvs = slotUvs.copyOf(), indices = indices.copyOf()),
+			mesh = DrawableMesh.withLocalEqualToCanvas(positions = FloatArray(slotUvs.size) { index -> slotUvs[index] * wideSize + if (index % 2 == 0) shiftX else 0f }, uvs = slotUvs.copyOf(), indices = indices.copyOf()),
 			geometryGrid = null,
 		)
 
@@ -168,10 +176,12 @@ class Cmo3AtlasUndedupTest {
 		// The remap is a whole-pixel translation: read it off the first vertex.
 		val deltaX = Math.round(newUvs[0] * newPage.width - slotUvs[0] * sourcePage.width)
 		val deltaY = Math.round(newUvs[1] * newPage.height - slotUvs[1] * sourcePage.height)
+
 		for (rowIndex in rect[1] until rect[3]) {
 			for (columnIndex in rect[0] until rect[2]) {
 				val sourceOffset = (rowIndex * source.width + columnIndex) * 4
 				val newOffset = ((rowIndex + deltaY) * newPage.width + columnIndex + deltaX) * 4
+
 				for (channel in 0 until 4) {
 					assertEquals(source.rgba[sourceOffset + channel], newPage.rgba[newOffset + channel], "$drawableId pixel ($columnIndex, $rowIndex) channel $channel")
 				}
@@ -224,6 +234,7 @@ class Cmo3AtlasUndedupTest {
 	 */
 	private fun decodedStandIn(page: Cmo3Conversion.AtlasPage): Cmo3Conversion.AtlasPage {
 		val blank = PngCodec.write(RasterImage(page.width, page.height, ByteArray(page.width * page.height * 4)))
+
 		return Cmo3Conversion.AtlasPage(blank, page.width, page.height, decoded = PngCodec.read(page.pngBytes))
 	}
 
@@ -238,6 +249,7 @@ class Cmo3AtlasUndedupTest {
 		assertEquals(expected.sharedDrawableIds, actual.sharedDrawableIds)
 		assertEquals(expected.pageIndexByDrawableId, actual.pageIndexByDrawableId)
 		assertEquals(expected.pages.map { page -> page.width to page.height }, actual.pages.map { page -> page.width to page.height })
+
 		for (drawable in expected.puppet.drawables) {
 			assertContentEquals(drawable.mesh?.uvs, actual.puppet.drawables.single { candidate -> candidate.id == drawable.id }.mesh?.uvs, "${drawable.id.raw} uvs")
 		}
@@ -264,6 +276,7 @@ class Cmo3AtlasUndedupTest {
 				),
 			)
 		val pageIndexByDrawableId = mapOf("A1" to 0, "A2" to 0, "B1" to 1, "B2" to 1, "C1" to 0, "C2" to 0)
+
 		return Triple(model, pages, pageIndexByDrawableId)
 	}
 
@@ -285,6 +298,7 @@ class Cmo3AtlasUndedupTest {
 		val fromDecoded = Cmo3AtlasUndedup.undeduplicate(model, pages.map { page -> decodedStandIn(page) }, pageIndexByDrawableId)
 
 		assertSameUndedup(fromBytes, fromDecoded)
+
 		for (pageIndex in pages.size until fromBytes.pages.size) {
 			assertContentEquals(fromBytes.pages[pageIndex].pngBytes, fromDecoded.pages[pageIndex].pngBytes, "synthesized page $pageIndex")
 		}
@@ -299,6 +313,7 @@ class Cmo3AtlasUndedupTest {
 		for (pageIndex in handedOver.indices) {
 			assertSame(handedOver[pageIndex], result.pages[pageIndex], "a source page passes through as handed over")
 		}
+
 		for (pageIndex in handedOver.size until result.pages.size) {
 			assertNull(result.pages[pageIndex].decoded, "synthesized page $pageIndex is decoded when the image chain reaches it")
 		}

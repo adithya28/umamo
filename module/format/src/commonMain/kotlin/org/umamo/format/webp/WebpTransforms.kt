@@ -46,6 +46,7 @@ internal interface WebpTransform {
 internal class SubtractGreenTransform : WebpTransform {
 	override fun applyInverse(raster: WebpRaster) {
 		val rgba = ByteArray(4)
+
 		for (y in 0 until raster.height) {
 			for (x in 0 until raster.width) {
 				raster.getPixel(x, y, rgba)
@@ -64,6 +65,7 @@ internal class ColorIndexingTransform(private val colorTable: ByteArray, private
 		val componentSize = 8 shr bits
 		val packed = 1 shl bits
 		val componentMask = (1 shl componentSize) - 1
+
 		for (y in 0 until raster.height) {
 			// Reversed so packed source samples are not overwritten before they are read.
 			for (x in raster.width - 1 downTo 0) {
@@ -83,6 +85,7 @@ internal class ColorTransform(private val data: WebpRaster, private val bits: In
 	override fun applyInverse(raster: WebpRaster) {
 		val transformPixel = ByteArray(4)
 		val rgba = ByteArray(4)
+
 		for (y in 0 until raster.height) {
 			for (x in 0 until raster.width) {
 				data.getPixel(x shr bits, y shr bits, transformPixel)
@@ -155,7 +158,10 @@ internal class PredictorTransform(private val data: WebpRaster, private val bits
 				val topRightY = if (x == width - 1) y else topY
 
 				when (mode) {
-					PredictorMode.BLACK -> rgba[3] = (rgba[3] + 0xff).toByte()
+					PredictorMode.BLACK -> {
+						rgba[3] = (rgba[3] + 0xff).toByte()
+					}
+
 					PredictorMode.L -> {
 						raster.getPixel(leftX, y, predictor)
 						addPixels(rgba, predictor)
@@ -248,6 +254,7 @@ internal class PredictorTransform(private val data: WebpRaster, private val bits
 						addPixels(rgba, predictor)
 					}
 				}
+
 				raster.setPixel(x, y, rgba)
 			}
 		}
@@ -296,6 +303,7 @@ private fun select(left: ByteArray, top: ByteArray, topLeft: ByteArray): ByteArr
 	val predictedBlue = addSubtractFull(left[2], top[2], topLeft[2])
 	val distanceLeft = manhattanDistance(left, predictedAlpha, predictedRed, predictedGreen, predictedBlue)
 	val distanceTop = manhattanDistance(top, predictedAlpha, predictedRed, predictedGreen, predictedBlue)
+
 	return if (distanceLeft < distanceTop) left else top
 }
 

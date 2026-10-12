@@ -157,6 +157,7 @@ fun <T> RelationField(
 	val commit: (T?) -> Unit = { value ->
 		onSelect(value)
 		query = ""
+
 		// ONLY when this field actually holds focus.  The clear "x" is shown while unfocused, and clearing
 		// focus from there would null the shell root's focus owner - killing every keyboard shortcut until
 		// Tab traversal reclaims it (the same hazard IconButton.suppressFocus exists to avoid).  Blurring a
@@ -175,11 +176,13 @@ fun <T> RelationField(
 					if (!open || event.type != KeyEventType.KeyDown) {
 						return@onPreviewKeyEvent false
 					}
+
 					when (event.key) {
 						Key.DirectionDown -> {
 							if (filtered.isNotEmpty()) {
 								highlighted = (safeIndex + 1) % filtered.size
 							}
+
 							true
 						}
 
@@ -187,6 +190,7 @@ fun <T> RelationField(
 							if (filtered.isNotEmpty()) {
 								highlighted = (safeIndex - 1 + filtered.size) % filtered.size
 							}
+
 							true
 						}
 
@@ -201,7 +205,9 @@ fun <T> RelationField(
 							true
 						}
 
-						else -> false
+						else -> {
+							false
+						}
 					}
 				},
 	) {
@@ -217,12 +223,14 @@ fun <T> RelationField(
 			verticalAlignment = Alignment.CenterVertically,
 		) {
 			val leadingGlyph = selected?.let(icon)
+
 			if (leadingGlyph != null) {
 				Canvas(modifier = Modifier.size(RELATION_GLYPH_SIZE)) {
 					drawIcon(leadingGlyph, colors.textMuted)
 				}
 				Spacer(modifier = Modifier.width(4.dp))
 			}
+
 			BasicTextField(
 				value = fieldText,
 				onValueChange = { newText -> query = newText },
@@ -257,10 +265,12 @@ fun <T> RelationField(
 								maxLines = 1,
 							)
 						}
+
 						inner()
 					}
 				},
 			)
+
 			if (selected != null && !focused) {
 				IconButton(
 					icon = LocalUmamoIcons.close,
@@ -270,6 +280,7 @@ fun <T> RelationField(
 					glyphSize = 12.dp,
 				)
 			}
+
 			if (onPick != null) {
 				IconButton(
 					icon = LocalUmamoIcons.eyedropper,
@@ -281,6 +292,7 @@ fun <T> RelationField(
 				)
 			}
 		}
+
 		if (open) {
 			val anchorWidth = with(density) { anchorWidthPx.toDp() }
 			Popup(

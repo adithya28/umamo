@@ -26,10 +26,13 @@ class AtlasPackCorpusTest {
 	@Test
 	fun packingInvariantsHoldOnCorpusDocuments() {
 		val samples = locateLayeredCorpusSamples()
+
 		if (samples.isEmpty()) {
 			println("no test/corpus directory; skipping atlas-pack corpus test")
+
 			return
 		}
+
 		for ((sample, reader) in samples) {
 			checkSample(sample, reader)
 		}
@@ -45,8 +48,10 @@ class AtlasPackCorpusTest {
 		val options = AtlasPackOptions(maxPageSize = 4096)
 		val art = reader.read(sample.readBytes())
 		val items = art.atlasPackItems { layer -> layer.kind == SourceLayerKind.Raster }
+
 		if (items.isEmpty()) {
 			println("checked ${sample.name}: no raster layers")
+
 			return
 		}
 
@@ -61,6 +66,7 @@ class AtlasPackCorpusTest {
 		)
 		assertTilesRoundTripByteExact(items, result)
 		assertNoTileOverlap(result, options.gutter)
+
 		for ((pageIndex, page) in result.pages.withIndex()) {
 			val decoded = PngCodec.read(PngCodec.write(page))
 			assertEquals(page.width, decoded.width, "${sample.name}: page $pageIndex width survives PNG")
@@ -74,6 +80,7 @@ class AtlasPackCorpusTest {
 			repacked.placements,
 			"${sample.name}: an unchanged document must repack identically",
 		)
+
 		for (pageIndex in result.pages.indices) {
 			assertContentEquals(
 				result.pages[pageIndex].rgba,
@@ -81,6 +88,7 @@ class AtlasPackCorpusTest {
 				"${sample.name}: page $pageIndex pixels must repack identically",
 			)
 		}
+
 		val occupancy =
 			result.pages.indices.joinToString(", ") { pageIndex ->
 				val page = result.pages[pageIndex]

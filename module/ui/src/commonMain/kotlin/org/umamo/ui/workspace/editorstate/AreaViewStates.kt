@@ -45,15 +45,19 @@ class AreaViewStates(private val restoredAreas: JsonObject? = null) {
 	 */
 	fun restoredCameras(): Map<AreaCameraKey, ViewportCamera> {
 		val cameras = HashMap<AreaCameraKey, ViewportCamera>()
+
 		for ((areaId, block) in restoredAreas.orEmpty()) {
 			val saved = (block as? JsonObject)?.get(AREA_CAMERAS_MEMBER) as? JsonObject ?: continue
+
 			for (surface in CameraSurface.entries) {
 				val (centerX, centerY, zoom) = floatListOf(saved, cameraSurfaceWireName(surface), 3) ?: continue
+
 				if (zoom > 0f) {
 					cameras[AreaCameraKey(areaId, surface)] = ViewportCamera(centerX, centerY, zoom)
 				}
 			}
 		}
+
 		return cameras
 	}
 
@@ -82,12 +86,14 @@ class AreaViewStates(private val restoredAreas: JsonObject? = null) {
 	 */
 	fun gather(cameras: Map<AreaCameraKey, ViewportCamera> = emptyMap()): JsonObject {
 		val inLayout = layoutAreaIds.toHashSet()
+
 		return buildJsonObject {
 			for (staleAreaId in restoredAreas?.keys.orEmpty()) {
 				if (staleAreaId !in inLayout) {
 					put(staleAreaId, JsonNull)
 				}
 			}
+
 			for (areaId in layoutAreaIds) {
 				val spaces = scopesByAreaId[areaId]?.gather()
 				val views =
@@ -96,9 +102,11 @@ class AreaViewStates(private val restoredAreas: JsonObject? = null) {
 							?.takeIf { view -> view.centerX.isFinite() && view.centerY.isFinite() && view.zoom.isFinite() }
 							?.let { view -> surface to view }
 					}
+
 				if (spaces == null && views.isEmpty()) {
 					continue
 				}
+
 				put(
 					areaId,
 					buildJsonObject {
@@ -114,6 +122,7 @@ class AreaViewStates(private val restoredAreas: JsonObject? = null) {
 								},
 							)
 						}
+
 						spaces?.forEach { (memberName, member) -> put(memberName, member) }
 					},
 				)

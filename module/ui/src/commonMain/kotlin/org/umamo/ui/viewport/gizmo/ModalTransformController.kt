@@ -19,17 +19,22 @@ import org.umamo.render.ViewportCamera
  */
 internal interface ModalTransformTarget {
 	/**
-	 * Re-derives the live preview for the given wrap-continuous pointer and pushes it to the renderer.
+	 * Submits a drive of the live preview for the given wrap-continuous pointer: the request resolves here,
+	 * on the UI thread, and the preview reaches the renderer when the target's drive worker publishes it
+	 * (ModalDriveWorker), so this returns in microseconds however heavy the drive.
 	 *
 	 * @param Offset virtualPointer The wrap-continuous pointer in screen pixels.
 	 * @param ViewportCamera camera The area camera.
 	 * @param IntSize size The area size in pixels.
-	 * @return Boolean True when a preview was driven; false when there is nothing to drive yet (the
+	 * @return Boolean True when a drive was submitted; false when there is nothing to drive yet (the
 	 *   gesture capture has not landed), which also skips the cursor wrap for the event.
 	 */
 	fun drivePreview(virtualPointer: Offset, camera: ViewportCamera, size: IntSize): Boolean
 
-	/** Commits the in-flight gesture (a primary click; Enter arrives via the confirm-request bus). */
+	/**
+	 * Commits the in-flight gesture (a primary click; Enter arrives via the confirm-request bus), at the
+	 * latest pointer: a drive the worker has not published yet is settled first.
+	 */
 	fun confirm()
 
 	/** Cancels the in-flight gesture (a right-click; Escape arrives via the session's operator clear). */
@@ -84,38 +89,48 @@ internal class ModalTransformController(
 		areaScreenOrigin: Offset?,
 	): Offset {
 		var pointer = change.position
+
 		when (event.type) {
 			PointerEventType.Move, PointerEventType.Exit -> {
 				// Discard stale pre-warp events, keeping the HUD anchored at the landing instead of
 				// flicking back to the old edge (see CursorWrapState.resolveArrival).
 				val staleLanding = cursorWrap.resolveArrival(change.position, size)
+
 				if (staleLanding != null) {
 					change.consume()
+
 					return staleLanding
 				}
+
 				// Drive from the virtual pointer so the transform stays continuous across wraps (what
 				// makes Scale / Rotate unbounded), then wrap at the viewport edge, folding the ACTUAL
 				// landing into the wrap offset (see CursorWrapState.maybeWrap).
 				if (target.drivePreview(cursorWrap.virtualPointer(change.position), camera, size)) {
 					val landed = cursorWrap.maybeWrap(change.position, size, areaScreenOrigin)
+
 					if (landed != null) {
 						pointer = landed
 					}
 				}
 			}
 
-			PointerEventType.Press ->
+			PointerEventType.Press -> {
 				if (event.buttons.isSecondaryPressed) {
 					target.cancel()
 				} else if (event.buttons.isPrimaryPressed) {
 					target.confirm()
 				}
+			}
 
-			PointerEventType.Scroll -> target.onScroll(change.scrollDelta.y, camera, size)
+			PointerEventType.Scroll -> {
+				target.onScroll(change.scrollDelta.y, camera, size)
+			}
 
 			else -> {}
 		}
+
 		change.consume()
+
 		return pointer
 	}
 }
