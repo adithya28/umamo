@@ -12,7 +12,8 @@ import kotlin.test.assertTrue
 
 /**
  * The signed distance field: its zero on the shared edge, signs, values against brute force,
- * max-pooling, the aligned padded crop reaching past the raster, seeds, the grid cap, and sampling.
+ * max-pooling, the aligned padded crop reaching past the raster, seed points and seed triangles, the
+ * grid cap, and sampling.
  */
 class AlphaFieldTest {
 	@Test
@@ -98,6 +99,25 @@ class AlphaFieldTest {
 	}
 
 	@Test
+	fun seedTrianglesCountAsOpaqueAndASliverJoinsItsCorners() {
+		val raster = rasterOfRows("....", ".#..", "....")
+		// A filled triangle past the raster's right edge, and a sliver from the art pixel out to it too
+		// thin to hold any pixel center.
+		val triangles = doubleArrayOf(10.0, 0.0, 16.0, 0.0, 10.0, 6.0, 1.5, 1.5, 12.5, 2.5, 1.6, 1.6)
+		val field = assertNotNull(raster.alphaField(alphaThreshold = 1, cellSize = 1, paddingCells = 2, seedTriangles = triangles))
+		assertTrue(field.isOpaquePixel(11, 1), "a center the filled triangle holds")
+		assertFalse(field.isOpaquePixel(15, 5), "a center past its long edge")
+
+		for (column in 2..9) {
+			assertTrue((1..2).any { row -> field.isOpaquePixel(column, row) }, "the sliver crosses column $column")
+		}
+
+		assertTrue(field.gridLeft + field.columns * field.cellSize > 16, "the grid reaches the triangle past the raster")
+		assertEquals(1, field.opaquePixelCount, "seed triangles are not art")
+		assertNull(rasterOfRows("....").alphaField(alphaThreshold = 1, cellSize = 1, paddingCells = 2, seedTriangles = triangles), "seed triangles alone make no field")
+	}
+
+	@Test
 	fun theGridCapGrowsTheCell() {
 		val raster = rasterOfMask(100, 3) { _, row -> row == 1 }
 		val field = assertNotNull(raster.alphaField(alphaThreshold = 1, cellSize = 1, paddingCells = 2, maximumGridSide = 20))
@@ -128,6 +148,8 @@ class AlphaFieldTest {
 		assertFailsWith<IllegalArgumentException> { raster.alphaField(alphaThreshold = 1, cellSize = 1, paddingCells = 0) }
 		assertFailsWith<IllegalArgumentException> { raster.alphaField(alphaThreshold = 1, cellSize = 1, paddingCells = 2, seeds = doubleArrayOf(1.0)) }
 		assertFailsWith<IllegalArgumentException> { raster.alphaField(alphaThreshold = 1, cellSize = 1, paddingCells = 2, seeds = doubleArrayOf(Double.NaN, 0.0)) }
+		assertFailsWith<IllegalArgumentException> { raster.alphaField(alphaThreshold = 1, cellSize = 1, paddingCells = 2, seedTriangles = DoubleArray(5)) }
+		assertFailsWith<IllegalArgumentException> { raster.alphaField(alphaThreshold = 1, cellSize = 1, paddingCells = 2, seedTriangles = doubleArrayOf(0.0, 0.0, 1.0, 0.0, Double.NaN, 1.0)) }
 	}
 
 	/**

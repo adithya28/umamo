@@ -22,8 +22,14 @@ import org.umamo.runtime.model.storedToArtAffineForTile
  * coordinates, because they are what both meshes share and what moving a drawable at rest or in
  * Object mode leaves alone.  One set of weights then builds everything the vertex carries:
  *
- *   - A PINNED vertex (an old vertex some glue pair names, handed to the mesher as a fixed point) is
- *     that old vertex: it copies its geometry, deltas, and UV, and keeps its glue pairs.
+ *   - A PINNED vertex (an old vertex some glue pair names and some triangle uses, handed to the mesher
+ *     as a fixed point together with the old triangles around it, which the mesher counts as art so the
+ *     pin stays joined to the surface) is that old vertex: it copies its geometry, deltas, and UV, and
+ *     keeps its glue pairs.
+ *   - A CARRIED vertex (an old vertex some glue pair names but no triangle uses - a split mesh keeps
+ *     these so its glue can pull the piece that does draw there) is not part of the surface, so it is
+ *     never meshed around: it follows the generated vertices, still used by no triangle, as that old
+ *     vertex with its glue pairs.
  *   - A vertex exactly on an old vertex copies it the same way but claims no glue.
  *   - A vertex inside the old mesh blends the corners of the triangle holding it: canvas position,
  *     keyform-space base, every keyform cell's deltas, and every blend shape's deltas alike.
@@ -51,6 +57,13 @@ enum class RegenerationRefusal {
 
 	/** The generated mesh does not fit the input it was made for: the model changed since, or a pin moved or went missing. */
 	PinMismatch,
+
+	/**
+	 * Glue holds more than half the vertices of the drawable's surface (the split-mesh pieces and line art
+	 * welded to its fill), not just a seam: the generated vertices between the glued ones would carry no
+	 * glue, so the drawable would no longer move with what it is glued to as it does.
+	 */
+	GluedThroughout,
 }
 
 /** What generating one drawable's mesh needs before any art is meshed, or why it cannot be done. */
@@ -59,12 +72,14 @@ sealed interface RegenerationInput {
 	 * Everything the mesher needs: the tile whose raster to mesh (at exactly the tile's size) and the
 	 * points it must keep as vertices.  A plain class: it holds arrays.
 	 *
-	 * @property DrawableId  drawableId        The drawable.
-	 * @property AtlasTileId tileId            The tile whose art to mesh.
-	 * @property Int         tileWidth         The tile's width in art pixels.
-	 * @property Int         tileHeight        The tile's height in art pixels.
-	 * @property DoubleArray pinPoints         The pins, x0, y0, ..., in the tile's art pixels.
-	 * @property IntArray    pinnedOldVertices The old vertex each pin stands for, ascending.
+	 * @property DrawableId  drawableId         The drawable.
+	 * @property AtlasTileId tileId             The tile whose art to mesh.
+	 * @property Int         tileWidth          The tile's width in art pixels.
+	 * @property Int         tileHeight         The tile's height in art pixels.
+	 * @property DoubleArray pinPoints          The pins, x0, y0, ..., in the tile's art pixels.
+	 * @property IntArray    pinnedOldVertices  The old vertex each pin stands for, ascending.
+	 * @property IntArray    carriedOldVertices The glued old vertices no triangle uses, ascending: carried over after the generated vertices, never meshed.
+	 * @property DoubleArray pinSurroundings    The old triangles that use a pin, six coordinates each, in the tile's art pixels: the mesher counts them as art.
 	 */
 	class Ready(
 		val drawableId: DrawableId,
@@ -73,6 +88,8 @@ sealed interface RegenerationInput {
 		val tileHeight: Int,
 		val pinPoints: DoubleArray,
 		val pinnedOldVertices: IntArray,
+		val carriedOldVertices: IntArray,
+		val pinSurroundings: DoubleArray,
 	) : RegenerationInput
 
 	/**
@@ -104,7 +121,9 @@ sealed interface MeshRegeneration {
 /**
  * What generating a drawable's mesh from its art needs, or why it cannot be done - asked before any
  * art is meshed.  The pins are every old vertex a glue pair names on this drawable's side (both sides
- * of a glue with itself), at their art-pixel positions.
+ * of a glue with itself) that some triangle uses, at their art-pixel positions, with the old triangles
+ * around them; a glued vertex no triangle uses lies off the drawable's surface, often off its art, and
+ * is carried instead.  A drawable whose surface glue holds more than half of is refused.
  *
  * @param DrawableId drawableId The drawable.
  * @return RegenerationInput The input, or the refusal.
@@ -262,7 +281,14 @@ private fun PuppetModel.prepareSource(drawableId: DrawableId): SourcePreparation
 		}
 	}
 
-	val pinnedOldVertices = (0 until vertexCount).filter { vertex -> pinned[vertex] }.toIntArray()
+	val used = BooleanArray(vertexCount)
+
+	for (corner in mesh.indices) {
+		used[corner] = true
+	}
+
+	val pinnedOldVertices = (0 until vertexCount).filter { vertex -> pinned[vertex] && used[vertex] }.toIntArray()
+	val carriedOldVertices = (0 until vertexCount).filter { vertex -> pinned[vertex] && !used[vertex] }.toIntArray()
 	val pinPoints = DoubleArray(2 * pinnedOldVertices.size)
 
 	for ((pin, vertex) in pinnedOldVertices.withIndex()) {
@@ -270,16 +296,43 @@ private fun PuppetModel.prepareSource(drawableId: DrawableId): SourcePreparation
 		pinPoints[2 * pin + 1] = rasterPoints[2 * vertex + 1].toDouble()
 	}
 
-	val used = BooleanArray(vertexCount)
+	val referenced = (0 until vertexCount).filter { vertex -> used[vertex] }.toIntArray()
 
-	for (corner in mesh.indices) {
-		used[corner] = true
+	if (2 * pinnedOldVertices.size > referenced.size) {
+		return SourcePreparation.Unusable(RegenerationRefusal.GluedThroughout)
 	}
 
-	val referenced = (0 until vertexCount).filter { vertex -> used[vertex] }.toIntArray()
-	val input = RegenerationInput.Ready(drawableId, tileId, tile.width, tile.height, pinPoints, pinnedOldVertices)
+	val pinSurroundings = surroundingsOf(rasterPoints, mesh.indices, pinned)
+	val input = RegenerationInput.Ready(drawableId, tileId, tile.width, tile.height, pinPoints, pinnedOldVertices, carriedOldVertices, pinSurroundings)
 
 	return SourcePreparation.Prepared(mesh, artToStored, rasterPoints, referenced, input)
+}
+
+/**
+ * The old triangles that use at least one pinned vertex, each once, in art pixels.
+ *
+ * @param FloatArray   rasterPoints The old vertices in art pixels.
+ * @param IntArray     triangles    The old triangles.
+ * @param BooleanArray pinned       Which old vertices a glue pair names.
+ * @return DoubleArray The triangles, six coordinates each.
+ */
+private fun surroundingsOf(rasterPoints: FloatArray, triangles: IntArray, pinned: BooleanArray): DoubleArray {
+	val surroundings = ArrayList<Double>()
+
+	for (triangle in 0 until triangles.size / 3) {
+		val corners = intArrayOf(triangles[3 * triangle], triangles[3 * triangle + 1], triangles[3 * triangle + 2])
+
+		if (corners.none { corner -> pinned[corner] }) {
+			continue
+		}
+
+		for (corner in corners) {
+			surroundings.add(rasterPoints[2 * corner].toDouble())
+			surroundings.add(rasterPoints[2 * corner + 1].toDouble())
+		}
+	}
+
+	return surroundings.toDoubleArray()
 }
 
 /**
@@ -370,7 +423,9 @@ private fun RegenerationInput.Ready.matches(other: RegenerationInput.Ready): Boo
 		tileWidth == other.tileWidth &&
 		tileHeight == other.tileHeight &&
 		pinnedOldVertices.contentEquals(other.pinnedOldVertices) &&
-		pinPoints.contentEquals(other.pinPoints)
+		pinPoints.contentEquals(other.pinPoints) &&
+		carriedOldVertices.contentEquals(other.carriedOldVertices) &&
+		pinSurroundings.contentEquals(other.pinSurroundings)
 
 /**
  * Whether a generated mesh kept every pin as a vertex at exactly the point it was given.
@@ -406,7 +461,9 @@ private fun transfer(source: SourcePreparation.Prepared, generated: PlanarTriang
 	val oldMesh = source.mesh
 	val rasterPoints = source.rasterPoints
 	val sharedBase = oldMesh.localPositions === oldMesh.positions
-	val newCount = generated.vertexCount
+	val generatedCount = generated.vertexCount
+	val carried = source.input.carriedOldVertices
+	val newCount = generatedCount + carried.size
 	val sources = arrayOfNulls<VertexSource>(newCount)
 	val newPositions = FloatArray(2 * newCount)
 	val newLocal = if (sharedBase) newPositions else FloatArray(2 * newCount)
@@ -416,7 +473,7 @@ private fun transfer(source: SourcePreparation.Prepared, generated: PlanarTriang
 
 	// Pins first: a pinned vertex IS the old vertex (or, for pins that landed on one point, all of
 	// them), so it claims their glue pairs.
-	val pinnedOldByNew = arrayOfNulls<MutableList<Int>>(newCount)
+	val pinnedOldByNew = arrayOfNulls<MutableList<Int>>(generatedCount)
 
 	for (pin in generated.pinVertices.indices) {
 		val newVertex = generated.pinVertices[pin]
@@ -424,7 +481,7 @@ private fun transfer(source: SourcePreparation.Prepared, generated: PlanarTriang
 		oldVertices.add(source.input.pinnedOldVertices[pin])
 	}
 
-	for (vertex in 0 until newCount) {
+	for (vertex in 0 until generatedCount) {
 		val oldVertices = pinnedOldByNew[vertex] ?: continue
 		sources[vertex] = if (oldVertices.size == 1) VertexSource.FromOld(oldVertices[0]) else VertexSource.AverageOf(oldVertices.toList())
 		averageInto(newPositions, vertex, oldMesh.positions, oldVertices)
@@ -447,7 +504,7 @@ private fun transfer(source: SourcePreparation.Prepared, generated: PlanarTriang
 	val weights = DoubleArray(3)
 	val corners = IntArray(3)
 
-	for (vertex in 0 until newCount) {
+	for (vertex in 0 until generatedCount) {
 		if (sources[vertex] != null) {
 			continue
 		}
@@ -509,6 +566,19 @@ private fun transfer(source: SourcePreparation.Prepared, generated: PlanarTriang
 		}
 
 		extrapolated.add(vertex)
+	}
+
+	// Carried vertices follow the generated ones, each the old vertex itself and used by no triangle.
+	for ((offset, oldVertex) in carried.withIndex()) {
+		val vertex = generatedCount + offset
+		sources[vertex] = VertexSource.FromOld(oldVertex)
+		copyInto(newPositions, vertex, oldMesh.positions, oldVertex)
+
+		if (!sharedBase) {
+			copyInto(newLocal, vertex, oldMesh.localPositions, oldVertex)
+		}
+
+		copiedUvFrom[vertex] = oldVertex
 	}
 
 	val newUvs = newUvsOf(generated, source, copiedUvFrom)
@@ -654,17 +724,26 @@ private fun blendOf(old: FloatArray, weighted: VertexSource.Weighted): Pair<Doub
 
 /**
  * The new mesh's stored UVs: a copied vertex's old stored UV, every other vertex's art point divided
- * by the tile's size and lowered to the stored frame.
+ * by the tile's size and lowered to the stored frame.  The new mesh may run past the generated
+ * vertices (the carried ones); each of those copies its UV.
  *
  * @param PlanarTriangleMesh         generated    The generated mesh.
  * @param SourcePreparation.Prepared source       The prepared old mesh.
- * @param IntArray                   copiedUvFrom The old vertex each new vertex copies its UV from, or -1.
+ * @param IntArray                   copiedUvFrom The old vertex each new vertex copies its UV from, or -1, one per new vertex.
  * @return FloatArray The UVs, u0, v0, ...
  */
 private fun newUvsOf(generated: PlanarTriangleMesh, source: SourcePreparation.Prepared, copiedUvFrom: IntArray): FloatArray {
 	val width = source.input.tileWidth.toDouble()
 	val height = source.input.tileHeight.toDouble()
-	val artUvs = FloatArray(generated.positions.size) { component -> (generated.positions[component] / if (component % 2 == 0) width else height).toFloat() }
+	val generatedComponents = generated.positions.size
+	val artUvs =
+		FloatArray(2 * copiedUvFrom.size) { component ->
+			if (component < generatedComponents) {
+				(generated.positions[component] / if (component % 2 == 0) width else height).toFloat()
+			} else {
+				0f
+			}
+		}
 	val storedUvs = applyUvAffine(artUvs, source.artToStored)
 
 	for (vertex in copiedUvFrom.indices) {

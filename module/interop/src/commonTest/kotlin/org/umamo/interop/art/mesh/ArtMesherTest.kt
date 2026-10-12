@@ -195,6 +195,19 @@ class ArtMesherTest {
 	}
 
 	@Test
+	fun aPinOffTheArtJoinsItThroughItsSurroundings() {
+		// A disc of art and a pin 20 px past the raster's right edge: alone the pin is meshed around on its
+		// own; with the old triangle that joined it to the art counted as art, it is one piece with the rest.
+		val raster = rasterOf(80, 96) { column, row -> inDisc(column, row, 40.0, 48.0, 16.0) }
+		val pins = doubleArrayOf(100.0, 48.0)
+		val alone = assertValidArtMesh(raster, standard, generateArtMesh(raster, standard, pins), pins)
+		assertEquals(2, pieceCount(alone), "a lone pin off the art is an island")
+		val surroundings = doubleArrayOf(100.0, 48.0, 50.0, 40.0, 50.0, 56.0)
+		val joined = assertValidArtMesh(raster, standard, generateArtMesh(raster, standard, pins, surroundings), pins)
+		assertEquals(1, pieceCount(joined), "the pin's surroundings join it to the art")
+	}
+
+	@Test
 	fun coincidentPinsShareAVertex() {
 		val raster = rasterOf(60, 60) { column, row -> inDisc(column, row, 30.0, 30.0, 20.0) }
 		val pins = doubleArrayOf(30.5, 30.5, 30.5, 30.5)

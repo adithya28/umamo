@@ -578,6 +578,7 @@
 	<string name="notice_mesh_generated_coarser">アートから %1$d 個のメッシュを生成しました。頂点数の上限に収めるため、%2$d 個は指定より粗く生成しました（ログを参照）。</string>
 	<string name="notice_mesh_pinned_without_room">%1$d 個のメッシュを生成しました。固定されたアートに広がる余地がないため %2$d 個をスキップしました。固定を解除するか、外側の余白を小さくしてください。</string>
 	<string name="notice_mesh_over_budget">%1$d 個のメッシュを生成しました。頂点数の上限を超えるため %2$d 個をスキップしました。頂点数の上限を上げるか、穴を埋めるをオンにしてください。</string>
+	<string name="notice_mesh_glued_throughout">%1$d 個のメッシュを生成しました。頂点の大半がグルーで固定されているため %2$d 個をスキップしました。再生成するとグルー先への追従が変わってしまいます。</string>
 	<string name="notice_mesh_none_generated">メッシュは生成されませんでした（ログを参照）。</string>
 	<string name="notice_mesh_pack_refused">アトラスに大きくなったメッシュの余地がないため、何も生成しませんでした。</string>
 	<string name="notice_mesh_superseded">メッシュの生成中にドキュメントが変更されたため、何も適用しませんでした。</string>

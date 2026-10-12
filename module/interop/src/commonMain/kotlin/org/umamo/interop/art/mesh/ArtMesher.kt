@@ -23,7 +23,8 @@ import kotlin.math.sqrt
  * the art, or cuts off a piece of it, is split again from the traced contour.  An INNER RING follows
  * the art's edge a margin inside it, a hexagonal LATTICE fills the interior, PINS become vertices at
  * their exact positions, and the constrained triangulation of all of it, clipped to the outline, is
- * the mesh.
+ * the mesh.  A pin's SURROUNDINGS (the old triangles around a glued vertex) count as art, so a pin off
+ * the art is joined to it by the surface it had rather than meshed around on its own.
  *
  * Filling holes meshes the art's silhouette instead.  The outline keeps only the rings nothing else
  * encloses, so no hole ring (and no ring of art inside a hole) ever reaches the triangulation and the
@@ -33,7 +34,7 @@ import kotlin.math.sqrt
  *
  * Everything is in the layer raster's own pixels, y down, rounded to Float before it is triangulated,
  * so the triangles' orientation (orient2d > 0, the birth quad's winding) holds as stored.  The output
- * is a function of the alpha channel, the settings, and the pins alone.
+ * is a function of the alpha channel, the settings, the pins, and their surroundings alone.
  */
 
 /** Rounds of widening the spacings to meet the vertex budget before giving up. */
@@ -44,24 +45,33 @@ private const val BUDGET_ROUNDS: Int = 5
  *
  * @param LayerRaster     raster   The layer's pixels.
  * @param ArtMeshSettings settings How to space and place vertices.
- * @param DoubleArray     pins     Points that must become vertices, x0, y0, ..., raster px.
+ * @param DoubleArray     pins            Points that must become vertices, x0, y0, ..., raster px.
+ * @param DoubleArray     pinSurroundings Triangles that count as art, six coordinates each, raster px.
  * @return ArtMeshResult The mesh, or why there is none, with what was adjusted.
  */
-public fun generateArtMesh(raster: LayerRaster, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0)): ArtMeshResult = generateArtMesh(raster.alphaChannel(), settings, pins)
+public fun generateArtMesh(raster: LayerRaster, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0), pinSurroundings: DoubleArray = DoubleArray(0)): ArtMeshResult =
+	generateArtMesh(raster.alphaChannel(), settings, pins, pinSurroundings)
 
 /**
  * Meshes one layer's alpha channel.
  *
  * @param AlphaChannel    alpha    The layer's alpha, the only channel the mesh depends on.
  * @param ArtMeshSettings settings How to space and place vertices.
- * @param DoubleArray     pins     Points that must become vertices, x0, y0, ..., raster px (glued vertices kept through a regeneration).
+ * @param DoubleArray     pins            Points that must become vertices, x0, y0, ..., raster px (glued vertices kept through a regeneration).
+ * @param DoubleArray     pinSurroundings Triangles that count as art, six coordinates each, raster px (the old surface around those glued vertices).
  * @return ArtMeshResult The mesh, or why there is none, with what was adjusted.
  */
-public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0)): ArtMeshResult {
+public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0), pinSurroundings: DoubleArray = DoubleArray(0)): ArtMeshResult {
 	require(pins.size % 2 == 0) { "pins must hold x, y pairs, but has ${pins.size} components" }
 
 	for (component in pins.indices) {
 		require(pins[component].isFinite()) { "pin component $component is not finite: ${pins[component]}" }
+	}
+
+	require(pinSurroundings.size % 6 == 0) { "pin surroundings must hold six coordinates per triangle, but has ${pinSurroundings.size} components" }
+
+	for (component in pinSurroundings.indices) {
+		require(pinSurroundings[component].isFinite()) { "pin surroundings component $component is not finite: ${pinSurroundings[component]}" }
 	}
 
 	// The working cell follows the margins (contours move by up to about a cell), never the spacing.
@@ -70,7 +80,7 @@ public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins:
 	// Enough padding for the outline level at ANY cell size the grid cap may force: the level is at most
 	// outerMargin + minimumMargin + 2 cells, and the contour must stay clear of the border.
 	val paddingCells = ceil(settings.outerMargin / requestedCellSize).toInt() + ceil(settings.minimumMargin / requestedCellSize).toInt() + 4
-	val field = alpha.alphaField(settings.alphaThreshold, requestedCellSize, paddingCells, pins) ?: return ArtMeshResult(null, listOf(ArtMeshNotice.NothingOpaque), null)
+	val field = alpha.alphaField(settings.alphaThreshold, requestedCellSize, paddingCells, pins, seedTriangles = pinSurroundings) ?: return ArtMeshResult(null, listOf(ArtMeshNotice.NothingOpaque), null)
 	val notices = ArrayList<ArtMeshNotice>()
 
 	if (field.cellSize > requestedCellSize) {

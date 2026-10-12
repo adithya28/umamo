@@ -110,6 +110,9 @@ internal enum class GenerateMeshSkipReason {
 
 	/** The tile is pinned and the new mesh needs more room than it has. */
 	PinnedWithoutRoom,
+
+	/** Glue holds most of the drawable's surface, so the generated vertices between the glued ones would carry none. */
+	GluedThroughout,
 }
 
 /**
@@ -298,6 +301,7 @@ private fun skipReasonOf(refusal: RegenerationRefusal): GenerateMeshSkipReason =
 		RegenerationRefusal.NoArtFrame -> GenerateMeshSkipReason.NoArtFrame
 		RegenerationRefusal.DegenerateOldMesh -> GenerateMeshSkipReason.DegenerateOldMesh
 		RegenerationRefusal.PinMismatch -> GenerateMeshSkipReason.PinMismatch
+		RegenerationRefusal.GluedThroughout -> GenerateMeshSkipReason.GluedThroughout
 	}
 
 /**
@@ -419,7 +423,7 @@ private fun meshOne(
 	val alpha = tileAlphaChannel(decoded, plan.coverageByDrawable[input.drawableId])
 
 	try {
-		val result = generateArtMesh(alpha, settings, input.pinPoints)
+		val result = generateArtMesh(alpha, settings, input.pinPoints, input.pinSurroundings)
 		val mesh = result.mesh ?: return MeshingResult(input.drawableId, null, skipReasonOf(result.notices), emptyList())
 
 		return when (val regeneration = base.meshRegeneration(input, mesh)) {

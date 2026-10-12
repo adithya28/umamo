@@ -636,6 +636,7 @@
 	<string name="notice_mesh_generated_coarser">Generated %1$d mesh(es) from art; %2$d built coarser than asked to stay within the Vertex Budget.  See the log.</string>
 	<string name="notice_mesh_pinned_without_room">Generated %1$d mesh(es); %2$d skipped because pinned art has no room to grow.  Unpin the art or lower the Outer Margin.</string>
 	<string name="notice_mesh_over_budget">Generated %1$d mesh(es); %2$d skipped because they need more vertices than the budget.  Raise the Vertex Budget or turn on Fill Holes.</string>
+	<string name="notice_mesh_glued_throughout">Generated %1$d mesh(es); %2$d skipped because glue holds most of their vertices, and regenerating them would change how they follow what they are glued to.</string>
 	<string name="notice_mesh_none_generated">No mesh was generated.  See the log.</string>
 	<string name="notice_mesh_pack_refused">Nothing was generated: The atlas has no room for the larger meshes.</string>
 	<string name="notice_mesh_superseded">The document changed while the meshes were being generated; nothing was applied.</string>

@@ -134,6 +134,35 @@ internal fun eulerCharacteristic(mesh: PlanarTriangleMesh): Int {
 }
 
 /**
+ * How many connected pieces a mesh's triangles form, two triangles joined when they share a vertex.
+ *
+ * @param PlanarTriangleMesh mesh The mesh.
+ * @return Int The piece count.
+ */
+internal fun pieceCount(mesh: PlanarTriangleMesh): Int {
+	val parent = IntArray(mesh.vertexCount) { vertex -> vertex }
+
+	fun rootOf(vertex: Int): Int {
+		var current = vertex
+
+		while (parent[current] != current) {
+			parent[current] = parent[parent[current]]
+			current = parent[current]
+		}
+
+		return current
+	}
+
+	for (corner in mesh.triangles.indices step 3) {
+		val first = rootOf(mesh.triangles[corner])
+		parent[rootOf(mesh.triangles[corner + 1])] = first
+		parent[rootOf(mesh.triangles[corner + 2])] = first
+	}
+
+	return mesh.triangles.map { vertex -> rootOf(vertex) }.toSet().size
+}
+
+/**
  * The art pixels of a raster, as column, row pairs.
  *
  * @param LayerRaster raster    The raster.
