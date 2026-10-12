@@ -19,7 +19,7 @@ package org.umamo.geometry.triangulation
 /**
  * Inserts constraint edges into a triangulation that is Delaunay and holds every vertex already.
  *
- * @property HalfEdgeTriangulation triangulation                The triangulation constrained in place.
+ * @property HalfEdgeTriangulation triangulation                 The triangulation constrained in place.
  * @property Boolean               prefersFlipsLeavingNoCrossing Whether to try a crossing-removing flip before plain Sloan; tests turn it off to exercise the fallback on its own.
  */
 internal class ConstraintInserter(

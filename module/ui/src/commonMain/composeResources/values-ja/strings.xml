@@ -561,6 +561,7 @@
 
 	<string name="cmd_mesh_duplicate">複製</string>
 	<string name="cmd_mesh_merge">頂点をマージ</string>
+	<string name="cmd_mesh_generate_from_art">アートからメッシュを生成</string>
 	<string name="cmd_mesh_merge_at_center">中心にマージ</string>
 	<string name="cmd_mesh_merge_at_first">最初の頂点にマージ</string>
 	<string name="cmd_mesh_merge_at_last">最後の頂点にマージ</string>
@@ -579,6 +580,7 @@
 	<string name="notice_mesh_none_generated">メッシュは生成されませんでした（ログを参照）。</string>
 	<string name="notice_mesh_pack_refused">アトラスに大きくなったメッシュの余地がないため、何も生成しませんでした。</string>
 	<string name="notice_mesh_superseded">メッシュの生成中にドキュメントが変更されたため、何も適用しませんでした。</string>
+	<string name="notice_mesh_no_targets">アートからメッシュを生成するには、メッシュのある描画オブジェクトを選択してください。</string>
 	<string name="history_drawable_duplicate">描画オブジェクトを複製</string>
 	<string name="notice_merge_needs_vertices">マージには2つ以上の選択頂点が必要です（頂点モード）。</string>
 	<string name="notice_connect_needs_two_vertices">連結にはちょうど2つの選択頂点が必要です（頂点モード）。</string>

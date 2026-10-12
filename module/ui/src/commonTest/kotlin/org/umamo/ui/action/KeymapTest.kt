@@ -165,4 +165,20 @@ class KeymapTest {
 		assertNull(cubism.commandFor(chord))
 		assertNull(cubism.chordFor("view.overlay.all"))
 	}
+
+	/**
+	 * Shift+M generates meshes from art in the default and blender presets (beside M's Merge), and stays
+	 * unbound in the cubism preset.
+	 */
+	@Test
+	fun generateMeshFromArtBindsInDefaultAndBlenderButNotCubism() {
+		val chord = KeyChord(keyName = "KeyM", shift = true)
+		for (presetId in listOf("default", "blender")) {
+			val keymap = Keymap.fromSpecs(keymapPresetSpecs(presetId))
+			assertEquals("mesh.generateFromArt", keymap.commandFor(chord), "Shift+M in $presetId")
+			assertEquals(chord, keymap.chordFor("mesh.generateFromArt"), "the chord reads back in $presetId")
+		}
+		val cubism = Keymap.fromSpecs(keymapPresetSpecs("cubism"))
+		assertNull(cubism.commandFor(chord))
+	}
 }

@@ -618,6 +618,7 @@
 	<!-- Topology operators (Shift+D / M / V / J), their history labels, and their refusal notices. -->
 	<string name="cmd_mesh_duplicate">Duplicate</string>
 	<string name="cmd_mesh_merge">Merge Vertices</string>
+	<string name="cmd_mesh_generate_from_art">Generate Mesh from Art</string>
 	<string name="cmd_mesh_merge_at_center">Merge at Center</string>
 	<string name="cmd_mesh_merge_at_first">Merge at First</string>
 	<string name="cmd_mesh_merge_at_last">Merge at Last</string>
@@ -637,6 +638,7 @@
 	<string name="notice_mesh_none_generated">No mesh was generated (see the log).</string>
 	<string name="notice_mesh_pack_refused">Nothing was generated: the atlas has no room for the larger meshes.</string>
 	<string name="notice_mesh_superseded">The document changed while the meshes were being generated; nothing was applied.</string>
+	<string name="notice_mesh_no_targets">Select a drawable with a mesh to generate one from its art.</string>
 	<string name="history_drawable_duplicate">Duplicate Drawable</string>
 	<string name="notice_merge_needs_vertices">Merge needs two or more selected vertices (vertex mode).</string>
 	<string name="notice_connect_needs_two_vertices">Connect needs exactly two selected vertices (vertex mode).</string>

@@ -1,4 +1,4 @@
-// Adaptive exact orient2d and incircle, ported from robust-predicates (Vladimir Agafonkin, Unlicense /
+// Adaptive exact orient2d and incircle, ported from robust-predicates (Volodymyr Agafonkin, Unlicense /
 // public domain), itself a port of Jonathan Richard Shewchuk's public-domain predicates.c ("Adaptive
 // Precision Floating-Point Arithmetic and Fast Robust Geometric Predicates", 1997).  See CREDITS.md.
 // robust-predicates negates orient2d for a downward y axis; this port keeps Shewchuk's original sign.

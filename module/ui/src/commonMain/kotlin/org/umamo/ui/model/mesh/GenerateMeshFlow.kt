@@ -6,9 +6,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.umamo.edit.AdjustableOperation
+import org.umamo.edit.EditorMode
 import org.umamo.edit.EditorSession
 import org.umamo.edit.NoticePlacement
 import org.umamo.edit.choiceValue
+import org.umamo.edit.eligibleTransformDrawables
 import org.umamo.edit.mesh.commitGeneratedMeshes
 import org.umamo.interop.art.mesh.ArtMeshPreset
 import org.umamo.render.DecodedImage
@@ -113,6 +115,7 @@ internal suspend fun runGenerateMesh(host: GenerateMeshHost, targets: List<Drawa
 		}
 	val plan = planned.first
 	val outcome = planned.second
+	logSharedArt(modelAtStart, targets, plan.drawableIds)
 	logOutcome(modelAtStart, outcome)
 
 	if (outcome !is GenerateMeshOutcome.Generated) {
@@ -235,6 +238,26 @@ internal suspend fun adjustGenerateMesh(
 }
 
 /**
+ * Logs the drawables a run covers without being asked for, because they share art with one that was:
+ * a twin outside the selection changes too, and the log is where the rigger finds out which.
+ *
+ * @param PuppetModel      base        The model the run started on, for the names.
+ * @param List<DrawableId> targets     The drawables asked for.
+ * @param List<DrawableId> drawableIds Every drawable the run covers.
+ */
+private fun logSharedArt(base: PuppetModel, targets: List<DrawableId>, drawableIds: List<DrawableId>) {
+	val asked = targets.toSet()
+	val sharing = drawableIds.filter { drawableId -> drawableId !in asked }
+
+	if (sharing.isEmpty()) {
+		return
+	}
+
+	val nameById = base.drawables.associate { drawable -> drawable.id to drawable.name }
+	UmamoLog.info("generate mesh: also regenerating ${sharing.joinToString { drawableId -> "'${nameById[drawableId] ?: drawableId.raw}'" }}, which share art with the selection")
+}
+
+/**
  * Logs one outcome: every skipped drawable with its reason, every pack refusal, and the counts.
  *
  * @param PuppetModel         base    The model the run started on, for the names.
@@ -270,4 +293,66 @@ private fun logOutcome(base: PuppetModel, outcome: GenerateMeshOutcome) {
  */
 private fun emitNotice(session: EditorSession, notice: GenerateMeshNotice) {
 	session.emitNotice(notice.messageKey, NoticePlacement.StatusBar, notice.arguments)
+}
+
+/**
+ * The drawables Generate Mesh from Art is asked for: the Edit-mode session's meshes, whole, or the
+ * Object-mode selection's drawables that have a mesh.  The run adds every drawable sharing their art.
+ *
+ * @param EditorSession session The document's session.
+ * @return List<DrawableId> The drawables, empty when nothing is selected to mesh.
+ */
+internal fun generateMeshTargets(session: EditorSession): List<DrawableId> =
+	if (session.mode.value == EditorMode.Edit) {
+		session.meshSelection.value.drawableIds
+	} else {
+		eligibleTransformDrawables(session.selection.value, session.model.value).orEmpty()
+	}
+
+/**
+ * The Generate Mesh from Art command's action for one document: each call meshes the drawables
+ * [generateMeshTargets] names, starting from the options the window remembers (or the settings' preset
+ * before any run), and shows its strip over the area it is given.  A call while a run is still going is
+ * ignored - the rigger sees the first one land.
+ *
+ * @param EditorSession                session            The document's session.
+ * @param SourceArtRasters             artRasters         The document's raster store.
+ * @param SessionAtlasPages?           sessionAtlasPages  The page resolver to pre-warm after a pack, or null.
+ * @param Boolean                      premultipliedAlpha The document's texture-convention flag.
+ * @param CoroutineScope               scope              Where the run and its adjustments launch.
+ * @param MeshGenerationSessionOptions sessionOptions     The window's memory of the last options.
+ * @param Function                     seedPresetKey      Reads the settings' preset key, for a first run.
+ * @return Function The action, handed the area id the command was dispatched over, or null.
+ */
+internal fun generateMeshLauncher(
+	session: EditorSession,
+	artRasters: SourceArtRasters,
+	sessionAtlasPages: SessionAtlasPages?,
+	premultipliedAlpha: Boolean,
+	scope: CoroutineScope,
+	sessionOptions: MeshGenerationSessionOptions,
+	seedPresetKey: () -> String?,
+): (areaId: String?) -> Unit {
+	val host = GenerateMeshHost(session, artRasters, sessionAtlasPages, premultipliedAlpha, scope, sessionOptions::record)
+	var running = false
+
+	return { areaId ->
+		val targets = generateMeshTargets(session)
+
+		if (targets.isEmpty()) {
+			session.emitNotice("notice.mesh.noTargets", NoticePlacement.StatusBar)
+		} else if (running) {
+			UmamoLog.info("generate mesh: a run is already going; this one was ignored")
+		} else {
+			running = true
+			val options = sessionOptions.optionsFor(seedPresetKey())
+			scope.launch {
+				try {
+					runGenerateMesh(host, targets, options, areaId)
+				} finally {
+					running = false
+				}
+			}
+		}
+	}
 }

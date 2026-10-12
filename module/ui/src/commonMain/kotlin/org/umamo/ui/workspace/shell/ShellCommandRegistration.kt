@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalUriHandler
+import org.umamo.ui.LocalSettings
 import org.umamo.ui.action.CommandRegistry
 import org.umamo.ui.help.openLinkQuietly
 import org.umamo.ui.model.LocalEditorMode
@@ -16,7 +17,9 @@ import org.umamo.ui.model.LocalPuppetViewportService
 import org.umamo.ui.model.LocalSelection
 import org.umamo.ui.model.LocalSessionAtlasPages
 import org.umamo.ui.model.LocalSourceArtRasters
+import org.umamo.ui.model.mesh.generateMeshLauncher
 import org.umamo.ui.model.repack.atlasRepackLauncher
+import org.umamo.ui.settings.MESH_GENERATION_PRESET_KEY
 import org.umamo.ui.workspace.KeyformHover
 import org.umamo.ui.workspace.commands.ArtworkOperations
 import org.umamo.ui.workspace.commands.SessionAvailability
@@ -29,6 +32,7 @@ import org.umamo.ui.workspace.commands.fileImageExportCommands
 import org.umamo.ui.workspace.commands.frameCommands
 import org.umamo.ui.workspace.commands.historyCommands
 import org.umamo.ui.workspace.commands.keyformCommands
+import org.umamo.ui.workspace.commands.meshGenerationCommands
 import org.umamo.ui.workspace.commands.modeCommands
 import org.umamo.ui.workspace.commands.objectCommands
 import org.umamo.ui.workspace.commands.overlayCommands
@@ -76,6 +80,7 @@ internal fun RegisterShellCommands(
 	val areaCameras = controllers.areaCameras
 	val areaOverlays = controllers.areaOverlays
 	val repackOptions = controllers.repackOptions
+	val meshGenerationOptions = controllers.meshGenerationOptions
 	val operationStrip = controllers.operationStrip
 	// Read at dispatch: the command table registers once per session, and the app hands in a fresh
 	// collaborator per composition.
@@ -157,6 +162,23 @@ internal fun RegisterShellCommands(
 		} else {
 			null
 		}
+	// Generate Mesh from Art, the same shape: the run off-thread, its strip, and the window's memory of the
+	// last options; the settings' preset seeds the first run and is read when the command fires.
+	val settings = LocalSettings.current
+	val generateMesh: ((String?) -> Unit)? =
+		if (editorSession != null && artRasters != null) {
+			generateMeshLauncher(
+				session = editorSession,
+				artRasters = artRasters,
+				sessionAtlasPages = sessionAtlasPages,
+				premultipliedAlpha = puppetTextures?.premultipliedAlpha ?: false,
+				scope = shellScope,
+				sessionOptions = meshGenerationOptions,
+				seedPresetKey = { settings.getString(MESH_GENERATION_PRESET_KEY) },
+			)
+		} else {
+			null
+		}
 	DisposableEffect(commandRegistry, editorSession, selection) {
 		val cleanup =
 			commandRegistry.registerAll(
@@ -167,6 +189,7 @@ internal fun RegisterShellCommands(
 					snapCommands(editorSession, routing, availability, areaOverlays) +
 					uvCommands(editorSession, routing, availability) +
 					topologyCommands(editorSession, routing, availability) +
+					meshGenerationCommands(availability, routing, generateMesh) +
 					proportionalCommands(editorSession, availability) +
 					displayCommands(editorSession, availability) +
 					atlasCommands(availability, routing, repackAtlas) +

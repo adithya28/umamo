@@ -63,6 +63,35 @@ internal class Cmo3StructureLowering(
 	var deletedAnything: Boolean = false
 		private set
 
+	/** Drawables whose topology pass this export has still to run; see [expectTopologyRewrites]. */
+	private val pendingTopology = HashSet<DrawableId>()
+
+	/** Glues a topology pass left to a partner whose own pass was still pending. */
+	private val deferredGlues = LinkedHashSet<Glue>()
+
+	/**
+	 * Names the drawables whose topology this export is about to rewrite, so a glue between two of them
+	 * re-binds once both carry their new vertex-id tables rather than against the later one's old table.
+	 *
+	 * @param Collection<DrawableId> drawableIds The drawables whose topology passes follow.
+	 */
+	fun expectTopologyRewrites(drawableIds: Collection<DrawableId>) {
+		pendingTopology.addAll(drawableIds)
+	}
+
+	/**
+	 * Re-binds every glue still left to a partner whose topology pass never ran, against the tables the
+	 * graph holds now - the binding it would have had without the wait, notice included.
+	 */
+	fun settleTopologyRewrites() {
+		pendingTopology.clear()
+		val waiting = deferredGlues.toList()
+		deferredGlues.clear()
+		for (glue in waiting) {
+			lowerGluePairsFor(glue)
+		}
+	}
+
 	private fun unsupported(
 		category: ExportEntityCategory,
 		subject: String?,
@@ -686,6 +715,7 @@ internal class Cmo3StructureLowering(
 	 */
 	fun lowerMeshTopology(source: CArtMeshSource, editedDrawable: Drawable): Boolean {
 		val subject = editedDrawable.id.raw
+		pendingTopology.remove(editedDrawable.id)
 		val mesh = editedDrawable.mesh
 		if (mesh == null) {
 			unsupported(ExportEntityCategory.Drawable, subject, ExportNoticeReason.DrawableHasNoMesh)
@@ -746,6 +776,13 @@ internal class Cmo3StructureLowering(
 			if (uidTableOf(glue.meshA) == null || uidTableOf(glue.meshB) == null) {
 				continue
 			}
+			// A partner whose topology pass is still to come holds its OLD uid table until then, and
+			// its own pass re-binds this glue against both new tables.
+			if (glue.meshA in pendingTopology || glue.meshB in pendingTopology) {
+				deferredGlues.add(glue)
+				continue
+			}
+			deferredGlues.remove(glue)
 			lowerGluePairsFor(glue)
 		}
 		return true

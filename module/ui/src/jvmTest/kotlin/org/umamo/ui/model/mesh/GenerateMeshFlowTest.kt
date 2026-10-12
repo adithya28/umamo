@@ -7,8 +7,10 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import org.umamo.edit.EditorMode
 import org.umamo.edit.EditorSession
 import org.umamo.edit.OperatorParameter
+import org.umamo.edit.SelectionOps
 import org.umamo.edit.SelectionTarget
 import org.umamo.edit.floatValue
 import org.umamo.edit.structure.rename
@@ -274,6 +276,50 @@ class GenerateMeshFlowTest {
 
 			val expected = freshRun(model, standard.copy(settings = standard.settings.copy(outlineSpacing = 20.0)))
 			assertContentEquals(meshOf(expected, drawableA).positions, meshOf(session.model.value, drawableA).positions)
+		}
+
+	@Test
+	fun theTargetsAreTheObjectSelectionOrTheEditSession() {
+		val model = model(listOf(quad(drawableA, tileA, 10f, 10f, 54f, 54f), quad(drawableB, tileB, 10f, 10f, 54f, 54f)), unplacedAtlas(listOf(tileA, tileB)))
+		val session = EditorSession(model)
+		assertTrue(generateMeshTargets(session).isEmpty(), "nothing selected, nothing to mesh")
+		session.setSelection(SelectionOps.add(SelectionOps.replace(SelectionTarget.Drawable(drawableA)), SelectionTarget.Drawable(drawableB)))
+		assertEquals(listOf(drawableA, drawableB), generateMeshTargets(session))
+		session.setMode(EditorMode.Edit)
+		assertEquals(session.meshSelection.value.drawableIds, generateMeshTargets(session))
+		assertTrue(generateMeshTargets(session).isNotEmpty())
+	}
+
+	@Test
+	fun theLauncherNamesAnEmptySelectionAndIgnoresASecondPressMidRun() =
+		runBlocking {
+			val model = model(listOf(quad(drawableA, tileA, 10f, 10f, 54f, 54f)), unplacedAtlas(listOf(tileA)))
+			val session = EditorSession(model)
+			val entered = CountDownLatch(1)
+			val release = CountDownLatch(1)
+			val blocking =
+				SourceArtRasters { _ ->
+					entered.countDown()
+					release.await()
+					disc()
+				}
+			val launch = generateMeshLauncher(session, blocking, null, false, this, MeshGenerationSessionOptions()) { "coarse" }
+
+			launch(null)
+			assertEquals("notice.mesh.noTargets", session.notice.value?.messageKey)
+
+			session.setSelection(SelectionOps.replace(SelectionTarget.Drawable(drawableA)))
+			val stepsBefore = session.historyView.value.steps.size
+			launch(null)
+			withContext(Dispatchers.IO) { entered.await() }
+			launch(null)
+			release.countDown()
+			joinChildren()
+
+			assertEquals(stepsBefore + 1, session.historyView.value.steps.size, "the second press while the first ran was ignored")
+			assertEquals("change.mesh.generateFromArt", session.historyView.value.steps.last().labelKey)
+			val presetRow = session.adjustableOperation.value!!.parameters.first { row -> row.key == MeshGenerationParameterKeys.PRESET } as OperatorParameter.ChoiceParameter
+			assertEquals("coarse", presetRow.value, "a first run starts from the settings' preset")
 		}
 
 	/**

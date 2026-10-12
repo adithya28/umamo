@@ -33,6 +33,7 @@ fun noticeText(messageKey: String, arguments: List<String> = emptyList()): Strin
 		"notice.mesh.noneGenerated" -> stringResource(Res.string.notice_mesh_none_generated)
 		"notice.mesh.packRefused" -> stringResource(Res.string.notice_mesh_pack_refused)
 		"notice.mesh.superseded" -> stringResource(Res.string.notice_mesh_superseded)
+		"notice.mesh.noTargets" -> stringResource(Res.string.notice_mesh_no_targets)
 		"notice.uv.noUvs" -> stringResource(Res.string.notice_uv_no_uvs)
 		"notice.uv.noSelection" -> stringResource(Res.string.notice_uv_no_selection)
 		"notice.uv.noEditableGeometry" -> stringResource(Res.string.notice_uv_no_editable_geometry)
