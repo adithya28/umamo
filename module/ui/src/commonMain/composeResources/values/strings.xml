@@ -1012,16 +1012,16 @@
 	<string name="transform_options_connected_description">Limits the proportional influence to vertices joined to the selection by mesh edges, measuring distance along those edges.</string>
 	<string name="transform_options_slide_factor_description">Where along its edge the vertex landed: 0 is where it started, and 1 is the neighboring vertex.</string>
 	<string name="merge_options_target_description">Where the merged vertices come together: at their center, or on the first or last vertex selected.</string>
-	<string name="mesh_options_preset_description">Fills in the spacings, the margins, and the minimum outline points from a preset; the threshold, the budget, and Fill Holes keep their values.</string>
-	<string name="mesh_options_alpha_threshold_description">How opaque a pixel must be, up to 255, to count as art; every such pixel is covered by the generated mesh.</string>
-	<string name="mesh_options_outline_spacing_description">The distance the mesher aims for between vertices along the outline, in art pixels.</string>
-	<string name="mesh_options_interior_spacing_description">The distance the mesher aims for between vertices inside the art: the inner ring and the even grid, in art pixels.</string>
-	<string name="mesh_options_outer_margin_description">How far outside the art the outline runs where the shape allows, in art pixels.</string>
-	<string name="mesh_options_inner_margin_description">How far inside the art's edge the inner ring runs, in art pixels; 0 for no inner ring.</string>
-	<string name="mesh_options_minimum_margin_description">The closest the outline may come to any art pixel, in art pixels.</string>
+	<string name="mesh_options_preset_description">Fills in the spacings, margins, and outline points from preset values.</string>
+	<string name="mesh_options_alpha_threshold_description">How opaque a pixel must be, up to 255, to be counted as part of the art.</string>
+	<string name="mesh_options_outline_spacing_description">The distance the mesher aims for between vertices along the outline, in pixels.</string>
+	<string name="mesh_options_interior_spacing_description">The distance the mesher aims for between vertices inside the art, the inner ring and the even grid, in pixels.</string>
+	<string name="mesh_options_outer_margin_description">How far outside the art the outline runs where the shape allows, in pixels.</string>
+	<string name="mesh_options_inner_margin_description">How far inside the art's edge the inner ring runs, in pixels.  0 for no inner ring.</string>
+	<string name="mesh_options_minimum_margin_description">The closest the outline may come to any art pixel, in pixels.</string>
 	<string name="mesh_options_minimum_outline_points_description">The fewest vertices one outline ring may have, however small its piece of art.</string>
-	<string name="mesh_options_vertex_budget_description">The most vertices one mesh may have.  Over it the spacings widen, and a mesh that still does not fit is skipped.</string>
-	<string name="mesh_options_fill_holes_description">Meshes over holes in the art (lace, a web) as one sheet instead of cutting them out.</string>
+	<string name="mesh_options_vertex_budget_description">The maximum number of vertices one mesh may have.  Art that can't fit within this budget is skipped.</string>
+	<string name="mesh_options_fill_holes_description">Meshes over holes in the art as one sheet instead of cutting them out.</string>
 	<!-- Blend modes (Cubism color blend list). -->
 	<string name="blend_mode_normal">Normal</string>
 	<string name="blend_mode_additive">Additive</string>
