@@ -51,7 +51,7 @@ sealed interface ExportNoticeReason {
 	data object HiddenDrawableOmittedByExportOption : ExportNoticeReason
 
 	/**
-	 * An art mesh with more vertices than a moc's 16-bit triangle indices can address, left out rather
+	 * An art mesh with more vertices than a MOC3's 16-bit triangle indices can address, left out rather
 	 * than written with wrapped indices.
 	 *
 	 * @property Int vertexCount        The mesh's vertex count.
