@@ -81,6 +81,7 @@ internal fun RegisterShellCommands(
 	val areaOverlays = controllers.areaOverlays
 	val repackOptions = controllers.repackOptions
 	val meshGenerationOptions = controllers.meshGenerationOptions
+	val meshGenerationRun = controllers.meshGenerationRun
 	val operationStrip = controllers.operationStrip
 	// Read at dispatch: the command table registers once per session, and the app hands in a fresh
 	// collaborator per composition.
@@ -174,6 +175,7 @@ internal fun RegisterShellCommands(
 				premultipliedAlpha = puppetTextures?.premultipliedAlpha ?: false,
 				scope = shellScope,
 				sessionOptions = meshGenerationOptions,
+				runState = meshGenerationRun,
 				seedPresetKey = { settings.getString(MESH_GENERATION_PRESET_KEY) },
 			)
 		} else {

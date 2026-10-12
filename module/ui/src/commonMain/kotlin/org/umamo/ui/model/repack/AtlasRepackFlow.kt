@@ -135,13 +135,16 @@ internal class RepackPackInput(
 				keepPinned -> fixedByKey
 				else -> emptyMap()
 			}
+
 		if (fixedForms.isEmpty()) {
 			return items
 		}
+
 		return items.map { item ->
 			if (item.key in freeKeys) {
 				return@map item
 			}
+
 			val fixed = fixedForms[item.key] ?: return@map item
 			AtlasPackItem(item.key, item.width, item.height, item.rgba, item.reserve, fixed)
 		}
@@ -217,11 +220,14 @@ internal fun repackRefusals(
 		if (tile.id !in boundTileIds) {
 			continue
 		}
+
 		if (tile.id in undecodableTileIds) {
 			refusals.add(AtlasRepackRefusal(tile.name, AtlasRepackRefusalReason.Undecodable))
 			continue
 		}
+
 		val skipReason = skipReasonByTileId[tile.id]
+
 		if (skipReason != null) {
 			val reason =
 				when (skipReason) {
@@ -233,6 +239,7 @@ internal fun repackRefusals(
 			refusals.add(AtlasRepackRefusal(tile.name, reason))
 			continue
 		}
+
 		if (tile.placement != null) {
 			// The same mapping the re-derivation reads: the placement plus the page it names.  A page
 			// the model does not have counts as degenerate too - the mapping cannot be formed at all.
@@ -347,18 +354,22 @@ internal fun lowerPack(atlas: PuppetAtlas, packResult: AtlasPackResult): Lowered
 	val keptKeys = packResult.fixed.mapTo(HashSet()) { kept -> kept.key }
 	val placementsByTile = HashMap<AtlasTileId, AtlasPlacement?>()
 	var packedOut = 0
+
 	for (tile in atlas.tiles) {
 		if (tile.id.raw in keptKeys) {
 			placementsByTile[tile.id] = tile.placement
 			continue
 		}
+
 		val packed = packedByKey[tile.id.raw]
 		placementsByTile[tile.id] = packed?.let { placement -> atlasPlacementFromPack(placement) }
+
 		if (packed == null && tile.placement != null) {
 			UmamoLog.warn("repack: unbound tile '${tile.name}' could not be packed and leaves the pages")
 			packedOut++
 		}
 	}
+
 	return LoweredPack(pages, placementsByTile, packedOut)
 }
 
@@ -421,6 +432,7 @@ suspend fun runAtlasRepack(
 	val session = host.session
 	val modelAtStart = session.model.value
 	val atlas = modelAtStart.atlas
+
 	if (atlas.tiles.isEmpty() || !atlas.storedUvsAddressPages) {
 		// The command's availability gates both; a race between the check and the dispatch just no-ops.
 		return
@@ -436,13 +448,16 @@ suspend fun runAtlasRepack(
 	val packResult = packed.result
 
 	val refusals = repackRefusals(modelAtStart, packResult.skipped, packInput.undecodableTileIds)
+
 	if (refusals.isNotEmpty()) {
 		for (refusal in refusals) {
 			UmamoLog.warn("repack: tile '${refusal.tileName}' refused (${refusal.reason}); nothing was applied")
 		}
+
 		host.report(AtlasRepackReport(refusals))
 		return
 	}
+
 	val lowered = lowerPack(atlas, packResult)
 
 	// Back on the UI thread, synchronously to the commit: a pack computed against one atlas value must
@@ -453,9 +468,11 @@ suspend fun runAtlasRepack(
 		session.emitNotice("notice.atlas.repackSuperseded", NoticePlacement.NearCursor)
 		return
 	}
+
 	// Same rule for the reserves: the pack is only proof of disjointness for the meshes it was spaced
 	// by, so a mesh edit that moved a tile's reach while packing makes it stale.
 	val reservesAtCommit = meshReserveByTile(modelAtCommit)
+
 	if (reservesAtCommit != packInput.reserveByTile) {
 		val changedTileIds = (reservesAtCommit.keys + packInput.reserveByTile.keys).filter { tileId -> reservesAtCommit[tileId] != packInput.reserveByTile[tileId] }
 		UmamoLog.warn(
@@ -464,12 +481,15 @@ suspend fun runAtlasRepack(
 		session.emitNotice("notice.atlas.repackSuperseded", NoticePlacement.NearCursor)
 		return
 	}
+
 	val committed = session.commitAtlasRepack(lowered.pages, lowered.placementsByTile, atlasCompositionOf(options))
+
 	if (committed == null) {
 		UmamoLog.info("repack: the pack reproduced the current placements exactly; nothing to change")
 		session.emitNotice("notice.atlas.repackUnchanged", NoticePlacement.NearCursor)
 		return
 	}
+
 	// Pre-warm BEFORE the resolver's collector resumes (it is queued behind this dispatch), so the
 	// commit resolves its pages by cache hit instead of composing the same pages a second time.
 	host.sessionAtlasPages?.prewarm(committed.atlas, generatedPuppetTextures(packResult.pages, committed, host.premultipliedAlpha))
@@ -517,6 +537,7 @@ internal fun atlasRepackLauncher(
 			report = report,
 			rememberOptions = { options, keepPinned -> sessionOptions.record(session, options, keepPinned) },
 		)
+
 	return { areaId ->
 		val options = sessionOptions.optionsFor(session, repackPageSizeOf(session.model.value))
 		val keepPinned = sessionOptions.keepPinnedFor()
@@ -552,7 +573,9 @@ internal suspend fun adjustAtlasRepack(
 			UmamoLog.error("repack: the adjusted options were refused by the packer (${exception.message}); the previous result stands")
 			return
 		}
+
 	val refusals = repackRefusals(base, packResult.skipped, packInput.undecodableTileIds)
+
 	if (refusals.isNotEmpty()) {
 		for (refusal in refusals) {
 			UmamoLog.warn("repack: tile '${refusal.tileName}' refused under the adjusted options (${refusal.reason}); the previous result stands")
@@ -560,14 +583,18 @@ internal suspend fun adjustAtlasRepack(
 		host.report(AtlasRepackReport(refusals))
 		return
 	}
+
 	val lowered = lowerPack(base.atlas, packResult)
 	val repacked = base.withAtlasRepack(lowered.pages, lowered.placementsByTile, atlasCompositionOf(options))
 	host.sessionAtlasPages?.prewarm(repacked.atlas, generatedPuppetTextures(packResult.pages, repacked, host.premultipliedAlpha))
+
 	if (!host.session.amendLastCommit(record, repacked)) {
 		UmamoLog.info("repack: the adjustment was superseded before it landed; nothing was applied")
 		return
 	}
+
 	host.rememberOptions(options, keepPinned)
+
 	logPack(packResult, lowered, options)
 }
 
@@ -603,13 +630,17 @@ class PackedAtOpen(
 fun packModelAtOpen(model: PuppetModel, decodeRaster: (AtlasTileId) -> DecodedImage?): PackedAtOpen {
 	var options = AtlasPackOptions(maxPageSize = DEFAULT_REPACK_PAGE_SIZE)
 	var packed = packAtlasOf(model, decodeRaster, options, keepPinned = false)
+
 	if (packed.result.skipped.any { skip -> skip.reason == AtlasPackSkipReason.LargerThanPage }) {
 		options = options.copy(maxPageSize = MAX_IMPORT_PAGE_SIZE)
 		packed = PackedAtlas(packed.input, packAtlas(packed.input.itemsFor(keepPinned = false), options))
 	}
+
 	val refusals = repackRefusals(model, packed.result.skipped, packed.input.undecodableTileIds)
 	val lowered = lowerPack(model.atlas, packed.result)
 	val repacked = model.withAtlasRepack(lowered.pages, lowered.placementsByTile, atlasCompositionOf(options))
+
 	logPack(packed.result, lowered, options)
+
 	return PackedAtOpen(repacked, generatedPuppetTextures(packed.result.pages, repacked, premultipliedAlpha = false), refusals)
 }

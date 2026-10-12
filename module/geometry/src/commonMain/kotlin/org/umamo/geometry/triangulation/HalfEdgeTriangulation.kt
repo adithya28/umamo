@@ -1,6 +1,9 @@
 package org.umamo.geometry.triangulation
 
 import org.umamo.geometry.IntStack
+import org.umamo.geometry.packVertexPair
+import org.umamo.geometry.pairFirst
+import org.umamo.geometry.pairSecond
 import org.umamo.geometry.predicate.PredicateScratch
 import org.umamo.geometry.predicate.incircle
 import org.umamo.geometry.predicate.orient2d
@@ -379,7 +382,7 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 			val end = destination(halfEdge)
 
 			if (constrained[halfEdge] && start < end) {
-				keys.add((start.toLong() shl 32) or end.toLong())
+				keys.add(packVertexPair(start, end))
 			}
 		}
 
@@ -387,8 +390,8 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 		val pairs = IntArray(2 * keys.size)
 
 		for ((position, key) in keys.withIndex()) {
-			pairs[2 * position] = (key ushr 32).toInt()
-			pairs[2 * position + 1] = key.toInt()
+			pairs[2 * position] = pairFirst(key)
+			pairs[2 * position + 1] = pairSecond(key)
 		}
 
 		return pairs

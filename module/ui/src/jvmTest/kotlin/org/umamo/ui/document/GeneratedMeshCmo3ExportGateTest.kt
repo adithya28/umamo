@@ -36,6 +36,7 @@ import org.umamo.ui.model.mesh.GenerateMeshHost
 import org.umamo.ui.model.mesh.GenerateMeshOutcome
 import org.umamo.ui.model.mesh.GenerateMeshSkipReason
 import org.umamo.ui.model.mesh.MeshGenerationOptions
+import org.umamo.ui.model.mesh.RunTileDecoder
 import org.umamo.ui.model.mesh.generateMeshOutcome
 import org.umamo.ui.model.mesh.planMeshGeneration
 import org.umamo.ui.model.mesh.runGenerateMesh
@@ -89,13 +90,14 @@ class GeneratedMeshCmo3ExportGateTest {
 			val base = session.model.value
 			val targets = base.drawables.filter { drawable -> drawable.mesh != null && drawable.atlasTileId != null }.map { drawable -> drawable.id }
 			val options = MeshGenerationOptions.of(ArtMeshPreset.Standard)
-			val decode: (AtlasTileId) -> DecodedImage? = { tileId -> document.artRasters.decodeRaster(tileId) }
+			// One decoder for the test: the pipeline's run and the probes below read the same art once.
+			val decode = RunTileDecoder { tileId -> document.artRasters.decodeRaster(tileId) }
 
 			// The pipeline once more beside the flow, for the outcome's skips and packed tiles.
 			val outcome =
 				withContext(Dispatchers.Default) {
 					val plan = planMeshGeneration(base, targets, decode)
-					generateMeshOutcome(base, plan, options.settings, plan.decoder(decode), document.textures.premultipliedAlpha)
+					generateMeshOutcome(base, plan, options.settings, decode, document.textures.premultipliedAlpha)
 				}
 			val generated = assertIs<GenerateMeshOutcome.Generated>(outcome, "the atlas refused nothing")
 			val allowedSkips = setOf(GenerateMeshSkipReason.OverBudget, GenerateMeshSkipReason.NothingOpaque, GenerateMeshSkipReason.DegenerateOldMesh)

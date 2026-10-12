@@ -1,6 +1,7 @@
 // :geometry — pure vector geometry with zero project dependencies: Shewchuk's robust orient2d /
 // incircle predicates and the Delaunay triangulation the auto-mesh is built on. It knows no pixels,
-// puppets, or formats; :interop (the mesher) and :edit (mesh tools) consume it.
+// puppets, or formats; :format (the alpha contour simplifier), :interop (the mesher), and :edit (mesh
+// tools) consume it.
 
 plugins {
 	alias(libs.plugins.kotlinMultiplatform)

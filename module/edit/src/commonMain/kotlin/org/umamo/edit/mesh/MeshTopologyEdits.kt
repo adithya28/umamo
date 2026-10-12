@@ -78,9 +78,8 @@ sealed interface VertexSource {
  * One topology edit of one drawable's mesh, ready to commit: the complete replacement mesh (canvas
  * positions, keyform-space base, uvs, and indices all sized to the new vertex count; the base already
  * carried over by [editedMesh] or by the mesh regeneration builder) plus one [VertexSource] per NEW
- * vertex, from which
- * [withMeshTopologyEdit] rebuilds every keyform cell's deltas and remaps the glue pairs.  The op
- * builders in MeshTopologyOps produce these; they never touch the model themselves.
+ * vertex, from which [withMeshTopologyEdit] rebuilds every keyform cell's deltas and remaps the glue
+ * pairs.  The op builders in MeshTopologyOps produce these; they never touch the model themselves.
  *
  * 1つの描画メッシュのトポロジ編集。置き換えメッシュと、新頂点ごとのデルタ導出指定を持つ。
  *
@@ -94,7 +93,7 @@ class MeshTopologyEdit(
 
 /**
  * Applies a topology edit to one drawable: swaps in the full replacement mesh, rebuilds EVERY keyform
- * cell's positionDeltas to the new vertex count per the edit's [VertexSource]s (copy / average / lerp -
+ * cell's positionDeltas to the new vertex count per the edit's [VertexSource]s (copy / average / lerp / blend -
  * so a parameter scrub after the edit still deforms sanely), and remaps the model's glue pairs through
  * the old-to-new vertex mapping (a pair whose vertex was removed is dropped rather than left dangling).
  * Everything else structurally shares with the receiver (the copy-on-write discipline).  Returns the

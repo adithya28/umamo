@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
  * A glue between two drawables whose topology both change in one export re-binds against both new
  * vertex-id tables: the first drawable's pass leaves the glue to its partner's, whose table is still
  * the old one until that pass runs, so a pair past the old table raises no notice and the written glue
- * binds the new vertices.  Pinned on a synthetic pair of glued quads, both re-meshed with a centre
+ * binds the new vertices.  Pinned on a synthetic pair of glued quads, both re-meshed with a center
  * vertex in front, so each glued corner moves past the four-entry table its quad was written with.
  */
 class Cmo3GlueTopologyExportTest {
@@ -86,7 +86,7 @@ class Cmo3GlueTopologyExportTest {
 		)
 
 	/**
-	 * A mesh re-meshed as a fan around its centre, the centre vertex first so every old vertex moves one
+	 * A mesh re-meshed as a fan around its center, the center vertex first so every old vertex moves one
 	 * index up.
 	 *
 	 * @param DrawableMesh mesh The old mesh.

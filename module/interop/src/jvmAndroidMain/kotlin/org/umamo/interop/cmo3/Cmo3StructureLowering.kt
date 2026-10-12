@@ -707,7 +707,8 @@ internal class Cmo3StructureLowering(
 	/**
 	 * Rewrites a drawable's topology surface: indices, canvas positions, UVs, and the full
 	 * GEditableMesh2 rebuild (point mirror, freshly minted vertex uids, the unique triangle-edge
-	 * set), then re-binds every glue touching the drawable to the new uid table.
+	 * set), then re-binds every glue touching the drawable to the new uid table; a glue whose partner's
+	 * own topology pass is still to come is left to that pass, which re-binds it against both new tables.
 	 *
 	 * @param CArtMeshSource source         The drawable's graph source.
 	 * @param Drawable       editedDrawable The edited drawable.

@@ -8,8 +8,10 @@ import org.umamo.edit.mesh.RegenerationRefusal
 import org.umamo.edit.mesh.meshRegeneration
 import org.umamo.edit.mesh.regenerationInputFor
 import org.umamo.edit.mesh.withMeshTopologyEdits
+import org.umamo.format.art.AlphaChannel
 import org.umamo.format.art.LayerBounds
 import org.umamo.format.art.LayerRaster
+import org.umamo.format.art.alphaChannel
 import org.umamo.format.art.analyzeAlpha
 import org.umamo.format.atlas.AtlasPackOptions
 import org.umamo.format.atlas.AtlasPackReserve
@@ -45,11 +47,16 @@ import org.umamo.ui.model.repack.packAtlasOf
 import org.umamo.ui.model.repack.repackPageSizeOf
 import org.umamo.ui.model.repack.repackRefusals
 import org.umamo.ui.viewport.gizmo.mapInBalancedChunks
+import kotlin.coroutines.cancellation.CancellationException
 
 /*
  * Generate Mesh from Art, the headless part: which drawables a run covers, what art each one meshes,
  * the meshing and the rig transfer, and the atlas room the new meshes need.  Pure over its inputs and
  * safe off the UI thread; GenerateMeshFlow.kt commits and registers what it produces.
+ *
+ * The plan a run keeps for the strip's reruns holds no pixels: each run or adjustment decodes the art
+ * it needs through a [RunTileDecoder] of its own (every tile once) and lets it go when it is done, so
+ * a strip that stays adjustable pins no rasters.
  *
  * A run covers the drawables asked for plus every drawable sharing a tile with one of them - twins that
  * share art to save atlas space stay alike.  A tile only one drawable samples is meshed whole; on a
@@ -98,35 +105,52 @@ internal enum class GenerateMeshSkipReason {
 	/** The mesher refused its input. */
 	MesherRefused,
 
+	/** A check inside the mesher or the transfer tripped on the drawable; the log has the details. */
+	MesherFailed,
+
 	/** The tile is pinned and the new mesh needs more room than it has. */
 	PinnedWithoutRoom,
 }
 
 /**
  * What a run will mesh, decided once from the model it starts on and kept for the strip's reruns: the
- * drawables it covers, the inputs of those that can be regenerated, why the rest cannot, each shared
- * drawable's own region, and the decoded art of every tile it meshes.
+ * drawables it covers, the inputs of those that can be regenerated, why the rest cannot, and each
+ * shared drawable's own region.  No pixels - see the file comment.
  *
  * @property List<DrawableId>                              drawableIds        Every drawable the run covers, in document order.
  * @property List<RegenerationInput.Ready>                 inputs             The inputs of the drawables that can be meshed, in document order.
  * @property Map<DrawableId, GenerateMeshSkipReason>       skipsBeforeMeshing Why the others cannot.
  * @property Map<DrawableId, TileMeshMask>                 coverageByDrawable The region a drawable on a shared tile meshes.
- * @property Map<AtlasTileId, DecodedImage>                rasterByTile       The decoded art of every tile the run meshes.
  */
 internal class GenerateMeshPlan(
 	val drawableIds: List<DrawableId>,
 	val inputs: List<RegenerationInput.Ready>,
 	val skipsBeforeMeshing: Map<DrawableId, GenerateMeshSkipReason>,
 	val coverageByDrawable: Map<DrawableId, TileMeshMask>,
-	val rasterByTile: Map<AtlasTileId, DecodedImage>,
 ) {
+	/** The tiles the inputs mesh, in input order. */
+	val tileIds: Set<AtlasTileId>
+		get() = inputs.mapTo(LinkedHashSet()) { input -> input.tileId }
+}
+
+/**
+ * Decodes each tile at most once for one run or adjustment: the plan's own tiles, the neighbours the
+ * collision test reads, and everything a pack composes, each inflated a single time and held only as
+ * long as the decoder is.  Used from one thread at a time - the meshing runs in parallel over art this
+ * has already decoded, never through it.
+ *
+ * @property Function decode Decodes a tile's art; safe off the UI thread.
+ */
+internal class RunTileDecoder(private val decode: (AtlasTileId) -> DecodedImage?) : (AtlasTileId) -> DecodedImage? {
+	private val decodedByTile = HashMap<AtlasTileId, DecodedImage?>()
+
 	/**
-	 * A decoder that answers from this plan's art first and falls back to [fallback] for other tiles.
+	 * A tile's art, decoded on the first ask.
 	 *
-	 * @param Function fallback Decodes a tile the plan does not hold.
-	 * @return Function The decoder.
+	 * @param AtlasTileId tileId The tile.
+	 * @return DecodedImage? The art, or null when the tile has none.
 	 */
-	fun decoder(fallback: (AtlasTileId) -> DecodedImage?): (AtlasTileId) -> DecodedImage? = { tileId -> rasterByTile[tileId] ?: fallback(tileId) }
+	override fun invoke(tileId: AtlasTileId): DecodedImage? = decodedByTile.getOrPut(tileId) { decode(tileId) }
 }
 
 /** What one generation produced, or why it produced nothing. */
@@ -137,11 +161,12 @@ internal sealed interface GenerateMeshOutcome {
 	/**
 	 * Meshes were generated.
 	 *
-	 * @property PuppetModel                             model         The model with the new meshes and any atlas change.
-	 * @property PuppetTextures?                         textures      The pages a pack composed, or null when no tile moved.
-	 * @property List<DrawableId>                        generatedIds  The drawables that got a new mesh.
-	 * @property Map<DrawableId, GenerateMeshSkipReason> skips         Why the others did not.
-	 * @property Set<AtlasTileId>                        packedTileIds The tiles packed to a new spot.
+	 * @property PuppetModel                             model             The model with the new meshes and any atlas change.
+	 * @property PuppetTextures?                         textures          The pages a pack composed, or null when no tile moved.
+	 * @property List<DrawableId>                        generatedIds      The drawables that got a new mesh.
+	 * @property Map<DrawableId, GenerateMeshSkipReason> skips             Why the others did not.
+	 * @property Set<AtlasTileId>                        packedTileIds     The tiles packed to a new spot.
+	 * @property Map<DrawableId, List<ArtMeshNotice>>    noticesByDrawable What the mesher adjusted for a generated drawable, for those it adjusted anything.
 	 */
 	class Generated(
 		val model: PuppetModel,
@@ -149,7 +174,12 @@ internal sealed interface GenerateMeshOutcome {
 		val generatedIds: List<DrawableId>,
 		override val skips: Map<DrawableId, GenerateMeshSkipReason>,
 		val packedTileIds: Set<AtlasTileId>,
-	) : GenerateMeshOutcome
+		val noticesByDrawable: Map<DrawableId, List<ArtMeshNotice>>,
+	) : GenerateMeshOutcome {
+		/** The generated drawables whose mesh is coarser than the settings asked for (a spacing or the working grid widened). */
+		val coarsenedIds: List<DrawableId>
+			get() = noticesByDrawable.filterValues { notices -> notices.any { notice -> notice is ArtMeshNotice.SpacingCoarsened || notice is ArtMeshNotice.WorkingGridCoarsened } }.keys.toList()
+	}
 
 	/**
 	 * No drawable could be regenerated.
@@ -193,12 +223,12 @@ internal fun expandedMeshTargets(model: PuppetModel, targets: Collection<Drawabl
 
 /**
  * Plans a run over [targets] on [base]: expands the targets to their tiles' sharers, asks each for its
- * regeneration input, decodes each meshed tile once, and records the region of every drawable on a
- * shared tile.
+ * regeneration input, reads each meshed tile's art once to check it is there and the size the tile
+ * records, and records the region of every drawable on a shared tile.
  *
  * @param PuppetModel          base    The model the run starts on.
  * @param Collection<DrawableId> targets The drawables asked for.
- * @param Function             decode  Decodes a tile's art; safe off the UI thread.
+ * @param Function             decode  Decodes a tile's art; safe off the UI thread.  The run's [RunTileDecoder], so the meshing does not decode again.
  * @return GenerateMeshPlan The plan.
  */
 internal fun planMeshGeneration(base: PuppetModel, targets: Collection<DrawableId>, decode: (AtlasTileId) -> DecodedImage?): GenerateMeshPlan {
@@ -216,8 +246,7 @@ internal fun planMeshGeneration(base: PuppetModel, targets: Collection<DrawableI
 	val inputs = ArrayList<RegenerationInput.Ready>()
 	val skips = LinkedHashMap<DrawableId, GenerateMeshSkipReason>()
 	val coverage = HashMap<DrawableId, TileMeshMask>()
-	val rasterByTile = LinkedHashMap<AtlasTileId, DecodedImage>()
-	val missingTiles = HashSet<AtlasTileId>()
+	val rasterByTile = HashMap<AtlasTileId, DecodedImage?>()
 
 	for (drawableId in drawableIds) {
 		val input =
@@ -230,15 +259,9 @@ internal fun planMeshGeneration(base: PuppetModel, targets: Collection<DrawableI
 
 				is RegenerationInput.Ready -> asked
 			}
-		val raster =
-			rasterByTile[input.tileId] ?: if (input.tileId in missingTiles) {
-				null
-			} else {
-				decode(input.tileId)?.also { decoded -> rasterByTile[input.tileId] = decoded }
-			}
+		val raster = rasterByTile.getOrPut(input.tileId) { decode(input.tileId) }
 
 		if (raster == null) {
-			missingTiles.add(input.tileId)
 			skips[drawableId] = GenerateMeshSkipReason.NoRaster
 
 			continue
@@ -257,7 +280,7 @@ internal fun planMeshGeneration(base: PuppetModel, targets: Collection<DrawableI
 		inputs.add(input)
 	}
 
-	return GenerateMeshPlan(drawableIds, inputs, skips, coverage, rasterByTile)
+	return GenerateMeshPlan(drawableIds, inputs, skips, coverage)
 }
 
 /**
@@ -276,13 +299,14 @@ private fun skipReasonOf(refusal: RegenerationRefusal): GenerateMeshSkipReason =
 	}
 
 /**
- * Generates the plan's meshes under [settings] over [base]: meshes every input (tiles in parallel),
- * carries each rig onto its new mesh, applies them, and finds the atlas room they need.
+ * Generates the plan's meshes under [settings] over [base]: decodes the plan's tiles, meshes every
+ * input (tiles in parallel), carries each rig onto its new mesh, applies them, and finds the atlas
+ * room they need.
  *
  * @param PuppetModel      base               The model the run starts on (the plan's).
  * @param GenerateMeshPlan plan               The plan.
  * @param ArtMeshSettings  settings           The mesher settings, already clamped.
- * @param Function         decode             Decodes any tile's art, for a pack and the collision test.
+ * @param Function         decode             Decodes any tile's art - the plan's, a neighbour's for the collision test, and every tile a pack composes.  A [RunTileDecoder] decodes each once.
  * @param Boolean          premultipliedAlpha The document's texture-convention flag.
  * @return GenerateMeshOutcome The outcome.
  */
@@ -294,19 +318,26 @@ internal suspend fun generateMeshOutcome(
 	premultipliedAlpha: Boolean,
 ): GenerateMeshOutcome {
 	val skips = LinkedHashMap(plan.skipsBeforeMeshing)
+	// Decoded here, before the parallel section, so the meshing reads a finished map and never the decoder.
+	val rasterByTile = plan.tileIds.associateWith { tileId -> decode(tileId) }
 	// One group per tile, so a tile's art is wrapped once and the work spreads by tile.
 	val groups = plan.inputs.groupBy { input -> input.tileId }.values.toList()
 	val results =
-		mapInBalancedChunks(groups, weightOf = { group -> meshingWeightOf(plan, group) }) { group ->
-			group.map { input -> meshOne(base, plan, input, settings) }
+		mapInBalancedChunks(groups, weightOf = { group -> meshingWeightOf(group) }) { group ->
+			group.map { input -> meshOne(base, plan, rasterByTile, input, settings) }
 		}.flatten()
 	val edits = LinkedHashMap<DrawableId, MeshTopologyEdit>()
+	val noticesByDrawable = LinkedHashMap<DrawableId, List<ArtMeshNotice>>()
 
 	for (result in results) {
 		val edit = result.edit
 
 		if (edit != null) {
 			edits[result.drawableId] = edit
+
+			if (result.notices.isNotEmpty()) {
+				noticesByDrawable[result.drawableId] = result.notices
+			}
 		} else {
 			skips[result.drawableId] = result.skip ?: GenerateMeshSkipReason.MesherRefused
 		}
@@ -324,20 +355,29 @@ internal suspend fun generateMeshOutcome(
 		return GenerateMeshOutcome.NothingGenerated(skips)
 	}
 
-	return withAtlasRoom(base, edited, edits, plan, skips, decode, premultipliedAlpha)
+	return withAtlasRoom(base, edited, edits, noticesByDrawable, skips, decode, premultipliedAlpha)
 }
 
 /**
- * The work one tile group stands for: its art's size, once per drawable meshed over it.
+ * Whether a throwable is a guard inside the pipeline refusing to go on - a require (an
+ * IllegalArgumentException) or a check (an IllegalStateException) in the mesher, the triangulator,
+ * or the transfer - which the flow turns into a skip or a notice rather than a crash.  A cancellation
+ * is an IllegalStateException too and is never one: it propagates.
  *
- * @param GenerateMeshPlan              plan  The plan.
- * @param List<RegenerationInput.Ready> group The group.
+ * @return Boolean True for a guard's refusal.
+ */
+internal fun Throwable.isMeshingGuardFailure(): Boolean = this !is CancellationException && (this is IllegalArgumentException || this is IllegalStateException)
+
+/**
+ * The work one tile group stands for: its tile's size, once per drawable meshed over it.
+ *
+ * @param List<RegenerationInput.Ready> group The group, all over one tile.
  * @return Int The weight.
  */
-private fun meshingWeightOf(plan: GenerateMeshPlan, group: List<RegenerationInput.Ready>): Int {
-	val raster = plan.rasterByTile[group.first().tileId] ?: return group.size
+private fun meshingWeightOf(group: List<RegenerationInput.Ready>): Int {
+	val first = group.first()
 
-	return (raster.width.toLong() * raster.height / 1024 + 1).coerceAtMost(Int.MAX_VALUE.toLong() / group.size).toInt() * group.size
+	return (first.tileWidth.toLong() * first.tileHeight / 1024 + 1).coerceAtMost(Int.MAX_VALUE.toLong() / group.size).toInt() * group.size
 }
 
 /**
@@ -346,35 +386,58 @@ private fun meshingWeightOf(plan: GenerateMeshPlan, group: List<RegenerationInpu
  * @property DrawableId              drawableId The drawable.
  * @property MeshTopologyEdit?       edit       The edit, or null.
  * @property GenerateMeshSkipReason? skip       Why there is no edit, or null.
+ * @property List<ArtMeshNotice>     notices    What the mesher adjusted on the way to the edit; empty without one.
  */
-private class MeshingResult(val drawableId: DrawableId, val edit: MeshTopologyEdit?, val skip: GenerateMeshSkipReason?)
+private class MeshingResult(val drawableId: DrawableId, val edit: MeshTopologyEdit?, val skip: GenerateMeshSkipReason?, val notices: List<ArtMeshNotice>)
 
 /**
- * Meshes one drawable's art and carries its rig onto the result.
+ * Meshes one drawable's art and carries its rig onto the result.  A guard tripping inside the mesher
+ * or the transfer skips this drawable alone; the others in the run still land.
  *
- * @param PuppetModel             base     The model the run starts on.
- * @param GenerateMeshPlan        plan     The plan.
- * @param RegenerationInput.Ready input    The drawable's input.
- * @param ArtMeshSettings         settings The mesher settings.
+ * @param PuppetModel                       base         The model the run starts on.
+ * @param GenerateMeshPlan                  plan         The plan.
+ * @param Map<AtlasTileId, DecodedImage?>   rasterByTile The decoded art of the plan's tiles.
+ * @param RegenerationInput.Ready           input        The drawable's input.
+ * @param ArtMeshSettings                   settings     The mesher settings.
  * @return MeshingResult The edit or the skip.
  */
-private fun meshOne(base: PuppetModel, plan: GenerateMeshPlan, input: RegenerationInput.Ready, settings: ArtMeshSettings): MeshingResult {
-	val decoded = plan.rasterByTile.getValue(input.tileId)
-	val coverage = plan.coverageByDrawable[input.drawableId]
-	val raster = if (coverage == null) LayerRaster(decoded.width, decoded.height, decoded.rgba) else coveredRaster(decoded, coverage)
-	val result =
-		try {
-			generateArtMesh(raster, settings, input.pinPoints)
-		} catch (refused: IllegalArgumentException) {
-			UmamoLog.warn("generate mesh: the mesher refused '${input.drawableId.raw}': ${refused.message}")
+private fun meshOne(
+	base: PuppetModel,
+	plan: GenerateMeshPlan,
+	rasterByTile: Map<AtlasTileId, DecodedImage?>,
+	input: RegenerationInput.Ready,
+	settings: ArtMeshSettings,
+): MeshingResult {
+	val decoded = rasterByTile[input.tileId] ?: return MeshingResult(input.drawableId, null, GenerateMeshSkipReason.NoRaster, emptyList())
 
-			return MeshingResult(input.drawableId, null, GenerateMeshSkipReason.MesherRefused)
+	if (decoded.width != input.tileWidth || decoded.height != input.tileHeight) {
+		return MeshingResult(input.drawableId, null, GenerateMeshSkipReason.RasterSizeMismatch, emptyList())
+	}
+
+	val alpha = tileAlphaChannel(decoded, plan.coverageByDrawable[input.drawableId])
+
+	try {
+		val result = generateArtMesh(alpha, settings, input.pinPoints)
+		val mesh = result.mesh ?: return MeshingResult(input.drawableId, null, skipReasonOf(result.notices), emptyList())
+
+		return when (val regeneration = base.meshRegeneration(input, mesh)) {
+			is MeshRegeneration.Built -> MeshingResult(input.drawableId, regeneration.edit, null, result.notices)
+			is MeshRegeneration.Refused -> MeshingResult(input.drawableId, null, skipReasonOf(regeneration.refusal), emptyList())
 		}
-	val mesh = result.mesh ?: return MeshingResult(input.drawableId, null, skipReasonOf(result.notices))
+	} catch (failure: RuntimeException) {
+		if (!failure.isMeshingGuardFailure()) {
+			throw failure
+		}
 
-	return when (val regeneration = base.meshRegeneration(input, mesh)) {
-		is MeshRegeneration.Built -> MeshingResult(input.drawableId, regeneration.edit, null)
-		is MeshRegeneration.Refused -> MeshingResult(input.drawableId, null, skipReasonOf(regeneration.refusal))
+		if (failure is IllegalArgumentException) {
+			UmamoLog.warn("generate mesh: the mesher refused '${input.drawableId.raw}': ${failure.message}")
+
+			return MeshingResult(input.drawableId, null, GenerateMeshSkipReason.MesherRefused, emptyList())
+		}
+
+		UmamoLog.error("generate mesh: meshing '${input.drawableId.raw}' failed; it was skipped", failure)
+
+		return MeshingResult(input.drawableId, null, GenerateMeshSkipReason.MesherFailed, emptyList())
 	}
 }
 
@@ -393,25 +456,34 @@ private fun skipReasonOf(notices: List<ArtMeshNotice>): GenerateMeshSkipReason =
 	}
 
 /**
- * A copy of a tile's art with every pixel outside a drawable's region made transparent - the decoded
- * image itself is shared with the renderer and is never written.
+ * The alpha the mesher reads for one drawable: the whole tile's, or, on a shared tile, the tile's
+ * inside the drawable's region and zero outside it.  Both read the decoded image in place - it is
+ * shared with the renderer and is never written or copied.
  *
- * @param DecodedImage decoded  The tile's art.
- * @param TileMeshMask coverage The drawable's region.
- * @return LayerRaster The covered art.
+ * @param DecodedImage  decoded  The tile's art.
+ * @param TileMeshMask? coverage The drawable's region, or null for the whole tile.
+ * @return AlphaChannel The channel.
  */
-private fun coveredRaster(decoded: DecodedImage, coverage: TileMeshMask): LayerRaster {
-	val rgba = decoded.rgba.copyOf()
+private fun tileAlphaChannel(decoded: DecodedImage, coverage: TileMeshMask?): AlphaChannel {
+	val whole = LayerRaster(decoded.width, decoded.height, decoded.rgba).alphaChannel()
 
-	for (row in 0 until decoded.height) {
-		for (column in 0 until decoded.width) {
-			if (!coverage.isCovered(column, row)) {
-				rgba[(row * decoded.width + column) * 4 + 3] = 0
-			}
-		}
-	}
+	return if (coverage == null) whole else CoveredAlphaChannel(whole, coverage)
+}
 
-	return LayerRaster(decoded.width, decoded.height, rgba)
+/**
+ * A tile's alpha inside a drawable's region, transparent outside it.
+ *
+ * @property AlphaChannel tile     The whole tile's alpha.
+ * @property TileMeshMask coverage The region.
+ */
+private class CoveredAlphaChannel(private val tile: AlphaChannel, private val coverage: TileMeshMask) : AlphaChannel {
+	override val width: Int
+		get() = tile.width
+
+	override val height: Int
+		get() = tile.height
+
+	override fun alphaAt(column: Int, row: Int): Int = if (coverage.isCovered(column, row)) tile.alphaAt(column, row) else 0
 }
 
 /**
@@ -422,9 +494,9 @@ private fun coveredRaster(decoded: DecodedImage, coverage: TileMeshMask): LayerR
  * @param PuppetModel                             base               The model the run started on.
  * @param PuppetModel                             edited             The base with every new mesh applied.
  * @param Map<DrawableId, MeshTopologyEdit>       edits              The new meshes.
- * @param GenerateMeshPlan                        plan               The plan.
+ * @param Map<DrawableId, List<ArtMeshNotice>>    noticesByDrawable  What the mesher adjusted per new mesh.
  * @param MutableMap<DrawableId, GenerateMeshSkipReason> skips       The skips so far; pinned drawables are added.
- * @param Function                                decode             Decodes any tile's art.
+ * @param Function                                decode             Decodes any tile's art, each once.
  * @param Boolean                                 premultipliedAlpha The document's texture-convention flag.
  * @return GenerateMeshOutcome The outcome.
  */
@@ -432,14 +504,14 @@ private fun withAtlasRoom(
 	base: PuppetModel,
 	edited: PuppetModel,
 	edits: Map<DrawableId, MeshTopologyEdit>,
-	plan: GenerateMeshPlan,
+	noticesByDrawable: Map<DrawableId, List<ArtMeshNotice>>,
 	skips: MutableMap<DrawableId, GenerateMeshSkipReason>,
 	decode: (AtlasTileId) -> DecodedImage?,
 	premultipliedAlpha: Boolean,
 ): GenerateMeshOutcome {
 	// Stored coordinates that address the art directly do not depend on any placement.
 	if (!base.atlas.storedUvsAddressPages) {
-		return GenerateMeshOutcome.Generated(edited, null, edits.keys.toList(), skips, emptySet())
+		return GenerateMeshOutcome.Generated(edited, null, edits.keys.toList(), skips, emptySet(), noticesByDrawable)
 	}
 
 	val tileIdByDrawable = base.drawables.associate { drawable -> drawable.id to drawable.atlasTileId }
@@ -456,7 +528,7 @@ private fun withAtlasRoom(
 			continue
 		}
 
-		val allowed = allowedReach(trimOf(base, tile, plan.decoder(decode)), oldReserves[tileId])
+		val allowed = allowedReach(trimOf(base, tile, decode), oldReserves[tileId])
 		val reach = newReserves[tileId]
 
 		if (reach == null || (allowed != null && allowed.encloses(reach)) || landsOnNoPaint(edited, tile, decode)) {
@@ -472,6 +544,7 @@ private fun withAtlasRoom(
 
 	var model = edited
 	var keptEdits: Map<DrawableId, MeshTopologyEdit> = edits
+	var keptNotices = noticesByDrawable
 
 	if (pinnedAllowance.isNotEmpty()) {
 		val dropped = HashSet<DrawableId>()
@@ -493,6 +566,7 @@ private fun withAtlasRoom(
 		}
 
 		keptEdits = edits.filterKeys { drawableId -> drawableId !in dropped }
+		keptNotices = noticesByDrawable.filterKeys { drawableId -> drawableId !in dropped }
 
 		if (keptEdits.isEmpty()) {
 			return GenerateMeshOutcome.NothingGenerated(skips)
@@ -502,12 +576,12 @@ private fun withAtlasRoom(
 	}
 
 	if (grownTileIds.isEmpty()) {
-		return GenerateMeshOutcome.Generated(model, null, keptEdits.keys.toList(), skips, emptySet())
+		return GenerateMeshOutcome.Generated(model, null, keptEdits.keys.toList(), skips, emptySet(), keptNotices)
 	}
 
-	return when (val packed = packGrownTilesAround(model, grownTileIds, plan.decoder(decode), premultipliedAlpha)) {
+	return when (val packed = packGrownTilesAround(model, grownTileIds, decode, premultipliedAlpha)) {
 		is GrownPackOutcome.Refused -> GenerateMeshOutcome.PackRefused(packed.refusals, skips)
-		is GrownPackOutcome.Packed -> GenerateMeshOutcome.Generated(packed.model, packed.textures, keptEdits.keys.toList(), skips, grownTileIds)
+		is GrownPackOutcome.Packed -> GenerateMeshOutcome.Generated(packed.model, packed.textures, keptEdits.keys.toList(), skips, grownTileIds, keptNotices)
 	}
 }
 
