@@ -12,14 +12,14 @@ import org.umamo.edit.NoticePlacement
 import org.umamo.edit.choiceValue
 import org.umamo.edit.eligibleTransformDrawables
 import org.umamo.edit.mesh.commitGeneratedMeshes
+import org.umamo.interop.art.mesh.ArtMeshNotice
 import org.umamo.interop.art.mesh.ArtMeshPreset
-import org.umamo.render.DecodedImage
 import org.umamo.render.SourceArtRasters
-import org.umamo.runtime.model.AtlasTileId
 import org.umamo.runtime.model.DrawableId
 import org.umamo.runtime.model.PuppetModel
 import org.umamo.storage.UmamoLog
 import org.umamo.ui.model.SessionAtlasPages
+import kotlin.math.round
 
 /*
  * Generate Mesh from Art as an operation: the run on the UI thread around the headless pipeline
@@ -58,7 +58,8 @@ internal data class GenerateMeshNotice(val messageKey: String, val arguments: Li
 
 /**
  * The notice an outcome reports: a refused pack first, then the skips a rigger can do something about
- * (pinned art with no room, a mesh over the budget), then the plain count.
+ * (pinned art with no room, a mesh over the budget), then any skip, then meshes built coarser than the
+ * rows asked for, then the plain count.
  *
  * @param GenerateMeshOutcome outcome The outcome.
  * @return GenerateMeshNotice The notice.
@@ -68,7 +69,9 @@ internal fun generateMeshNoticeOf(outcome: GenerateMeshOutcome): GenerateMeshNot
 		return GenerateMeshNotice("notice.mesh.packRefused")
 	}
 
-	val generatedCount = (outcome as? GenerateMeshOutcome.Generated)?.generatedIds?.size ?: 0
+	val generated = outcome as? GenerateMeshOutcome.Generated
+	val generatedCount = generated?.generatedIds?.size ?: 0
+	val coarsenedCount = generated?.coarsenedIds?.size ?: 0
 	val pinnedCount = outcome.skips.values.count { reason -> reason == GenerateMeshSkipReason.PinnedWithoutRoom }
 	val overBudgetCount = outcome.skips.values.count { reason -> reason == GenerateMeshSkipReason.OverBudget }
 
@@ -77,6 +80,7 @@ internal fun generateMeshNoticeOf(outcome: GenerateMeshOutcome): GenerateMeshNot
 		overBudgetCount > 0 -> GenerateMeshNotice("notice.mesh.overBudget", listOf(generatedCount.toString(), overBudgetCount.toString()))
 		generatedCount == 0 -> GenerateMeshNotice("notice.mesh.noneGenerated")
 		outcome.skips.isNotEmpty() -> GenerateMeshNotice("notice.mesh.generatedWithSkips", listOf(generatedCount.toString(), outcome.skips.size.toString()))
+		coarsenedCount > 0 -> GenerateMeshNotice("notice.mesh.generatedCoarser", listOf(generatedCount.toString(), coarsenedCount.toString()))
 		else -> GenerateMeshNotice("notice.mesh.generated", listOf(generatedCount.toString()))
 	}
 }
@@ -87,7 +91,7 @@ internal fun generateMeshNoticeOf(outcome: GenerateMeshOutcome): GenerateMeshNot
  *
  * Runs on the UI thread; the planning, the meshing, and any pack run on the default dispatcher.  The
  * meshes are built against the model current at the start, so any edit landing meanwhile supersedes
- * them.
+ * them.  A guard tripping anywhere in the pipeline is a refusal with a notice, never a crash.
  *
  * @param GenerateMeshHost      host    The session, art, resolver, scope, and options memory.
  * @param List<DrawableId>      targets The drawables asked for.
@@ -100,15 +104,20 @@ internal suspend fun runGenerateMesh(host: GenerateMeshHost, targets: List<Drawa
 	val modelAtStart = session.model.value
 	val minimumAlphaThreshold = modelAtStart.atlas.composition.alphaThreshold
 	val landedOptions = MeshGenerationOptions(options.preset, clampedMeshSettings(options.settings, minimumAlphaThreshold))
-	val fallbackDecode: (AtlasTileId) -> DecodedImage? = { tileId -> host.artRasters.decodeRaster(tileId) }
 	val planned =
 		try {
 			withContext(Dispatchers.Default) {
-				val plan = planMeshGeneration(modelAtStart, targets, fallbackDecode)
-				plan to generateMeshOutcome(modelAtStart, plan, landedOptions.settings, plan.decoder(fallbackDecode), host.premultipliedAlpha)
+				// The run's own decoder: every tile once, and nothing of it outlives the run.
+				val decode = RunTileDecoder { tileId -> host.artRasters.decodeRaster(tileId) }
+				val plan = planMeshGeneration(modelAtStart, targets, decode)
+				plan to generateMeshOutcome(modelAtStart, plan, landedOptions.settings, decode, host.premultipliedAlpha)
 			}
-		} catch (invalid: IllegalArgumentException) {
-			UmamoLog.error("generate mesh: the run failed; nothing was applied", invalid)
+		} catch (failure: RuntimeException) {
+			if (!failure.isMeshingGuardFailure()) {
+				throw failure
+			}
+
+			UmamoLog.error("generate mesh: the run failed; nothing was applied", failure)
 			session.emitNotice("notice.mesh.noneGenerated", NoticePlacement.StatusBar)
 
 			return false
@@ -198,14 +207,17 @@ internal suspend fun adjustGenerateMesh(
 	val session = host.session
 	val base = record.baseSnapshot.model
 	val options = meshGenerationOptionsOf(record.parameters, fallback, minimumAlphaThreshold)
-	val fallbackDecode: (AtlasTileId) -> DecodedImage? = { tileId -> host.artRasters.decodeRaster(tileId) }
 	val outcome =
 		try {
 			withContext(Dispatchers.Default) {
-				generateMeshOutcome(base, plan, options.settings, plan.decoder(fallbackDecode), host.premultipliedAlpha)
+				generateMeshOutcome(base, plan, options.settings, RunTileDecoder { tileId -> host.artRasters.decodeRaster(tileId) }, host.premultipliedAlpha)
 			}
-		} catch (invalid: IllegalArgumentException) {
-			UmamoLog.error("generate mesh: the adjustment failed; the previous result stands", invalid)
+		} catch (failure: RuntimeException) {
+			if (!failure.isMeshingGuardFailure()) {
+				throw failure
+			}
+
+			UmamoLog.error("generate mesh: the adjustment failed; the previous result stands", failure)
 
 			return
 		}
@@ -258,7 +270,8 @@ private fun logSharedArt(base: PuppetModel, targets: List<DrawableId>, drawableI
 }
 
 /**
- * Logs one outcome: every skipped drawable with its reason, every pack refusal, and the counts.
+ * Logs one outcome: every skipped drawable with its reason, what the mesher adjusted for every generated
+ * drawable (the rows on the strip still show what was asked), every pack refusal, and the counts.
  *
  * @param PuppetModel         base    The model the run started on, for the names.
  * @param GenerateMeshOutcome outcome The outcome.
@@ -276,14 +289,47 @@ private fun logOutcome(base: PuppetModel, outcome: GenerateMeshOutcome) {
 				UmamoLog.warn("generate mesh: the atlas has no room for '${refusal.tileName}' (${refusal.reason}); nothing was applied")
 			}
 
-		is GenerateMeshOutcome.Generated ->
+		is GenerateMeshOutcome.Generated -> {
+			for ((drawableId, notices) in outcome.noticesByDrawable) {
+				for (notice in notices) {
+					UmamoLog.info("generate mesh: '${nameById[drawableId] ?: drawableId.raw}': ${wordingOf(notice)}")
+				}
+			}
+
 			UmamoLog.info(
 				"generate mesh: ${outcome.generatedIds.size} mesh(es) generated, ${outcome.skips.size} skipped, ${outcome.packedTileIds.size} tile(s) packed to a new spot",
 			)
+		}
 
 		is GenerateMeshOutcome.NothingGenerated -> UmamoLog.warn("generate mesh: nothing generated; ${outcome.skips.size} skipped")
 	}
 }
+
+/**
+ * The log's words for one adjustment the mesher made.
+ *
+ * @param ArtMeshNotice notice The notice.
+ * @return String The words.
+ */
+private fun wordingOf(notice: ArtMeshNotice): String =
+	when (notice) {
+		is ArtMeshNotice.SpacingCoarsened -> "outline spacing widened to ${tenths(notice.outlineSpacing)} px and interior spacing to ${tenths(notice.interiorSpacing)} px to stay within the vertex budget"
+		is ArtMeshNotice.WorkingGridCoarsened -> "the layer is too large for a ${notice.requestedCellSize} px working cell, so a ${notice.cellSize} px cell was used and the outline sits a little further out"
+		is ArtMeshNotice.OutlineDensified -> "${notice.chordCount} outline chord(s) crossed another ring after simplification and were kept at their traced density"
+		is ArtMeshNotice.InnerRingEdgesDropped -> "${notice.edgeCount} inner-ring edge(s) crossed the outline and were left out"
+		is ArtMeshNotice.PinsShareVertex -> "${notice.pinCount} glued vertex pin(s) sit at the same position and share one vertex"
+		is ArtMeshNotice.NothingOpaque -> "nothing in the art reaches the alpha threshold"
+		is ArtMeshNotice.OverBudget -> "the mesh needs ${notice.vertexCount} vertices, past the budget of ${notice.budget}"
+		is ArtMeshNotice.StructureCheckFailed -> "the mesh was withheld: ${notice.reason}"
+	}
+
+/**
+ * A length rounded to a tenth of a pixel, for the log.
+ *
+ * @param Double value The length, pixels.
+ * @return Double The rounded length.
+ */
+private fun tenths(value: Double): Double = round(value * 10.0) / 10.0
 
 /**
  * Emits one outcome's notice on the status bar.
@@ -310,6 +356,16 @@ internal fun generateMeshTargets(session: EditorSession): List<DrawableId> =
 	}
 
 /**
+ * Whether a Generate Mesh from Art run is in flight.  Held for as long as the window, beside the
+ * options memory, because the command table that holds the launcher is rebuilt whenever its keys
+ * change (a selection change mid-run does) and a flag inside the launcher would start over with it.
+ */
+internal class MeshGenerationRunState {
+	/** True from a run's launch until it has landed or given up. */
+	var running: Boolean = false
+}
+
+/**
  * The Generate Mesh from Art command's action for one document: each call meshes the drawables
  * [generateMeshTargets] names, starting from the options the window remembers (or the settings' preset
  * before any run), and shows its strip over the area it is given.  A call while a run is still going is
@@ -321,6 +377,7 @@ internal fun generateMeshTargets(session: EditorSession): List<DrawableId> =
  * @param Boolean                      premultipliedAlpha The document's texture-convention flag.
  * @param CoroutineScope               scope              Where the run and its adjustments launch.
  * @param MeshGenerationSessionOptions sessionOptions     The window's memory of the last options.
+ * @param MeshGenerationRunState       runState           The window's record of a run in flight.
  * @param Function                     seedPresetKey      Reads the settings' preset key, for a first run.
  * @return Function The action, handed the area id the command was dispatched over, or null.
  */
@@ -331,26 +388,26 @@ internal fun generateMeshLauncher(
 	premultipliedAlpha: Boolean,
 	scope: CoroutineScope,
 	sessionOptions: MeshGenerationSessionOptions,
+	runState: MeshGenerationRunState,
 	seedPresetKey: () -> String?,
 ): (areaId: String?) -> Unit {
 	val host = GenerateMeshHost(session, artRasters, sessionAtlasPages, premultipliedAlpha, scope, sessionOptions::record)
-	var running = false
 
 	return { areaId ->
 		val targets = generateMeshTargets(session)
 
 		if (targets.isEmpty()) {
 			session.emitNotice("notice.mesh.noTargets", NoticePlacement.StatusBar)
-		} else if (running) {
+		} else if (runState.running) {
 			UmamoLog.info("generate mesh: a run is already going; this one was ignored")
 		} else {
-			running = true
+			runState.running = true
 			val options = sessionOptions.optionsFor(seedPresetKey())
 			scope.launch {
 				try {
 					runGenerateMesh(host, targets, options, areaId)
 				} finally {
-					running = false
+					runState.running = false
 				}
 			}
 		}

@@ -575,6 +575,7 @@
 	<string name="history_mesh_generate_from_art">アートからメッシュを生成</string>
 	<string name="notice_mesh_generated">アートから %1$d 個のメッシュを生成しました。</string>
 	<string name="notice_mesh_generated_with_skips">アートから %1$d 個のメッシュを生成し、%2$d 個をスキップしました（ログを参照）。</string>
+	<string name="notice_mesh_generated_coarser">アートから %1$d 個のメッシュを生成しました。頂点数の上限に収めるため、%2$d 個は指定より粗く生成しました（ログを参照）。</string>
 	<string name="notice_mesh_pinned_without_room">%1$d 個のメッシュを生成しました。固定されたアートに広がる余地がないため %2$d 個をスキップしました。固定を解除するか、外側の余白を小さくしてください。</string>
 	<string name="notice_mesh_over_budget">%1$d 個のメッシュを生成しました。頂点数の上限を超えるため %2$d 個をスキップしました。頂点数の上限を上げるか、穴を埋めるをオンにしてください。</string>
 	<string name="notice_mesh_none_generated">メッシュは生成されませんでした（ログを参照）。</string>

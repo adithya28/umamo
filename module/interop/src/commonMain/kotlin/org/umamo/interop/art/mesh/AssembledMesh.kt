@@ -2,6 +2,7 @@ package org.umamo.interop.art.mesh
 
 import org.umamo.format.art.AlphaField
 import org.umamo.geometry.mesh.PlanarTriangleMesh
+import org.umamo.geometry.mesh.forEachEdge
 import org.umamo.geometry.triangulation.ConstraintKind
 import org.umamo.geometry.triangulation.RejectedConstraint
 import org.umamo.geometry.triangulation.Triangulation
@@ -307,39 +308,31 @@ private fun finish(layout: MeshLayout, result: Triangulation, field: AlphaField,
 		}
 	}
 
-	val clearanceFailure = boundaryClearanceFailure(positions, triangles, field, minimumMargin)
+	val mesh = PlanarTriangleMesh(positions, triangles, pinVertices)
+	val clearanceFailure = boundaryClearanceFailure(mesh, field, minimumMargin)
 
 	if (clearanceFailure != null) {
 		return AssembledMesh(null, clearanceFailure, densifiedChordCount, droppedInnerEdgeCount, sharedPinCount, layout.outlinePointCount)
 	}
 
-	return AssembledMesh(PlanarTriangleMesh(positions, triangles, pinVertices), null, densifiedChordCount, droppedInnerEdgeCount, sharedPinCount, layout.outlinePointCount)
+	return AssembledMesh(mesh, null, densifiedChordCount, droppedInnerEdgeCount, sharedPinCount, layout.outlinePointCount)
 }
 
 /**
  * Checks that every boundary edge of the mesh (an edge with a triangle on one side only) keeps the
  * minimum margin from the art.
  *
- * @param FloatArray positions     The mesh's vertices.
- * @param IntArray   triangles     The mesh's triangles.
- * @param AlphaField field         The field.
- * @param Double     minimumMargin The clearance required.
+ * @param PlanarTriangleMesh mesh          The mesh.
+ * @param AlphaField         field         The field.
+ * @param Double             minimumMargin The clearance required.
  * @return String? A description of the first failing edge, or null when all clear.
  */
-private fun boundaryClearanceFailure(positions: FloatArray, triangles: IntArray, field: AlphaField, minimumMargin: Double): String? {
-	val directed = HashSet<Long>()
+private fun boundaryClearanceFailure(mesh: PlanarTriangleMesh, field: AlphaField, minimumMargin: Double): String? {
+	val positions = mesh.positions
 
-	for (entry in triangles.indices) {
-		val next = if (entry % 3 == 2) entry - 2 else entry + 1
-		directed.add(edgeKey(triangles[entry], triangles[next]))
-	}
-
-	for (entry in triangles.indices) {
-		val start = triangles[entry]
-		val end = triangles[if (entry % 3 == 2) entry - 2 else entry + 1]
-
-		if (edgeKey(end, start) in directed) {
-			continue
+	mesh.forEachEdge { start, end, isBoundary ->
+		if (!isBoundary) {
+			return@forEachEdge
 		}
 
 		val clears =
@@ -358,12 +351,3 @@ private fun boundaryClearanceFailure(positions: FloatArray, triangles: IntArray,
 
 	return null
 }
-
-/**
- * Packs a directed edge into one Long.
- *
- * @param Int start The start vertex.
- * @param Int end   The end vertex.
- * @return Long The key.
- */
-private fun edgeKey(start: Int, end: Int): Long = (start.toLong() shl 32) or (end.toLong() and 0xFFFFFFFFL)

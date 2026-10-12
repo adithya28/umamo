@@ -1,5 +1,6 @@
 package org.umamo.ui.model.mesh
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -303,7 +304,9 @@ class GenerateMeshFlowTest {
 					release.await()
 					disc()
 				}
-			val launch = generateMeshLauncher(session, blocking, null, false, this, MeshGenerationSessionOptions()) { "coarse" }
+			val sessionOptions = MeshGenerationSessionOptions()
+			val runState = MeshGenerationRunState()
+			val launch = generateMeshLauncher(session, blocking, null, false, this, sessionOptions, runState) { "coarse" }
 
 			launch(null)
 			assertEquals("notice.mesh.noTargets", session.notice.value?.messageKey)
@@ -313,13 +316,90 @@ class GenerateMeshFlowTest {
 			launch(null)
 			withContext(Dispatchers.IO) { entered.await() }
 			launch(null)
+			// The command table is rebuilt mid-run (a selection change re-registers it); the new launcher
+			// shares the window's run state and still sees the run going.
+			val rebuilt = generateMeshLauncher(session, blocking, null, false, this, sessionOptions, runState) { "coarse" }
+			rebuilt(null)
 			release.countDown()
 			joinChildren()
 
-			assertEquals(stepsBefore + 1, session.historyView.value.steps.size, "the second press while the first ran was ignored")
+			assertEquals(stepsBefore + 1, session.historyView.value.steps.size, "the second and third presses while the first ran were ignored")
 			assertEquals("change.mesh.generateFromArt", session.historyView.value.steps.last().labelKey)
 			val presetRow = session.adjustableOperation.value!!.parameters.first { row -> row.key == MeshGenerationParameterKeys.PRESET } as OperatorParameter.ChoiceParameter
 			assertEquals("coarse", presetRow.value, "a first run starts from the settings' preset")
+		}
+
+	@Test
+	fun aGuardTrippingInsideTheRunIsANoticeNotACrash() =
+		runBlocking {
+			val model = model(listOf(quad(drawableA, tileA, 10f, 10f, 54f, 54f)), unplacedAtlas(listOf(tileA)))
+			val session = EditorSession(model)
+			// The store's decode stands in for any check() in the pipeline: an IllegalStateException, not the
+			// IllegalArgumentException a refused input throws.
+			val tripping = SourceArtRasters { _ -> throw IllegalStateException("a guard tripped") }
+
+			assertFalse(runGenerateMesh(host(session, tripping, this), listOf(drawableA), standard, null))
+
+			assertSame(model, session.model.value)
+			assertEquals("notice.mesh.noneGenerated", session.notice.value?.messageKey)
+		}
+
+	@Test
+	fun aCancellationInsideTheRunPropagates() =
+		runBlocking {
+			val model = model(listOf(quad(drawableA, tileA, 10f, 10f, 54f, 54f)), unplacedAtlas(listOf(tileA)))
+			val session = EditorSession(model)
+			val cancelling = SourceArtRasters { _ -> throw CancellationException("cancelled") }
+			val run = async { runGenerateMesh(host(session, cancelling, this), listOf(drawableA), standard, null) }
+
+			assertTrue(runCatching { run.await() }.exceptionOrNull() is CancellationException, "a cancellation is not a guard's refusal")
+		}
+
+	@Test
+	fun aMeshBuiltCoarserThanAskedIsNoticedAndLogged() =
+		runBlocking {
+			val model = model(listOf(quad(drawableA, tileA, 10f, 10f, 54f, 54f)), unplacedAtlas(listOf(tileA)))
+			// Dense spacings over the whole disc, so the mesh asked for runs well past the budget floor.
+			val dense = standard.copy(settings = standard.settings.copy(outlineSpacing = 4.0, interiorSpacing = 6.0))
+			val asked = EditorSession(model)
+			runGenerateMesh(host(asked, rasters(tileA to disc()), this), listOf(drawableA), dense, null)
+			val askedCount = vertexCountOf(asked.model.value, drawableA)
+			// A budget under what the rows ask for, and over the floor the rows clamp to: the mesher widens
+			// the spacings a round or two and fits.
+			val budget = askedCount * 2 / 3
+			val tight = dense.copy(settings = dense.settings.copy(vertexBudget = budget))
+			assertEquals(budget, clampedMeshSettings(tight.settings, minimumAlphaThreshold = 1).vertexBudget, "the budget survives the rows' clamp")
+			val session = EditorSession(model)
+
+			assertTrue(runGenerateMesh(host(session, rasters(tileA to disc()), this), listOf(drawableA), tight, null))
+
+			assertTrue(vertexCountOf(session.model.value, drawableA) <= budget, "the mesh was built within the budget")
+			assertEquals("notice.mesh.generatedCoarser", session.notice.value?.messageKey)
+			assertEquals(listOf("1", "1"), session.notice.value?.arguments)
+		}
+
+	@Test
+	fun everyTileIsDecodedOncePerRunAndOncePerAdjustment() =
+		runBlocking {
+			// Tile B's disc starts 3 px right of tile A's: the collision test reads B as A's neighbour, and
+			// the pack that follows composes both.
+			val model = placedModel(listOf(drawableA to 2f), aPlacement = placement(40f, 40f), bPlacement = placement(83f, 40f))
+			val session = EditorSession(model)
+			val decodesByTile = HashMap<AtlasTileId, Int>()
+			val art = mapOf(tileA to disc(), tileB to disc())
+			val counting =
+				SourceArtRasters { tileId ->
+					synchronized(decodesByTile) { decodesByTile[tileId] = (decodesByTile[tileId] ?: 0) + 1 }
+					art[tileId]
+				}
+
+			runGenerateMesh(host(session, counting, this), listOf(drawableA), standard, null)
+
+			assertEquals(mapOf(tileA to 1, tileB to 1), decodesByTile, "the run decoded each tile once")
+			val record = assertNotNull(session.adjustableOperation.value)
+			session.adjustLastOperation(record.parameters.withFloat(MeshGenerationParameterKeys.OUTLINE_SPACING, 12f))
+			joinChildren()
+			assertEquals(mapOf(tileA to 2, tileB to 2), decodesByTile, "the adjustment decoded each tile once more, holding none from the run")
 		}
 
 	/**

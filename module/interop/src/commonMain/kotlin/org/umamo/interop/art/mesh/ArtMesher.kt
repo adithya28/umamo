@@ -1,7 +1,9 @@
 package org.umamo.interop.art.mesh
 
+import org.umamo.format.art.AlphaChannel
 import org.umamo.format.art.AlphaField
 import org.umamo.format.art.LayerRaster
+import org.umamo.format.art.alphaChannel
 import org.umamo.format.art.alphaField
 import org.umamo.geometry.polyline.outermostRings
 import kotlin.math.ceil
@@ -10,7 +12,7 @@ import kotlin.math.sqrt
 
 /*
  * The art mesher: a deformation-ready triangle mesh over a layer's art, built from its signed distance
- * field (docs/plan/auto-mesh.md, the SDF band mesher).
+ * field - the outline and the inner ring are contours of the field, and a lattice fills between them.
  *
  * The OUTLINE is the field's contour a little outside the art - at least the minimum margin plus two
  * working cells.  A traced chord provably clears the art by the minimum margin plus a little over half
@@ -38,14 +40,24 @@ import kotlin.math.sqrt
 private const val BUDGET_ROUNDS: Int = 5
 
 /**
- * Meshes one layer raster.
+ * Meshes one layer raster; see [generateArtMesh] over an [AlphaChannel], which is all it reads.
  *
  * @param LayerRaster     raster   The layer's pixels.
+ * @param ArtMeshSettings settings How to space and place vertices.
+ * @param DoubleArray     pins     Points that must become vertices, x0, y0, ..., raster px.
+ * @return ArtMeshResult The mesh, or why there is none, with what was adjusted.
+ */
+public fun generateArtMesh(raster: LayerRaster, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0)): ArtMeshResult = generateArtMesh(raster.alphaChannel(), settings, pins)
+
+/**
+ * Meshes one layer's alpha channel.
+ *
+ * @param AlphaChannel    alpha    The layer's alpha, the only channel the mesh depends on.
  * @param ArtMeshSettings settings How to space and place vertices.
  * @param DoubleArray     pins     Points that must become vertices, x0, y0, ..., raster px (glued vertices kept through a regeneration).
  * @return ArtMeshResult The mesh, or why there is none, with what was adjusted.
  */
-public fun generateArtMesh(raster: LayerRaster, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0)): ArtMeshResult {
+public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0)): ArtMeshResult {
 	require(pins.size % 2 == 0) { "pins must hold x, y pairs, but has ${pins.size} components" }
 
 	for (component in pins.indices) {
@@ -58,7 +70,7 @@ public fun generateArtMesh(raster: LayerRaster, settings: ArtMeshSettings, pins:
 	// Enough padding for the outline level at ANY cell size the grid cap may force: the level is at most
 	// outerMargin + minimumMargin + 2 cells, and the contour must stay clear of the border.
 	val paddingCells = ceil(settings.outerMargin / requestedCellSize).toInt() + ceil(settings.minimumMargin / requestedCellSize).toInt() + 4
-	val field = raster.alphaField(settings.alphaThreshold, requestedCellSize, paddingCells, pins) ?: return ArtMeshResult(null, listOf(ArtMeshNotice.NothingOpaque), null)
+	val field = alpha.alphaField(settings.alphaThreshold, requestedCellSize, paddingCells, pins) ?: return ArtMeshResult(null, listOf(ArtMeshNotice.NothingOpaque), null)
 	val notices = ArrayList<ArtMeshNotice>()
 
 	if (field.cellSize > requestedCellSize) {

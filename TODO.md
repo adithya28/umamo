@@ -22,6 +22,8 @@
 2.) Deformer Gizmos and Editing
 3.) Glue Gizmos and Editing
 
+Fix code style standards.
+
 ## VERY IMPORTANT
 * Hire translators for localization.
 * Final pass on keyboard shortcuts.
@@ -45,6 +47,9 @@
 ## Artwork Import
 * We need to properly handle different blending mode imports from artwork to setup the drawables automatically.
 * Automatic visual matching of imported artwork layers to layers cut from a texture atlas after a MOC3 to CMO3 conversion.
+
+## Automatic Meshing
+* Automatic repack or expand texture atlases when generated meshes won't fit.  Birth quads on LimeBirb prevent most mesh generation operations.
 
 ## Puppet Model, CMO3, MOC3
 * Parameter Repeat
@@ -202,6 +207,7 @@ See format planning document: docs/plan/uma-format.md
 * The settings UI needs a design pass since it is basically just squares and whatever thrown together right now.
 * New Settings
 	* Setting to make Left Click, instead of ALT+Left Click, the default to activate the popup overlap picker.
+	* Mesh Generation default preset - It exists, but it is not placed yet.
 
 ## Keybindings
 * Audit default keybinding maps for Blender and Cubism styles.

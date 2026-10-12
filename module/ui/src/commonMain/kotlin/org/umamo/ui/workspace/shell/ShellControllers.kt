@@ -18,6 +18,7 @@ import org.umamo.ui.kit.textentry.KeyCaptureController
 import org.umamo.ui.kit.textentry.LocalInlineEditController
 import org.umamo.ui.kit.textentry.LocalKeyCapture
 import org.umamo.ui.model.SelectionHandle
+import org.umamo.ui.model.mesh.MeshGenerationRunState
 import org.umamo.ui.model.mesh.MeshGenerationSessionOptions
 import org.umamo.ui.model.repack.AtlasRepackSessionOptions
 import org.umamo.ui.settings.LocalQuickSetup
@@ -189,6 +190,9 @@ internal class ShellControllers(
 	 * value is in art pixels, so it means the same thing for any document.
 	 */
 	val meshGenerationOptions = MeshGenerationSessionOptions()
+
+	/** Whether a Generate Mesh from Art run is in flight, held here so a rebuilt command table still sees it. */
+	val meshGenerationRun = MeshGenerationRunState()
 
 	/** The operation settings strip's disclosure state, which lives as long as the window for the same reason. */
 	val operationStrip = OperationStripState()

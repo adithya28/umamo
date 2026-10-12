@@ -3,6 +3,7 @@ package org.umamo.cli
 import org.umamo.format.art.LayerRaster
 import org.umamo.format.raster.RasterImage
 import org.umamo.geometry.mesh.PlanarTriangleMesh
+import org.umamo.geometry.mesh.forEachEdge
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -52,22 +53,7 @@ internal fun renderWireframe(raster: LayerRaster, mesh: PlanarTriangleMesh, scal
 
 	val canvas = Canvas(width, height)
 	canvas.paintBackground(raster, originX, originY, scale)
-	val directed = HashSet<Long>()
-
-	for (entry in mesh.triangles.indices) {
-		directed.add(edgeKey(mesh.triangles[entry], mesh.triangles[nextCorner(entry)]))
-	}
-
-	for (entry in mesh.triangles.indices) {
-		val start = mesh.triangles[entry]
-		val end = mesh.triangles[nextCorner(entry)]
-		val isBoundary = edgeKey(end, start) !in directed
-
-		// Each interior edge appears twice; draw it once.
-		if (!isBoundary && start > end) {
-			continue
-		}
-
+	mesh.forEachEdge { start, end, isBoundary ->
 		val color = if (isBoundary) BOUNDARY_COLOR else INTERIOR_COLOR
 		canvas.line(
 			toCanvas(mesh.positions[2 * start], originX, scale),
@@ -98,23 +84,6 @@ internal fun renderWireframe(raster: LayerRaster, mesh: PlanarTriangleMesh, scal
  * @return Int The canvas pixel.
  */
 private fun toCanvas(value: Float, origin: Int, scale: Int): Int = ((value - origin) * scale).roundToInt()
-
-/**
- * The next corner of the same triangle.
- *
- * @param Int entry An index into a triangle array.
- * @return Int The next corner's index.
- */
-private fun nextCorner(entry: Int): Int = if (entry % 3 == 2) entry - 2 else entry + 1
-
-/**
- * Packs a directed edge into one Long.
- *
- * @param Int start The start vertex.
- * @param Int end   The end vertex.
- * @return Long The key.
- */
-private fun edgeKey(start: Int, end: Int): Long = (start.toLong() shl 32) or (end.toLong() and 0xFFFFFFFFL)
 
 /** Interior edges. */
 private val INTERIOR_COLOR = intArrayOf(40, 150, 255)

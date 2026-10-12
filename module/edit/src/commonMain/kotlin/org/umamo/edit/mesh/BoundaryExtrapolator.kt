@@ -1,5 +1,7 @@
 package org.umamo.edit.mesh
 
+import org.umamo.geometry.packVertexPair
+
 /**
  * How an old mesh's geometry continues past its own boundary, for placing the vertices of a
  * regenerated mesh that fall outside it.
@@ -49,7 +51,7 @@ internal class BoundaryExtrapolator(
 	fun fitFor(firstCorner: Int, secondCorner: Int): Fit? {
 		val low = minOf(firstCorner, secondCorner)
 		val high = maxOf(firstCorner, secondCorner)
-		val key = (low.toLong() shl 32) or (high.toLong() and 0xFFFFFFFFL)
+		val key = packVertexPair(low, high)
 
 		if (key in fitsByFeature) {
 			return fitsByFeature[key]

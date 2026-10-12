@@ -1,5 +1,9 @@
 package org.umamo.geometry.triangulation
 
+import org.umamo.geometry.packVertexPair
+import org.umamo.geometry.pairFirst
+import org.umamo.geometry.pairSecond
+
 /*
  * Constraint insertion into a finished Delaunay triangulation, by edge flips (Sloan 1993).
  *
@@ -121,7 +125,7 @@ internal class ConstraintInserter(
 				return REJECTED
 			}
 
-			crossed?.add(packPair(triangulation.origin[crossing], triangulation.destination(crossing)))
+			crossed?.add(packVertexPair(triangulation.origin[crossing], triangulation.destination(crossing)))
 			val across = triangulation.twin[crossing]
 			check(!triangulation.isGhostTriangle(across / 3)) { "the segment $from -> $to left the convex hull" }
 			val farVertex = triangulation.origin[triangulation.previous(across)]
@@ -278,7 +282,7 @@ internal class ConstraintInserter(
 
 		if (crossesPiece(start, end, apex, farApex)) {
 			val apexOnRight = triangulation.orient(start, end, apex) < 0.0
-			crossings.add(if (apexOnRight) packPair(apex, farApex) else packPair(farApex, apex))
+			crossings.add(if (apexOnRight) packVertexPair(apex, farApex) else packVertexPair(farApex, apex))
 		} else {
 			recordCreated(start, end, apex, farApex)
 		}
@@ -343,7 +347,7 @@ internal class ConstraintInserter(
 		val isPiece = (first == start && second == end) || (first == end && second == start)
 
 		if (!isPiece) {
-			createdEdges.add(packPair(first, second))
+			createdEdges.add(packVertexPair(first, second))
 		}
 	}
 
@@ -369,10 +373,10 @@ internal class ConstraintInserter(
 			val farApex = triangulation.origin[triangulation.previous(triangulation.twin[halfEdge])]
 			triangulation.flip(halfEdge)
 
-			restorePending.add(packPair(end, apex))
-			restorePending.add(packPair(apex, start))
-			restorePending.add(packPair(start, farApex))
-			restorePending.add(packPair(farApex, end))
+			restorePending.add(packVertexPair(end, apex))
+			restorePending.add(packVertexPair(apex, start))
+			restorePending.add(packVertexPair(start, farApex))
+			restorePending.add(packVertexPair(farApex, end))
 		}
 	}
 
@@ -426,30 +430,5 @@ internal class ConstraintInserter(
 	private companion object {
 		/** [walkToNextVertex]'s result when the walk ran into an existing constraint. */
 		const val REJECTED = -1
-
-		/**
-		 * Packs two vertices into one Long.
-		 *
-		 * @param Int first  The first vertex.
-		 * @param Int second The second vertex.
-		 * @return Long The packed pair.
-		 */
-		fun packPair(first: Int, second: Int): Long = (first.toLong() shl 32) or (second.toLong() and 0xFFFFFFFFL)
-
-		/**
-		 * The first vertex of a packed pair.
-		 *
-		 * @param Long pair The packed pair.
-		 * @return Int The first vertex.
-		 */
-		fun pairFirst(pair: Long): Int = (pair ushr 32).toInt()
-
-		/**
-		 * The second vertex of a packed pair.
-		 *
-		 * @param Long pair The packed pair.
-		 * @return Int The second vertex.
-		 */
-		fun pairSecond(pair: Long): Int = pair.toInt()
 	}
 }
