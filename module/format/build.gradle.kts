@@ -71,6 +71,9 @@ kotlin {
 			// classes whose generated companions return KSerializer, so the library is part of this
 			// module's public surface.
 			api(libs.kotlinxSerializationJson)
+			// :geometry: the alpha contour simplifier is its Douglas-Peucker.  `implementation`, not
+			// `api`: no :geometry type appears in :format's public surface.
+			implementation(project(":geometry"))
 			// okio: DEFLATE (its zlibMain source set reaches every target we build, iosArm64 included)
 			// and Buffer, the growable byte sink the codecs assemble output into. `implementation`,
 			// not `api`: no okio type appears in :format's public surface.

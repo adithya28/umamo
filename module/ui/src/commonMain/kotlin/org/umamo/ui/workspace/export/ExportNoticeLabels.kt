@@ -101,6 +101,14 @@ fun exportNoticeReasonPhrase(reason: ExportNoticeReason): ExportNoticePhrase =
 			ExportNoticePhrase(Res.string.export_reason_hidden_part_omitted_by_option)
 		ExportNoticeReason.HiddenDrawableOmittedByExportOption ->
 			ExportNoticePhrase(Res.string.export_reason_hidden_drawable_omitted_by_option)
+		is ExportNoticeReason.VertexCountExceedsIndexWidth ->
+			ExportNoticePhrase(
+				Res.string.export_reason_vertex_count_exceeds_index_width,
+				listOf(
+					ExportNoticeArgument.Literal(reason.vertexCount),
+					ExportNoticeArgument.Literal(reason.maximumVertexCount),
+				),
+			)
 		ExportNoticeReason.NoAtlasPageBound ->
 			ExportNoticePhrase(Res.string.export_reason_no_atlas_page_bound)
 		is ExportNoticeReason.ClippingMaskNotInExport ->

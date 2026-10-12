@@ -36,8 +36,8 @@ internal sealed interface LoadedInput {
 
 	/**
 	 * Layered or flat source artwork: PSD, CLIP, KRA, or any of the flat raster formats read as a
-	 * single-layer document.  It carries no rig - there is no source-art to PuppetModel bridge yet
-	 * (pipeline Phase E) - so only artwork-side commands accept it.
+	 * single-layer document.  It carries no rig, and the CLI never runs the source-art to PuppetModel
+	 * bridge over it, so only the artwork-side commands (atlas, mesh) accept it.
 	 */
 	class SourceArtInput(val art: SourceArt, val file: File) : LoadedInput
 }
@@ -160,8 +160,7 @@ internal fun importPuppet(loaded: LoadedInput): PuppetModel =
 		is LoadedInput.Moc3Input -> restMeshesToCanvasSpace(Moc3Import.fromMocDocument(loaded.document, loaded.family.displayInfo))
 		is LoadedInput.SourceArtInput ->
 			throw CliUsageException(
-				"${loaded.file.name} is source artwork, which carries no rig; try `atlas` (a source-art to " +
-					"PuppetModel bridge is pipeline Phase E and does not exist yet)",
+				"${loaded.file.name} is source artwork, which carries no rig; try `atlas` or `mesh`",
 			)
 	}
 
@@ -188,6 +187,41 @@ internal class CliArguments(
 		val raw = options[name] ?: return defaultValue
 		return raw.toIntOrNull() ?: throw CliUsageException("$name expects a whole number, got '$raw'")
 	}
+
+	/**
+	 * Reads one valued option as a decimal number.
+	 *
+	 * @param String name         The option name, with its leading dashes.
+	 * @param Double defaultValue The value to use when the option is absent.
+	 * @return Double The parsed value.
+	 */
+	fun doubleOption(name: String, defaultValue: Double): Double {
+		val raw = options[name] ?: return defaultValue
+
+		return raw.toDoubleOrNull() ?: throw CliUsageException("$name expects a number, got '$raw'")
+	}
+}
+
+/** Canvas pixels past which a preview image is skipped rather than allocated. */
+internal const val PREVIEW_PIXEL_CAP = 128_000_000
+
+/**
+ * Resolves a command's output subdirectory, named after the input file.
+ *
+ * @param File    inputFile       The input file.
+ * @param String? parentDirectory The caller's directory argument, when given.
+ * @param String  suffix          Appended to the input's name, so two commands' outputs never mix.
+ * @return File The directory the command writes into.
+ */
+internal fun resolveOutputDirectory(inputFile: File, parentDirectory: String?, suffix: String = ""): File {
+	val parent = if (parentDirectory != null) File(parentDirectory) else (inputFile.parentFile ?: File("."))
+	val directory = File(parent, inputFile.nameWithoutExtension + suffix)
+
+	if (directory.exists()) {
+		System.err.println("Note: ${directory.path} already exists; its matching files will be overwritten.")
+	}
+
+	return directory
 }
 
 /**

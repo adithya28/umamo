@@ -251,7 +251,12 @@ fun PuppetModel.withAtlasRepack(
 			}
 		}
 	}
-	val movedTiles = atlas.tiles.map { tile -> tile.copy(placement = placementsByTile.getValue(tile.id)) }
+	// A tile without a placement is never pinned, so a tile the pack left out drops its pin.
+	val movedTiles =
+		atlas.tiles.map { tile ->
+			val placement = placementsByTile.getValue(tile.id)
+			tile.copy(placement = placement, pinned = tile.pinned && placement != null)
+		}
 	val newAtlas = atlas.copy(pages = pages, tiles = movedTiles, composition = composition)
 	if (newAtlas == atlas) {
 		return this

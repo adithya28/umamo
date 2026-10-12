@@ -32,6 +32,7 @@ class ExportNoticeLabelsTest {
 			ExportNoticeReason.SketchPartIsNotRuntimeContent,
 			ExportNoticeReason.HiddenPartOmittedByExportOption,
 			ExportNoticeReason.HiddenDrawableOmittedByExportOption,
+			ExportNoticeReason.VertexCountExceedsIndexWidth(70000, 65536),
 			ExportNoticeReason.NoAtlasPageBound,
 			ExportNoticeReason.ClippingMaskNotInExport(listOf("Mask01")),
 			ExportNoticeReason.OffscreenMaskNotInExport,

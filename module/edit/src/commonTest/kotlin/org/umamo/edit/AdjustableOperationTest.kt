@@ -126,6 +126,23 @@ class AdjustableOperationTest {
 	}
 
 	@Test
+	fun aRevisionRewritesTheRowsWithoutARerunAndKeepsTheRecordLive() {
+		val session = EditorSession(model("seed"))
+		var reruns = 0
+		session.mutate(PartChange.Rename(partId, "w1")) { current -> current.renamed("w1") }
+		val record = assertNotNull(session.registerAdjustableOperation(session.model.value, null, parameters(1)) { reruns++ })
+
+		val revised = assertNotNull(session.reviseAdjustableParameters(record, parameters(7)))
+
+		assertEquals(0, reruns, "a revision never reruns the operation")
+		assertEquals(7, session.adjustableOperation.value!!.parameters.intValue(widthKey, -1))
+		assertTrue(session.amendLastCommit(revised, record.baseSnapshot.model.renamed("w7")), "the revised record still lands")
+		assertEquals("w7", liveName(session))
+		session.mutate(PartChange.Rename(partId, "other")) { current -> current.renamed("other") }
+		assertNull(session.reviseAdjustableParameters(revised, parameters(3)), "a record another push cleared is refused")
+	}
+
+	@Test
 	fun aRegistrationIsRefusedWithoutACommitOrAgainstAnotherModel() {
 		val fresh = EditorSession(model("seed"))
 		assertNull(fresh.registerAdjustableOperation(fresh.model.value, null, parameters(1)) {}, "nothing was pushed")
