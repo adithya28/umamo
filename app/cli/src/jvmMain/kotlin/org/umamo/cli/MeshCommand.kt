@@ -143,8 +143,8 @@ internal fun runMesh(arguments: List<String>): Int {
 private fun settingsFrom(parsed: CliArguments): ArtMeshSettings {
 	val presetName = parsed.options["--preset"] ?: "standard"
 	val preset =
-		ArtMeshPreset.entries.firstOrNull { entry -> entry.name.equals(presetName, ignoreCase = true) }
-			?: throw CliUsageException("--preset must be one of ${ArtMeshPreset.entries.joinToString { it.name.lowercase() }}, got '$presetName'")
+		ArtMeshPreset.entries.firstOrNull { entry -> entry.key == presetName.lowercase() }
+			?: throw CliUsageException("--preset must be one of ${ArtMeshPreset.entries.joinToString { it.key }}, got '$presetName'")
 	val base = preset.settings
 
 	return try {

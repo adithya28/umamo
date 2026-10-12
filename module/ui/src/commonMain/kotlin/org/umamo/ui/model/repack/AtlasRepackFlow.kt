@@ -119,14 +119,16 @@ internal class RepackPackInput(
 ) {
 	/**
 	 * The items to pack: every placed tile fixed where it is when [fixPlaced], else the pinned tiles
-	 * fixed when [keepPinned], else every tile free.  Items hold their pixels by reference, so the
-	 * fixed copies cost nothing.
+	 * fixed when [keepPinned], else every tile free - except the tiles in [freeKeys], which are always
+	 * free (tiles that must find a new spot while the rest hold still).  Items hold their pixels by
+	 * reference, so the fixed copies cost nothing.
 	 *
-	 * @param Boolean keepPinned Whether the pinned tiles stay put.
-	 * @param Boolean fixPlaced  Whether every placed tile stays put, pinned or not.
+	 * @param Boolean     keepPinned Whether the pinned tiles stay put.
+	 * @param Boolean     fixPlaced  Whether every placed tile stays put, pinned or not.
+	 * @param Set<String> freeKeys   Tiles packed free whatever the other two say.
 	 * @return List The pack items.
 	 */
-	fun itemsFor(keepPinned: Boolean, fixPlaced: Boolean = false): List<AtlasPackItem> {
+	fun itemsFor(keepPinned: Boolean, fixPlaced: Boolean = false, freeKeys: Set<String> = emptySet()): List<AtlasPackItem> {
 		val fixedForms =
 			when {
 				fixPlaced -> placedByKey
@@ -137,6 +139,9 @@ internal class RepackPackInput(
 			return items
 		}
 		return items.map { item ->
+			if (item.key in freeKeys) {
+				return@map item
+			}
 			val fixed = fixedForms[item.key] ?: return@map item
 			AtlasPackItem(item.key, item.width, item.height, item.rgba, item.reserve, fixed)
 		}
@@ -298,6 +303,7 @@ internal class PackedAtlas(
  * @param Boolean          keepPinned   Whether pinned tiles stay where they are.
  * @param Boolean          fixPlaced    Whether every placed tile stays where it is (added art packs
  *                                      into the gaps).
+ * @param Set<String>      freeKeys     Tiles packed free whatever the other two say.
  * @return PackedAtlas The input and the result, not yet lowered or committed.
  */
 internal fun packAtlasOf(
@@ -306,9 +312,10 @@ internal fun packAtlasOf(
 	options: AtlasPackOptions,
 	keepPinned: Boolean = true,
 	fixPlaced: Boolean = false,
+	freeKeys: Set<String> = emptySet(),
 ): PackedAtlas {
 	val input = buildRepackPackInput(model, decodeRaster)
-	return PackedAtlas(input, packAtlas(input.itemsFor(keepPinned, fixPlaced), options))
+	return PackedAtlas(input, packAtlas(input.itemsFor(keepPinned, fixPlaced, freeKeys), options))
 }
 
 /**
