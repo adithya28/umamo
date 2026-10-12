@@ -151,8 +151,9 @@ internal suspend fun runGenerateMesh(host: GenerateMeshHost, targets: List<Drawa
 }
 
 /**
- * Registers a landed run on the operation settings strip.  Choosing another preset re-seeds the density
- * rows before the rerun reads them; a newer adjustment cancels the rerun still in flight.
+ * Registers a landed run on the operation settings strip.  Choosing a preset - another one, or the one
+ * already shown, to undo edits to its rows - re-seeds the density rows before the rerun reads them; a
+ * newer adjustment cancels the rerun still in flight.
  *
  * @param GenerateMeshHost      host                  The host.
  * @param PuppetModel           committed             The model the run committed.
@@ -176,7 +177,7 @@ private fun registerGenerateMesh(
 		var current = record
 		val rowPreset = ArtMeshPreset.fromKey(record.parameters.choiceValue(MeshGenerationParameterKeys.PRESET, seededPreset.key))
 
-		if (rowPreset != seededPreset) {
+		if (rowPreset != seededPreset || record.adjustedKey == MeshGenerationParameterKeys.PRESET) {
 			seededPreset = rowPreset
 			current = session.reviseAdjustableParameters(record, reseededMeshGenerationParameters(record.parameters, rowPreset, minimumAlphaThreshold)) ?: return@registerAdjustableOperation
 		}

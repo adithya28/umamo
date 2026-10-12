@@ -264,6 +264,30 @@ class GenerateMeshFlowTest {
 		}
 
 	@Test
+	fun choosingThePresetAlreadyShownAppliesItAgain() =
+		runBlocking {
+			val model = model(listOf(quad(drawableA, tileA, 10f, 10f, 54f, 54f)), unplacedAtlas(listOf(tileA)))
+			val session = EditorSession(model)
+			runGenerateMesh(host(session, rasters(tileA to disc()), this), listOf(drawableA), standard, null)
+			val record = assertNotNull(session.adjustableOperation.value)
+			session.adjustLastOperation(record.parameters.withFloat(MeshGenerationParameterKeys.OUTLINE_SPACING, 12f), adjustedKey = MeshGenerationParameterKeys.OUTLINE_SPACING)
+			joinChildren()
+			val edited = assertNotNull(session.adjustableOperation.value)
+			assertEquals(12f, edited.parameters.floatValue(MeshGenerationParameterKeys.OUTLINE_SPACING, 0f))
+			val presetRow = edited.parameters.first { row -> row.key == MeshGenerationParameterKeys.PRESET } as OperatorParameter.ChoiceParameter
+			assertEquals(ArtMeshPreset.Standard.key, presetRow.value, "the edited row leaves the preset shown")
+
+			// The strip hands the same choice back, naming the row.
+			session.adjustLastOperation(edited.parameters.withParameter(MeshGenerationParameterKeys.PRESET, presetRow.copy(value = ArtMeshPreset.Standard.key)), adjustedKey = MeshGenerationParameterKeys.PRESET)
+			joinChildren()
+
+			val rows = assertNotNull(session.adjustableOperation.value).parameters
+			assertEquals(ArtMeshPreset.Standard.settings.outlineSpacing.toFloat(), rows.floatValue(MeshGenerationParameterKeys.OUTLINE_SPACING, 0f), "the preset's spacing is back")
+			val expected = freshRun(model, standard)
+			assertContentEquals(meshOf(expected, drawableA).positions, meshOf(session.model.value, drawableA).positions, "and the mesh is a fresh Standard run's")
+		}
+
+	@Test
 	fun theNewestOfTwoQuickAdjustmentsLands() =
 		runBlocking {
 			val model = model(listOf(quad(drawableA, tileA, 10f, 10f, 54f, 54f)), unplacedAtlas(listOf(tileA)))
