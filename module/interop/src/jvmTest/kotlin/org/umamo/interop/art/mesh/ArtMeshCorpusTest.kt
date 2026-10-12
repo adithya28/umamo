@@ -6,7 +6,6 @@ import org.umamo.format.art.SourceLayerKind
 import org.umamo.geometry.mesh.measureQuality
 import java.io.File
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -88,13 +87,7 @@ class ArtMeshCorpusTest {
 				}
 
 				try {
-					assertArtCovered(layer.raster, mesh, settings.alphaThreshold)
-					assertBoundaryClearsArt(layer.raster, mesh, settings.alphaThreshold, settings.minimumMargin)
-					assertTrue(mesh.vertexCount <= settings.vertexBudget, "over the vertex budget")
-
-					if (settings.fillHoles) {
-						assertEquals(result.statistics!!.outlineRingCount, eulerCharacteristic(mesh), "a mesh with its holes filled is one disc per outline ring")
-					}
+					assertValidArtMesh(layer.raster, settings, result)
 				} catch (failure: AssertionError) {
 					throw AssertionError("$context: ${failure.message}", failure)
 				}

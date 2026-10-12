@@ -32,7 +32,7 @@ import kotlin.test.fail
  * affine relations survive inside and outside the old mesh (slivers and collinear neighbourhoods
  * included), inside deltas are the piecewise-linear interpolant, outside deltas never leave their
  * boundary's range, the winding follows the old mesh, UVs lower through a placed tile, and every
- * refusal.  Glue lives in MeshRegenerationGlueTest.
+ * refusal but the pin mismatch.  Glue and the pin mismatch live in MeshRegenerationGlueTest.
  */
 class MeshRegenerationTest {
 	@Test

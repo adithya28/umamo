@@ -4,6 +4,9 @@ import org.umamo.format.art.LayerBounds
 import org.umamo.format.atlas.AtlasPackReserve
 import org.umamo.runtime.model.AtlasPlacement
 import org.umamo.runtime.model.AtlasTileId
+import org.umamo.runtime.model.Drawable
+import org.umamo.runtime.model.DrawableId
+import org.umamo.runtime.model.DrawableMesh
 import org.umamo.runtime.model.PuppetModel
 import org.umamo.runtime.model.applyUvAffine
 import org.umamo.runtime.model.inversePlacementAffine
@@ -56,35 +59,77 @@ public fun meshReserveByTile(model: PuppetModel): Map<AtlasTileId, AtlasPackRese
 	val boundsByTile = HashMap<AtlasTileId, FloatArray>()
 	for (drawable in model.drawables) {
 		val tileId = drawable.atlasTileId ?: continue
-		val tile = model.atlas.tileById[tileId] ?: continue
-		val uvs = drawable.mesh?.uvs ?: continue
-		if (uvs.size < 2) {
-			continue
-		}
-		val storedToArt = model.atlas.storedToArtAffineForTile(tileId) ?: continue
-		val artUvs = applyUvAffine(uvs, storedToArt)
-		val bounds = boundsByTile.getOrPut(tileId) { floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE) }
-		var componentIndex = 0
-		while (componentIndex + 1 < artUvs.size) {
-			val artX = artUvs[componentIndex] * tile.width
-			val artY = artUvs[componentIndex + 1] * tile.height
-			bounds[0] = minOf(bounds[0], artX)
-			bounds[1] = minOf(bounds[1], artY)
-			bounds[2] = maxOf(bounds[2], artX)
-			bounds[3] = maxOf(bounds[3], artY)
-			componentIndex += 2
-		}
+		val bounds = boundsByTile.getOrPut(tileId) { emptyReachBounds() }
+		widenByMeshReach(model, drawable, bounds)
 	}
-	// A bound within float noise of a pixel edge counts as on it, so the rounding out cannot add a pixel.
-	return boundsByTile.mapValues { (_, bounds) ->
-		AtlasPackReserve(
-			left = floor(bounds[0] + RESERVE_EDGE_TOLERANCE).toInt(),
-			top = floor(bounds[1] + RESERVE_EDGE_TOLERANCE).toInt(),
-			right = ceil(bounds[2] - RESERVE_EDGE_TOLERANCE).toInt(),
-			bottom = ceil(bounds[3] - RESERVE_EDGE_TOLERANCE).toInt(),
-		)
+	return boundsByTile.filterValues { bounds -> bounds[0] <= bounds[2] }.mapValues { (_, bounds) -> reserveOfBounds(bounds) }
+}
+
+/**
+ * One drawable's mesh reach in its tile's art frame, rounded out to whole pixels by the same rule as
+ * [meshReserveByTile] - so the reserves of a tile's drawables union to the tile's own reserve.
+ *
+ * @param PuppetModel model      The model.
+ * @param DrawableId  drawableId The drawable.
+ * @return AtlasPackReserve? The reserve, or null when the drawable has no measurable mesh on a tile.
+ */
+public fun meshReserveOf(model: PuppetModel, drawableId: DrawableId): AtlasPackReserve? {
+	val drawable = model.drawables.firstOrNull { candidate -> candidate.id == drawableId } ?: return null
+	val bounds = emptyReachBounds()
+	widenByMeshReach(model, drawable, bounds)
+	return if (bounds[0] <= bounds[2]) reserveOfBounds(bounds) else null
+}
+
+/**
+ * Bounds that hold nothing yet: minimum x, minimum y, maximum x, maximum y, inverted.
+ *
+ * @return FloatArray The empty bounds.
+ */
+private fun emptyReachBounds(): FloatArray = floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE)
+
+/**
+ * Widens bounds by a drawable's mesh vertices in its tile's art pixels; a drawable with no tile, no
+ * mesh, or no resolvable mapping adds nothing.
+ *
+ * @param PuppetModel model    The model.
+ * @param Drawable    drawable The drawable.
+ * @param FloatArray  bounds   The bounds to widen, minimum x, minimum y, maximum x, maximum y.
+ */
+private fun widenByMeshReach(model: PuppetModel, drawable: Drawable, bounds: FloatArray) {
+	val tileId = drawable.atlasTileId ?: return
+	val tile = model.atlas.tileById[tileId] ?: return
+	val uvs = drawable.mesh?.uvs ?: return
+	if (uvs.size < 2) {
+		return
+	}
+	val storedToArt = model.atlas.storedToArtAffineForTile(tileId) ?: return
+	val artUvs = applyUvAffine(uvs, storedToArt)
+	var componentIndex = 0
+	while (componentIndex + 1 < artUvs.size) {
+		val artX = artUvs[componentIndex] * tile.width
+		val artY = artUvs[componentIndex + 1] * tile.height
+		bounds[0] = minOf(bounds[0], artX)
+		bounds[1] = minOf(bounds[1], artY)
+		bounds[2] = maxOf(bounds[2], artX)
+		bounds[3] = maxOf(bounds[3], artY)
+		componentIndex += 2
 	}
 }
+
+/**
+ * Rounds measured reach bounds out to whole pixels; a bound within float noise of a pixel edge counts
+ * as on it, so the rounding out cannot add a pixel.
+ *
+ * @param FloatArray bounds Minimum x, minimum y, maximum x, maximum y, art pixels.
+ * @return AtlasPackReserve The reserve.
+ */
+private fun reserveOfBounds(bounds: FloatArray): AtlasPackReserve =
+	AtlasPackReserve(
+		left = floor(bounds[0] + RESERVE_EDGE_TOLERANCE).toInt(),
+		top = floor(bounds[1] + RESERVE_EDGE_TOLERANCE).toInt(),
+		right = ceil(bounds[2] - RESERVE_EDGE_TOLERANCE).toInt(),
+		bottom = ceil(bounds[3] - RESERVE_EDGE_TOLERANCE).toInt(),
+	)
 
 /**
  * How far a mesh bound may sit from a whole art pixel and still count as on it, in art pixels.  Stored
@@ -409,7 +454,7 @@ class TileMeshMask private constructor(
 
 	companion object {
 		/**
-		 * The mask of [triangles] (art-pixel coordinates, nine floats per triangle: three interleaved
+		 * The mask of [triangles] (art-pixel coordinates, six floats per triangle: three interleaved
 		 * (x, y) corners) filled by pixel-center test and dilated by one pixel in every direction, so a
 		 * bilinear sampler reading half a texel past any covered point is inside it.  Every corner's own
 		 * pixel is marked too, so a sliver too thin to cover a center still contributes.
@@ -517,7 +562,7 @@ class TileMeshMask private constructor(
  *
  * @param PuppetModel model The model.
  * @param AtlasTileId tileId The tile.
- * @return List<FloatArray> The triangles, nine floats each; empty when nothing measurable is bound.
+ * @return List<FloatArray> The triangles, six floats each; empty when nothing measurable is bound.
  */
 fun meshTrianglesOf(model: PuppetModel, tileId: AtlasTileId): List<FloatArray> {
 	val tile = model.atlas.tileById[tileId] ?: return emptyList()
@@ -528,33 +573,65 @@ fun meshTrianglesOf(model: PuppetModel, tileId: AtlasTileId): List<FloatArray> {
 			continue
 		}
 		val mesh = drawable.mesh ?: continue
-		if (mesh.uvs.size < 2 || mesh.indices.size < 3) {
-			continue
-		}
-		val artUvs = applyUvAffine(mesh.uvs, storedToArt)
-		val vertexCount = artUvs.size / 2
-		var indexOffset = 0
-		while (indexOffset + 2 < mesh.indices.size) {
-			val cornerA = mesh.indices[indexOffset]
-			val cornerB = mesh.indices[indexOffset + 1]
-			val cornerC = mesh.indices[indexOffset + 2]
-			indexOffset += 3
-			if (cornerA >= vertexCount || cornerB >= vertexCount || cornerC >= vertexCount) {
-				continue
-			}
-			triangles.add(
-				floatArrayOf(
-					artUvs[cornerA * 2] * tile.width,
-					artUvs[cornerA * 2 + 1] * tile.height,
-					artUvs[cornerB * 2] * tile.width,
-					artUvs[cornerB * 2 + 1] * tile.height,
-					artUvs[cornerC * 2] * tile.width,
-					artUvs[cornerC * 2 + 1] * tile.height,
-				),
-			)
-		}
+		addArtTriangles(mesh, storedToArt, tile.width, tile.height, triangles)
 	}
 	return triangles
+}
+
+/**
+ * The triangles of ONE drawable's mesh in its tile's own pixel frame - the part of the tile's art that
+ * drawable shows, by the same conversion [meshTrianglesOf] unions over every drawable on the tile.
+ *
+ * @param PuppetModel model      The model.
+ * @param DrawableId  drawableId The drawable.
+ * @return List<FloatArray> The triangles, six floats each; empty when the drawable has no measurable mesh on a tile.
+ */
+fun drawableMeshTrianglesOf(model: PuppetModel, drawableId: DrawableId): List<FloatArray> {
+	val drawable = model.drawables.firstOrNull { candidate -> candidate.id == drawableId } ?: return emptyList()
+	val tileId = drawable.atlasTileId ?: return emptyList()
+	val tile = model.atlas.tileById[tileId] ?: return emptyList()
+	val storedToArt = model.atlas.storedToArtAffineForTile(tileId) ?: return emptyList()
+	val mesh = drawable.mesh ?: return emptyList()
+	val triangles = ArrayList<FloatArray>()
+	addArtTriangles(mesh, storedToArt, tile.width, tile.height, triangles)
+	return triangles
+}
+
+/**
+ * Appends a mesh's triangles in its tile's art pixels; a triangle naming a vertex past the UVs is skipped.
+ *
+ * @param DrawableMesh          mesh        The mesh.
+ * @param FloatArray            storedToArt Maps its stored UVs to the art frame.
+ * @param Int                   tileWidth   The tile's width in pixels.
+ * @param Int                   tileHeight  The tile's height in pixels.
+ * @param MutableList<FloatArray> triangles The list to append to, six floats per triangle.
+ */
+private fun addArtTriangles(mesh: DrawableMesh, storedToArt: FloatArray, tileWidth: Int, tileHeight: Int, triangles: MutableList<FloatArray>) {
+	if (mesh.uvs.size < 2 || mesh.indices.size < 3) {
+		return
+	}
+	val artUvs = applyUvAffine(mesh.uvs, storedToArt)
+	val vertexCount = artUvs.size / 2
+	var indexOffset = 0
+	while (indexOffset + 2 < mesh.indices.size) {
+		val cornerA = mesh.indices[indexOffset]
+		val cornerB = mesh.indices[indexOffset + 1]
+		val cornerC = mesh.indices[indexOffset + 2]
+		indexOffset += 3
+		if (cornerA >= vertexCount || cornerB >= vertexCount || cornerC >= vertexCount) {
+			continue
+		}
+		triangles.add(
+			floatArrayOf(
+				artUvs[cornerA * 2] * tileWidth,
+				artUvs[cornerA * 2 + 1] * tileHeight,
+				artUvs[cornerB * 2] * tileWidth,
+				artUvs[cornerB * 2 + 1] * tileHeight,
+				artUvs[cornerC * 2] * tileWidth,
+				artUvs[cornerC * 2 + 1] * tileHeight,
+			),
+		)
+	}
 }
 
 /**

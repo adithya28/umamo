@@ -1,5 +1,7 @@
 package org.umamo.geometry.triangulation
 
+import org.umamo.geometry.IntStack
+
 /*
  * Incremental Delaunay triangulation (Lawson's insertion): locate each point, split the triangle or
  * edge it lands in, then flip edges until every edge is locally Delaunay again.  The ghost triangles
@@ -71,7 +73,7 @@ internal fun buildDelaunay(points: DoubleArray, plan: InsertionPlan, afterEachIn
 internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation) {
 	private val pending = IntStack()
 
-	/** The triangle the next walk starts from: the last one created, so Hilbert order keeps walks short. */
+	/** The triangle the next walk starts from: one at the last inserted vertex, so Hilbert order keeps walks short. */
 	private var walkStart: Int = 0
 
 	/** What the last [locate] found: one of the LOCATED_* kinds. */
@@ -101,9 +103,9 @@ internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation
 
 	/**
 	 * Finds where a vertex falls: inside a real triangle, on the open segment of an edge, or beyond a
-	 * hull edge (inside that edge's ghost triangle).  A visibility walk from the last created
-	 * triangle: cross any edge the vertex lies strictly to the right of, until none remains.  The walk
-	 * terminates on a Delaunay triangulation; a step cap falls back to a scan all the same.
+	 * hull edge (inside that edge's ghost triangle).  A visibility walk from a triangle at the last
+	 * inserted vertex: cross any edge the vertex lies strictly to the right of, until none remains.
+	 * The walk terminates on a Delaunay triangulation; a step cap falls back to a scan all the same.
 	 *
 	 * @param Int vertex The vertex to locate.
 	 */

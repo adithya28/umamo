@@ -1,4 +1,4 @@
-// Exact floating-point expansion arithmetic, ported from robust-predicates (Vladimir Agafonkin,
+// Exact floating-point expansion arithmetic, ported from robust-predicates (Volodymyr Agafonkin,
 // Unlicense / public domain), itself a port of Jonathan Richard Shewchuk's public-domain predicates.c
 // ("Adaptive Precision Floating-Point Arithmetic and Fast Robust Geometric Predicates", 1997).  See
 // CREDITS.md.  Variable names follow Shewchuk's so each step can be checked against the paper.

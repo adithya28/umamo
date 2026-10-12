@@ -89,7 +89,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ## Robust Geometric Predicates (Public Domain)
 
 - Upstream: robust-predicates - https://github.com/mourner/robust-predicates
-- Author: Vladimir Agafonkin
+- Author: Volodymyr Agafonkin
 - License: The Unlicense (Public Domain Dedication)
 
 - Original: Jonathan Richard Shewchuk, "Adaptive Precision Floating-Point Arithmetic and Fast Robust Geometric Predicates" (1997) and its `predicates.c` - https://www.cs.cmu.edu/~quake/robust.html

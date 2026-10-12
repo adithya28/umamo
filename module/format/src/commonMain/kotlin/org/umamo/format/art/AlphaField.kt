@@ -175,7 +175,25 @@ public class AlphaField internal constructor(
 }
 
 /**
- * Builds this raster's signed distance field for meshing.
+ * Builds this raster's signed distance field for meshing; see [AlphaChannel.alphaField].
+ *
+ * @param Int         alphaThreshold  The minimum alpha byte counted as opaque (1..255).
+ * @param Int         cellSize        The smallest working cell side, pixels (at least 1).
+ * @param Int         paddingCells    Transparent cells kept around the art on every side (at least 1).
+ * @param DoubleArray seeds           Seed points, x0, y0, ..., raster px; finite.
+ * @param Int         maximumGridSide The most cells allowed along either side of the grid.
+ * @return AlphaField? The field, or null when no raster pixel meets the threshold.
+ */
+public fun LayerRaster.alphaField(
+	alphaThreshold: Int,
+	cellSize: Int,
+	paddingCells: Int,
+	seeds: DoubleArray = DoubleArray(0),
+	maximumGridSide: Int = DEFAULT_MAXIMUM_GRID_SIDE,
+): AlphaField? = alphaChannel().alphaField(alphaThreshold, cellSize, paddingCells, seeds, maximumGridSide)
+
+/**
+ * Builds this alpha channel's signed distance field for meshing.
  *
  * The grid covers every pixel at or above the threshold plus every seed point, padded by
  * [paddingCells] cells on each side.  [cellSize] is a minimum: when the padded grid would exceed
@@ -190,7 +208,7 @@ public class AlphaField internal constructor(
  * @param Int         maximumGridSide The most cells allowed along either side of the grid.
  * @return AlphaField? The field, or null when no raster pixel meets the threshold (seeds alone do not make a field).
  */
-public fun LayerRaster.alphaField(
+public fun AlphaChannel.alphaField(
 	alphaThreshold: Int,
 	cellSize: Int,
 	paddingCells: Int,
@@ -258,29 +276,22 @@ public fun LayerRaster.alphaField(
 }
 
 /**
- * The extent of a raster's pixels at or above a threshold.
+ * The extent of an alpha channel's pixels at or above a threshold.
  *
- * @param LayerRaster raster         The raster.
- * @param Int         alphaThreshold The minimum alpha counted as opaque.
+ * @param AlphaChannel alpha          The channel.
+ * @param Int          alphaThreshold The minimum alpha counted as opaque.
  * @return IntArray? Minimum column, minimum row, maximum column, maximum row, and the opaque count; null when nothing qualifies.
  */
-private fun opaquePixelExtent(raster: LayerRaster, alphaThreshold: Int): IntArray? {
-	require(raster.rgba.size.toLong() == raster.width.toLong() * raster.height.toLong() * 4L) {
-		"rgba size ${raster.rgba.size} does not match ${raster.width} x ${raster.height} x 4"
-	}
-
+private fun opaquePixelExtent(alpha: AlphaChannel, alphaThreshold: Int): IntArray? {
 	var minimumColumn = Int.MAX_VALUE
 	var minimumRow = Int.MAX_VALUE
 	var maximumColumn = -1
 	var maximumRow = -1
 	var count = 0
 
-	for (row in 0 until raster.height) {
-		for (column in 0 until raster.width) {
-			// The `and 0xFF` is load-bearing: Kotlin Byte is signed.
-			val alpha = raster.rgba[(row * raster.width + column) * 4 + 3].toInt() and 0xFF
-
-			if (alpha >= alphaThreshold) {
+	for (row in 0 until alpha.height) {
+		for (column in 0 until alpha.width) {
+			if (alpha.alphaAt(column, row) >= alphaThreshold) {
 				count++
 				minimumColumn = minOf(minimumColumn, column)
 				minimumRow = minOf(minimumRow, row)

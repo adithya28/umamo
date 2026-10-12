@@ -92,6 +92,28 @@ class MeshRegenerationSessionTest {
 		assertSame(model, session.model.value)
 	}
 
+	@Test
+	fun aFinishedModelLandsOnlyOverItsOwnBaseAndClearsEveryTarget() {
+		val model = RegenerationFixtures.model()
+		val session = EditorSession(model)
+		session.setSelection(SelectionOps.add(SelectionOps.replace(SelectionTarget.Drawable(drawableId)), SelectionTarget.Drawable(partnerId)))
+		session.setMode(EditorMode.Edit)
+		var selection = MeshSelectionOps.add(session.meshSelection.value, partnerId, MeshElement.Vertex(1))
+		selection = MeshSelectionOps.add(selection, drawableId, MeshElement.Vertex(0))
+		session.setMeshSelection(selection)
+		val generated = model.withMeshTopologyEdits(mapOf(drawableId to regeneratedEdit(model)))!!
+		val stepsBefore = session.historyView.value.steps.size
+
+		assertFalse(session.commitGeneratedMeshes(RegenerationFixtures.model(), generated, listOf(drawableId)), "another base is refused")
+		assertFalse(session.commitGeneratedMeshes(model, model, listOf(drawableId)), "an unchanged model records nothing")
+		assertEquals(stepsBefore, session.historyView.value.steps.size)
+		assertTrue(session.commitGeneratedMeshes(model, generated, listOf(drawableId, partnerId)))
+
+		assertSame(generated, session.model.value)
+		assertTrue(session.meshSelection.value.elementsOf(partnerId).isEmpty(), "a target whose mesh did not change is cleared too")
+		assertTrue(session.meshSelection.value.elementsOf(drawableId).isEmpty())
+	}
+
 	/**
 	 * The rigged drawable's regeneration over a 5x5 point grid.
 	 *

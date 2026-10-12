@@ -371,6 +371,29 @@ class EditorSession private constructor(
 	}
 
 	/**
+	 * Rewrites the live adjustable operation's settings WITHOUT running it again - for an operation
+	 * whose rerun decides that one setting re-seeds others (a preset choice filling in its numbers): the
+	 * rows then show what the rerun is about to use.  The record keeps its identity, so a rerun given the
+	 * revised record still lands through [amendLastCommit].
+	 *
+	 * @param AdjustableOperation operation  The record the rerun was given.
+	 * @param List                parameters The settings to show, in the record's order.
+	 * @return AdjustableOperation? The revised record, or null when [operation] is no longer the live one.
+	 */
+	fun reviseAdjustableParameters(operation: AdjustableOperation, parameters: List<OperatorParameter>): AdjustableOperation? {
+		val current = mutableAdjustableOperation.value
+
+		if (current == null || current.identity !== operation.identity) {
+			return null
+		}
+
+		val revised = current.withParameters(parameters)
+		mutableAdjustableOperation.value = revised
+
+		return revised
+	}
+
+	/**
 	 * Lands an adjustment: replaces the operation's own history step with [model] and publishes it,
 	 * keeping the record live for the next adjustment.  Nothing is undone and nothing is replayed - the
 	 * step is rewritten in place ([History.amendTop]).

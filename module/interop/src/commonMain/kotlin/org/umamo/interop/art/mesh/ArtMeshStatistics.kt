@@ -7,7 +7,7 @@ package org.umamo.interop.art.mesh
  * @property Double outlineLevel        How far outside the art the outline was traced, pixels.
  * @property Double outlineSpacing      The outline spacing used, pixels.
  * @property Double interiorSpacing     The interior spacing used, pixels.
- * @property Int    outlineRingCount    The number of outline rings (one per island, plus one per hole).
+ * @property Int    outlineRingCount    The number of outline rings (one per island, plus one per hole when holes are kept).
  * @property Int    outlineVertexCount  The outline's vertices.
  * @property Int    refinedChordCount   Outline chords split because they came too close to the art or cut it off.
  * @property Int    innerRingCount      The number of inner rings.

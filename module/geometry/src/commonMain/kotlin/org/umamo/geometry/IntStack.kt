@@ -1,9 +1,10 @@
-package org.umamo.geometry.triangulation
+package org.umamo.geometry
 
 /**
- * A growable Int stack for the triangulator's explicit work lists.
+ * A growable Int stack for the module's explicit work lists: the triangulator's and the polyline
+ * simplifier's.
  *
- * Every loop in the triangulator is iterative: a recursive legalization would gamble on Kotlin/Native
+ * Every such loop is iterative: a recursive legalization or range split would gamble on Kotlin/Native
  * stack depth, and java.util.ArrayDeque is unavailable in commonMain.
  */
 internal class IntStack {

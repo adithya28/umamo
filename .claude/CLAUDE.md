@@ -153,6 +153,7 @@ This is where Live2D's own reimport is lossy; doing it well is a competitive fea
 ```
 :format       commonMain  — Cubism file family + art I/O.  CMO3 (read/write), PSD (read),
                             CLIP (read), KRA (read), MOC3, JSON family.
+                            → :geometry (the alpha contour simplifier is its Douglas-Peucker)
 :reimport     commonMain  — non-destructive reconcile over the model's source bindings: the
                             key reconciler, the reload planner (a changed layer's tile is
                             superseded, never mutated), the okio polling file watcher, the watch

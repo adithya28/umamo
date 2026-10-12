@@ -164,7 +164,7 @@
 	<string name="export_reason_sketch_part_not_runtime_content">A guide-image (sketch) part is not runtime content, so it was left out.</string>
 	<string name="export_reason_hidden_part_omitted_by_option">The part is hidden and the export options omit hidden parts, so its contents were left out.</string>
 	<string name="export_reason_hidden_drawable_omitted_by_option">The drawable is hidden and the export options omit hidden art meshes, so it was left out.</string>
-	<string name="export_reason_vertex_count_exceeds_index_width">The mesh has %1$d vertices, past the %2$d its 16-bit triangle indices can address, so it was left out.</string>
+	<string name="export_reason_vertex_count_exceeds_index_width">The mesh has %1$d vertices, past the %2$d limit of a 16-bit triangle, so it was left out.</string>
 	<string name="export_reason_no_atlas_page_bound">No atlas page is bound to this drawable, so it was written pointing at page 0.</string>
 	<string name="export_reason_clipping_mask_not_in_export">The clipping mask %1$s is not in this export, so the mesh was written unclipped by it.</string>
 	<string name="export_reason_offscreen_mask_not_in_export">A clipping mask names a drawable that could not be written, so it was dropped from the offscreen.</string>
@@ -618,6 +618,7 @@
 	<!-- Topology operators (Shift+D / M / V / J), their history labels, and their refusal notices. -->
 	<string name="cmd_mesh_duplicate">Duplicate</string>
 	<string name="cmd_mesh_merge">Merge Vertices</string>
+	<string name="cmd_mesh_generate_from_art">Generate Mesh from Art</string>
 	<string name="cmd_mesh_merge_at_center">Merge at Center</string>
 	<string name="cmd_mesh_merge_at_first">Merge at First</string>
 	<string name="cmd_mesh_merge_at_last">Merge at Last</string>
@@ -629,6 +630,16 @@
 	<string name="history_mesh_rip">Rip</string>
 	<string name="history_mesh_connect">Connect Vertices</string>
 	<string name="history_mesh_generate_from_art">Generate Mesh from Art</string>
+	<!-- Generate Mesh from Art notices.  %1$d is the number of meshes generated, %2$d the number skipped. -->
+	<string name="notice_mesh_generated">Generated %1$d mesh(es) from art.</string>
+	<string name="notice_mesh_generated_with_skips">Generated %1$d mesh(es) from art; %2$d skipped.  See the log.</string>
+	<string name="notice_mesh_generated_coarser">Generated %1$d mesh(es) from art; %2$d built coarser than asked to stay within the Vertex Budget.  See the log.</string>
+	<string name="notice_mesh_pinned_without_room">Generated %1$d mesh(es); %2$d skipped because pinned art has no room to grow.  Unpin the art or lower the Outer Margin.</string>
+	<string name="notice_mesh_over_budget">Generated %1$d mesh(es); %2$d skipped because they need more vertices than the budget.  Raise the Vertex Budget or turn on Fill Holes.</string>
+	<string name="notice_mesh_none_generated">No mesh was generated.  See the log.</string>
+	<string name="notice_mesh_pack_refused">Nothing was generated: The atlas has no room for the larger meshes.</string>
+	<string name="notice_mesh_superseded">The document changed while the meshes were being generated; nothing was applied.</string>
+	<string name="notice_mesh_no_targets">Select a drawable with a mesh to generate one from its art.</string>
 	<string name="history_drawable_duplicate">Duplicate Drawable</string>
 	<string name="notice_merge_needs_vertices">Merge needs two or more selected vertices (vertex mode).</string>
 	<string name="notice_connect_needs_two_vertices">Connect needs exactly two selected vertices (vertex mode).</string>
@@ -895,6 +906,19 @@
 	<string name="merge_target_center">Center</string>
 	<string name="merge_target_first">First</string>
 	<string name="merge_target_last">Last</string>
+	<string name="mesh_options_preset">Preset</string>
+	<string name="mesh_preset_standard">Standard</string>
+	<string name="mesh_preset_fine">Fine</string>
+	<string name="mesh_preset_coarse">Coarse</string>
+	<string name="mesh_options_alpha_threshold">Alpha Threshold</string>
+	<string name="mesh_options_outline_spacing">Outline Spacing</string>
+	<string name="mesh_options_interior_spacing">Interior Spacing</string>
+	<string name="mesh_options_outer_margin">Outer Margin</string>
+	<string name="mesh_options_inner_margin">Inner Margin</string>
+	<string name="mesh_options_minimum_margin">Minimum Margin</string>
+	<string name="mesh_options_minimum_outline_points">Minimum Outline Points</string>
+	<string name="mesh_options_vertex_budget">Vertex Budget</string>
+	<string name="mesh_options_fill_holes">Fill Holes</string>
 	<string name="import_options_align">Align</string>
 	<string name="import_options_offset_x">Offset X</string>
 	<string name="import_options_offset_z">Offset Z</string>
@@ -988,6 +1012,16 @@
 	<string name="transform_options_connected_description">Limits the proportional influence to vertices joined to the selection by mesh edges, measuring distance along those edges.</string>
 	<string name="transform_options_slide_factor_description">Where along its edge the vertex landed: 0 is where it started, and 1 is the neighboring vertex.</string>
 	<string name="merge_options_target_description">Where the merged vertices come together: at their center, or on the first or last vertex selected.</string>
+	<string name="mesh_options_preset_description">Fills in the spacings, margins, and outline points from preset values.</string>
+	<string name="mesh_options_alpha_threshold_description">How opaque a pixel must be, up to 255, to be counted as part of the art.</string>
+	<string name="mesh_options_outline_spacing_description">The distance the mesher aims for between vertices along the outline, in pixels.</string>
+	<string name="mesh_options_interior_spacing_description">The distance the mesher aims for between vertices inside the art, the inner ring and the even grid, in pixels.</string>
+	<string name="mesh_options_outer_margin_description">How far outside the art the outline runs where the shape allows, in pixels.</string>
+	<string name="mesh_options_inner_margin_description">How far inside the art's edge the inner ring runs, in pixels.  0 for no inner ring.</string>
+	<string name="mesh_options_minimum_margin_description">The closest the outline may come to any art pixel, in pixels.</string>
+	<string name="mesh_options_minimum_outline_points_description">The fewest vertices one outline ring may have, however small its piece of art.</string>
+	<string name="mesh_options_vertex_budget_description">The maximum number of vertices one mesh may have.  Art that can't fit within this budget is skipped.</string>
+	<string name="mesh_options_fill_holes_description">Meshes over holes in the art as one sheet instead of cutting them out.</string>
 	<!-- Blend modes (Cubism color blend list). -->
 	<string name="blend_mode_normal">Normal</string>
 	<string name="blend_mode_additive">Additive</string>

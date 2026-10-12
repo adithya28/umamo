@@ -226,6 +226,26 @@ class AtlasRepackEditsTest {
 	}
 
 	@Test
+	fun aPinnedTileThePackLeavesOutLosesItsPin() {
+		val page = AtlasPage(64, 64)
+		val atlas =
+			PuppetAtlas(
+				pages = listOf(page),
+				tiles =
+					listOf(
+						AtlasTile(tileAId, "A", 16, 16, placement = placement(0, 0f, 0f), pinned = true),
+						AtlasTile(tileBId, "B", 16, 16, placement = placement(0, 32f, 0f), pinned = true),
+					),
+			)
+		val base = packedModel(atlas, emptyList())
+
+		val repacked = base.withAtlasRepack(listOf(page), mapOf(tileAId to placement(0, 0f, 0f), tileBId to null))
+
+		assertTrue(repacked.atlas.tileById.getValue(tileAId).pinned, "a pinned tile the pack keeps stays pinned")
+		assertFalse(repacked.atlas.tileById.getValue(tileBId).pinned, "a tile without a placement is never pinned")
+	}
+
+	@Test
 	fun sessionCommitIsOneUndoStepUnderItsOwnLabel() {
 		val oldPage = AtlasPage(64, 64)
 		val oldA = placement(0, 4f, 4f)

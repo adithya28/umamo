@@ -345,6 +345,9 @@ internal class Cmo3PropertyLowering(
 	}
 
 	fun lowerDrawables(diffs: List<EntityDiff<DrawableId, DrawableField>>) {
+		structure.expectTopologyRewrites(
+			diffs.mapNotNull { diff -> if (diff is EntityDiff.Changed && DrawableField.MESH_TOPOLOGY in diff.fields) diff.id else null },
+		)
 		for (diff in diffs) {
 			when (diff) {
 				// Structural synthesis already failed and reported why; see the class docblock.
@@ -459,6 +462,7 @@ internal class Cmo3PropertyLowering(
 				}
 			}
 		}
+		structure.settleTopologyRewrites()
 	}
 
 	/**

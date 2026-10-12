@@ -155,14 +155,36 @@ fun EditorSession.commitMeshRegenerate(edits: Map<DrawableId, MeshTopologyEdit>)
 		return false
 	}
 
-	val newModel = model.value.withMeshTopologyEdits(edits) ?: return false
-	val drawableIds = edits.keys
+	val base = model.value
+	val newModel = base.withMeshTopologyEdits(edits) ?: return false
+
+	return commitGeneratedMeshes(base, newModel, edits.keys.toList())
+}
+
+/**
+ * Commits a model that already carries generated meshes (and any atlas change they needed) as ONE undo
+ * step - built off the UI thread from [base], landed only while [base] is still the session's model, so
+ * nothing the rigger did meanwhile is overwritten.  The element selection and the remembered elements
+ * of every listed drawable are cleared, whether or not its mesh changed in this run: a later adjustment
+ * may replace a different set of them and keeps this step's selection.
+ *
+ * @param PuppetModel      base        The model the generation started from.
+ * @param PuppetModel      generated   The model with the generated meshes.
+ * @param List<DrawableId> drawableIds Every drawable the operation targets.
+ * @return Boolean True when a step was recorded; false when the model moved or nothing changed.
+ */
+fun EditorSession.commitGeneratedMeshes(base: PuppetModel, generated: PuppetModel, drawableIds: List<DrawableId>): Boolean {
+	if (model.value !== base || generated === base) {
+		return false
+	}
+
+	val targets = drawableIds.toSet()
 	commitStep(
-		MeshChange.GenerateFromArt(drawableIds.toList()),
-		model = newModel,
-		meshSelection = MeshSelectionOps.clearElementsOf(meshSelection.value, drawableIds),
+		MeshChange.GenerateFromArt(drawableIds),
+		model = generated,
+		meshSelection = MeshSelectionOps.clearElementsOf(meshSelection.value, targets),
 	)
-	elementMemory.forget(drawableIds)
+	elementMemory.forget(targets)
 
 	return true
 }

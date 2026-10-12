@@ -151,6 +151,7 @@ class CommandTableOrderTest {
 				snapCommands(null, routing, availability, AreaOverlayHub()) +
 				uvCommands(null, routing, availability) +
 				topologyCommands(null, routing, availability) +
+				meshGenerationCommands(availability, routing, null) +
 				proportionalCommands(null, availability) +
 				displayCommands(null, availability) +
 				atlasCommands(availability, routing, null)
@@ -213,6 +214,7 @@ class CommandTableOrderTest {
 				"mesh.rip",
 				"mesh.connect",
 				"mesh.vertexSlide",
+				"mesh.generateFromArt",
 				"mesh.proportional.toggle",
 				"mesh.proportional.connectedToggle",
 				"mesh.proportional.falloff.smooth",
