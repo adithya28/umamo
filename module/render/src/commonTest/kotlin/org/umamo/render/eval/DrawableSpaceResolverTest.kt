@@ -55,16 +55,20 @@ class DrawableSpaceResolverTest {
 	@Test
 	fun aResolverAgreesWithThePerDrawableFunctions() {
 		val rig = model()
+
 		for (pose in listOf(emptyMap(), mapOf(blendParameter to 0.5f), mapOf(toggleParameter to 0.75f))) {
 			val resolver = DrawableSpaceResolver(rig, pose)
+
 			for (drawableId in listOf(direct, warpChildA, warpChildB, rotationChild, rangeHiddenChild, orphan, keyed, gridless, unknown)) {
 				val single = drawableSpaceMapping(rig, pose, drawableId)
 				val batched = resolver.mapping(drawableId)
 				assertEquals(single == null, batched == null, "mapping null-ness for $drawableId at $pose")
+
 				if (single != null && batched != null) {
 					val local = floatArrayOf(0.25f, 0.25f, 0.75f, 0.5f, 0.5f, 0.75f)
 					assertContentEquals(single.localToWorld(local), batched.localToWorld(local), "world projection for $drawableId at $pose")
 				}
+
 				assertContentEquals(drawableLocalPosed(rig, pose, drawableId), resolver.localPosed(drawableId), "posed local shape for $drawableId at $pose")
 			}
 		}
@@ -147,6 +151,7 @@ class DrawableSpaceResolverTest {
 					KeyformCell(intArrayOf(1), MeshDeltaForm(floatArrayOf(10f, 0f, 10f, 0f, 10f, 0f))),
 				),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(blendParameter, "A", -1f, 1f, 0f), Parameter(toggleParameter, "T", 0f, 1f, 0f)),
 			parts = emptyList(),

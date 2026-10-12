@@ -107,6 +107,7 @@ class UmaArtDocumentGateTest {
 		lines += "report ${plan.report.results}"
 		lines += "notices ${plan.notices}"
 		lines += "leftovers ${plan.leftovers}"
+
 		return lines
 	}
 
@@ -117,16 +118,20 @@ class UmaArtDocumentGateTest {
 	 */
 	private fun locateArtworkSamples(): List<File> {
 		var directory: File? = File(System.getProperty("user.dir"))
+
 		while (directory != null) {
 			val corpus = File(directory, "test/corpus")
+
 			if (corpus.isDirectory) {
 				return listOf("psd", "clip", "krita")
 					.flatMap { folder -> File(corpus, folder).listFiles { file -> file.isFile }.orEmpty().toList() }
 					.filter { file -> file.extension.lowercase() in setOf("psd", "clip", "kra") }
 					.sortedBy { file -> file.name }
 			}
+
 			directory = directory.parentFile
 		}
+
 		return emptyList()
 	}
 
@@ -136,18 +141,28 @@ class UmaArtDocumentGateTest {
 	@Test
 	fun artworkDocumentsReopenAndReloadAsSaved() {
 		val samples = locateArtworkSamples()
+
 		if (samples.isEmpty()) {
 			println("no test/corpus artwork samples; skipping the UMA artwork document gate")
+
 			return
 		}
+
 		val failures = ArrayList<String>()
 		var openedSamples = 0
 		var reloadedSamples = 0
+
 		for (sample in samples) {
 			try {
 				when (checkSample(sample)) {
-					SampleOutcome.NotOpenable -> println("[Umamo][uma] ${sample.name}: the app does not open it as a document, so there is nothing to save")
-					SampleOutcome.Reopened -> openedSamples++
+					SampleOutcome.NotOpenable -> {
+						println("[Umamo][uma] ${sample.name}: the app does not open it as a document, so there is nothing to save")
+					}
+
+					SampleOutcome.Reopened -> {
+						openedSamples++
+					}
+
 					SampleOutcome.Reloaded -> {
 						openedSamples++
 						reloadedSamples++
@@ -157,6 +172,7 @@ class UmaArtDocumentGateTest {
 				failures += "${sample.name}: ${failure.message?.take(600)}"
 			}
 		}
+
 		assertTrue(failures.isEmpty(), "${failures.size} samples failed:\n${failures.joinToString("\n")}")
 		assertTrue(openedSamples > 0 && reloadedSamples > 0, "the gate saved $openedSamples documents and reloaded $reloadedSamples, so it compared nothing")
 		println("[Umamo][uma] $openedSamples artwork documents reopen as saved; $reloadedSamples reload identically after the reopen")
@@ -185,9 +201,11 @@ class UmaArtDocumentGateTest {
 		val bytes = sample.readBytes()
 		val read = assertNotNull(readArtwork(bytes, sample.name), "${sample.name}: read")
 		val load = buildArtDocument(read.art, read.kind, sample.name, sample.path, artworkImportOptions(), read.contentHash)
+
 		if (load is DocumentLoad.Failed) {
 			return SampleOutcome.NotOpenable
 		}
+
 		val document = assertIs<ArtDocument>(assertIs<DocumentLoad.Loaded>(load).document)
 		val puppet = document.puppet
 		val tilePngs = puppet.atlas.tiles.associate { tile -> tile.id.raw to document.artRasters.rasterFor(tile.id)?.let { raster -> PngCodec.write(RasterImage(raster.width, raster.height, raster.rgba)) } }
@@ -197,6 +215,7 @@ class UmaArtDocumentGateTest {
 		val reopened = UmaDocumentBridge.modelOf(uma)
 		assertEquals(puppet.atlas, reopened.atlas, "${sample.name}: the atlas")
 		assertEquals(puppet.sources, reopened.sources, "${sample.name}: the sources")
+
 		if (thumbnail != null) {
 			assertEquals(256, assertNotNull(uma.textures?.thumbnail, "${sample.name}: the thumbnail").width)
 		}
@@ -206,19 +225,23 @@ class UmaArtDocumentGateTest {
 		val reopenedRasters = SourceArtRasters.fromPng(pages.tilePng)
 		val derived = assertNotNull(deriveAtlasTextures(reopened, reopenedRasters, premultipliedAlpha = false), "${sample.name}: the reopened pages derive")
 		assertEquals(document.textures.atlases.size, derived.atlases.size, "${sample.name}: page count")
+
 		for ((pageIndex, page) in document.textures.atlases.withIndex()) {
 			val reopenedPage = derived.atlases[pageIndex]
 			assertTrue(page.width == reopenedPage.width && page.height == reopenedPage.height && page.rgba.contentEquals(reopenedPage.rgba), "${sample.name}: page $pageIndex composes from the reopened tiles byte for byte")
 		}
+
 		assertEquals(document.textures.atlasIndexByDrawableId, derived.atlasIndexByDrawableId, "${sample.name}: each drawable's page")
 
 		// The reload leg: the art as the artist might save it next - the first layer repainted, the second deleted,
 		// and a copy of the third added under a new key.
 		val art = read.art
 		val rasterLayers = art.layers.filter { layer -> layer.kind == SourceLayerKind.Raster && puppet.atlas.tiles.any { tile -> tile.source?.layerKey == layer.id.raw } }
+
 		if (rasterLayers.size < 3) {
 			return SampleOutcome.Reopened
 		}
+
 		val added =
 			object : SourceLayer by rasterLayers[2] {
 				override val id: LayerId = LayerId("umamo-gate-added")
@@ -235,6 +258,7 @@ class UmaArtDocumentGateTest {
 		assertTrue(plan.reload.replacedTiles.isNotEmpty(), "${sample.name}: the repainted layer supersedes its tile")
 		assertTrue(plan.report.results.any { result -> result !is ReconcileResult.Matched }, "${sample.name}: the deleted and added layers are more than matches")
 		assertEquals(fingerprintOf(before), fingerprintOf(after), "${sample.name}: the reload after the reopen")
+
 		return SampleOutcome.Reloaded
 	}
 }

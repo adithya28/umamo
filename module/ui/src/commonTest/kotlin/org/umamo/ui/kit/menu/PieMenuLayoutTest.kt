@@ -38,6 +38,7 @@ class PieMenuLayoutTest {
 		// Chip widths in the range the snap pie's English labels measure, the widest on a diagonal.
 		val chipWidths = intArrayOf(200, 180, 170, 160, 170, 190, 280, 180)
 		val chipRects = chipWidths.mapIndexed { slotIndex, chipWidth -> chipRect(slotIndex, chipWidth) }
+
 		for (firstSlot in chipRects.indices) {
 			for (secondSlot in firstSlot + 1 until chipRects.size) {
 				assertFalse(
@@ -46,6 +47,7 @@ class PieMenuLayoutTest {
 				)
 			}
 		}
+
 		for ((slotIndex, chipRect) in chipRects.withIndex()) {
 			assertFalse(chipRect.overlaps(TITLE_AREA), "slot $slotIndex covers the title")
 		}

@@ -94,6 +94,7 @@ fun fileModifiedAtMillis(path: String): Long? {
 	if (!isFileSystemPath(path)) {
 		return null
 	}
+
 	return runCatching { FileSystem.SYSTEM.metadataOrNull(path.toPath())?.lastModifiedAtMillis }.getOrNull()
 }
 
@@ -134,6 +135,7 @@ internal val artworkImportExtensions: List<String> = FormatRegistry.extensionsFo
  */
 fun readArtwork(bytes: ByteArray, name: String): ReadArtwork? {
 	val codec = FormatRegistry.detect(bytes, name) ?: return null
+
 	return runCatching { artworkOf(codec, bytes, name)?.let { art -> ReadArtwork(art, codec.kind, contentHashOf(bytes)) } }
 		.getOrElse { failure ->
 			UmamoLog.error("failed to read artwork $name", failure)
@@ -154,6 +156,7 @@ suspend fun readArtworkAt(path: String): ReadArtwork? {
 	if (!isFileSystemPath(path)) {
 		return null
 	}
+
 	val bytes =
 		withContext(Dispatchers.IO) {
 			runCatching { FileSystem.SYSTEM.read(path.toPath()) { readByteArray() } }
@@ -165,6 +168,7 @@ suspend fun readArtworkAt(path: String): ReadArtwork? {
 	val name = path.toPath().name
 	val lastModified = withContext(Dispatchers.IO) { fileModifiedAtMillis(path) }
 	val read = withContext(Dispatchers.Default) { readArtwork(bytes, name) } ?: return null
+
 	return ReadArtwork(read.art, read.kind, read.contentHash, lastModified)
 }
 
@@ -216,13 +220,17 @@ internal fun buildArtDocument(
 	lastModified: Long? = null,
 ): DocumentLoad {
 	val imported = SourceArtImport.fromSourceArt(art, ArtSourceDescriptor(name, path.takeIf { stored -> stored.isNotEmpty() }, kind.extension, contentHash, lastModified), options)
+
 	if (imported.puppet.drawables.isEmpty()) {
 		for (notice in imported.notices) {
 			UmamoLog.warn("import: ${describeImportNotice(notice)}")
 		}
+
 		UmamoLog.error("failed to import $path: no layer has pixels to rig")
+
 		return DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.NoArtLayers, name))
 	}
+
 	val decodedByTile = imported.rasterByTile.mapValues { (_, raster) -> DecodedImage(raster.rgba, raster.width, raster.height) }
 	val decodeRaster: (org.umamo.runtime.model.AtlasTileId) -> DecodedImage? = { tileId -> decodedByTile[tileId] }
 	val packed = packModelAtOpen(imported.puppet, decodeRaster)
@@ -234,13 +242,16 @@ internal fun buildArtDocument(
 					else -> SourceArtImportNotice.LayerNotPacked(refusal.tileName, refusal.reason.name)
 				}
 			}
+
 	for (notice in notices) {
 		UmamoLog.warn("import: ${describeImportNotice(notice)}")
 	}
+
 	val puppet = packed.model
 	UmamoLog.info(
 		"import: $name -> ${puppet.drawables.size} drawable(s), ${puppet.parts.size} part(s), ${puppet.atlas.pages.size} page(s)," +
 			" ${puppet.parameters.size} parameter(s); ${notices.size} note(s)",
 	)
+
 	return DocumentLoad.Loaded(ArtDocument(path, puppet, packed.textures, SourceArtRasters(decodeRaster), initialLiveParams(puppet), notices))
 }

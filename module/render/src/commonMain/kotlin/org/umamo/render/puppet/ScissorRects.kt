@@ -56,9 +56,11 @@ internal fun scissorRectOf(
 	val right = (ceil(pixelRight) + pad).coerceIn(0f, viewportWidthF).toInt()
 	val top = (floor(pixelTop) - pad).coerceIn(0f, viewportHeightF).toInt()
 	val bottom = (ceil(pixelBottom) + pad).coerceIn(0f, viewportHeightF).toInt()
+
 	if (right <= left || bottom <= top) {
 		return null
 	}
+
 	return ScissorRect(left, top, right - left, bottom - top)
 }
 
@@ -77,15 +79,19 @@ internal fun intersectScissor(first: ScissorRect?, second: ScissorRect?): Scisso
 	if (first == null) {
 		return second
 	}
+
 	if (second == null) {
 		return first
 	}
+
 	val left = maxOf(first.x, second.x)
 	val top = maxOf(first.y, second.y)
 	val right = minOf(first.x + first.width, second.x + second.width)
 	val bottom = minOf(first.y + first.height, second.y + second.height)
+
 	if (right <= left || bottom <= top) {
 		return first
 	}
+
 	return ScissorRect(left, top, right - left, bottom - top)
 }

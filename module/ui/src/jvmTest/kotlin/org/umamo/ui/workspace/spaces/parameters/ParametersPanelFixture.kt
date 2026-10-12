@@ -272,6 +272,7 @@ internal fun panelFixtureModel(runtimeTarget: RuntimeTarget = RuntimeTarget.NoTa
 					listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(6)))),
 				),
 		)
+
 	return PuppetModel(
 		parameters = parameters,
 		parts = emptyList(),
@@ -533,9 +534,11 @@ internal class ParametersPanelHarness(
 		onSourcePresenceAsked(path)
 		val answer = if (sourcePresenceByPath.containsKey(path)) sourcePresenceByPath[path] else true
 		val gate = sourcePresenceGate
+
 		if (gate != null) {
 			withContext(NonCancellable) { gate.await() }
 		}
+
 		answer
 	}
 
@@ -566,6 +569,7 @@ internal class ParametersPanelHarness(
 			reloadArtwork = { _, scope -> artworkRequests.reloads.add(scope) },
 			relinkArtwork = { request, _ ->
 				artworkRequests.relinks.add(request)
+
 				if (applyArtworkEdits) {
 					session.setTileSources(request.tileIds, request.ref)
 				}
@@ -574,12 +578,14 @@ internal class ParametersPanelHarness(
 			replaceArtwork = { request, _ -> artworkRequests.replaces.add(request) },
 			deleteArt = { request ->
 				artworkRequests.deletes.add(request)
+
 				if (applyArtworkEdits) {
 					session.deleteTile(request.tileId)
 				}
 			},
 			ignoreLayer = { request ->
 				artworkRequests.ignores.add(request)
+
 				if (applyArtworkEdits) {
 					session.setLayerIgnored(request.ref, request.ignored)
 				}
@@ -669,6 +675,7 @@ internal fun ComposeUiTest.mountParametersPanel(harness: ParametersPanelHarness)
 			WorkspaceLayoutController(defaultLayout()) {},
 		) {} + listOf(Command(PANEL_SHORTCUT_COMMAND, title = null) { harness.shortcutRuns += 1 }),
 	)
+
 	if (harness.showKeyformSheet) {
 		// Routed as though the pointer were over the sheet, which is where a sheet command is aimed from.
 		val routing = CommandRouting { HoveredSurface(PANEL_SHEET_AREA_ID, SpaceKind.KeyformSheet) }
@@ -678,17 +685,20 @@ internal fun ComposeUiTest.mountParametersPanel(harness: ParametersPanelHarness)
 				selectCommands(harness.session, routing, harness.keyformSheetViews, availability),
 		)
 	}
+
 	if (harness.showOutliner) {
 		// The outliner's menu dispatches Select Hierarchy through the registry.  No selection handle: that
 		// command reads the selection off the session.
 		harness.registry.registerAll(objectCommands(harness.session, null, SessionAvailability(harness.session)))
 	}
+
 	if (harness.showSources) {
 		// The shell's own table over recording orchestrations, routed as though the pointer were over the
 		// Sources space, which is where its rows dispatch from.
 		val routing = CommandRouting { HoveredSurface(PANEL_SOURCES_AREA_ID, SpaceKind.Sources) }
 		harness.registry.registerAll(fileArtworkCommands(routing) { harness.artwork })
 	}
+
 	setContent {
 		harness.text =
 			PanelText(
@@ -796,6 +806,7 @@ internal fun ComposeUiTest.mountParametersPanel(harness: ParametersPanelHarness)
 					if (textEntryLive) {
 						return@LaunchedEffect
 					}
+
 					withFrameNanos {}
 					withFrameNanos {}
 					harness.rootFocus.requestFocus()
@@ -835,21 +846,25 @@ internal fun ComposeUiTest.mountParametersPanel(harness: ParametersPanelHarness)
 									}
 								}
 							}
+
 							Box(modifier = Modifier.size(harness.panelSize).testTag(PANEL_BODY_TAG)) {
 								ParametersSpace(harness.scope, Modifier.fillMaxSize())
 							}
 							Box(modifier = Modifier.testTag(PANEL_ELSEWHERE_TAG).size(PANEL_ELSEWHERE_SIZE))
 						}
+
 						if (harness.showKeyformSheet) {
 							Box(modifier = Modifier.size(harness.sheetSize).testTag(PANEL_SHEET_TAG)) {
 								KeyformSheetSpace(harness.sheetScope)
 							}
 						}
+
 						if (harness.showOutliner) {
 							Box(modifier = Modifier.size(harness.outlinerSize).testTag(PANEL_OUTLINER_TAG)) {
 								OutlinerSpace(harness.outlinerScope, Modifier.fillMaxSize())
 							}
 						}
+
 						if (harness.showSources) {
 							Box(modifier = Modifier.size(harness.sourcesSize).testTag(PANEL_SOURCES_TAG)) {
 								SourcesSpace(harness.sourcesScope, Modifier.fillMaxSize())
@@ -905,6 +920,7 @@ internal fun ComposeUiTest.panelBoundsOfText(text: String): ControlBox = panelBo
 internal fun ComposeUiTest.panelBoundsOf(node: SemanticsNodeInteraction): ControlBox {
 	val body: DpRect = onNodeWithTag(PANEL_BODY_TAG).getUnclippedBoundsInRoot()
 	val bounds: DpRect = node.getUnclippedBoundsInRoot()
+
 	return with(density) {
 		ControlBox(
 			left = (bounds.left - body.left).toPx(),
@@ -944,6 +960,7 @@ internal fun ComposeUiTest.gripBounds(harness: ParametersPanelHarness, rowIndex:
 internal fun ComposeUiTest.sliderBox(harness: ParametersPanelHarness, rowIndex: Int, valueText: String): ControlBox {
 	val grip = gripBounds(harness, rowIndex)
 	val field = numberFieldBounds(valueText)
+
 	return with(density) {
 		ControlBox(
 			left = grip.right + 14.dp.toPx(),
@@ -974,6 +991,7 @@ internal fun ComposeUiTest.padBox(
 	val grip = gripBounds(harness, rowIndex)
 	val horizontalField = numberFieldBounds(horizontalValueText)
 	val verticalField = numberFieldBounds(verticalValueText)
+
 	return with(density) {
 		val left = grip.right + 16.dp.toPx()
 		val right = horizontalField.right + 14.dp.toPx()
@@ -997,6 +1015,7 @@ internal fun ComposeUiTest.islandSurfacePoint(harness: ParametersPanelHarness, r
 	val field = numberFieldBounds(valueText)
 	val inset = with(density) { 3.dp.toPx() }
 	val islandTop = field.top - with(density) { 6.dp.toPx() }
+
 	return Offset(grip.right + inset, islandTop + inset)
 }
 
@@ -1012,6 +1031,7 @@ internal fun ComposeUiTest.numberFieldBounds(valueText: String): ControlBox {
 	val text = panelBoundsOfText(valueText)
 	val halfField = with(density) { NUMBER_FIELD_WIDTH.toPx() / 2f }
 	val halfHeight = with(density) { NUMBER_FIELD_HEIGHT.toPx() / 2f }
+
 	return ControlBox(
 		left = text.center.x - halfField,
 		top = text.center.y - halfHeight,
@@ -1032,6 +1052,7 @@ internal fun ComposeUiTest.pressAndMove(from: Offset, through: List<Offset>) {
 		advanceEventTime(GESTURE_GAP_MILLIS)
 		moveTo(from)
 		press()
+
 		for (point in through) {
 			advanceEventTime(GESTURE_STEP_MILLIS)
 			moveTo(point)

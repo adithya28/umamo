@@ -77,6 +77,7 @@ class ResidencyDeviceCallsTest {
 						listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(positions.size)))),
 					),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),
@@ -113,6 +114,7 @@ class ResidencyDeviceCallsTest {
 		indices: IntArray? = null,
 	): Drawable {
 		val mesh = drawable.mesh ?: error("the probe carries a mesh")
+
 		return drawable.copy(mesh = DrawableMesh.withLocalEqualToCanvas(positions ?: mesh.positions, uvs ?: mesh.uvs, indices ?: mesh.indices))
 	}
 
@@ -126,11 +128,13 @@ class ResidencyDeviceCallsTest {
 	private fun solidImage(red: Int, green: Int): DecodedImage {
 		val edge = 8
 		val rgba = ByteArray(edge * edge * 4)
+
 		for (pixel in rgba.indices step 4) {
 			rgba[pixel] = red.toByte()
 			rgba[pixel + 1] = green.toByte()
 			rgba[pixel + 3] = 0xFF.toByte()
 		}
+
 		return DecodedImage(rgba, edge, edge)
 	}
 
@@ -146,6 +150,7 @@ class ResidencyDeviceCallsTest {
 		renderer.initGl()
 		val resident = device.resourceEvents.filterIsInstance<MeshCreated>().single().mesh
 		device.clearLog()
+
 		return renderer to resident
 	}
 

@@ -53,6 +53,7 @@ class DrawableSpaceResolver(
 	 */
 	fun mapping(drawableId: DrawableId): DrawableSpaceMapping? {
 		val drawable = drawableById[drawableId] ?: return null
+
 		return mappingOver(drawable) { parentDeformerId -> deformerWorlds[parentDeformerId] }
 	}
 
@@ -65,6 +66,7 @@ class DrawableSpaceResolver(
 	 */
 	fun localPosed(drawableId: DrawableId): FloatArray? {
 		val drawable = drawableById[drawableId] ?: return null
+
 		return localPosedOver(drawable, paramValue)
 	}
 }

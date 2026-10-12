@@ -64,10 +64,13 @@ class Cmo3SourceModeAtlasTest {
 	private fun texelAt(image: RasterImage, u: Float, v: Float): IntArray? {
 		val column = floor(u * image.width).toInt()
 		val row = floor(v * image.height).toInt()
+
 		if (column < 0 || row < 0 || column >= image.width || row >= image.height) {
 			return null
 		}
+
 		val offset = (row * image.width + column) * 4
+
 		return IntArray(4) { channelIndex -> image.rgba[offset + channelIndex].toInt() and 0xFF }
 	}
 
@@ -79,6 +82,7 @@ class Cmo3SourceModeAtlasTest {
 
 		var checkedFiles = 0
 		val failures = ArrayList<String>()
+
 		for (file in files) {
 			val cmo3 = Cmo3.read(file)
 			val root = cmo3.root as? CModelSource ?: continue
@@ -97,65 +101,84 @@ class Cmo3SourceModeAtlasTest {
 					val sampled = (sourceById[drawable.id.raw]?.texture as? GTexture2D)?.srcImageResource
 					placed && pageResources.none { page -> page === sampled }
 				}
+
 			if (sourceModeDrawables.isEmpty()) {
 				continue
 			}
+
 			checkedFiles++
+
 			if (!puppet.atlas.storedUvsAddressPages) {
 				failures.add("${file.name}: its coordinates do not address its pages")
 			}
+
 			val renderPages = cmo3AtlasPages(root, cmo3::extractLayerPng)
 			val decodedRenderPages = HashMap<Int, RasterImage>()
 			val decodedTiles = HashMap<AtlasTileId, RasterImage?>()
 			var samples = 0
 			var mismatches = 0
+
 			for (drawable in sourceModeDrawables) {
 				val tileId = drawable.atlasTileId!!
 				val placement = puppet.atlas.tileById.getValue(tileId).placement!!
 				val renderPageIndex = renderPages.atlasIndexByDrawableId[drawable.id.raw]
 				val pagePng = pageResources.getOrNull(placement.pageIndex)?.let(cmo3::extractLayerPng)
+
 				if (renderPageIndex == null || pagePng == null || !renderPages.pageBytes[renderPageIndex].contentEquals(pagePng)) {
 					failures.add("${file.name} ${drawable.id.raw}: not shown from its tile's page image")
+
 					continue
 				}
+
 				val page = decodedRenderPages.getOrPut(renderPageIndex) { PngCodec.read(renderPages.pageBytes[renderPageIndex]) }
 				val raster = decodedTiles.getOrPut(tileId) { imported.atlasIngest.imageResourceByTile[tileId]?.let(cmo3::extractLayerPng)?.let(PngCodec::read) } ?: continue
 				val storedToArt = puppet.atlas.storedToArtAffineForTile(tileId) ?: continue
 				val mesh = drawable.mesh ?: continue
 				var triangleStart = 0
+
 				while (triangleStart + 2 < mesh.indices.size) {
 					for (weights in SAMPLE_WEIGHTS) {
 						var modelU = 0f
 						var modelV = 0f
+
 						for (cornerIndex in 0 until 3) {
 							val vertex = mesh.indices[triangleStart + cornerIndex]
 							modelU += weights[cornerIndex] * mesh.uvs[vertex * 2]
 							modelV += weights[cornerIndex] * mesh.uvs[vertex * 2 + 1]
 						}
+
 						val artU = storedToArt[0] * modelU + storedToArt[1] * modelV + storedToArt[2]
 						val artV = storedToArt[3] * modelU + storedToArt[4] * modelV + storedToArt[5]
 						val rasterTexel = texelAt(raster, artU, artV) ?: continue
+
 						if (rasterTexel[3] < OPAQUE_ALPHA) {
 							continue
 						}
+
 						samples++
 						val pageTexel = texelAt(page, modelU, modelV)
+
 						if (pageTexel == null || (0 until 4).any { channelIndex -> abs(pageTexel[channelIndex] - rasterTexel[channelIndex]) > CHANNEL_TOLERANCE }) {
 							mismatches++
 						}
 					}
+
 					triangleStart += 3
 				}
 			}
+
 			val mismatchFraction = if (samples == 0) 0f else mismatches.toFloat() / samples
 			println("[source-mode] ${file.name}: ${sourceModeDrawables.size} placed drawables off their page in the file, ${renderPages.pageBytes.size} render page(s), $mismatches of $samples samples disagree ($mismatchFraction)")
+
 			if (samples == 0) {
 				failures.add("${file.name}: no opaque sample compared")
 			}
+
 			if (mismatchFraction > MAXIMUM_MISMATCH_FRACTION) {
 				failures.add("${file.name}: the page and the rasters disagree on $mismatchFraction of samples")
 			}
 		}
+
 		Assume.assumeTrue("[source-mode] no cmo3.probe model was saved in source-layer display", checkedFiles > 0)
 		assertTrue(failures.isEmpty(), "source-mode saves are not read onto their pages:\n" + failures.joinToString("\n"))
 	}

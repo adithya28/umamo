@@ -38,6 +38,7 @@ class ParameterPoseStateTest {
 			}
 		}
 		waitForIdle()
+
 		return seen
 	}
 

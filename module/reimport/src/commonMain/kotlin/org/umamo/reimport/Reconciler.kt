@@ -52,13 +52,16 @@ object KeyReconciler : Reconciler {
 	 */
 	override fun reconcile(bindings: List<SourceLayerRef>, newArt: SourceArt): ReconcileReport {
 		val rasterKeys = LinkedHashSet<String>()
+
 		for (layer in newArt.layers.sortedBy { candidate -> candidate.order }) {
 			if (layer.kind == SourceLayerKind.Raster) {
 				rasterKeys.add(layer.id.raw)
 			}
 		}
+
 		val boundKeys = bindings.mapTo(HashSet()) { binding -> binding.layerKey }
 		val results = ArrayList<ReconcileResult>(bindings.size + rasterKeys.size)
+
 		for (binding in bindings) {
 			if (binding.layerKey in rasterKeys) {
 				results.add(ReconcileResult.Matched(binding, binding.layerKey))
@@ -66,11 +69,13 @@ object KeyReconciler : Reconciler {
 				results.add(ReconcileResult.NeedsReview(binding, ReviewReason.LayerMissing))
 			}
 		}
+
 		for (key in rasterKeys) {
 			if (key !in boundKeys) {
 				results.add(ReconcileResult.Added(key))
 			}
 		}
+
 		return ReconcileReport(results)
 	}
 }

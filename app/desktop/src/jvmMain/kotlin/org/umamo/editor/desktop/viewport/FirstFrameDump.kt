@@ -32,9 +32,11 @@ internal class FirstFrameDump {
 	 */
 	fun dumpOnce(device: RenderDevice, target: RenderTarget, width: Int, height: Int) {
 		val path = dumpPath ?: return
+
 		if (dumped) {
 			return
 		}
+
 		File(path).writeBytes(PngCodec.write(device.readPixels(target, width, height)))
 		dumped = true
 		UmamoLog.info("[GL] puppet dumped to $path (${width}x$height)")

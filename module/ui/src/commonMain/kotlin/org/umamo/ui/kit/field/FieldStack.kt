@@ -38,6 +38,7 @@ fun FieldStack(
 			if (rowIndex > 0) {
 				Spacer(modifier = Modifier.height(FIELD_STACK_SEAM))
 			}
+
 			row(stackPositionOf(rowIndex, rows.size))
 		}
 	}

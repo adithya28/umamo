@@ -58,6 +58,7 @@ class SourceTileThumbnails(
 		val fitted = RasterImage(raster.width, raster.height, raster.rgba).fittedInto(TILE_PREVIEW_EDGE)
 		val bitmap = rgbaToImageBitmap(fitted.rgba, fitted.width, fitted.height, RgbaAlphaType.Straight)
 		cache[tileId] = Entry(raster, bitmap)
+
 		return bitmap
 	}
 }

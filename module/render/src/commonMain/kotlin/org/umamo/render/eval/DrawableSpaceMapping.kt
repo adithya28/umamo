@@ -58,6 +58,7 @@ class DrawableSpaceMapping internal constructor(
 	fun localToWorld(local: FloatArray): FloatArray {
 		val world = FloatArray(local.size)
 		val vertexCount = local.size / 2
+
 		for (vertexIndex in 0 until vertexCount) {
 			if (parentWorld != null) {
 				parentWorld.apply(local[vertexIndex * 2], local[vertexIndex * 2 + 1], world, vertexIndex * 2)
@@ -65,8 +66,10 @@ class DrawableSpaceMapping internal constructor(
 				world[vertexIndex * 2] = local[vertexIndex * 2]
 				world[vertexIndex * 2 + 1] = local[vertexIndex * 2 + 1]
 			}
+
 			world[vertexIndex * 2 + 1] = -world[vertexIndex * 2 + 1]
 		}
+
 		return world
 	}
 
@@ -85,24 +88,34 @@ class DrawableSpaceMapping internal constructor(
 	fun worldToLocal(world: FloatArray, seedLocal: FloatArray, indices: Set<Int>): FloatArray {
 		val local = seedLocal.copyOf()
 		val scratch = FloatArray(2)
+
 		for (vertexIndex in indices) {
 			val coordIndex = vertexIndex * 2
+
 			if (coordIndex + 1 >= world.size || coordIndex + 1 >= local.size) {
 				continue
 			}
+
 			// Un-negate Y first: the parent transforms operate in the pre-negate model space.
 			val targetX = world[coordIndex]
 			val targetY = -world[coordIndex + 1]
+
 			when (parentWorld) {
 				null -> {
 					local[coordIndex] = targetX
 					local[coordIndex + 1] = targetY
 				}
 
-				is RotationWorld -> invertRotation(parentWorld, targetX, targetY, local, coordIndex)
-				is WarpWorld -> invertWarp(parentWorld, targetX, targetY, local, coordIndex, scratch)
+				is RotationWorld -> {
+					invertRotation(parentWorld, targetX, targetY, local, coordIndex)
+				}
+
+				is WarpWorld -> {
+					invertWarp(parentWorld, targetX, targetY, local, coordIndex, scratch)
+				}
 			}
 		}
+
 		return local
 	}
 
@@ -136,13 +149,16 @@ class DrawableSpaceMapping internal constructor(
 	 */
 	fun worldToLocalLinearized(world: FloatArray, seedLocal: FloatArray, worldRest: FloatArray, indices: Set<Int>): FloatArray {
 		val local = seedLocal.copyOf()
+
 		when (parentWorld) {
 			null -> {
 				for (vertexIndex in indices) {
 					val coordIndex = vertexIndex * 2
+
 					if (coordIndex + 1 >= world.size || coordIndex + 1 >= local.size) {
 						continue
 					}
+
 					// Un-negate Y: the parent frame is the pre-negate model space.
 					local[coordIndex] = world[coordIndex]
 					local[coordIndex + 1] = -world[coordIndex + 1]
@@ -152,9 +168,11 @@ class DrawableSpaceMapping internal constructor(
 			is RotationWorld -> {
 				for (vertexIndex in indices) {
 					val coordIndex = vertexIndex * 2
+
 					if (coordIndex + 1 >= world.size || coordIndex + 1 >= local.size) {
 						continue
 					}
+
 					invertRotation(parentWorld, world[coordIndex], -world[coordIndex + 1], local, coordIndex)
 				}
 			}
@@ -163,15 +181,19 @@ class DrawableSpaceMapping internal constructor(
 				// Constant per mapping, so it's computed once here rather than per vertex.
 				val toleranceSquared = warpInverseToleranceSquared(parentWorld.cp)
 				val scratch = FloatArray(2)
+
 				for (vertexIndex in indices) {
 					val coordIndex = vertexIndex * 2
+
 					if (coordIndex + 1 >= world.size || coordIndex + 1 >= local.size) {
 						continue
 					}
+
 					invertWarpUncapped(parentWorld, world[coordIndex], -world[coordIndex + 1], local, coordIndex, toleranceSquared, scratch)
 				}
 			}
 		}
+
 		return local
 	}
 
@@ -198,19 +220,23 @@ class DrawableSpaceMapping internal constructor(
 		var bestU = currentU
 		var bestV = currentV
 		var bestErrorSquared = Float.MAX_VALUE
+
 		for (iteration in 0 until RIGID_INVERSE_MAX_ITERATIONS) {
 			warpApply(warp.cp, warp.cols, warp.rows, warp.bilinear, currentU, currentV, scratch, 0)
 			val residualX = scratch[0] - targetX
 			val residualY = scratch[1] - targetY
 			val errorSquared = residualX * residualX + residualY * residualY
+
 			if (errorSquared < bestErrorSquared) {
 				bestErrorSquared = errorSquared
 				bestU = currentU
 				bestV = currentV
 			}
+
 			if (errorSquared <= toleranceSquared) {
 				break
 			}
+
 			warpApply(warp.cp, warp.cols, warp.rows, warp.bilinear, currentU + WARP_INVERSE_JACOBIAN_STEP, currentV, scratch, 0)
 			val dxDu = (scratch[0] - (residualX + targetX)) / WARP_INVERSE_JACOBIAN_STEP
 			val dyDu = (scratch[1] - (residualY + targetY)) / WARP_INVERSE_JACOBIAN_STEP
@@ -218,12 +244,15 @@ class DrawableSpaceMapping internal constructor(
 			val dxDv = (scratch[0] - (residualX + targetX)) / WARP_INVERSE_JACOBIAN_STEP
 			val dyDv = (scratch[1] - (residualY + targetY)) / WARP_INVERSE_JACOBIAN_STEP
 			val determinant = dxDu * dyDv - dxDv * dyDu
+
 			if (abs(determinant) < 1e-12f) {
 				break
 			}
+
 			currentU += (-residualX * dyDv + dxDv * residualY) / determinant
 			currentV += (-residualY * dxDu + dyDu * residualX) / determinant
 		}
+
 		local[coordIndex] = bestU
 		local[coordIndex + 1] = bestV
 	}
@@ -245,6 +274,7 @@ class DrawableSpaceMapping internal constructor(
  */
 fun drawableSpaceMapping(model: PuppetModel, parameters: Map<ParameterId, Float>, drawableId: DrawableId): DrawableSpaceMapping? {
 	val drawable = model.drawables.firstOrNull { it.id == drawableId } ?: return null
+
 	// The defaults and the bake are built only when a parent asks for a world, so a direct drawable
 	// pays for neither.
 	return mappingOver(drawable) { parentDeformerId ->
@@ -267,6 +297,7 @@ fun drawableSpaceMapping(model: PuppetModel, parameters: Map<ParameterId, Float>
 internal fun mappingOver(drawable: Drawable, parentWorldOf: (DeformerId) -> DeformerWorld?): DrawableSpaceMapping? {
 	val parentDeformerId = drawable.parentDeformerId ?: return DrawableSpaceMapping(null)
 	val parentWorld = parentWorldOf(parentDeformerId) ?: return null
+
 	return DrawableSpaceMapping(parentWorld)
 }
 
@@ -286,6 +317,7 @@ fun drawableLocalPosed(model: PuppetModel, parameters: Map<ParameterId, Float>, 
 	val drawable = model.drawables.firstOrNull { it.id == drawableId } ?: return null
 	// Lazy, so an unkeyed drawable answers without building the defaults.
 	val defaults by lazy { model.parameters.associate { it.id to it.default } }
+
 	return localPosedOver(drawable) { parameterId -> parameters[parameterId] ?: defaults[parameterId] ?: 0f }
 }
 
@@ -303,6 +335,7 @@ internal fun localPosedOver(drawable: Drawable, paramValue: (ParameterId) -> Flo
 	// An unkeyed drawable sits at its rest mesh, which is exactly the state a rigger needs the gizmo to
 	// show - returning null here would hide the vertices of the drawable they are about to key.
 	val grid = drawable.geometryGrid ?: return mesh.localPositions.copyOf()
+
 	return sampleMeshLocal(grid, mesh.localPositions, paramValue)
 }
 
@@ -320,9 +353,11 @@ internal fun localPosedOver(drawable: Drawable, paramValue: (ParameterId) -> Flo
 private fun invertRotation(rotation: RotationWorld, targetX: Float, targetY: Float, local: FloatArray, coordIndex: Int) {
 	val xform = rotation.xform
 	val determinant = xform.c12 * xform.c13 - xform.c15 * xform.c14
+
 	if (abs(determinant) < 1e-12f) {
 		return
 	}
+
 	val relativeX = targetX - xform.ox
 	val relativeY = targetY - xform.oy
 	local[coordIndex] = (relativeX * xform.c13 - xform.c15 * relativeY) / determinant
@@ -349,19 +384,23 @@ private fun invertWarp(warp: WarpWorld, targetX: Float, targetY: Float, local: F
 	var bestU = currentU
 	var bestV = currentV
 	var bestErrorSquared = Float.MAX_VALUE
+
 	for (iteration in 0 until WARP_INVERSE_MAX_ITERATIONS) {
 		warpApply(warp.cp, warp.cols, warp.rows, warp.bilinear, currentU, currentV, scratch, 0)
 		val residualX = scratch[0] - targetX
 		val residualY = scratch[1] - targetY
 		val errorSquared = residualX * residualX + residualY * residualY
+
 		if (errorSquared < bestErrorSquared) {
 			bestErrorSquared = errorSquared
 			bestU = currentU
 			bestV = currentV
 		}
+
 		if (errorSquared <= toleranceSquared) {
 			break
 		}
+
 		warpApply(warp.cp, warp.cols, warp.rows, warp.bilinear, currentU + WARP_INVERSE_JACOBIAN_STEP, currentV, scratch, 0)
 		val dxDu = (scratch[0] - (residualX + targetX)) / WARP_INVERSE_JACOBIAN_STEP
 		val dyDu = (scratch[1] - (residualY + targetY)) / WARP_INVERSE_JACOBIAN_STEP
@@ -369,20 +408,25 @@ private fun invertWarp(warp: WarpWorld, targetX: Float, targetY: Float, local: F
 		val dxDv = (scratch[0] - (residualX + targetX)) / WARP_INVERSE_JACOBIAN_STEP
 		val dyDv = (scratch[1] - (residualY + targetY)) / WARP_INVERSE_JACOBIAN_STEP
 		val determinant = dxDu * dyDv - dxDv * dyDu
+
 		if (abs(determinant) < 1e-12f) {
 			break
 		}
+
 		var stepU = (-residualX * dyDv + dxDv * residualY) / determinant
 		var stepV = (-residualY * dxDu + dyDu * residualX) / determinant
 		val stepLength = sqrt(stepU * stepU + stepV * stepV)
+
 		if (stepLength > WARP_INVERSE_MAX_STEP) {
 			val damping = WARP_INVERSE_MAX_STEP / stepLength
 			stepU *= damping
 			stepV *= damping
 		}
+
 		currentU += stepU
 		currentV += stepV
 	}
+
 	local[coordIndex] = bestU
 	local[coordIndex + 1] = bestV
 }
@@ -400,6 +444,7 @@ private fun warpInverseToleranceSquared(cp: FloatArray): Float {
 	var minY = Float.MAX_VALUE
 	var maxY = -Float.MAX_VALUE
 	val pointCount = cp.size / 2
+
 	for (pointIndex in 0 until pointCount) {
 		val x = cp[pointIndex * 2]
 		val y = cp[pointIndex * 2 + 1]
@@ -408,7 +453,9 @@ private fun warpInverseToleranceSquared(cp: FloatArray): Float {
 		minY = minOf(minY, y)
 		maxY = maxOf(maxY, y)
 	}
+
 	val span = max(maxX - minX, maxY - minY)
 	val tolerance = max(1e-5f * span, 1e-6f)
+
 	return tolerance * tolerance
 }

@@ -123,13 +123,17 @@ internal class EditModalTransform(
 
 		for (geometry in geometries) {
 			val elements = selection.elementsOf(geometry.drawableId)
+
 			if (elements.isEmpty()) {
 				continue
 			}
+
 			val coveredIndices = MeshTopology.coveredVertexIndices(elements, geometry.mesh.indices)
+
 			if (coveredIndices.isEmpty()) {
 				continue
 			}
+
 			val frozen = geometry.worldGeometry.frozenCopy()
 			frozenById[geometry.drawableId] = frozen
 			sources.add(ModalCaptureSource(geometry.drawableId, frozen.world, geometry.mesh.indices, coveredIndices))
@@ -153,6 +157,7 @@ internal class EditModalTransform(
 		if (transform == null) {
 			// Nothing movable (the selection emptied between latch and capture): drop the operator.
 			session.clearMeshOperator()
+
 			return
 		}
 
@@ -207,6 +212,7 @@ internal class EditModalTransform(
 		if (session.activeMeshOperator.value?.areaId == areaId) {
 			session.clearMeshOperator()
 		}
+
 		return gesture.end()
 	}
 
@@ -221,6 +227,7 @@ internal class EditModalTransform(
 	fun reapplyProportional(state: ProportionalEditState?) {
 		val gestureData = gesture.capture
 		val liveOperator = session.activeMeshOperator.value
+
 		if (gestureData != null && liveOperator != null && session.meshOperatorTakesProportional(liveOperator.kind)) {
 			gestureData.transform.applyProportional(state, state?.radiusWorld ?: 0f)
 		}
@@ -307,6 +314,7 @@ internal class EditModalTransform(
 				}
 			}
 		}
+
 		session.clearMeshOperator()
 	}
 

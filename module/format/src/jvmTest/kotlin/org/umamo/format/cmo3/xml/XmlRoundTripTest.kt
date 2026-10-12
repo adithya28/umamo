@@ -20,10 +20,13 @@ class XmlRoundTripTest {
 	@Test
 	fun mainXmlRoundTripsByteIdentical() {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.sample not present; skipping XML round-trip test")
+
 			return
 		}
+
 		val archive = CaffCodec.read(file.readBytes())
 		val mainXml =
 			archive.firstByTag(CaffArchive.TAG_MAIN_XML)?.content

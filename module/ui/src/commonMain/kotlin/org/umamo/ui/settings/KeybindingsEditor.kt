@@ -171,6 +171,7 @@ internal fun KeybindingsEditor() {
 							onCaptured = { captured ->
 								capturingCommandId = null
 								val existingCommandId = keymap.commandFor(captured)
+
 								if (existingCommandId != null && existingCommandId != command.id) {
 									pendingConflict = KeybindingConflict(command.id, captured, existingCommandId)
 								} else {
@@ -282,6 +283,7 @@ private fun ChordChip(
 		if (capturing) {
 			keyCapture.begin()
 		}
+
 		onDispose {
 			if (capturing) {
 				keyCapture.end()
@@ -328,12 +330,16 @@ private fun handleCaptureKey(event: KeyEvent, onCaptured: (KeyChord) -> Unit, on
 	if (event.type != KeyEventType.KeyDown) {
 		return false
 	}
+
 	val pressedKeyName = keyName(event.key) ?: return false
 	val noModifiers = !event.isCtrlPressed && !event.isMetaPressed && !event.isShiftPressed && !event.isAltPressed
+
 	if (pressedKeyName == "Escape" && noModifiers) {
 		onCancelCapture()
+
 		return true
 	}
+
 	onCaptured(
 		KeyChord(
 			keyName = pressedKeyName,
@@ -342,6 +348,7 @@ private fun handleCaptureKey(event: KeyEvent, onCaptured: (KeyChord) -> Unit, on
 			alt = event.isAltPressed,
 		),
 	)
+
 	return true
 }
 

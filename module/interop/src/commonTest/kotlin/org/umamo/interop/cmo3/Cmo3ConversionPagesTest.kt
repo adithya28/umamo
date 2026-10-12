@@ -37,6 +37,7 @@ class Cmo3ConversionPagesTest {
 	 */
 	private fun model(): PuppetModel {
 		val drawables = listOf(drawable("overLoose", "loose"), drawable("overA", "placedA"), drawable("overB", "placedB"), drawable("copyOfA", "placedA", textureSourceId = "overA"))
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = emptyList(),

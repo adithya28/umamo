@@ -84,6 +84,7 @@ class CommandDispatchTest {
 		val drawable = SelectionTarget.Drawable(DrawableId("a"))
 		session.setSelection(Selection(setOf(drawable), drawable))
 		session.setMode(mode)
+
 		return session
 	}
 

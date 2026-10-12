@@ -87,6 +87,7 @@ class SigningIdentityTest {
 		val digest = MessageDigest.getInstance("SHA-1")
 		digest.update(byteArrayOf(0x99.toByte(), (bodyLength shr 8).toByte(), bodyLength.toByte()))
 		digest.update(packets, bodyOffset, bodyLength)
+
 		return digest.digest().joinToString("") { octet -> "%02X".format(octet) }
 	}
 
@@ -109,8 +110,10 @@ class SigningIdentityTest {
 		val header = packets[0].toInt() and 0xFF
 		check(header and 0x80 != 0) { "not an OpenPGP packet header: $header" }
 		val octet = { index: Int -> packets[index].toInt() and 0xFF }
+
 		return if (header and 0x40 != 0) {
 			val first = octet(1)
+
 			when {
 				first < 192 -> 2 to first
 				first < 224 -> 3 to ((first - 192) shl 8) + octet(2) + 192

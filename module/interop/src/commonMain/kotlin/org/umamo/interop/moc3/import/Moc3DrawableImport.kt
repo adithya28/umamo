@@ -108,6 +108,7 @@ internal fun importDrawables(context: Moc3ImportContext): List<Drawable> =
 				channelGrids = fannedMesh?.channels ?: ChannelGrids.Empty,
 			)
 		val meshRecords = context.blendRecordsByTarget[BlendShapeTarget.ART_MESH to drawableIndex].orEmpty()
+
 		if (meshRecords.isEmpty()) {
 			drawable
 		} else {

@@ -44,6 +44,7 @@ class UmaPuppetReadTest {
 	 */
 	private fun assertMalformed(puppetJson: String, label: String): String {
 		val failure = assertFailsWith<UmaFormatException>(label) { Uma.read(fileWithPuppet(puppetJson)) }.failure
+
 		return assertIs<UmaReadFailure.MalformedEntry>(failure, label).detail
 	}
 
@@ -101,6 +102,7 @@ class UmaPuppetReadTest {
 		val values = listOf(-0.0f, 0.0f, Float.MIN_VALUE, 1.4e-44f, 0.1f, 1f / 3f, 16777217f, Float.MAX_VALUE, -Float.MAX_VALUE)
 		val puppet = UmaPuppet(parameters = values.mapIndexed { valueIndex, value -> UmaParameter("P$valueIndex", "P", value, value, value) })
 		val decoded = Uma.read(Uma.write(UmaModel.create(TEST_WRITER).withPuppet(puppet))).puppet!!.parameters!!
+
 		for ((valueIndex, value) in values.withIndex()) {
 			assertEquals(value.toRawBits(), decoded[valueIndex].default.toRawBits(), "$value survives bit for bit")
 		}

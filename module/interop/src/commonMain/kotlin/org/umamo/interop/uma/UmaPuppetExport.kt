@@ -112,6 +112,7 @@ object UmaPuppetExport {
 	 */
 	private fun parameterOf(parameter: Parameter): UmaParameter {
 		val path = "parameters[${parameter.id.raw}]"
+
 		return UmaParameter(
 			id = parameter.id.raw,
 			name = parameter.name,
@@ -131,14 +132,18 @@ object UmaPuppetExport {
 	 */
 	private fun parameterNodeOf(node: ParameterNode): UmaParameterNode =
 		when (node) {
-			is ParameterNode.Param -> UmaParameterNode(parameter = node.id.raw)
-			is ParameterNode.Group ->
+			is ParameterNode.Param -> {
+				UmaParameterNode(parameter = node.id.raw)
+			}
+
+			is ParameterNode.Group -> {
 				UmaParameterNode(
 					group = node.id.raw,
 					name = node.name,
 					initiallyOpen = optionalBoolean(node.initiallyOpen, false),
 					children = node.children.map(::parameterNodeOf).ifEmpty { null },
 				)
+			}
 		}
 
 	/**
@@ -161,6 +166,7 @@ object UmaPuppetExport {
 	 */
 	private fun partOf(part: Part): UmaPart {
 		val path = "parts[${part.id.raw}]"
+
 		return UmaPart(
 			id = part.id.raw,
 			name = part.name,
@@ -195,6 +201,7 @@ object UmaPuppetExport {
 				multiplyColor = optionalColor(composite.multiplyColor, ColorRgb.MultiplyIdentity, "$path.multiplyColor"),
 				screenColor = optionalColor(composite.screenColor, ColorRgb.ScreenIdentity, "$path.screenColor"),
 			)
+
 		return record.takeIf { candidate -> candidate != UmaPartComposite() }
 	}
 
@@ -206,8 +213,9 @@ object UmaPuppetExport {
 	 */
 	private fun deformerOf(deformer: Deformer): UmaDeformer {
 		val path = "deformers[${deformer.id.raw}]"
+
 		return when (deformer) {
-			is Deformer.Warp ->
+			is Deformer.Warp -> {
 				UmaDeformer(
 					id = deformer.id.raw,
 					kind = UmaDeformerKind.Warp,
@@ -227,8 +235,9 @@ object UmaPuppetExport {
 					channels = channelsOf(deformer.channelGrids, path),
 					blendShapes = deformer.blendShapes.mapIndexed { bindingIndex, binding -> warpBlendShapeOf(binding, "$path.blendShapes[$bindingIndex]") }.ifEmpty { null },
 				)
+			}
 
-			is Deformer.Rotation ->
+			is Deformer.Rotation -> {
 				UmaDeformer(
 					id = deformer.id.raw,
 					kind = UmaDeformerKind.Rotation,
@@ -248,6 +257,7 @@ object UmaPuppetExport {
 					channels = channelsOf(deformer.channelGrids, path),
 					blendShapes = deformer.blendShapes.mapIndexed { bindingIndex, binding -> rotationBlendShapeOf(binding, "$path.blendShapes[$bindingIndex]") }.ifEmpty { null },
 				)
+			}
 		}
 	}
 
@@ -259,6 +269,7 @@ object UmaPuppetExport {
 	 */
 	private fun drawableOf(drawable: Drawable): UmaDrawable {
 		val path = "drawables[${drawable.id.raw}]"
+
 		return UmaDrawable(
 			id = drawable.id.raw,
 			name = drawable.name,
@@ -292,6 +303,7 @@ object UmaPuppetExport {
 	 */
 	private fun glueOf(glue: Glue): UmaGlue {
 		val path = "glues[${glue.meshA.raw},${glue.meshB.raw}]"
+
 		return UmaGlue(
 			meshA = glue.meshA.raw,
 			meshB = glue.meshB.raw,
@@ -380,7 +392,9 @@ object UmaPuppetExport {
 		if (channelGrids.isEmpty) {
 			return null
 		}
+
 		val tracks = LinkedHashMap<UmaFormChannel, UmaChannelGrid>()
+
 		for (channel in FormChannel.entries) {
 			val grid = channelGrids[channel] ?: continue
 			val trackPath = "$path.channels.${channel.toUma().wireName()}"
@@ -390,6 +404,7 @@ object UmaPuppetExport {
 					grid.cells.mapIndexed { cellIndex, cell -> UmaChannelCell(cell.coordinate.toList(), channelValueOf(cell.form, "$trackPath.cells[$cellIndex].value")) },
 				)
 		}
+
 		return tracks
 	}
 
@@ -402,8 +417,11 @@ object UmaPuppetExport {
 	 */
 	private fun channelValueOf(value: ChannelValue, path: String): JsonElement =
 		when (value) {
-			is ChannelValue.Scalar -> JsonPrimitive(finite(value.value, path))
-			is ChannelValue.Color ->
+			is ChannelValue.Scalar -> {
+				JsonPrimitive(finite(value.value, path))
+			}
+
+			is ChannelValue.Color -> {
 				JsonArray(
 					listOf(
 						JsonPrimitive(finite(value.color.red, "$path[0]")),
@@ -411,8 +429,11 @@ object UmaPuppetExport {
 						JsonPrimitive(finite(value.color.blue, "$path[2]")),
 					),
 				)
+			}
 
-			is ChannelValue.Flag -> JsonPrimitive(value.flag)
+			is ChannelValue.Flag -> {
+				JsonPrimitive(value.flag)
+			}
 		}
 
 	/**
@@ -582,6 +603,7 @@ object UmaPuppetExport {
 		val channels = listOf(finite(color.red, "$path[0]"), finite(color.green, "$path[1]"), finite(color.blue, "$path[2]"))
 		val identityChannels = listOf(identity.red, identity.green, identity.blue)
 		val isIdentity = channels.indices.all { channelIndex -> channels[channelIndex].toRawBits() == identityChannels[channelIndex].toRawBits() }
+
 		return if (isIdentity) null else channels
 	}
 

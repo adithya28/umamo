@@ -102,6 +102,7 @@ class UvPlacementAdjustTest {
 				),
 			)
 		val mover = PlacementMover(tileId, original, trim, null, null, null, emptyList(), transform.anchor.first, transform.anchor.second, crop = null)
+
 		return PlacementGesture(
 			transform = transform,
 			movers = listOf(mover),
@@ -132,6 +133,7 @@ class UvPlacementAdjustTest {
 		val dragged = evaluate(gesture, parameters)
 		session.setAtlasPlacements(changedPlacements(gesture.movers, dragged), gesture.transform.operatorKind)
 		assertNotNull(registerPlacementAdjustment(session, "uv-1", gesture, dragged, onLanded), "the gesture registers")
+
 		return dragged
 	}
 

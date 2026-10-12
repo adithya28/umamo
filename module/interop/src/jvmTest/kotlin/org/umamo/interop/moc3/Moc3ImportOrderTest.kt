@@ -48,25 +48,32 @@ class Moc3ImportOrderTest {
 	@Test
 	fun theFlatDrawableListIsTheRenderTreesLeafOrder() {
 		val files = samples()
+
 		if (files.isEmpty()) {
 			println("moc3.samples not present; skipping import order gate")
+
 			return
 		}
+
 		val failures = ArrayList<String>()
 		var covered = 0
 		var reordered = 0
+
 		for (file in files) {
 			val source = Moc3.decode(MocCodec.read(file.readBytes()))
+
 			// A document with no render-order groups reconstructs no panel order at all - the import falls
 			// back to deriving a tree from the org tree, which is a different contract than this one.
 			if (source.renderOrderGroups.isEmpty()) {
 				continue
 			}
+
 			val puppet = Moc3Import.fromMocDocument(source, displayInfo = null)
 			covered++
 
 			val flatOrder = puppet.drawables.map { drawable -> drawable.id }
 			val leafOrder = leavesOf(puppet.renderRoot)
+
 			if (flatOrder != leafOrder) {
 				failures.add(
 					"${file.name}: the flat drawable list is not the render tree's leaf order " +
@@ -79,10 +86,12 @@ class Moc3ImportOrderTest {
 			// panel-index map leaves the stable sort on file order.  Only a model whose leaf order differs
 			// from its file order can tell the two apart.
 			val fileOrder = source.artMeshes.map { artMesh -> DrawableId(artMesh.id) }
+
 			if (leafOrder != fileOrder) {
 				reordered++
 			}
 		}
+
 		assertTrue(covered > 0, "no corpus model carries render-order groups")
 		assertTrue(
 			reordered > 0,
@@ -95,18 +104,24 @@ class Moc3ImportOrderTest {
 	@Test
 	fun orgTreeChildrenFollowPanelOrder() {
 		val files = samples()
+
 		if (files.isEmpty()) {
 			println("moc3.samples not present; skipping org-tree order gate")
+
 			return
 		}
+
 		val failures = ArrayList<String>()
 		var covered = 0
 		var multiChildContainers = 0
+
 		for (file in files) {
 			val source = Moc3.decode(MocCodec.read(file.readBytes()))
+
 			if (source.renderOrderGroups.isEmpty()) {
 				continue
 			}
+
 			val puppet = Moc3Import.fromMocDocument(source, displayInfo = null)
 			covered++
 
@@ -123,24 +138,30 @@ class Moc3ImportOrderTest {
 				if (children.size > 1) {
 					multiChildContainers++
 				}
+
 				var previousRank = Int.MIN_VALUE
+
 				for (child in children) {
 					val rank =
 						when (child) {
 							is OrgChild.Drawable -> panelRank[child.id] ?: Int.MAX_VALUE
 							is OrgChild.Part -> partRankOf(puppet, child.id, panelRank, partRanks, HashSet())
 						}
+
 					if (rank < previousRank) {
 						failures.add(
 							"${file.name}: $containerName lists $child at panel rank $rank after $previousRank - " +
 								"its children are not in panel order",
 						)
+
 						break
 					}
+
 					previousRank = rank
 				}
 			}
 		}
+
 		assertTrue(covered > 0, "no corpus model carries render-order groups")
 		// A tree of single-child containers is sorted no matter what the sort did.
 		assertTrue(multiChildContainers > 0, "no container in this run had two children to order")
@@ -180,22 +201,28 @@ class Moc3ImportOrderTest {
 		partRanks[partId]?.let { cached ->
 			return cached
 		}
+
 		if (!visiting.add(partId)) {
 			return Int.MAX_VALUE
 		}
+
 		var minimum = Int.MAX_VALUE
+
 		for (child in puppet.partById[partId]?.children.orEmpty()) {
 			val rank =
 				when (child) {
 					is OrgChild.Drawable -> panelRank[child.id] ?: Int.MAX_VALUE
 					is OrgChild.Part -> partRankOf(puppet, child.id, panelRank, partRanks, visiting)
 				}
+
 			if (rank < minimum) {
 				minimum = rank
 			}
 		}
+
 		visiting.remove(partId)
 		partRanks[partId] = minimum
+
 		return minimum
 	}
 
@@ -215,6 +242,7 @@ class Moc3ImportOrderTest {
 			}
 		}
 		walk(node)
+
 		return leaves
 	}
 
@@ -233,7 +261,9 @@ class Moc3ImportOrderTest {
 		if (actual.size != expected.size) {
 			return "${actual.size} drawables vs ${expected.size} leaves"
 		}
+
 		val position = actual.indices.firstOrNull { index -> actual[index] != expected[index] } ?: return "same order"
+
 		return "at $position: ${actual[position].raw} vs ${expected[position].raw}"
 	}
 }

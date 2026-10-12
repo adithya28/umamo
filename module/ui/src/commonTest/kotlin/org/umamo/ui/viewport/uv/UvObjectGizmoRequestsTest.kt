@@ -69,6 +69,7 @@ class UvObjectGizmoRequestsTest {
 	 */
 	private fun TestScope.collectInTwoAreas(session: EditorSession) {
 		val frame = uvRigPageFrame()
+
 		for (areaId in listOf(LEFT_AREA, RIGHT_AREA)) {
 			backgroundScope.launch {
 				collectUvObjectGizmoRequests(
@@ -82,6 +83,7 @@ class UvObjectGizmoRequestsTest {
 				)
 			}
 		}
+
 		runCurrent()
 	}
 

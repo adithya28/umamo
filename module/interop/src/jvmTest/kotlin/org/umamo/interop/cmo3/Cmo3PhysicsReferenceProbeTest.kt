@@ -42,13 +42,17 @@ class Cmo3PhysicsReferenceProbeTest {
 	@Test
 	fun surveysHowPhysicsNamesItsParameters() {
 		val files = corpusFiles()
+
 		if (files.isEmpty()) {
 			println("cmo3.probe lists no readable samples; skipping the physics-reference probe")
+
 			return
 		}
+
 		val referenceShapes = sortedMapOf<String, Int>()
 		val containerShapes = sortedMapOf<String, Int>()
 		var settingCount = 0
+
 		for (file in files) {
 			val root = Cmo3.read(file).root as? CModelSource ?: continue
 			// CMO3: CModelSource field parameterSourceSet -> CParameterSourceSet field _sources.
@@ -76,14 +80,17 @@ class Cmo3PhysicsReferenceProbeTest {
 						"uuidResolves=${Cmo3Import.uuidOf(reference) in parameterUuids}"
 				referenceShapes[shape] = (referenceShapes[shape] ?: 0) + 1
 			}
+
 			for (setting in settings) {
 				// CMO3: CPhysicsSettingsSource fields inputs / outputs -> CPhysicsInput field source,
 				// CPhysicsOutput field destination.
 				Cmo3Import.elementsOf(setting.inputs).filterIsInstance<CPhysicsInput>().forEach { input -> tally("input", input.source) }
 				Cmo3Import.elementsOf(setting.outputs).filterIsInstance<CPhysicsOutput>().forEach { output -> tally("output", output.destination) }
 			}
+
 			println("physics references: ${file.name} -> ${settings.size} settings")
 		}
+
 		println("physics references: $settingCount settings across ${files.size} files")
 		containerShapes.forEach { (shape, count) -> println("  $count x container $shape") }
 		referenceShapes.forEach { (shape, count) -> println("  $count x $shape") }

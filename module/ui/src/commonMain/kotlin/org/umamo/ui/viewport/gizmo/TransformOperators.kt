@@ -63,10 +63,14 @@ internal fun gestureParameters(
 			TransformGestureParameters(0f, 0f, factorX, factorY, 0f)
 		}
 
-		MeshOperatorKind.Rotate -> TransformGestureParameters(0f, 0f, 1f, 1f, gestureRotationRadians(frame, rotationTracker))
+		MeshOperatorKind.Rotate -> {
+			TransformGestureParameters(0f, 0f, 1f, 1f, gestureRotationRadians(frame, rotationTracker))
+		}
 
 		// Vertex Slide has its own edge projection (slideFactorAlongEdge); it never applies these.
-		MeshOperatorKind.VertexSlide -> TransformGestureParameters.IDENTITY
+		MeshOperatorKind.VertexSlide -> {
+			TransformGestureParameters.IDENTITY
+		}
 	}
 
 /**
@@ -82,6 +86,7 @@ internal fun gestureParameters(
 internal fun gestureTranslation(frame: TransformGestureFrame): Pair<Float, Float> {
 	val deltaX = if (frame.axisConstraint == TransformAxisConstraint.AxisZ) 0f else (frame.current.x - frame.start.x) / frame.camera.zoom
 	val deltaY = if (frame.axisConstraint == TransformAxisConstraint.AxisX) 0f else -(frame.current.y - frame.start.y) / frame.camera.zoom
+
 	return deltaX to deltaY
 }
 
@@ -100,6 +105,7 @@ internal fun gestureScaleFactors(frame: TransformGestureFrame): Pair<Float, Floa
 	val factor = if (startDistance > 1e-3f) currentDistance / startDistance else 1f
 	val factorX = if (frame.axisConstraint == TransformAxisConstraint.AxisZ) 1f else factor
 	val factorY = if (frame.axisConstraint == TransformAxisConstraint.AxisX) 1f else factor
+
 	return factorX to factorY
 }
 
@@ -115,6 +121,7 @@ internal fun gestureScaleFactors(frame: TransformGestureFrame): Pair<Float, Floa
 internal fun gestureRotationRadians(frame: TransformGestureFrame, rotationTracker: RotationAngleTracker): Float {
 	val anchorScreen = worldToScreen(frame.anchor.first, frame.anchor.second, frame.camera, frame.size)
 	val pointerAngle = atan2(frame.current.y - anchorScreen.y, frame.current.x - anchorScreen.x)
+
 	return -rotationTracker.advance(pointerAngle)
 }
 
@@ -141,9 +148,11 @@ internal fun slideFactorAlongEdge(
 	val axisX = neighborScreen.x - vertexScreen.x
 	val axisY = neighborScreen.y - vertexScreen.y
 	val lengthSquared = axisX * axisX + axisY * axisY
+
 	if (lengthSquared <= 1e-3f) {
 		return 0f
 	}
+
 	return (((frame.current.x - vertexScreen.x) * axisX + (frame.current.y - vertexScreen.y) * axisY) / lengthSquared).coerceIn(0f, 1f)
 }
 
@@ -165,6 +174,7 @@ internal fun slideVertexByFactor(
 	factor: Float,
 ): FloatArray {
 	val t = factor.coerceIn(0f, 1f)
+
 	return originalWorld.copyOf().also { positions ->
 		positions[vertexIndex * 2] = originalWorld[vertexIndex * 2] + (originalWorld[neighborIndex * 2] - originalWorld[vertexIndex * 2]) * t
 		positions[vertexIndex * 2 + 1] =
@@ -244,5 +254,7 @@ internal fun applyOperator(
 		}
 
 		// Vertex Slide never reaches here: the drive loop handles it with its own edge projection.
-		MeshOperatorKind.VertexSlide -> originalWorld
+		MeshOperatorKind.VertexSlide -> {
+			originalWorld
+		}
 	}

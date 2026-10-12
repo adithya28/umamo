@@ -30,6 +30,7 @@ internal fun lowerArtMeshes(
 	noticeSink: Moc3ExportNotices,
 ): List<ArtMesh> {
 	val plan = context.plan
+
 	return plan.drawables.map { drawable ->
 		val mesh = drawable.mesh!!
 		val space = context.spaceOfParent(drawable.parentDeformerId)
@@ -55,6 +56,7 @@ internal fun lowerArtMeshes(
 		// eligibility pass drops any mesh whose indices would not fit.
 		val triangleIndices =
 			ShortArray(mesh.indices.size) { index -> mesh.indices[index].toShort() }
+
 		// -1 is the "no atlas page bound" sentinel and a moc has no way to spell it, so the write
 		// clamps to page 0.  On a multi-page rig that is the WRONG texture rather than a near miss,
 		// which is worth a notice even though the file it produces is structurally valid.
@@ -65,19 +67,23 @@ internal fun lowerArtMeshes(
 				ExportNoticeReason.NoAtlasPageBound,
 			)
 		}
+
 		// A mask naming a drawable this export dropped has no file index to reference.  Filtering it
 		// is the only option, but doing so silently would leave the mesh rendering unclipped with
 		// nothing in the report to explain why.
 		val maskIndices = ArrayList<Int>(drawable.maskedBy.size)
 		val unresolvedMasks = ArrayList<String>()
+
 		for (maskId in drawable.maskedBy) {
 			val maskIndex = plan.drawableIndex(maskId)
+
 			if (maskIndex >= 0) {
 				maskIndices.add(maskIndex)
 			} else {
 				unresolvedMasks.add(maskId.raw)
 			}
 		}
+
 		if (unresolvedMasks.isNotEmpty()) {
 			noticeSink.unsupported(
 				ExportEntityCategory.Drawable,
@@ -85,6 +91,7 @@ internal fun lowerArtMeshes(
 				ExportNoticeReason.ClippingMaskNotInExport(unresolvedMasks.toList()),
 			)
 		}
+
 		ArtMesh(
 			id = ids.drawableId(drawable.id),
 			textureIndex = maxOf(drawable.texturePage, 0),
@@ -145,11 +152,14 @@ private fun constantFlagsOf(drawable: Drawable, extendedBlendEnabled: Boolean): 
 	// CLEAR even for an additive or multiply mesh - writing both would state the mode twice, and the
 	// legacy pair cannot express the other sixteen modes anyway.
 	var flags = if (extendedBlendEnabled) 0 else legacyBlendFlagOf(drawable.blendMode)
+
 	if (!drawable.culling) {
 		flags = flags or ConstantFlag.IS_DOUBLE_SIDED
 	}
+
 	if (drawable.invertMask) {
 		flags = flags or ConstantFlag.IS_INVERTED_MASK
 	}
+
 	return flags
 }

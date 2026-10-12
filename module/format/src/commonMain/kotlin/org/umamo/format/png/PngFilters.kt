@@ -27,6 +27,7 @@ internal const val FILTER_PAETH = 4
 internal fun unfilterScanline(filterType: Int, current: ByteArray, previous: ByteArray, bytesPerPixel: Int) {
 	val length = current.size
 	val firstPixelEnd = minOf(bytesPerPixel, length)
+
 	when (filterType) {
 		FILTER_NONE -> {
 			// Recon(x) = Filt(x).
@@ -51,6 +52,7 @@ internal fun unfilterScanline(filterType: Int, current: ByteArray, previous: Byt
 			for (index in 0 until firstPixelEnd) {
 				current[index] = (current[index] + ((previous[index].toInt() and 0xFF) ushr 1)).toByte()
 			}
+
 			for (index in bytesPerPixel until length) {
 				val left = current[index - bytesPerPixel].toInt() and 0xFF
 				val above = previous[index].toInt() and 0xFF
@@ -64,6 +66,7 @@ internal fun unfilterScanline(filterType: Int, current: ByteArray, previous: Byt
 			for (index in 0 until firstPixelEnd) {
 				current[index] = (current[index] + previous[index]).toByte()
 			}
+
 			for (index in bytesPerPixel until length) {
 				val left = current[index - bytesPerPixel].toInt() and 0xFF
 				val above = previous[index].toInt() and 0xFF
@@ -72,7 +75,9 @@ internal fun unfilterScanline(filterType: Int, current: ByteArray, previous: Byt
 			}
 		}
 
-		else -> throw IllegalArgumentException("unknown PNG filter type $filterType")
+		else -> {
+			throw IllegalArgumentException("unknown PNG filter type $filterType")
+		}
 	}
 }
 
@@ -91,6 +96,7 @@ internal fun paethPredictor(left: Int, above: Int, aboveLeft: Int): Int {
 	val distanceLeft = kotlin.math.abs(above - aboveLeft)
 	val distanceAbove = kotlin.math.abs(left - aboveLeft)
 	val distanceAboveLeft = kotlin.math.abs(left + above - aboveLeft - aboveLeft)
+
 	return when {
 		distanceLeft <= distanceAbove && distanceLeft <= distanceAboveLeft -> left
 		distanceAbove <= distanceAboveLeft -> above

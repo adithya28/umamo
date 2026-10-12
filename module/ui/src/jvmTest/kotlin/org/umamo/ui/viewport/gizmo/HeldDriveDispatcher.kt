@@ -49,6 +49,7 @@ internal class HeldDriveDispatcher : CoroutineDispatcher() {
 	/** Opens the dispatcher again and runs every compute it held, in order, on the calling thread. */
 	fun release() {
 		held = false
+
 		while (true) {
 			val block = queued.poll() ?: break
 			block.run()

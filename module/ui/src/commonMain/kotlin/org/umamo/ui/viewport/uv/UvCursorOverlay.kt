@@ -52,9 +52,11 @@ internal fun UvCursorOverlay(
 	val shown = LocalAreaOverlays.current?.effectiveCursor ?: true
 	val cursorLabel = stringResource(Res.string.overlay_row_cursor)
 	val cursorToDraw = cursor
+
 	if (cursorToDraw == null || camera == null || !shown) {
 		return
 	}
+
 	val (cursorDisplayX, cursorDisplayY) = frame.displayAt(cursorToDraw.u, cursorToDraw.v)
 	// Named for accessibility and for tests: a draw-only canvas is otherwise invisible to the semantics tree.
 	Canvas(modifier = modifier.fillMaxSize().semantics { contentDescription = cursorLabel }) {

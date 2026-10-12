@@ -61,5 +61,6 @@ internal fun resolveAtlasPairing(
 		} else {
 			null
 		}
+
 	return AtlasPairingDecision(orderModel, applyBinding)
 }

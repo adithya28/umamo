@@ -43,13 +43,17 @@ import kotlin.test.assertTrue
 class Cmo3ImageResourceUvTest {
 	private fun corpusFile(fileName: String): File? {
 		var directory: File? = File(System.getProperty("user.dir"))
+
 		while (directory != null) {
 			val corpus = File(directory, "test/corpus")
+
 			if (corpus.isDirectory) {
 				return corpus.walkTopDown().firstOrNull { it.isFile && it.name == fileName }
 			}
+
 			directory = directory.parentFile
 		}
+
 		return null
 	}
 
@@ -66,6 +70,7 @@ class Cmo3ImageResourceUvTest {
 
 	private fun hasAtlasRegion(source: CArtMeshSource): Boolean {
 		val extension = elements(source._extensions).filterIsInstance<CTextureInputExtension>().firstOrNull() ?: return false
+
 		return elements(extension._textureInputs).any { it is CTextureInput_TextureAtlasRegion }
 	}
 
@@ -76,6 +81,7 @@ class Cmo3ImageResourceUvTest {
 		val file =
 			corpusFile("MultiplyScreenColors.cmo3") ?: run {
 				println("MultiplyScreenColors.cmo3 not present; skipping unpacked-UV test")
+
 				return
 			}
 		val root = Cmo3.read(file).root as? CModelSource ?: error("root is not a CModelSource")
@@ -99,17 +105,21 @@ class Cmo3ImageResourceUvTest {
 	private fun reducedCopyOwners(root: CModelSource): Map<CImageResource, CModelImage> {
 		val textureManager = root.textureManager as? CTextureManager ?: return emptyMap()
 		val owners = HashMap<CImageResource, CModelImage>()
+
 		for (group in elements(textureManager._modelImageGroups).filterIsInstance<CModelImageGroup>()) {
 			for (modelImage in elements(group._modelImages).filterIsInstance<CModelImage>()) {
 				val manager = modelImage.cachedImageManager as? CCachedImageManager ?: continue
+
 				for (cached in elements(manager.cachedImages).filterIsInstance<CCachedImage>()) {
 					val resource = cached._cachedImageResource as? CImageResource ?: continue
+
 					if (resource !== modelImage._filteredImage) {
 						owners[resource] = modelImage
 					}
 				}
 			}
 		}
+
 		return owners
 	}
 
@@ -125,6 +135,7 @@ class Cmo3ImageResourceUvTest {
 		val file =
 			corpusFile("modelA.cmo3") ?: run {
 				println("modelA.cmo3 not present; skipping the source-mode page test")
+
 				return
 			}
 		val cmo3 = Cmo3.read(file)
@@ -140,6 +151,7 @@ class Cmo3ImageResourceUvTest {
 		val sourcesById = artMeshes(root).associateBy { (it.id as? Id)?.idstr }
 		var rasterChecked = 0
 		var reducedCopyChecked = 0
+
 		for (drawable in puppet.drawables) {
 			val source = sourcesById[drawable.id.raw] ?: continue
 			val tile = drawable.atlasTileId?.let { tileId -> puppet.atlas.tileById[tileId] } ?: continue
@@ -152,10 +164,12 @@ class Cmo3ImageResourceUvTest {
 			val determinant = affine.m00 * affine.m11 - affine.m01 * affine.m10
 			val modelUvs = drawable.mesh!!.uvs
 			var componentIndex = 0
+
 			while (componentIndex + 1 < sourceUvs.size) {
 				// Into the raster frame: verbatim over the raster, through the cache affine's inverse over a copy.
 				val artU: Float
 				val artV: Float
+
 				if (overCopy) {
 					val cacheU = sourceUvs[componentIndex] - affine.m02
 					val cacheV = sourceUvs[componentIndex + 1] - affine.m12
@@ -165,6 +179,7 @@ class Cmo3ImageResourceUvTest {
 					artU = sourceUvs[componentIndex]
 					artV = sourceUvs[componentIndex + 1]
 				}
+
 				// Onto the page: the placement takes art pixels to page pixels.
 				val pagePixel = atlasPixelOf(placement, artU * tile.width, artV * tile.height)
 				val expectedU = pagePixel[0] / page.width
@@ -175,18 +190,21 @@ class Cmo3ImageResourceUvTest {
 				)
 				componentIndex += 2
 			}
+
 			val pageIndex = renderPages.atlasIndexByDrawableId[drawable.id.raw]
 			val pagePng = pagePngs.getOrNull(placement.pageIndex)
 			assertTrue(
 				pageIndex != null && pagePng != null && renderPages.pageBytes[pageIndex].contentEquals(pagePng),
 				"drawable ${drawable.id.raw} must be shown from its tile's atlas page",
 			)
+
 			if (overCopy) {
 				reducedCopyChecked++
 			} else {
 				rasterChecked++
 			}
 		}
+
 		assertTrue(puppet.atlas.storedUvsAddressPages, "a source-mode save's coordinates address its pages")
 		assertTrue(rasterChecked > 0, "expected placed drawables over their raster; found none")
 		assertTrue(reducedCopyChecked > 0, "expected placed drawables over a reduced copy (the regression surface); found none")
@@ -200,21 +218,26 @@ class Cmo3ImageResourceUvTest {
 		val file =
 			corpusFile("EricaTamamo.cmo3") ?: run {
 				println("EricaTamamo.cmo3 not present; skipping the verbatim page test")
+
 				return
 			}
 		val root = Cmo3.read(file).root as? CModelSource ?: error("root is not a CModelSource")
 		val puppet = Cmo3Import.fromModelSource(root)
 		val sourcesById = artMeshes(root).associateBy { (it.id as? Id)?.idstr }
 		var checked = 0
+
 		for (drawable in puppet.drawables) {
 			val source = sourcesById[drawable.id.raw] ?: continue
+
 			if (!hasAtlasRegion(source)) {
 				continue
 			}
+
 			val sourceUvs = source.uvs as? FloatArray ?: continue
 			assertContentEquals(sourceUvs, drawable.mesh!!.uvs, "page-sampling drawable ${drawable.id.raw} UVs must be verbatim")
 			checked++
 		}
+
 		assertTrue(checked > 0, "expected page-sampling drawables; found none")
 	}
 }

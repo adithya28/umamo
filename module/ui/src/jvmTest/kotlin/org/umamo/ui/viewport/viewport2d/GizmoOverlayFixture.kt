@@ -132,5 +132,6 @@ internal fun ComposeUiTest.mountGizmoOverlays(session: EditorSession): GizmoOver
 		}
 	}
 	waitForIdle()
+
 	return fixture
 }

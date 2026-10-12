@@ -52,6 +52,7 @@ private fun Modifier.secondaryClickGesture(pass: PointerEventPass, onContextMenu
 			while (true) {
 				val event = awaitPointerEvent(pass)
 				val change = event.changes.first()
+
 				if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed && !change.isConsumed) {
 					change.consume()
 					onContextMenu(change.position.toIntOffset())

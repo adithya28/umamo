@@ -63,9 +63,11 @@ object MeshTopologyOps {
 	 */
 	fun duplicateElements(mesh: DrawableMesh, coveredVertices: Set<Int>): TopologyOpResult? {
 		val orderedCovered = coveredVertices.filter { vertexIndex -> vertexIndex in 0 until mesh.vertexCount }.sorted()
+
 		if (orderedCovered.isEmpty()) {
 			return null
 		}
+
 		val oldCount = mesh.vertexCount
 		val copyIndexByOld = HashMap<Int, Int>(orderedCovered.size)
 		orderedCovered.forEachIndexed { copyOrdinal, oldIndex -> copyIndexByOld[oldIndex] = oldCount + copyOrdinal }
@@ -79,6 +81,7 @@ object MeshTopologyOps {
 			val newIndex = oldCount + copyOrdinal
 			newPositions[newIndex * 2] = mesh.positions[oldIndex * 2]
 			newPositions[newIndex * 2 + 1] = mesh.positions[oldIndex * 2 + 1]
+
 			if (oldIndex * 2 + 1 < mesh.uvs.size) {
 				newUvs[newIndex * 2] = mesh.uvs[oldIndex * 2]
 				newUvs[newIndex * 2 + 1] = mesh.uvs[oldIndex * 2 + 1]
@@ -88,27 +91,34 @@ object MeshTopologyOps {
 		// Faces whose three corners are all covered duplicate too, over the copied vertices.
 		val copiedTriangles = ArrayList<Int>()
 		val triangleCount = mesh.indices.size / 3
+
 		for (triangleIndex in 0 until triangleCount) {
 			val cornerA = mesh.indices[triangleIndex * 3]
 			val cornerB = mesh.indices[triangleIndex * 3 + 1]
 			val cornerC = mesh.indices[triangleIndex * 3 + 2]
+
 			if (cornerA in copyIndexByOld && cornerB in copyIndexByOld && cornerC in copyIndexByOld) {
 				copiedTriangles.add(copyIndexByOld.getValue(cornerA))
 				copiedTriangles.add(copyIndexByOld.getValue(cornerB))
 				copiedTriangles.add(copyIndexByOld.getValue(cornerC))
 			}
 		}
+
 		val newIndices = mesh.indices + copiedTriangles.toIntArray()
 
 		val sources = ArrayList<VertexSource>(newCount)
+
 		for (oldIndex in 0 until oldCount) {
 			sources.add(VertexSource.FromOld(oldIndex))
 		}
+
 		for (oldIndex in orderedCovered) {
 			sources.add(VertexSource.FromOld(oldIndex))
 		}
+
 		val newElements = copyIndexByOld.values.map { copyIndex -> MeshElement.Vertex(copyIndex) }.toSet<MeshElement>()
 		val newMesh = editedMesh(mesh, newPositions, newUvs, newIndices, sources) ?: return null
+
 		return TopologyOpResult(MeshTopologyEdit(newMesh, sources), newElements)
 	}
 
@@ -126,9 +136,11 @@ object MeshTopologyOps {
 	 */
 	fun mergeVertices(mesh: DrawableMesh, orderedVertices: List<Int>, target: MergeTarget): TopologyOpResult? {
 		val merged = orderedVertices.filter { vertexIndex -> vertexIndex in 0 until mesh.vertexCount }.distinct()
+
 		if (merged.size < 2) {
 			return null
 		}
+
 		val mergedSet = merged.toSet()
 		val oldCount = mesh.vertexCount
 		val keptOld = (0 until oldCount).filter { oldIndex -> oldIndex !in mergedSet }
@@ -137,6 +149,7 @@ object MeshTopologyOps {
 
 		val oldToNew = IntArray(oldCount) { -1 }
 		keptOld.forEachIndexed { newIndex, oldIndex -> oldToNew[oldIndex] = newIndex }
+
 		for (oldIndex in merged) {
 			oldToNew[oldIndex] = survivorIndex
 		}
@@ -154,18 +167,21 @@ object MeshTopologyOps {
 			newUvs[newIndex * 2 + 1] = uvY(oldIndex)
 		}
 		val survivorSource: VertexSource
+
 		when (target) {
 			MergeTarget.AtCenter -> {
 				var sumX = 0f
 				var sumY = 0f
 				var sumU = 0f
 				var sumV = 0f
+
 				for (oldIndex in merged) {
 					sumX += mesh.positions[oldIndex * 2]
 					sumY += mesh.positions[oldIndex * 2 + 1]
 					sumU += uvX(oldIndex)
 					sumV += uvY(oldIndex)
 				}
+
 				newPositions[survivorIndex * 2] = sumX / merged.size
 				newPositions[survivorIndex * 2 + 1] = sumY / merged.size
 				newUvs[survivorIndex * 2] = sumU / merged.size
@@ -186,10 +202,12 @@ object MeshTopologyOps {
 		// Remap the triangles onto the survivor, dropping the ones the merge degenerates.
 		val newIndices = ArrayList<Int>(mesh.indices.size)
 		val triangleCount = mesh.indices.size / 3
+
 		for (triangleIndex in 0 until triangleCount) {
 			val cornerA = oldToNew[mesh.indices[triangleIndex * 3]]
 			val cornerB = oldToNew[mesh.indices[triangleIndex * 3 + 1]]
 			val cornerC = oldToNew[mesh.indices[triangleIndex * 3 + 2]]
+
 			if (cornerA != cornerB && cornerB != cornerC && cornerC != cornerA) {
 				newIndices.add(cornerA)
 				newIndices.add(cornerB)
@@ -198,11 +216,14 @@ object MeshTopologyOps {
 		}
 
 		val sources = ArrayList<VertexSource>(newCount)
+
 		for (oldIndex in keptOld) {
 			sources.add(VertexSource.FromOld(oldIndex))
 		}
+
 		sources.add(survivorSource)
 		val newMesh = editedMesh(mesh, newPositions, newUvs, newIndices.toIntArray(), sources) ?: return null
+
 		return TopologyOpResult(MeshTopologyEdit(newMesh, sources), setOf(MeshElement.Vertex(survivorIndex)))
 	}
 
@@ -221,21 +242,26 @@ object MeshTopologyOps {
 	 */
 	fun ripElements(mesh: DrawableMesh, coveredVertices: Set<Int>, triangleTakesCopy: (Int) -> Boolean): TopologyOpResult? {
 		val orderedCovered = coveredVertices.filter { vertexIndex -> vertexIndex in 0 until mesh.vertexCount }.sorted()
+
 		if (orderedCovered.isEmpty()) {
 			return null
 		}
+
 		val oldCount = mesh.vertexCount
 		val triangleCount = mesh.indices.size / 3
 		// A vertex rips only when its fan splits: at least one adjacent triangle on each side.
 		val copyIndexByOld = LinkedHashMap<Int, Int>()
+
 		for (oldIndex in orderedCovered) {
 			var marked = 0
 			var unmarked = 0
+
 			for (triangleIndex in 0 until triangleCount) {
 				val hasCorner =
 					mesh.indices[triangleIndex * 3] == oldIndex ||
 						mesh.indices[triangleIndex * 3 + 1] == oldIndex ||
 						mesh.indices[triangleIndex * 3 + 2] == oldIndex
+
 				if (hasCorner) {
 					if (triangleTakesCopy(triangleIndex)) {
 						marked++
@@ -244,10 +270,12 @@ object MeshTopologyOps {
 					}
 				}
 			}
+
 			if (marked > 0 && unmarked > 0) {
 				copyIndexByOld[oldIndex] = oldCount + copyIndexByOld.size
 			}
 		}
+
 		if (copyIndexByOld.isEmpty()) {
 			return null
 		}
@@ -257,21 +285,27 @@ object MeshTopologyOps {
 		val newUvs = FloatArray(newCount * 2)
 		mesh.positions.copyInto(newPositions)
 		mesh.uvs.copyInto(newUvs, endIndex = minOf(mesh.uvs.size, newUvs.size))
+
 		for ((oldIndex, copyIndex) in copyIndexByOld) {
 			newPositions[copyIndex * 2] = mesh.positions[oldIndex * 2]
 			newPositions[copyIndex * 2 + 1] = mesh.positions[oldIndex * 2 + 1]
+
 			if (oldIndex * 2 + 1 < mesh.uvs.size) {
 				newUvs[copyIndex * 2] = mesh.uvs[oldIndex * 2]
 				newUvs[copyIndex * 2 + 1] = mesh.uvs[oldIndex * 2 + 1]
 			}
 		}
+
 		val newIndices = mesh.indices.copyOf()
+
 		for (triangleIndex in 0 until triangleCount) {
 			if (!triangleTakesCopy(triangleIndex)) {
 				continue
 			}
+
 			for (cornerSlot in 0 until 3) {
 				val copyIndex = copyIndexByOld[newIndices[triangleIndex * 3 + cornerSlot]]
+
 				if (copyIndex != null) {
 					newIndices[triangleIndex * 3 + cornerSlot] = copyIndex
 				}
@@ -279,14 +313,18 @@ object MeshTopologyOps {
 		}
 
 		val sources = ArrayList<VertexSource>(newCount)
+
 		for (oldIndex in 0 until oldCount) {
 			sources.add(VertexSource.FromOld(oldIndex))
 		}
+
 		for (oldIndex in copyIndexByOld.keys) {
 			sources.add(VertexSource.FromOld(oldIndex))
 		}
+
 		val newElements = copyIndexByOld.values.map { copyIndex -> MeshElement.Vertex(copyIndex) }.toSet<MeshElement>()
 		val newMesh = editedMesh(mesh, newPositions, newUvs, newIndices, sources) ?: return null
+
 		return TopologyOpResult(MeshTopologyEdit(newMesh, sources), newElements)
 	}
 
@@ -305,12 +343,15 @@ object MeshTopologyOps {
 	 */
 	fun connectVertices(mesh: DrawableMesh, vertexA: Int, vertexB: Int): TopologyOpResult? {
 		val vertexCount = mesh.vertexCount
+
 		if (vertexA == vertexB || vertexA !in 0 until vertexCount || vertexB !in 0 until vertexCount) {
 			return null
 		}
+
 		if (MeshTopology.uniqueEdges(mesh.indices).contains(MeshElement.Edge.of(vertexA, vertexB))) {
 			return null
 		}
+
 		val startX = mesh.positions[vertexA * 2]
 		val startY = mesh.positions[vertexA * 2 + 1]
 		val endX = mesh.positions[vertexB * 2]
@@ -320,10 +361,12 @@ object MeshTopologyOps {
 		val crossingByEdge = LinkedHashMap<MeshElement.Edge, Int>()
 		val crossingSources = ArrayList<VertexSource.LerpOf>()
 		val oldCount = vertexCount
+
 		for (edge in MeshTopology.uniqueEdges(mesh.indices)) {
 			if (edge.endpointLow == vertexA || edge.endpointLow == vertexB || edge.endpointHigh == vertexA || edge.endpointHigh == vertexB) {
 				continue
 			}
+
 			val crossing =
 				properSegmentCrossing(
 					startX,
@@ -338,6 +381,7 @@ object MeshTopologyOps {
 			crossingByEdge[edge] = oldCount + crossingSources.size
 			crossingSources.add(VertexSource.LerpOf(edge.endpointLow, edge.endpointHigh, crossing))
 		}
+
 		if (crossingByEdge.isEmpty()) {
 			return null
 		}
@@ -353,6 +397,7 @@ object MeshTopologyOps {
 			newPositions[newIndex * 2] = mesh.positions[source.oldA * 2] + (mesh.positions[source.oldB * 2] - mesh.positions[source.oldA * 2]) * t
 			newPositions[newIndex * 2 + 1] =
 				mesh.positions[source.oldA * 2 + 1] + (mesh.positions[source.oldB * 2 + 1] - mesh.positions[source.oldA * 2 + 1]) * t
+
 			if (source.oldA * 2 + 1 < mesh.uvs.size && source.oldB * 2 + 1 < mesh.uvs.size) {
 				newUvs[newIndex * 2] = mesh.uvs[source.oldA * 2] + (mesh.uvs[source.oldB * 2] - mesh.uvs[source.oldA * 2]) * t
 				newUvs[newIndex * 2 + 1] = mesh.uvs[source.oldA * 2 + 1] + (mesh.uvs[source.oldB * 2 + 1] - mesh.uvs[source.oldA * 2 + 1]) * t
@@ -362,19 +407,24 @@ object MeshTopologyOps {
 		// Retriangulate the crossed triangles; refuse on any pattern the split rules do not cover.
 		val newIndices = ArrayList<Int>(mesh.indices.size + crossingSources.size * 6)
 		val triangleCount = mesh.indices.size / 3
+
 		for (triangleIndex in 0 until triangleCount) {
 			val corners = intArrayOf(mesh.indices[triangleIndex * 3], mesh.indices[triangleIndex * 3 + 1], mesh.indices[triangleIndex * 3 + 2])
 			val crossedSlots = ArrayList<Int>(2)
 			val crossingIndices = ArrayList<Int>(2)
+
 			for (cornerSlot in 0 until 3) {
 				val edge = MeshElement.Edge.of(corners[cornerSlot], corners[(cornerSlot + 1) % 3])
 				val crossingIndex = crossingByEdge[edge]
+
 				if (crossingIndex != null) {
 					crossedSlots.add(cornerSlot)
 					crossingIndices.add(crossingIndex)
 				}
 			}
+
 			val hasEndpointCorner = corners.contains(vertexA) || corners.contains(vertexB)
+
 			when {
 				crossedSlots.isEmpty() -> {
 					newIndices.add(corners[0])
@@ -387,11 +437,13 @@ object MeshTopologyOps {
 					val slot = crossedSlots[0]
 					val crossing = crossingIndices[0]
 					val apex = corners[(slot + 2) % 3]
+
 					if (apex != vertexA && apex != vertexB) {
 						// The crossing sits on an edge whose opposite corner is not the endpoint - a graze the
 						// split rules do not cover.
 						return null
 					}
+
 					newIndices.add(apex)
 					newIndices.add(corners[slot])
 					newIndices.add(crossing)
@@ -434,9 +486,11 @@ object MeshTopologyOps {
 						} else {
 							-1
 						}
+
 					if (entering < 0 || leaving < 0) {
 						return null
 					}
+
 					newIndices.add(corners[sharedCorner])
 					newIndices.add(leaving)
 					newIndices.add(entering)
@@ -448,24 +502,30 @@ object MeshTopologyOps {
 					newIndices.add(previousCorner)
 				}
 
-				else -> return null
+				else -> {
+					return null
+				}
 			}
 		}
 
 		val sources = ArrayList<VertexSource>(newCount)
+
 		for (oldIndex in 0 until oldCount) {
 			sources.add(VertexSource.FromOld(oldIndex))
 		}
+
 		sources.addAll(crossingSources)
 		val newElements =
 			buildSet<MeshElement> {
 				add(MeshElement.Vertex(vertexA))
 				add(MeshElement.Vertex(vertexB))
+
 				for (crossingIndex in crossingByEdge.values) {
 					add(MeshElement.Vertex(crossingIndex))
 				}
 			}
 		val newMesh = editedMesh(mesh, newPositions, newUvs, newIndices.toIntArray(), sources) ?: return null
+
 		return TopologyOpResult(MeshTopologyEdit(newMesh, sources), newElements)
 	}
 
@@ -499,17 +559,21 @@ object MeshTopologyOps {
 		val edgeX = edgeEndX - edgeStartX
 		val edgeY = edgeEndY - edgeStartY
 		val denominator = segmentX * edgeY - segmentY * edgeX
+
 		if (abs(denominator) < 1e-6f) {
 			return null
 		}
+
 		val betweenX = edgeStartX - startX
 		val betweenY = edgeStartY - startY
 		val segmentT = (betweenX * edgeY - betweenY * edgeX) / denominator
 		val edgeT = (betweenX * segmentY - betweenY * segmentX) / denominator
 		val epsilon = 1e-4f
+
 		if (segmentT <= epsilon || segmentT >= 1f - epsilon || edgeT <= epsilon || edgeT >= 1f - epsilon) {
 			return null
 		}
+
 		return edgeT
 	}
 }
@@ -533,11 +597,13 @@ internal fun editedMesh(mesh: DrawableMesh, newPositions: FloatArray, newUvs: Fl
 	if (sources.size * 2 != newPositions.size) {
 		return null
 	}
+
 	val newLocal =
 		if (mesh.localPositions === mesh.positions) {
 			newPositions
 		} else {
 			remapPerVertex(mesh.localPositions, sources, mesh.vertexCount)
 		}
+
 	return DrawableMesh(positions = newPositions, localPositions = newLocal, uvs = newUvs, indices = newIndices)
 }

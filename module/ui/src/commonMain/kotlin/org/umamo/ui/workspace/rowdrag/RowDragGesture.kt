@@ -33,6 +33,7 @@ fun <Payload : Any> Modifier.dragRowOnLongPress(
 	if (payload == null) {
 		return this
 	}
+
 	return pointerInput(controller, rowKey, payload) {
 		detectDragGesturesAfterLongPress(
 			onDragStart = { offset ->

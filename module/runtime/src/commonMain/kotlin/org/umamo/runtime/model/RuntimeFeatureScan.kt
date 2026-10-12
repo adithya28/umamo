@@ -18,11 +18,14 @@ package org.umamo.runtime.model
  */
 fun PuppetModel.unsupportedFeaturesInUse(target: RuntimeTarget): Set<RuntimeFeature> {
 	val unsupportedFeatures = RuntimeFeature.entries.filterNot { feature -> target.supports(feature) }
+
 	if (unsupportedFeatures.isEmpty()) {
 		return emptySet()
 	}
+
 	// Materialized once for the whole scan rather than inside every feature branch.
 	val activeComposites = parts.mapNotNull { part -> part.activeComposite }
+
 	return unsupportedFeatures.filterTo(linkedSetOf()) { feature -> usesFeature(feature, activeComposites) }
 }
 
@@ -35,37 +38,53 @@ fun PuppetModel.unsupportedFeaturesInUse(target: RuntimeTarget): Set<RuntimeFeat
  */
 private fun PuppetModel.usesFeature(feature: RuntimeFeature, activeComposites: List<PartComposite>): Boolean =
 	when (feature) {
-		RuntimeFeature.WarpQuadTransform ->
+		RuntimeFeature.WarpQuadTransform -> {
 			deformers.any { deformer -> deformer is Deformer.Warp && deformer.isQuadTransform }
+		}
 
-		RuntimeFeature.ReversedMask ->
+		RuntimeFeature.ReversedMask -> {
 			drawables.any { drawable -> drawable.invertMask } || activeComposites.any { composite -> composite.invertMask }
+		}
 
-		RuntimeFeature.MeshWarpBlendShapes ->
+		RuntimeFeature.MeshWarpBlendShapes -> {
 			drawables.any { drawable -> drawable.blendShapes.isNotEmpty() } ||
 				deformers.any { deformer -> deformer is Deformer.Warp && deformer.blendShapes.isNotEmpty() }
+		}
 
-		RuntimeFeature.BlendShapeParameters ->
+		RuntimeFeature.BlendShapeParameters -> {
 			parameters.any { parameter -> parameter.kind == ParameterKind.BLEND_SHAPE }
+		}
 
-		RuntimeFeature.MultiplyColor -> usesColorChannel(FormChannel.MULTIPLY_COLOR, ColorRgb.MultiplyIdentity)
+		RuntimeFeature.MultiplyColor -> {
+			usesColorChannel(FormChannel.MULTIPLY_COLOR, ColorRgb.MultiplyIdentity)
+		}
 
-		RuntimeFeature.ScreenColor -> usesColorChannel(FormChannel.SCREEN_COLOR, ColorRgb.ScreenIdentity)
+		RuntimeFeature.ScreenColor -> {
+			usesColorChannel(FormChannel.SCREEN_COLOR, ColorRgb.ScreenIdentity)
+		}
 
-		RuntimeFeature.ExtendedBlendShapes ->
+		RuntimeFeature.ExtendedBlendShapes -> {
 			deformers.any { deformer -> deformer is Deformer.Rotation && deformer.blendShapes.isNotEmpty() }
+		}
 
-		RuntimeFeature.ExtendedBlendModes ->
+		RuntimeFeature.ExtendedBlendModes -> {
 			drawables.any { drawable -> !drawable.blendMode.isLegacy || drawable.alphaBlendMode != AlphaBlendMode.Over } ||
 				activeComposites.any { composite -> !composite.blendMode.isLegacy || composite.alphaBlendMode != AlphaBlendMode.Over }
+		}
 
-		RuntimeFeature.PartComposite -> parts.any { part -> part.isIsolated }
+		RuntimeFeature.PartComposite -> {
+			parts.any { part -> part.isIsolated }
+		}
 
-		RuntimeFeature.ParameterRepeat -> parameters.any { parameter -> parameter.repeat }
+		RuntimeFeature.ParameterRepeat -> {
+			parameters.any { parameter -> parameter.repeat }
+		}
 
 		RuntimeFeature.MotionSync,
 		RuntimeFeature.ArtPath,
-		-> false
+		-> {
+			false
+		}
 	}
 
 /**
@@ -97,5 +116,6 @@ private fun PuppetModel.usesColorChannel(channel: FormChannel, identity: ColorRg
 			val staticColor = if (isMultiply) composite.multiplyColor else composite.screenColor
 			staticColor != identity || part.channelGrids.varies(channel, identityValue)
 		}
+
 	return drawableUses || deformerUses || compositeUses
 }

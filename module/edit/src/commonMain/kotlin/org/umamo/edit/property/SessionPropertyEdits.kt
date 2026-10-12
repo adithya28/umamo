@@ -215,6 +215,7 @@ fun EditorSession.setDeformerBaseAngle(id: DeformerId, angle: Float) {
  */
 fun EditorSession.previewDeformerBaseAngle(id: DeformerId, angle: Float): PuppetModel? {
 	val currentModel = model.value
+
 	return currentModel.withDeformerBaseAngle(id, angle).takeIf { previewed -> previewed !== currentModel }
 }
 

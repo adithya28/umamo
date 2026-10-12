@@ -73,6 +73,7 @@ class SourceArtImportTest {
 	/** A raster opaque inside [opaque] (raster-local) and transparent elsewhere; fully transparent when null. */
 	private fun rasterOf(width: Int, height: Int, opaque: LayerBounds? = LayerBounds(0, 0, width, height)): LayerRaster {
 		val rgba = ByteArray(width * height * 4)
+
 		if (opaque != null) {
 			for (row in opaque.top until opaque.top + opaque.height) {
 				for (column in opaque.left until opaque.left + opaque.width) {
@@ -80,6 +81,7 @@ class SourceArtImportTest {
 				}
 			}
 		}
+
 		return LayerRaster(width, height, rgba)
 	}
 
@@ -453,6 +455,7 @@ class SourceArtImportTest {
 		val placed = art.placedBy(CanvasOffset(30, -10))
 		assertEquals(art.widthPx to art.heightPx, placed.widthPx to placed.heightPx, "the file's own canvas passes through")
 		assertSame(art.groups, placed.groups)
+
 		for ((original, moved) in art.layers.zip(placed.layers)) {
 			assertSame(original.raster, moved.raster, "'${original.name}' keeps its raster instance")
 			assertEquals(LayerBounds(original.bounds.left + 30, original.bounds.top + 10, original.bounds.width, original.bounds.height), moved.bounds, "z is up, so a negative z lowers the layer")
@@ -460,6 +463,7 @@ class SourceArtImportTest {
 			assertEquals(original.groupPath, moved.groupPath)
 			assertEquals(original.clipped, moved.clipped)
 		}
+
 		val source = ArtSource(ArtSourceId("art-3"), "x.psd", null, "psd", offsetX = 4, offsetZ = 6)
 		assertEquals(LayerBounds(104, 44, 10, 8), art.placedFor(source).layers.first { layer -> layer.name == "Eye" }.bounds, "a record's offset places the same way")
 	}

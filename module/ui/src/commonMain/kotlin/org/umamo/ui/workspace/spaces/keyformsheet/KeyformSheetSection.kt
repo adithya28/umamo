@@ -169,6 +169,7 @@ internal fun KeyformSheetSection(
 			// A summary mark stands for every child key stacked at that value, so clicking it selects all
 			// of them - which is what makes Delete and the arrow nudges work on a folded group too.
 			val clicked = projection.keysOfMark(parameter.id, row.key, mark.keyIndex).toSet()
+
 			if (additive) {
 				// Nothing follows a shift-click, so it records a step of its own.
 				onSelectedKeysChange(selectionAfterAdditiveClick(selectedKeys, clicked))
@@ -196,6 +197,7 @@ internal fun KeyformSheetSection(
 				// value the playhead already holds, and a selection lost that way has no undo.
 				onStageSelectedKeys(emptySet())
 			}
+
 			// Clamped again at the model boundary, not only in the lane: the lane clamps to the VISIBLE
 			// window, which is a subrange, but this is the call that reaches the evaluator - and a pose
 			// outside the parameter's range brackets nothing, so every entity keyed on it disappears.
@@ -224,9 +226,11 @@ internal fun KeyformSheetSection(
 		onMarkDrag = { row, mark, at ->
 			val draggedKeys = projection.keysOfMark(parameter.id, row.key, mark.keyIndex)
 			val selection = selectionDraggedWith(selectedKeys, draggedKeys)
+
 			if (selection != selectedKeys) {
 				onStageSelectedKeys(selection)
 			}
+
 			groupDragFraction(parameter, selection, draggedKeys, row.key in projection.groupRowKeys, mark, at)?.let { fraction ->
 				onDragSelectedKeys(fraction, false)
 			}
@@ -236,9 +240,11 @@ internal fun KeyformSheetSection(
 			val draggedKeys = projection.keysOfMark(parameter.id, row.key, mark.keyIndex)
 			val summary = row.key in projection.groupRowKeys
 			val track = projection.tracksByRowKey[row.key]
+
 			if (session != null) {
 				val selection = selectionDraggedWith(selectedKeys, draggedKeys)
 				val groupFraction = groupDragFraction(parameter, selection, draggedKeys, summary, mark, releasedAt)
+
 				if (groupFraction != null) {
 					// Commits the LIVE selection, which is the one the drag's start staged: the lane reports a
 					// drag's first move before it can report its release.

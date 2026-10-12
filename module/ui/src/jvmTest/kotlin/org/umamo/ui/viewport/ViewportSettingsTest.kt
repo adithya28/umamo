@@ -18,11 +18,13 @@ class ViewportSettingsTest {
 	@Test
 	fun theBundledGridDefaultsMatchTheFallbacks() {
 		val settings = bundledSettings()
+
 		for (surface in OverlaySurface.entries) {
 			val default = GridConfig.applicationDefault(surface)
 			assertEquals(default.scale.toDouble(), settings.getDouble(ViewportSettings.gridScaleKey(surface)), "$surface scale")
 			assertEquals(default.subdivisions, settings.getInt(ViewportSettings.gridSubdivisionsKey(surface)), "$surface subdivisions")
 		}
+
 		assertEquals(100.0, settings.getDouble(ViewportSettings.GRID_SCALE_KEY), "the 2D viewport's world grid")
 		assertEquals(10, settings.getInt(ViewportSettings.GRID_SUBDIVISIONS_KEY))
 		assertEquals(256.0, settings.getDouble(ViewportSettings.UV_GRID_SCALE_KEY), "the UV editor's texel grid")
@@ -37,6 +39,7 @@ class ViewportSettingsTest {
 	private fun bundledSettings(): Settings {
 		val fileSystem = FakeFileSystem()
 		fileSystem.createDirectories("/config".toPath())
+
 		return Settings.load(OkioAppStorage(fileSystem, "/config".toPath(), "/data".toPath()), runBlocking { defaultSettingsJson() })
 	}
 }

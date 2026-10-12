@@ -35,6 +35,7 @@ internal class WireframeDemand {
 		} else {
 			wantingAreas.remove(areaId)
 		}
+
 		wantedBacking.value = wantingAreas.isNotEmpty()
 	}
 

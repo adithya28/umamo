@@ -52,6 +52,7 @@ internal object Cmo3Icons {
 	 */
 	fun iconOf(raster: RasterImage, size: Int, path: String, entries: MutableList<Cmo3FreshFile.PngEntry>): CImageIcon {
 		entries.add(Cmo3FreshFile.PngEntry(path, iconPngOf(raster, size)))
+
 		return iconReferencing(size, path)
 	}
 
@@ -94,11 +95,13 @@ internal object Cmo3Icons {
 		if (artUvs == null || artUvs.size < 2 || raster.width <= 0 || raster.height <= 0) {
 			return raster
 		}
+
 		var minU = Float.POSITIVE_INFINITY
 		var minV = Float.POSITIVE_INFINITY
 		var maxU = Float.NEGATIVE_INFINITY
 		var maxV = Float.NEGATIVE_INFINITY
 		var componentIndex = 0
+
 		while (componentIndex + 1 < artUvs.size) {
 			minU = minOf(minU, artUvs[componentIndex])
 			maxU = maxOf(maxU, artUvs[componentIndex])
@@ -106,14 +109,17 @@ internal object Cmo3Icons {
 			maxV = maxOf(maxV, artUvs[componentIndex + 1])
 			componentIndex += 2
 		}
+
 		if (!minU.isFinite() || !minV.isFinite() || !maxU.isFinite() || !maxV.isFinite()) {
 			return raster
 		}
+
 		// The box in pixels, clamped to the art and at least one pixel each way.
 		val left = floor(minU * raster.width).toInt().coerceIn(0, raster.width - 1)
 		val top = floor(minV * raster.height).toInt().coerceIn(0, raster.height - 1)
 		val right = ceil(maxU * raster.width).toInt().coerceIn(left + 1, raster.width)
 		val bottom = ceil(maxV * raster.height).toInt().coerceIn(top + 1, raster.height)
+
 		return raster.cropped(LayerBounds(left, top, right - left, bottom - top))
 	}
 
@@ -129,6 +135,7 @@ internal object Cmo3Icons {
 		val uvs = drawable.mesh?.uvs?.takeIf { stored -> stored.isNotEmpty() } ?: return null
 		val tileId = drawable.atlasTileId ?: return null
 		val storedToArt = model.atlas.storedToArtAffineForTile(tileId) ?: return null
+
 		return applyUvAffine(uvs, storedToArt)
 	}
 }

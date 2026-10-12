@@ -22,10 +22,12 @@ class Cmo3IconsTest {
 		// u in [0.25, 0.75), v in [0.5, 1.0) -> columns 2..5, rows 4..7.
 		val patch = Cmo3Icons.patchOf(art, floatArrayOf(0.25f, 0.5f, 0.75f, 0.5f, 0.75f, 1f, 0.25f, 1f))
 		assertEquals(4 to 4, patch.width to patch.height)
+
 		for (row in 0 until 4) {
 			val expectedStart = ((4 + row) * 8 + 2) * 4
 			assertContentEquals(art.rgba.copyOfRange(expectedStart, expectedStart + 16), patch.rgba.copyOfRange(row * 16, row * 16 + 16), "row $row")
 		}
+
 		assertSame(art, Cmo3Icons.patchOf(art, null), "no uvs show the whole art")
 		val sliver = Cmo3Icons.patchOf(art, floatArrayOf(0.3f, 0.3f, 0.3f, 0.3f))
 		assertEquals(1 to 1, sliver.width to sliver.height, "a degenerate box is at least one pixel")

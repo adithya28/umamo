@@ -13,6 +13,7 @@ actual fun systemLanguageTags(): List<String> {
 	val language = systemProperty("user.language.display") ?: systemProperty("user.language") ?: return emptyList()
 	val script = systemProperty("user.script.display") ?: systemProperty("user.script")
 	val region = systemProperty("user.country.display") ?: systemProperty("user.country") ?: systemProperty("user.region")
+
 	return listOf(listOfNotNull(language, script, region).joinToString("-"))
 }
 

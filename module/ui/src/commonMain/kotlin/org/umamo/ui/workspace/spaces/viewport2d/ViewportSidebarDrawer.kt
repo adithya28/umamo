@@ -65,6 +65,7 @@ internal fun ViewportSidebarDrawer(modifier: Modifier = Modifier) {
 		Box(modifier = Modifier.fillMaxHeight(), contentAlignment = Alignment.Center) {
 			SidebarPullTab(open = chrome.showSidebar)
 		}
+
 		if (chrome.showSidebar) {
 			Column(
 				modifier =

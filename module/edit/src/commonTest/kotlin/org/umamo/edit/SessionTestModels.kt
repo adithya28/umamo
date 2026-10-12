@@ -97,6 +97,7 @@ internal object SessionTestModels {
 				mesh = null,
 				geometryGrid = null,
 			)
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = listOf(partR, partA, partB, partT),
@@ -160,6 +161,7 @@ internal object SessionTestModels {
 				uvs = floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f),
 				indices = intArrayOf(0, 1, 2),
 			)
+
 		return model().copy(drawables = listOf(drawable.copy(mesh = mesh)))
 	}
 
@@ -167,6 +169,7 @@ internal object SessionTestModels {
 	fun twoMeshModel(): PuppetModel {
 		val meshA = DrawableMesh.withLocalEqualToCanvas(floatArrayOf(0f, 0f, 2f, 0f, 0f, 2f), FloatArray(6), intArrayOf(0, 1, 2))
 		val meshB = DrawableMesh.withLocalEqualToCanvas(floatArrayOf(10f, 0f, 12f, 0f, 10f, 2f), FloatArray(6), intArrayOf(0, 1, 2))
+
 		return model().copy(
 			parts = emptyList(),
 			drawables =

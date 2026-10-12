@@ -93,6 +93,7 @@ internal class UvPlacementModalTransform(
 		if (surface == null) {
 			session.emitNotice("notice.uv.placement.pageViewOnly", NoticePlacement.NearCursor)
 			session.clearUvOperator()
+
 			return
 		}
 
@@ -122,7 +123,9 @@ internal class UvPlacementModalTransform(
 			}
 
 			// The gesture measures from wherever the pointer is as the capture lands.
-			is PlacementGestureBuild.Ready -> gesture.begin(build.gesture, gesture.lastPointer)
+			is PlacementGestureBuild.Ready -> {
+				gesture.begin(build.gesture, gesture.lastPointer)
+			}
 		}
 	}
 
@@ -138,6 +141,7 @@ internal class UvPlacementModalTransform(
 		val ended = super.end()
 		dragStatus.value.value = null
 		sceneState.value.drag = null
+
 		return ended
 	}
 
@@ -152,14 +156,17 @@ internal class UvPlacementModalTransform(
 		drive.settle()
 		val gestureData = gesture.capture
 		val result = gestureData?.result
+
 		if (gestureData != null && result != null) {
 			val changed = changedPlacements(gestureData.movers, result)
+
 			if (changed.isNotEmpty()) {
 				session.setAtlasPlacements(changed, gestureData.transform.operatorKind)
 				publishLanding(gestureData, result)
 				registerPlacementAdjustment(session, areaId, gestureData, result) { landed -> publishLanding(gestureData, landed) }
 			}
 		}
+
 		session.clearUvOperator()
 	}
 

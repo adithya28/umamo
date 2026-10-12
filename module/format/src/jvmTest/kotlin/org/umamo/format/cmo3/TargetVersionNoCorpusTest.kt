@@ -41,9 +41,12 @@ class TargetVersionNoCorpusTest {
 	fun corpusDocumentsDecodeToTheirAuthoredTarget() {
 		if (probeFiles.isEmpty()) {
 			println("cmo3.probe not present; skipping targetVersionNo corpus test")
+
 			return
 		}
+
 		var pinnedCount = 0
+
 		for (file in probeFiles) {
 			val modelRoot = Cmo3.read(file).root as? CModelSource
 			assertNotNull(modelRoot, "${file.name} root is a CModelSource")
@@ -58,15 +61,18 @@ class TargetVersionNoCorpusTest {
 			)
 			val rawVersionNo = rawField
 			val decoded = Cmo3TargetVersion.fromVersionNo(rawVersionNo)
+
 			if (expectedByFileName.containsKey(file.name)) {
 				assertEquals(expectedByFileName[file.name], decoded, "${file.name} targetVersionNo decode")
 				pinnedCount++
 			}
+
 			if (file.name == "ModelWithoutOffscreenSDKNA.cmo3") {
 				// The freshly saved SDK(N/A)/Latest selection pins the sentinel value itself.
 				assertEquals(Cmo3TargetVersion.LATEST_VERSION_NO, rawVersionNo, "${file.name} raw sentinel")
 			}
 		}
+
 		assertTrue(pinnedCount > 0, "probe list contained none of the pinned corpus files")
 	}
 }

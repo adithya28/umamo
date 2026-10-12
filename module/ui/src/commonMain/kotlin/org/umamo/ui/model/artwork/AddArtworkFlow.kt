@@ -146,6 +146,7 @@ private sealed interface AddArtworkOutcome {
  */
 internal fun addArtworkParameters(options: SourceArtImportOptions, placed: Boolean): List<OperatorParameter> {
 	val rows = ArrayList<OperatorParameter>()
+
 	if (placed) {
 		rows.add(
 			OperatorParameter.ChoiceParameter(
@@ -158,8 +159,10 @@ internal fun addArtworkParameters(options: SourceArtImportOptions, placed: Boole
 		rows.add(OperatorParameter.IntParameter(ImportParameterKeys.OFFSET_X, ImportParameterKeys.OFFSET_X, options.nudgeX, -IMPORT_MAX_OFFSET, IMPORT_MAX_OFFSET, unit = ParameterUnit.Pixels))
 		rows.add(OperatorParameter.IntParameter(ImportParameterKeys.OFFSET_Z, ImportParameterKeys.OFFSET_Z, options.nudgeZ, -IMPORT_MAX_OFFSET, IMPORT_MAX_OFFSET, unit = ParameterUnit.Pixels))
 	}
+
 	rows.add(OperatorParameter.IntParameter(ImportParameterKeys.ALPHA_THRESHOLD, ImportParameterKeys.ALPHA_THRESHOLD, options.alphaThreshold, 1, 255))
 	rows.add(OperatorParameter.IntParameter(ImportParameterKeys.MARGIN, ImportParameterKeys.MARGIN, options.birthMeshMargin, 0, IMPORT_MAX_MARGIN, unit = ParameterUnit.Pixels))
+
 	return rows
 }
 
@@ -214,14 +217,19 @@ private fun addArtworkOutcome(
 ): AddArtworkOutcome {
 	val offset = SourceArtImport.offsetFor(base, request.art, options)
 	val added = SourceArtImport.additionsFor(request.art.placedBy(offset), request.descriptor, options, base, offset = offset)
+
 	if (added.additions.drawables.isEmpty()) {
 		return AddArtworkOutcome.NothingToAdd
 	}
+
 	val withArt = base.withArtworkAdded(added.additions)
+
 	if (withArt === base) {
 		UmamoLog.error("add artwork: the additions for '${request.descriptor.name}' collide with the document's ids; nothing was applied")
+
 		return AddArtworkOutcome.NothingToAdd
 	}
+
 	// A rig with no art of its own takes its frame from the file that arrives - the new document starts
 	// on a placeholder canvas, and the first artwork is what says how big the rig really is.  A rig that
 	// already has art keeps its canvas: a second file is placed within that frame, not around it.
@@ -232,6 +240,7 @@ private fun addArtworkOutcome(
 	val decodedByTile = added.rasterByTile.mapValues { (_, raster) -> request.decodedFor(raster) }
 	artRasters.addDecoded(decodedByTile)
 	val decode: (AtlasTileId) -> DecodedImage? = { tileId -> decodedByTile[tileId] ?: artRasters.decodeRaster(tileId) }
+
 	return when (val packed = packNewTilesAround(seeded, added.additions.tiles.mapTo(HashSet()) { tile -> tile.id }, decode, premultipliedAlpha, added.notices)) {
 		is PackAroundOutcome.Refused -> AddArtworkOutcome.Refused(packed.refusals)
 		is PackAroundOutcome.Packed -> AddArtworkOutcome.Added(added, packed.model, packed.textures, packed.notices)
@@ -300,10 +309,12 @@ internal fun packNewTilesAround(
 			alphaThreshold = composition.alphaThreshold,
 		)
 	var packed = packAtlasOf(model, decode, packOptions, keepPinned = true, fixPlaced = true)
+
 	if (packOptions.maxPageSize < MAX_IMPORT_PAGE_SIZE && packed.result.skipped.any { skip -> skip.reason == AtlasPackSkipReason.LargerThanPage }) {
 		packOptions = packOptions.copy(maxPageSize = MAX_IMPORT_PAGE_SIZE)
 		packed = PackedAtlas(packed.input, packAtlas(packed.input.itemsFor(keepPinned = true, fixPlaced = true), packOptions))
 	}
+
 	val newTileNames = model.atlas.tiles.filter { tile -> tile.id in newTileIds }.mapTo(HashSet()) { tile -> tile.name }
 	val refusals = repackRefusals(model, packed.result.skipped, packed.input.undecodableTileIds)
 	val skippedKeys = packed.result.skipped.mapTo(HashSet()) { skip -> skip.key }
@@ -311,14 +322,18 @@ internal fun packNewTilesAround(
 		refusals.filter { refusal ->
 			model.atlas.tiles.any { tile -> tile.name == refusal.tileName && tile.id !in newTileIds && (tile.id.raw in skippedKeys || tile.id in packed.input.undecodableTileIds) }
 		}
+
 	if (existingRefusals.isNotEmpty()) {
 		return PackAroundOutcome.Refused(existingRefusals)
 	}
+
 	val allNotices = ArrayList(notices)
+
 	for (refusal in refusals) {
 		if (refusal.tileName !in newTileNames) {
 			continue
 		}
+
 		allNotices.add(
 			when (refusal.reason) {
 				AtlasRepackRefusalReason.LargerThanPage -> SourceArtImportNotice.LayerLargerThanPage(refusal.tileName)
@@ -326,9 +341,11 @@ internal fun packNewTilesAround(
 			},
 		)
 	}
+
 	val lowered = lowerPack(model.atlas, packed.result)
 	val repacked = model.withAtlasRepack(lowered.pages, lowered.placementsByTile, composition)
 	logPack(packed.result, lowered, packOptions)
+
 	return PackAroundOutcome.Packed(repacked, generatedPuppetTextures(packed.result.pages, repacked, premultipliedAlpha), allNotices)
 }
 
@@ -352,26 +369,37 @@ suspend fun runAddArtwork(host: AtlasRepackHost, request: AddArtworkRequest, are
 		withContext(Dispatchers.Default) {
 			addArtworkOutcome(modelAtStart, request, request.options, host.artRasters, host.premultipliedAlpha)
 		}
+
 	when (outcome) {
 		AddArtworkOutcome.NothingToAdd -> {
 			UmamoLog.warn("add artwork: '${request.descriptor.name}' has no layer with pixels to add; nothing was applied")
 			session.emitNotice("notice.import.noArtLayers", NoticePlacement.StatusBar)
+
 			return false
 		}
+
 		is AddArtworkOutcome.Refused -> {
 			for (refusal in outcome.refusals) {
 				UmamoLog.warn("add artwork: the document's tile '${refusal.tileName}' could not be kept in place (${refusal.reason}); nothing was applied")
 			}
+
 			host.report(AtlasRepackReport(outcome.refusals))
+
 			return false
 		}
-		is AddArtworkOutcome.Added -> Unit
+
+		is AddArtworkOutcome.Added -> {
+			Unit
+		}
 	}
+
 	if (session.model.value !== modelAtStart) {
 		UmamoLog.warn("add artwork: the document changed while '${request.descriptor.name}' was being added; nothing was applied")
 		session.emitNotice("notice.import.artworkSuperseded", NoticePlacement.StatusBar)
+
 		return false
 	}
+
 	val drawableCount = outcome.added.additions.drawables.size
 	val committed = session.commitArtworkAdded(request.descriptor.name, drawableCount, outcome.model)
 	host.sessionAtlasPages?.prewarm(committed.atlas, outcome.textures)
@@ -380,6 +408,7 @@ suspend fun runAddArtwork(host: AtlasRepackHost, request: AddArtworkRequest, are
 	session.registerAdjustableOperation(committed, areaId, addArtworkParameters(request.options, placed = !SourceArtImport.isFirstArtwork(modelAtStart))) { record ->
 		host.scope.launch { adjustAddArtwork(host, record, request) }
 	}
+
 	return true
 }
 
@@ -400,22 +429,33 @@ internal suspend fun adjustAddArtwork(host: AtlasRepackHost, record: AdjustableO
 		withContext(Dispatchers.Default) {
 			addArtworkOutcome(base, request, options, host.artRasters, host.premultipliedAlpha)
 		}
+
 	when (outcome) {
 		AddArtworkOutcome.NothingToAdd -> {
 			UmamoLog.warn("add artwork: under the adjusted options '${request.descriptor.name}' has nothing to add; the previous result stands")
+
 			return
 		}
+
 		is AddArtworkOutcome.Refused -> {
 			host.report(AtlasRepackReport(outcome.refusals))
+
 			return
 		}
-		is AddArtworkOutcome.Added -> Unit
+
+		is AddArtworkOutcome.Added -> {
+			Unit
+		}
 	}
+
 	host.sessionAtlasPages?.prewarm(outcome.model.atlas, outcome.textures)
+
 	if (!host.session.amendLastCommit(record, outcome.model)) {
 		UmamoLog.info("add artwork: the adjustment was superseded before it landed; nothing was applied")
+
 		return
 	}
+
 	reportAddArtwork(request, outcome, outcome.model)
 }
 
@@ -430,6 +470,7 @@ private fun reportAddArtwork(request: AddArtworkRequest, outcome: AddArtworkOutc
 	for (notice in outcome.notices) {
 		UmamoLog.warn("add artwork: ${describeImportNotice(notice)}")
 	}
+
 	val additions = outcome.added.additions
 	UmamoLog.info(
 		"add artwork: ${request.descriptor.name} -> ${additions.drawables.size} drawable(s), ${additions.parts.size} part(s)," +

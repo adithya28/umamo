@@ -94,6 +94,7 @@ public fun cmo3AtlasIngest(modelSource: CModelSource): Cmo3AtlasIngest {
 	// one stores page-space coordinates.  Identity membership is the test, CImageResource being a plain class.
 	val atlasPageResources = atlases.mapNotNull { atlas -> atlas.cachedAtlasImage as? CImageResource }.toHashSet()
 	val placementByModelImageGuid = HashMap<String, AtlasPlacement>()
+
 	for ((pageIndex, atlas) in atlases.withIndex()) {
 		for (entry in Cmo3Import.elementsOf(atlas.modelImages).filterIsInstance<ModelImageEntry>()) {
 			// CMO3: ModelImageEntry field modelImageGuid - the join back to the pooled model image.
@@ -126,11 +127,14 @@ public fun cmo3AtlasIngest(modelSource: CModelSource): Cmo3AtlasIngest {
 		Cmo3Import.elementsOf(textureManager._rawImages).mapNotNull { wrapper -> (wrapper as? LayeredImageWrapper)?.image as? CLayeredImage }
 	val sources = ArrayList<ArtSource>(layeredImages.size)
 	val refByLayerGuidBySource = HashMap<String, Map<String, SourceLayerRef>>()
+
 	for (image in layeredImages) {
 		val guid = Cmo3Import.uuidOf(image.guid) ?: continue
+
 		if (guid in refByLayerGuidBySource) {
 			continue
 		}
+
 		val name = image.name?.takeIf { candidate -> candidate.isNotEmpty() } ?: guid
 		val inventory = layeredImageInventory(image, ArtSourceId(guid))
 		refByLayerGuidBySource[guid] = inventory.refByLayerGuid
@@ -156,6 +160,7 @@ public fun cmo3AtlasIngest(modelSource: CModelSource): Cmo3AtlasIngest {
 	val tiles = ArrayList<AtlasTile>(modelImages.size)
 	val imageResourceByTile = HashMap<AtlasTileId, CImageResource>()
 	val knownTileIds = HashSet<String>()
+
 	for (modelImage in modelImages) {
 		// CMO3: CModelImage field guid - the key every binding and placement references.
 		val key = Cmo3Import.uuidOf(modelImage.guid) ?: continue
@@ -189,6 +194,7 @@ public fun cmo3AtlasIngest(modelSource: CModelSource): Cmo3AtlasIngest {
 	// its coordinates on the page whatever its texture names.  A model saved in source-layer display points
 	// every drawable at a model image, yet its placed tiles still sit on the page the file carries.
 	var anyDrawableAddressesAPage = false
+
 	for (mesh in artMeshes) {
 		val drawableId = Cmo3Import.idStrOf(mesh.id) ?: continue
 		// CMO3: CTextureInputExtension field _textureInputs -> CTextureInput_ModelImage field
@@ -200,14 +206,18 @@ public fun cmo3AtlasIngest(modelSource: CModelSource): Cmo3AtlasIngest {
 			Cmo3Import.elementsOf(extension._textureInputs).filterIsInstance<CTextureInput_ModelImage>().firstOrNull()
 				?: continue
 		val key = Cmo3Import.uuidOf(modelImageInput._modelImageGuid) ?: continue
+
 		if (key !in knownTileIds) {
 			continue
 		}
+
 		// CMO3: CArtMeshSource field texture -> GTexture2D field srcImageResource.
 		val sampledResource = (mesh.texture as? GTexture2D)?.srcImageResource as? CImageResource
+
 		if ((sampledResource != null && sampledResource in atlasPageResources) || key in placementByModelImageGuid) {
 			anyDrawableAddressesAPage = true
 		}
+
 		tileIdByDrawableId[drawableId] = AtlasTileId(key)
 	}
 
@@ -275,6 +285,7 @@ internal fun walkLayeredImage(image: CLayeredImage): List<WalkedCmo3Layer> {
 					val name = entry.name.orEmpty()
 					walk(entry, if (path.isEmpty()) name else "$path/$name")
 				}
+
 				is CLayer -> {
 					// CMO3: ACLayerEntry field name.
 					val name = entry.name.orEmpty()
@@ -289,6 +300,7 @@ internal fun walkLayeredImage(image: CLayeredImage): List<WalkedCmo3Layer> {
 		}
 	}
 	walk(root, "")
+
 	return walked
 }
 
@@ -303,6 +315,7 @@ internal fun walkLayeredImage(image: CLayeredImage): List<WalkedCmo3Layer> {
 private fun layeredImageInventory(image: CLayeredImage, sourceId: ArtSourceId): LayeredImageInventory {
 	val rows = ArrayList<ArtSourceLayer>()
 	val refByLayerGuid = HashMap<String, SourceLayerRef>()
+
 	for (walked in walkLayeredImage(image)) {
 		val entry = walked.layer
 		// CMO3: ACLayerEntry fields isVisible / guid; CLayer field boundsOnImageDoc, a CRect (x / y /
@@ -324,6 +337,7 @@ private fun layeredImageInventory(image: CLayeredImage, sourceId: ArtSourceId): 
 			),
 		)
 	}
+
 	return LayeredImageInventory(rows, refByLayerGuid)
 }
 
@@ -340,17 +354,23 @@ private fun photoshopLayerIdOf(identifier: Any?): Int? {
 	// decimal (-1 when absent) and is not read: the byte string is the field the editor names as the id.
 	val text = (identifier as? CLayerIdentifier)?.layerId?.takeIf { candidate -> candidate.isNotEmpty() } ?: return null
 	val byteTexts = text.split('-')
+
 	if (byteTexts.size > 4) {
 		return null
 	}
+
 	var value = 0L
+
 	for (byteText in byteTexts) {
 		val byteValue = byteText.toIntOrNull(16) ?: return null
+
 		if (byteValue !in 0..255) {
 			return null
 		}
+
 		value = (value shl 8) or byteValue.toLong()
 	}
+
 	return value.toInt()
 }
 
@@ -384,6 +404,7 @@ internal fun soleLayerInputOf(modelImage: CModelImage): SoleLayerInput? {
 	var soleImageGuid: String? = null
 	var soleInput: CLayerInputData? = null
 	var inputCount = 0
+
 	for ((imageGuid, inputs) in imageToInputs) {
 		for (input in Cmo3Import.elementsOf(inputs).filterIsInstance<CLayerInputData>()) {
 			inputCount++
@@ -391,11 +412,14 @@ internal fun soleLayerInputOf(modelImage: CModelImage): SoleLayerInput? {
 			soleInput = input
 		}
 	}
+
 	if (inputCount != 1) {
 		return null
 	}
+
 	val imageGuid = soleImageGuid ?: return null
 	val input = soleInput ?: return null
+
 	return SoleLayerInput(imageGuid, input)
 }
 
@@ -420,6 +444,7 @@ private fun soleSourceLayerRefOf(modelImage: CModelImage, refByLayerGuidBySource
 	val layer = sole.input.layer as? ACLayerEntry ?: return null
 	Cmo3Import.uuidOf(layer.guid)?.let { layerGuid -> refByLayerGuid[layerGuid] }?.let { ref -> return ref }
 	val layerName = layer.name?.takeIf { name -> name.isNotEmpty() } ?: return null
+
 	return SourceLayerRef(ArtSourceId(sole.imageGuid), layerKey = "name:$layerName", stableKey = false)
 }
 

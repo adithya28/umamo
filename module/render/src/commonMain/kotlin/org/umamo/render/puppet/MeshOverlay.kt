@@ -141,9 +141,11 @@ class MeshOverlayMesh(
 
 	init {
 		require(edgeEndpoints.size % 2 == 0) { "edge endpoints come in pairs, got ${edgeEndpoints.size} for $drawableId" }
+
 		for (endpoint in edgeEndpoints) {
 			require(endpoint in 0 until vertexCount) { "edge endpoint $endpoint is outside the $vertexCount vertices of $drawableId" }
 		}
+
 		require(vertexFlags.isEmpty() || vertexFlags.size == vertexCount) { "vertex flags must be empty or one per vertex for $drawableId" }
 		require(edgeFlags.isEmpty() || edgeFlags.size == edgeCount) { "edge flags must be empty or one per edge for $drawableId" }
 		require(activeVertex == null || activeVertex in 0 until vertexCount) { "active vertex $activeVertex is outside $drawableId" }

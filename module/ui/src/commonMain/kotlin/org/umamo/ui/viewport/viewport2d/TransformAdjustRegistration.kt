@@ -78,6 +78,7 @@ internal fun registerMeshTransformAdjustment(
 		// The drive's own compute, so a replay and the gesture it replays cannot drift apart.
 		val jobs = meshDriveJobs(transform, geometryById, wholeMeshes = false)
 		val landed = computeMeshDrive(MeshDriveRequest(kind, adjusted, jobs, null, record.baseSnapshot.model)).folded
+
 		if (session.amendLastCommit(record, landed) && proportionalRows != null) {
 			onProportional(proportionalRows.asState())
 		}
@@ -186,5 +187,6 @@ internal fun registerDrawableWorldAdjustment(
 			activeAnchor = null,
 			cursorAnchor = bounds.centerX to bounds.centerY,
 		) ?: return null
+
 	return registerObjectTransformAdjustment(session, areaId, transform, mapOf(geometry.drawableId to geometry), parameters)
 }

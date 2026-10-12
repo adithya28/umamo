@@ -41,6 +41,7 @@ internal suspend fun PointerInputScope.uvObjectGizmoPointerLoop(
 			val change = event.changes.firstOrNull() ?: continue
 			gesture.lastPointer = change.position
 			val latchedUvOperator = session.activeUvOperator.value
+
 			// A gesture belongs to its initiating area: another area's UV operator, or any viewport-owned
 			// operator or armed tool, leaves this overlay fully inert - dropping an in-flight box.
 			if (session.activeMeshOperator.value != null ||
@@ -49,17 +50,22 @@ internal suspend fun PointerInputScope.uvObjectGizmoPointerLoop(
 				session.activeSelectTool.value != null
 			) {
 				objectPick.cancel()
+
 				continue
 			}
+
 			val activeCamera = liveCamera.value
 			val size = liveSize.value
+
 			// Zoom Region armed for this area: the region overlay above owns the next drag.  One armed mid-drag
 			// leaves this drag's events here (the hit path is fixed at the press), so the box in flight is
 			// abandoned rather than left to follow the pointer after Zoom Region disarms.
 			if (session.zoomRegionArmedArea.value == areaId) {
 				objectPick.cancel()
+
 				continue
 			}
+
 			if (latchedUvOperator != null) {
 				// MODAL: the placement gesture owns the pointer through the shared controller (stale discard,
 				// virtual pointer, cursor wrap, LMB-confirm / RMB-cancel).

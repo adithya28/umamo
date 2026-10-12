@@ -47,6 +47,7 @@ class ObjectModalTransformTest {
 		assertEquals(kind, session.activeObjectOperator.value?.kind, "the session latched the operator")
 		transform.gesture.lastPointer = gestureStart
 		transform.begin(kind)
+
 		return Rig(session, transform, pushed)
 	}
 

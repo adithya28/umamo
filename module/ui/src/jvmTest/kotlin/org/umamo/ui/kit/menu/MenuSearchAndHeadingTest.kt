@@ -57,6 +57,7 @@ class MenuSearchAndHeadingTest {
 									buildList {
 										add(MenuItem.Search(value = query, onValueChange = { updated -> query = updated }, width = MENU_WIDTH, placeholder = HINT))
 										add(MenuItem.Heading(HEADING))
+
 										for (name in names) {
 											add(MenuItem.Action(label = name, onSelect = { picked = name }))
 										}
@@ -125,6 +126,7 @@ class MenuSearchAndHeadingTest {
 								items =
 									buildList {
 										add(MenuItem.Search(value = "", onValueChange = {}, width = MENU_WIDTH))
+
 										for (index in 0 until 80) {
 											add(MenuItem.Action(label = "Layer $index", onSelect = {}))
 										}

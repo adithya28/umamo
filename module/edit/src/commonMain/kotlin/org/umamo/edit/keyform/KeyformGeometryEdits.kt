@@ -54,15 +54,22 @@ fun PuppetModel.isGeometryKeyedOn(owner: KeyformOwner, parameterId: ParameterId)
  */
 fun PuppetModel.geometryGridOf(owner: KeyformOwner): KeyformGrid<*>? =
 	when (owner) {
-		is KeyformOwner.Drawable -> drawableGeometry(owner)
-		is KeyformOwner.Deformer ->
+		is KeyformOwner.Drawable -> {
+			drawableGeometry(owner)
+		}
+
+		is KeyformOwner.Deformer -> {
 			when (val deformer = deformers.firstOrNull { candidate -> candidate.id == owner.id }) {
 				is Deformer.Warp -> deformer.geometryGrid
 				is Deformer.Rotation -> deformer.geometryGrid
 				null -> null
 			}
+		}
+
 		// A part is organizational and a glue welds two meshes; neither carries geometry of its own.
-		is KeyformOwner.Part, is KeyformOwner.Glue -> null
+		is KeyformOwner.Part, is KeyformOwner.Glue -> {
+			null
+		}
 	}
 
 /**
@@ -148,17 +155,21 @@ private fun PuppetModel.rewriteGeometry(
 	rewrite: (KeyformGrid<Nothing>, FormInterpolator<Nothing>) -> KeyformGrid<Nothing>,
 ): PuppetModel =
 	when (owner) {
-		is KeyformOwner.Drawable ->
+		is KeyformOwner.Drawable -> {
 			replaceDrawableGeometry(owner) { grid -> rewrite(grid.asNothing(), MeshDeltaInterpolator.asNothing()) }
+		}
 
-		is KeyformOwner.Deformer ->
+		is KeyformOwner.Deformer -> {
 			replaceDeformerGeometry(
 				owner = owner,
 				onWarp = { grid -> rewrite(grid.asNothing(), WarpLatticeInterpolator.asNothing()) },
 				onRotation = { grid -> rewrite(grid.asNothing(), RotationPivotInterpolator.asNothing()) },
 			)
+		}
 
-		is KeyformOwner.Part, is KeyformOwner.Glue -> this
+		is KeyformOwner.Part, is KeyformOwner.Glue -> {
+			this
+		}
 	}
 
 /**
@@ -177,15 +188,21 @@ private fun PuppetModel.rewriteGeometryNullable(
 	rewrite: (KeyformGrid<Nothing>) -> KeyformGrid<Nothing>?,
 ): PuppetModel =
 	when (owner) {
-		is KeyformOwner.Drawable -> replaceDrawableGeometry(owner) { grid -> rewrite(grid.asNothing()) }
-		is KeyformOwner.Deformer ->
+		is KeyformOwner.Drawable -> {
+			replaceDrawableGeometry(owner) { grid -> rewrite(grid.asNothing()) }
+		}
+
+		is KeyformOwner.Deformer -> {
 			replaceDeformerGeometry(
 				owner = owner,
 				onWarp = { grid -> rewrite(grid.asNothing()) },
 				onRotation = { grid -> rewrite(grid.asNothing()) },
 			)
+		}
 
-		is KeyformOwner.Part, is KeyformOwner.Glue -> this
+		is KeyformOwner.Part, is KeyformOwner.Glue -> {
+			this
+		}
 	}
 
 /** This drawable's geometry grid, or null when the id is unknown or it has none. */
@@ -206,9 +223,11 @@ private fun <TForm> PuppetModel.replaceDrawableGeometry(
 	@Suppress("UNCHECKED_CAST")
 	val grid = (drawableGeometry(owner) as KeyformGrid<TForm>?) ?: return this
 	val rewritten = rewrite(grid)
+
 	if (rewritten === grid) {
 		return this
 	}
+
 	@Suppress("UNCHECKED_CAST")
 	return copy(
 		drawables =
@@ -248,26 +267,35 @@ private fun <TForm> PuppetModel.replaceDeformerGeometry(
 			is Deformer.Warp -> onWarp(grid)
 			is Deformer.Rotation -> onRotation(grid)
 		}
+
 	if (rewritten === grid) {
 		return this
 	}
+
 	@Suppress("UNCHECKED_CAST")
 	return copy(
 		deformers =
 			deformers.map { candidate ->
 				when {
-					candidate.id != owner.id -> candidate
-					candidate is Deformer.Warp ->
+					candidate.id != owner.id -> {
+						candidate
+					}
+
+					candidate is Deformer.Warp -> {
 						candidate.copy(
 							geometryGrid = rewritten as KeyformGrid<org.umamo.runtime.model.WarpLatticeForm>?,
 						)
+					}
 
-					candidate is Deformer.Rotation ->
+					candidate is Deformer.Rotation -> {
 						candidate.copy(
 							geometryGrid = rewritten as KeyformGrid<org.umamo.runtime.model.RotationPivotForm>?,
 						)
+					}
 
-					else -> candidate
+					else -> {
+						candidate
+					}
 				}
 			},
 	)

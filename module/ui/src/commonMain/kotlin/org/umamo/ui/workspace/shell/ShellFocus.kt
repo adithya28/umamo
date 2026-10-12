@@ -50,6 +50,7 @@ internal fun ReclaimShellFocus(controllers: ShellControllers, languageTag: Strin
 		if (overlaySelfFocused || menuBarOpen) {
 			return@LaunchedEffect
 		}
+
 		withFrameNanos {}
 		withFrameNanos {}
 		focusRequester.requestFocus()
@@ -69,8 +70,10 @@ internal fun ReclaimShellFocus(controllers: ShellControllers, languageTag: Strin
 		if (textEntryActive || !overlays.selfFocusedOverlayOpen) {
 			return@LaunchedEffect
 		}
+
 		withFrameNanos {}
 		withFrameNanos {}
+
 		if (!controllers.rootHoldsFocus) {
 			focusRequester.requestFocus()
 		}
@@ -89,6 +92,7 @@ internal fun ReclaimShellFocus(controllers: ShellControllers, languageTag: Strin
 			val overlayOwnsFocus =
 				inlineEditController.cancel != null ||
 					overlays.selfFocusedOverlayOpen
+
 			if (windowFocused && !overlayOwnsFocus) {
 				focusRequester.requestFocus()
 			}
@@ -105,6 +109,7 @@ internal fun ReclaimShellFocus(controllers: ShellControllers, languageTag: Strin
 		snapshotFlow { currentLanguageTag }.drop(1).collect {
 			withFrameNanos {}
 			withFrameNanos {}
+
 			if (!controllers.rootHoldsFocus) {
 				focusRequester.requestFocus()
 			}

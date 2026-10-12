@@ -100,6 +100,7 @@ internal fun selectCommands(
 			// to the lone open sheet when handed no area, so asking it unconditionally would hijack B in the
 			// viewport for any layout that happens to have a keyform sheet open.
 			val hoveredSheetArea = routing.areaOf(SpaceKind.KeyformSheet)
+
 			if (hoveredSheetArea != null) {
 				keyformSheets.resolve(hoveredSheetArea)?.armBoxSelect?.invoke()
 			} else {

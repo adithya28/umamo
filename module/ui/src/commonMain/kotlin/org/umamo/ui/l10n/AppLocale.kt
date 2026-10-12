@@ -53,16 +53,19 @@ expect fun systemLanguageTags(): List<String>
  */
 fun matchUiLanguage(preferredTags: List<String>, supported: Collection<String>): String {
 	val supportedByLowercase = supported.associateBy { tag -> tag.lowercase() }
+
 	for (preferredTag in preferredTags) {
 		val subtags = preferredTag.replace('_', '-').lowercase().split('-').filter { subtag -> subtag.isNotEmpty() }
 		val language = subtags.firstOrNull() ?: continue
 		// A region is the two-letter or three-digit subtag after the language (and any four-letter script).
 		val region = subtags.drop(1).firstOrNull { subtag -> subtag.length == 2 || (subtag.length == 3 && subtag.all(Char::isDigit)) }
 		val candidates = listOfNotNull(subtags.joinToString("-"), region?.let { "$language-$it" }, language)
+
 		for (candidate in candidates) {
 			supportedByLowercase[candidate]?.let { matched -> return matched }
 		}
 	}
+
 	return FALLBACK_LOCALE_TAG
 }
 

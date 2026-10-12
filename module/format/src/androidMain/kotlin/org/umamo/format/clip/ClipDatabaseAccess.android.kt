@@ -43,6 +43,7 @@ internal actual fun <T> useClipDatabase(databaseBytes: ByteArray, block: (ClipDa
 	val databaseFile = context.getDatabasePath(name)
 	databaseFile.parentFile?.mkdirs()
 	databaseFile.writeBytes(databaseBytes)
+
 	try {
 		// Skip Schema.create/migrate: the file already is a complete CLIP database.
 		val callback =
@@ -52,6 +53,7 @@ internal actual fun <T> useClipDatabase(databaseBytes: ByteArray, block: (ClipDa
 				override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
 			}
 		val driver = AndroidSqliteDriver(schema = ClipDatabase.Schema, context = context, name = name, callback = callback)
+
 		try {
 			return block(ClipDatabase(driver))
 		} finally {

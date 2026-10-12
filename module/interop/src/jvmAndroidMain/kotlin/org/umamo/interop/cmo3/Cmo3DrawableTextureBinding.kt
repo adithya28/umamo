@@ -83,20 +83,25 @@ public class Cmo3DrawableTextureBinding(
  */
 internal fun fitAtlasPageToCanvasTransform(uvs: FloatArray, positions: FloatArray, pageWidth: Int, pageHeight: Int): CAffine {
 	val vertexCount = minOf(uvs.size, positions.size) / 2
+
 	if (vertexCount == 0) {
 		return CAffine()
 	}
+
 	val pointCount = vertexCount.toDouble()
 	var meanPageX = 0.0
 	var meanPageY = 0.0
 	val meanCanvas = DoubleArray(2)
+
 	for (vertexIndex in 0 until vertexCount) {
 		meanPageX += uvs[2 * vertexIndex].toDouble() * pageWidth
 		meanPageY += uvs[2 * vertexIndex + 1].toDouble() * pageHeight
+
 		for (axis in 0 until 2) {
 			meanCanvas[axis] += positions[2 * vertexIndex + axis].toDouble()
 		}
 	}
+
 	meanPageX /= pointCount
 	meanPageY /= pointCount
 	meanCanvas[0] /= pointCount
@@ -109,30 +114,36 @@ internal fun fitAtlasPageToCanvasTransform(uvs: FloatArray, positions: FloatArra
 	var pageYY = 0.0
 	val canvasPageX = DoubleArray(2)
 	val canvasPageY = DoubleArray(2)
+
 	for (vertexIndex in 0 until vertexCount) {
 		val pageX = uvs[2 * vertexIndex].toDouble() * pageWidth - meanPageX
 		val pageY = uvs[2 * vertexIndex + 1].toDouble() * pageHeight - meanPageY
 		pageXX += pageX * pageX
 		pageXY += pageX * pageY
 		pageYY += pageY * pageY
+
 		for (axis in 0 until 2) {
 			val canvas = positions[2 * vertexIndex + axis].toDouble() - meanCanvas[axis]
 			canvasPageX[axis] += pageX * canvas
 			canvasPageY[axis] += pageY * canvas
 		}
 	}
+
 	val determinant = pageXX * pageYY - pageXY * pageXY
 	// Relative test: the page cloud spans two independent directions only when its covariance
 	// determinant is a real fraction of the product of its variances.  A patch collapsed to a line
 	// (a degenerate mesh) fails here and takes the single-axis path below.
 	val hasTwoAxisSpread = determinant > 1e-12 * pageXX * pageYY
 	val linear = Array(2) { DoubleArray(2) }
+
 	for (axis in 0 until 2) {
 		if (hasTwoAxisSpread) {
 			linear[axis][0] = (canvasPageX[axis] * pageYY - canvasPageY[axis] * pageXY) / determinant
 			linear[axis][1] = (canvasPageY[axis] * pageXX - canvasPageX[axis] * pageXY) / determinant
+
 			continue
 		}
+
 		// Collinear page cloud: regress against whichever page axis actually carries the spread, so
 		// a rotated strip still recovers its coefficient instead of dividing by nothing.  The other
 		// column is unconstrained by the data and takes its identity value rather than zero - a zero
@@ -150,6 +161,7 @@ internal fun fitAtlasPageToCanvasTransform(uvs: FloatArray, positions: FloatArra
 			linear[axis][1] = if (axis == 0) 0.0 else 1.0
 		}
 	}
+
 	// A near-identity linear part is least-squares noise on a pure translation (the editor's own
 	// unscaled packings): snap it so the written transform matches the editor's exact-translation
 	// shape instead of 0.9999997-style drift.
@@ -163,6 +175,7 @@ internal fun fitAtlasPageToCanvasTransform(uvs: FloatArray, positions: FloatArra
 		linear[1][0] = 0.0
 		linear[1][1] = 1.0
 	}
+
 	val transform = CAffine()
 	// The translation is whatever carries the page mean onto the canvas mean under the linear part.
 	transform.m00 = linear[0][0].toFloat()
@@ -171,5 +184,6 @@ internal fun fitAtlasPageToCanvasTransform(uvs: FloatArray, positions: FloatArra
 	transform.m10 = linear[1][0].toFloat()
 	transform.m11 = linear[1][1].toFloat()
 	transform.m12 = (meanCanvas[1] - linear[1][0] * meanPageX - linear[1][1] * meanPageY).toFloat()
+
 	return transform
 }

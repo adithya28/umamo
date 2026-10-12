@@ -133,6 +133,7 @@ internal fun ParameterRowView(
 				}
 			},
 		)
+
 		// The row's content takes the width the grip leaves.  The weight is handed down from here because
 		// it exists only in this Row's scope.
 		when (row) {
@@ -237,6 +238,7 @@ private fun ParameterGroupRow(
 					if (!foldLocked) {
 						expandedGroups[row.groupId] = !(expandedGroups[row.groupId] ?: row.expanded)
 					}
+
 					viewState.renamingGroupId = row.groupId
 				},
 			)
@@ -318,6 +320,7 @@ private fun ParameterSliderRow(
 				onCommitValue = { newValue -> pose.commitValue(parameter.id, newValue) },
 				link = link,
 			)
+
 			if (rangeOpen) {
 				RangeFieldsRow(
 					parameter = parameter,
@@ -411,6 +414,7 @@ private fun ParameterPadRow(
 				onCommitValue = { id, newValue -> pose.commitValue(id, newValue) },
 				link = link,
 			)
+
 			if (rangeOpen) {
 				// One range row per axis, each captioned with its axis name (user
 				// data, never localized).

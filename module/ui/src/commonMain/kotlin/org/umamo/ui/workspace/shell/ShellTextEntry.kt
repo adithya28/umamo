@@ -42,6 +42,7 @@ internal suspend fun PointerInputScope.observeTextEntryPresses(
 			if (awaitPointerEvent(PointerEventPass.Initial).type != PointerEventType.Press) {
 				continue
 			}
+
 			beginPress()
 			// The same press again, now that it has reached whatever it landed on.
 			awaitPointerEvent(PointerEventPass.Final)
@@ -80,6 +81,7 @@ internal fun Modifier.releaseTextEntryOnPress(
 						pressLandedOnTextEditor = inlineEditController.pressLandedOnTextEditor,
 						selfFocusedOverlayOpen = overlays.selfFocusedOverlayOpen,
 					)
+
 				if (releases) {
 					focusRequester.requestFocus()
 				}

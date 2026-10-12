@@ -127,6 +127,7 @@ internal class SerializerRegistry {
 
 	private fun enumSerializerFor(enumClass: Class<*>): EnumSerializer {
 		val kClass = enumClass.kotlin
+
 		return enumSerializerCache.getOrPut(kClass) { EnumSerializer(tagFor(kClass), enumClass) }
 	}
 
@@ -150,32 +151,57 @@ internal class SerializerRegistry {
 	/** Serializer for a runtime value, dispatched by type (write path). */
 	fun serializerForValue(value: Any): XmlSerializer {
 		customByClass[value::class]?.let { return it }
+
 		return when (value) {
 			is Enum<*> -> enumSerializerFor(enumClassOf(value))
+
 			is Int -> intSerializer
+
 			is Float -> floatSerializer
+
 			is Double -> doubleSerializer
+
 			is Long -> longSerializer
+
 			is Short -> shortSerializer
+
 			is Byte -> byteSerializer
+
 			is Char -> charSerializer
+
 			is Boolean -> boolSerializer
+
 			is String -> stringSerializer
+
 			is FloatArray -> floatArraySerializer
+
 			is IntArray -> intArraySerializer
+
 			is LongArray -> longArraySerializer
+
 			is ShortArray -> shortArraySerializer
+
 			is DoubleArray -> doubleArraySerializer
+
 			is ByteArray -> byteArraySerializer
+
 			is CharArray -> charArraySerializer
+
 			is BooleanArray -> boolArraySerializer
+
 			// Order matters: subtypes before supertypes so the on-disk tag round-trips exactly.
 			is org.umamo.format.cmo3.type.CHashMap<*, *> -> hashMapSerializer
+
 			is LinkedHashMap<*, *> -> linkedMapSerializer
+
 			is Map<*, *> -> hashMapSerializer
+
 			is org.umamo.format.cmo3.type.CArrayList<*> -> carrayListSerializer
+
 			is List<*> -> arrayListSerializer
+
 			is Set<*> -> linkedSetSerializer
+
 			else -> classSerializer(value::class)
 		}
 	}
@@ -183,33 +209,101 @@ internal class SerializerRegistry {
 	/** Serializer for an element tag (read path), or null if the tag is unknown. */
 	fun serializerForTag(tag: String): XmlSerializer? {
 		customByTag[tag]?.let { return it }
+
 		return when (tag) {
-			"i" -> intSerializer
-			"f" -> floatSerializer
-			"d" -> doubleSerializer
-			"l" -> longSerializer
-			"short" -> shortSerializer
-			"byte" -> byteSerializer
-			"char" -> charSerializer
-			"b" -> boolSerializer
-			"s" -> stringSerializer
-			"array_list" -> arrayListSerializer
-			"carray_list" -> carrayListSerializer
-			"hash_map" -> hashMapSerializer
-			"linked_map" -> linkedMapSerializer
-			"linked_set" -> linkedSetSerializer
-			"float-array" -> floatArraySerializer
-			"int-array" -> intArraySerializer
-			"long-array" -> longArraySerializer
-			"short-array" -> shortArraySerializer
-			"double-array" -> doubleArraySerializer
-			"byte-array" -> byteArraySerializer
-			"char-array" -> charArraySerializer
-			"bool-array" -> boolArraySerializer
-			else ->
+			"i" -> {
+				intSerializer
+			}
+
+			"f" -> {
+				floatSerializer
+			}
+
+			"d" -> {
+				doubleSerializer
+			}
+
+			"l" -> {
+				longSerializer
+			}
+
+			"short" -> {
+				shortSerializer
+			}
+
+			"byte" -> {
+				byteSerializer
+			}
+
+			"char" -> {
+				charSerializer
+			}
+
+			"b" -> {
+				boolSerializer
+			}
+
+			"s" -> {
+				stringSerializer
+			}
+
+			"array_list" -> {
+				arrayListSerializer
+			}
+
+			"carray_list" -> {
+				carrayListSerializer
+			}
+
+			"hash_map" -> {
+				hashMapSerializer
+			}
+
+			"linked_map" -> {
+				linkedMapSerializer
+			}
+
+			"linked_set" -> {
+				linkedSetSerializer
+			}
+
+			"float-array" -> {
+				floatArraySerializer
+			}
+
+			"int-array" -> {
+				intArraySerializer
+			}
+
+			"long-array" -> {
+				longArraySerializer
+			}
+
+			"short-array" -> {
+				shortArraySerializer
+			}
+
+			"double-array" -> {
+				doubleArraySerializer
+			}
+
+			"byte-array" -> {
+				byteArraySerializer
+			}
+
+			"char-array" -> {
+				charArraySerializer
+			}
+
+			"bool-array" -> {
+				boolArraySerializer
+			}
+
+			else -> {
 				classForTag(tag)?.let { kClass ->
 					if (kClass.java.isEnum) enumSerializerFor(kClass.java) else classSerializer(kClass)
 				}
+			}
 		}
 	}
 
@@ -218,6 +312,7 @@ internal class SerializerRegistry {
 		if (suppress) return null
 		val superJava = kClass.java.superclass ?: return null
 		if (superJava == Any::class.java || superJava.isInterface) return null
+
 		return classSerializer(superJava.kotlin)
 	}
 
@@ -270,6 +365,7 @@ private fun nextFreshRefId(preassigned: IdentityHashMap<Any, SharedRef>?): Int {
 		preassigned?.values?.maxOfOrNull { sharedRef ->
 			sharedRef.id.removePrefix("#").toIntOrNull() ?: -1
 		} ?: -1
+
 	return maxPreserved + 1
 }
 
@@ -325,34 +421,44 @@ internal class WriteContext(
 		if (value == null) {
 			val nullElement = Element(TAG_NULL)
 			nullElement.setFieldName(name)
+
 			return nullElement
 		}
+
 		// Reconcile mode: a known-shared object is always emitted as a reference to its preserved id,
 		// reusing the def's exact tag captured at read time.
 		preassignedShared?.get(value)?.let { sharedRef ->
 			val reference = Element(sharedRef.tag)
 			reference.setFieldName(name)
 			reference.setAttribute(ATTR_REF, sharedRef.id)
+
 			return reference
 		}
+
 		if (value is VerbatimNode) {
 			// Re-emit the preserved subtree, re-stamping the owning field name (or dropping it for items).
 			val clone = value.element.clone() as Element
 			if (name != null) clone.setAttribute(ATTR_NAME, name) else clone.removeAttribute(ATTR_NAME)
+
 			return clone
 		}
+
 		written[value]?.let { record ->
 			var id = record.element.getAttributeValue(ATTR_ID)
+
 			if (id == null) {
 				id = "#${refIdCounter++}"
 				record.element.setAttribute(ATTR_ID, id)
 				sharedDefs.add(SharedDef(record.element, id, record.index))
 			}
+
 			val reference = Element(record.element.name)
 			reference.setFieldName(name)
 			reference.setAttribute(ATTR_REF, id)
+
 			return reference
 		}
+
 		return registry.serializerForValue(value).createElement(name, value, this)
 	}
 }
@@ -401,11 +507,14 @@ internal class ReadContext(
 		if (tag == TAG_NULL) return null
 		element.getAttributeValue(ATTR_REF)?.let { return references[it] }
 		val serializer = registry.serializerForTag(tag)
+
 		if (serializer == null) {
 			// Unmodeled tag: keep verbatim so the document still round-trips, and report it.
 			diagnostics.onUnmodeledTag(tag, element.getAttributeValue(ATTR_NAME) ?: "(item)")
+
 			return VerbatimNode(element.clone() as Element)
 		}
+
 		// A typed serializer may still fail on evolved/unknown content (e.g. a newer enum constant,
 		// an added field, a missing no-arg constructor). Fall back to verbatim + report, so format
 		// evolution never crashes or loses data - it just isn't typed yet.
@@ -457,14 +566,17 @@ public class ModelGraph internal constructor(
 	internal fun ensureKnownChildSlot(owner: Any, tag: String, propertyName: String, beforePropertyName: String?) {
 		val slots = childOrder[owner]?.get(tag) ?: return
 		val alreadyRecorded = slots.any { slot -> slot is ChildSlot.KnownField && slot.propertyName == propertyName }
+
 		if (alreadyRecorded) {
 			return
 		}
+
 		val newSlot = ChildSlot.KnownField(propertyName)
 		val anchorIndex =
 			beforePropertyName?.let { anchor ->
 				slots.indexOfFirst { slot -> slot is ChildSlot.KnownField && slot.propertyName == anchor }
 			} ?: -1
+
 		if (anchorIndex >= 0) {
 			slots.add(anchorIndex, newSlot)
 		} else {
@@ -535,6 +647,7 @@ public class SerializeEngine internal constructor(
 		registry.versions().forEachIndexed { piIndex, (tag, version) ->
 			document.addContent(piIndex, ProcessingInstruction("version", "$tag:$version"))
 		}
+
 		return document
 	}
 
@@ -551,6 +664,7 @@ public class SerializeEngine internal constructor(
 		@Suppress("UNCHECKED_CAST")
 		val sharedChildren = (rootElement.getChild(ModelDocument.SHARED_ELEMENT)?.children as List<Element>?).orEmpty()
 		val created = ArrayList<Pair<Element, Any>>()
+
 		for (element in sharedChildren) {
 			val id = element.getAttributeValue(ATTR_ID) ?: continue
 			val serializer = registry.serializerForTag(element.name) ?: continue
@@ -558,6 +672,7 @@ public class SerializeEngine internal constructor(
 			context.references[id] = instance
 			created.add(element to instance)
 		}
+
 		for ((element, instance) in created) {
 			registry.serializerForTag(element.name)?.setupInstance(element, instance, context)
 		}
@@ -566,6 +681,7 @@ public class SerializeEngine internal constructor(
 		val mainChild =
 			(rootElement.getChild(ModelDocument.MAIN_ELEMENT)?.children as List<Element>?)
 				?.firstOrNull() ?: return null
+
 		return context.createObjectFromElement(mainChild)
 	}
 
@@ -586,6 +702,7 @@ public class SerializeEngine internal constructor(
 		@Suppress("UNCHECKED_CAST")
 		val sharedChildren = (rootElement.getChild(ModelDocument.SHARED_ELEMENT)?.children as List<Element>?).orEmpty()
 		val typedToSetup = ArrayList<Pair<Element, Any>>()
+
 		for (element in sharedChildren) {
 			val id = element.getAttributeValue(ATTR_ID) ?: continue
 			val index = element.getAttributeValue(ATTR_INDEX)?.toIntOrNull() ?: -1
@@ -602,6 +719,7 @@ public class SerializeEngine internal constructor(
 			sharedOrder.add(instance)
 			if (serializer != null) typedToSetup.add(element to instance)
 		}
+
 		for ((element, instance) in typedToSetup) {
 			registry.serializerForTag(element.name)?.setupInstance(element, instance, context)
 		}
@@ -615,6 +733,7 @@ public class SerializeEngine internal constructor(
 
 		@Suppress("UNCHECKED_CAST")
 		val rootAttributes = (rootElement.attributes as List<org.jdom.Attribute>).map { it.name to it.value }
+
 		return ModelGraph(
 			rootObject,
 			sharedOrder,
@@ -666,6 +785,7 @@ public class SerializeEngine internal constructor(
 		// shared subtrees are caught too.  xs.idx continues past the preserved maximum, keeping fresh
 		// entries clear of the source document's pool indexes.
 		var nextSharedIndex = (graph.sharedInfo.values.maxOfOrNull { sharedRef -> sharedRef.index } ?: -1) + 1
+
 		for (def in context.sharedDefs.sortedBy { it.index }) {
 			val defElement = def.element
 			val parent = defElement.parent as Element
@@ -685,6 +805,7 @@ public class SerializeEngine internal constructor(
 		graph.processingInstructions.forEachIndexed { piIndex, instruction ->
 			document.addContent(piIndex, instruction.clone() as ProcessingInstruction)
 		}
+
 		return document
 	}
 
@@ -702,6 +823,7 @@ public class SerializeEngine internal constructor(
 		): SerializeEngine {
 			val registry = SerializerRegistry()
 			classes.forEach(registry::register)
+
 			return SerializeEngine(registry, diagnostics)
 		}
 	}

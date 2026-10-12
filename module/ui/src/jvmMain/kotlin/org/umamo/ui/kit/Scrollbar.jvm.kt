@@ -24,6 +24,7 @@ import org.umamo.ui.theme.LocalUmamoColors
 @Composable
 private fun umamoScrollbarStyle(): ScrollbarStyle {
 	val colors = LocalUmamoColors.current
+
 	return ScrollbarStyle(
 		minimalHeight = SCROLLBAR_MIN_THUMB,
 		thickness = SCROLLBAR_THICKNESS,

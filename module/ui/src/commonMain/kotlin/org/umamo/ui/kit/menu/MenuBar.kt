@@ -179,6 +179,7 @@ private fun MenuBarLabel(
 				color = if (menuOpen || hovered) colors.accentText else colors.text,
 			)
 		}
+
 		if (menuOpen) {
 			// Non-focusable so the host window keeps focus and the bar keeps receiving hover (the
 			// sweep-to-switch above): a focusable popup would starve the labels of hover events.  The

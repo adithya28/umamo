@@ -83,6 +83,7 @@ internal fun resolveExportEligibility(
 	// The org tree's part->parent link, inverted ONCE.  Both of these are asked per object further
 	// down, and re-deriving either there turns its pass into a quadratic rescan of the whole tree.
 	val partParentById = HashMap<PartId, PartId>()
+
 	for (part in puppet.parts) {
 		for (child in part.children) {
 			if (child is OrgChild.Part) {
@@ -90,7 +91,9 @@ internal fun resolveExportEligibility(
 			}
 		}
 	}
+
 	val dropped = LinkedHashMap<DrawableId, ExportNoticeReason>()
+
 	for (drawable in puppet.drawables) {
 		val vertexCount = drawable.mesh?.vertexCount ?: 0
 
@@ -106,6 +109,7 @@ internal fun resolveExportEligibility(
 			dropped[drawable.id] = ExportNoticeReason.HiddenDrawableOmittedByExportOption
 		}
 	}
+
 	// A hidden mask is routine in a Cubism rig - the mesh exists to clip, not to draw - so dropping
 	// it for being hidden would unclip everything it masks.  A drawable dropped ONLY by the
 	// hidden-art-mesh option is therefore kept after all when a surviving drawable masks with it,
@@ -117,17 +121,20 @@ internal fun resolveExportEligibility(
 	// the mask handling in the art-mesh lowering).
 	if (dropped.isNotEmpty()) {
 		val masksOfSurvivors = LinkedHashSet<DrawableId>()
+
 		for (drawable in puppet.drawables) {
 			if (drawable.id !in dropped) {
 				masksOfSurvivors.addAll(drawable.maskedBy)
 			}
 		}
+
 		for (maskId in masksOfSurvivors) {
 			if (dropped[maskId] == ExportNoticeReason.HiddenDrawableOmittedByExportOption) {
 				dropped.remove(maskId)
 			}
 		}
 	}
+
 	return Moc3ExportEligibility(
 		drawables = puppet.drawables.filter { drawable -> drawable.id !in dropped },
 		parts = exportableParts,
@@ -152,19 +159,24 @@ private fun partSubtree(puppet: PuppetModel, roots: List<Part>): Set<PartId> {
 	if (roots.isEmpty()) {
 		return emptySet()
 	}
+
 	val partsById = puppet.parts.associateBy { part -> part.id }
 	val omitted = LinkedHashSet<PartId>()
 	val pending = ArrayDeque(roots.map { part -> part.id })
+
 	while (pending.isNotEmpty()) {
 		val partId = pending.removeFirst()
+
 		if (!omitted.add(partId)) {
 			continue
 		}
+
 		for (child in partsById[partId]?.children.orEmpty()) {
 			if (child is OrgChild.Part) {
 				pending.addLast(child.id)
 			}
 		}
 	}
+
 	return omitted
 }

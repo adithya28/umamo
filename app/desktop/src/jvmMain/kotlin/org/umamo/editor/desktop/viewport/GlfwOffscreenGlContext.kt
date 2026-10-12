@@ -29,33 +29,42 @@ internal class GlfwOffscreenGlContext : OffscreenGlContext {
 	 */
 	override fun createAndMakeCurrent(): Boolean {
 		failure = null
+
 		try {
 			if (!GLFW.glfwInit()) {
 				failure = "glfwInit failed: ${lastGlfwError()}"
+
 				return false
 			}
+
 			GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE)
 			GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 3)
 			GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 3)
 			GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE, GLFW.GLFW_OPENGL_CORE_PROFILE)
 			GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_FORWARD_COMPAT, GLFW.GLFW_TRUE)
 			window = GLFW.glfwCreateWindow(1, 1, "umamo-offscreen", MemoryUtil.NULL, MemoryUtil.NULL)
+
 			if (window == MemoryUtil.NULL) {
 				failure = "glfwCreateWindow for a GL 3.3 core context failed: ${lastGlfwError()}"
+
 				return false
 			}
+
 			GLFW.glfwMakeContextCurrent(window)
 			GL.createCapabilities()
+
 			return true
 		} catch (loadFailure: LinkageError) {
 			// A native library that will not load (a missing or rejected dylib, dll, or so) costs the viewport, not
 			// the editor.
 			failure = "the GLFW or OpenGL natives did not load: $loadFailure"
 			destroy()
+
 			return false
 		} catch (glFailure: IllegalStateException) {
 			failure = "OpenGL capabilities could not be created: ${glFailure.message}"
 			destroy()
+
 			return false
 		}
 	}
@@ -71,6 +80,7 @@ internal class GlfwOffscreenGlContext : OffscreenGlContext {
 		MemoryStack.stackPush().use { stack ->
 			val description = stack.mallocPointer(1)
 			val code = GLFW.glfwGetError(description)
+
 			if (code == GLFW.GLFW_NO_ERROR) {
 				"GLFW reported no error"
 			} else {

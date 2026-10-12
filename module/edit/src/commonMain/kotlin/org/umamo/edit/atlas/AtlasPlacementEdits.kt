@@ -67,29 +67,39 @@ fun PuppetModel.withAtlasPlacements(placementByTile: Map<AtlasTileId, AtlasPlace
 	if (placementByTile.isEmpty()) {
 		return this
 	}
+
 	val movedTiles = atlas.tiles.toMutableList()
 	val changedTileIds = ArrayList<AtlasTileId>()
+
 	for ((tileId, placement) in placementByTile) {
 		val tileIndex = movedTiles.indexOfFirst { tile -> tile.id == tileId }
+
 		if (tileIndex < 0) {
 			return this
 		}
+
 		if (placement != null && placement.pageIndex !in atlas.pages.indices) {
 			return this
 		}
+
 		val tile = movedTiles[tileIndex]
+
 		if (tile.placement == placement) {
 			continue
 		}
+
 		// An unpacked tile has no placement to keep, so packing one out drops its pin with it.
 		movedTiles[tileIndex] = tile.copy(placement = placement, pinned = tile.pinned && placement != null)
 		changedTileIds.add(tileId)
 	}
+
 	if (changedTileIds.isEmpty()) {
 		return this
 	}
+
 	val newAtlas = atlas.copy(tiles = movedTiles)
 	val remapByTile = HashMap<AtlasTileId, AtlasTileRemap>()
+
 	for (tileId in changedTileIds) {
 		when (val outcome = tileRemap(atlas, newAtlas, tileId)) {
 			TileRemapOutcome.Unchanged -> Unit
@@ -97,6 +107,7 @@ fun PuppetModel.withAtlasPlacements(placementByTile: Map<AtlasTileId, AtlasPlace
 			is TileRemapOutcome.Remap -> remapByTile[tileId] = outcome.remap
 		}
 	}
+
 	return copy(atlas = newAtlas, drawables = drawables.remappedOver(remapByTile))
 }
 
@@ -116,6 +127,7 @@ fun PuppetModel.withAtlasPins(tileIds: Collection<AtlasTileId>, pinned: Boolean)
 	if (tileIds.isEmpty()) {
 		return this
 	}
+
 	val wanted = tileIds.toSet()
 	var changed = false
 	val tiles =
@@ -127,9 +139,11 @@ fun PuppetModel.withAtlasPins(tileIds: Collection<AtlasTileId>, pinned: Boolean)
 				tile
 			}
 		}
+
 	if (!changed) {
 		return this
 	}
+
 	return copy(atlas = atlas.copy(tiles = tiles))
 }
 
@@ -177,13 +191,17 @@ private sealed interface TileRemapOutcome {
 private fun tileRemap(oldAtlas: PuppetAtlas, newAtlas: PuppetAtlas, tileId: AtlasTileId): TileRemapOutcome {
 	val oldAffine = oldAtlas.storedToArtAffineForTile(tileId)
 	val newAffine = newAtlas.storedToArtAffineForTile(tileId)
+
 	if (oldAffine != null && newAffine != null && oldAffine.contentEquals(newAffine)) {
 		return TileRemapOutcome.Unchanged
 	}
+
 	val artToStored = newAffine?.let { affine -> invertUvAffine(affine) }
+
 	if (oldAffine == null || artToStored == null) {
 		return TileRemapOutcome.Inexpressible
 	}
+
 	return TileRemapOutcome.Remap(AtlasTileRemap(oldAffine, artToStored))
 }
 
@@ -199,6 +217,7 @@ private fun List<Drawable>.remappedOver(remapByTile: Map<AtlasTileId, AtlasTileR
 	if (remapByTile.isEmpty()) {
 		return this
 	}
+
 	return map { drawable ->
 		val remap = drawable.atlasTileId?.let { tileId -> remapByTile[tileId] } ?: return@map drawable
 		val mesh = drawable.mesh ?: return@map drawable
@@ -244,6 +263,7 @@ fun PuppetModel.withAtlasRepack(
 	require(placementsByTile.keys == atlas.tiles.map { tile -> tile.id }.toSet()) {
 		"a repack must restate every tile's placement exactly once"
 	}
+
 	for ((tileId, placement) in placementsByTile) {
 		if (placement != null) {
 			require(placement.pageIndex in pages.indices) {
@@ -251,6 +271,7 @@ fun PuppetModel.withAtlasRepack(
 			}
 		}
 	}
+
 	// A tile without a placement is never pinned, so a tile the pack left out drops its pin.
 	val movedTiles =
 		atlas.tiles.map { tile ->
@@ -258,21 +279,31 @@ fun PuppetModel.withAtlasRepack(
 			tile.copy(placement = placement, pinned = tile.pinned && placement != null)
 		}
 	val newAtlas = atlas.copy(pages = pages, tiles = movedTiles, composition = composition)
+
 	if (newAtlas == atlas) {
 		return this
 	}
 
 	val boundTileIds = drawables.mapNotNullTo(HashSet()) { drawable -> drawable.atlasTileId }
 	val remapByTile = HashMap<AtlasTileId, AtlasTileRemap>()
+
 	for (tile in atlas.tiles) {
 		when (val outcome = tileRemap(atlas, newAtlas, tile.id)) {
-			TileRemapOutcome.Unchanged -> Unit
-			TileRemapOutcome.Inexpressible ->
+			TileRemapOutcome.Unchanged -> {
+				Unit
+			}
+
+			TileRemapOutcome.Inexpressible -> {
 				require(tile.id !in boundTileIds) {
 					"tile '${tile.id.raw}' has drawables bound but no expressible re-derivation"
 				}
-			is TileRemapOutcome.Remap -> remapByTile[tile.id] = outcome.remap
+			}
+
+			is TileRemapOutcome.Remap -> {
+				remapByTile[tile.id] = outcome.remap
+			}
 		}
 	}
+
 	return copy(atlas = newAtlas, drawables = drawables.remappedOver(remapByTile))
 }

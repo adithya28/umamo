@@ -77,6 +77,7 @@ object KraReader : ArtReader {
 		val topLayers =
 			imageElement.childrenNamed("layers").firstOrNull() // newer schema: lowercase layers
 				?: imageElement.childrenNamed("LAYERS").firstOrNull() // legacy schema: uppercase LAYERS
+
 		if (topLayers != null) {
 			collectPaintLayers(topLayers, parentPath = "", paintLayersTopToBottom, groupPaths, groups)
 		}
@@ -123,15 +124,19 @@ private fun isKra(bytes: ByteArray): Boolean {
 	// "kr|ita" — so scan for the real entry content.  Both are accepted anyway: neither string can
 	// occur this early in a non-Krita ZIP, so allowing both only buys tolerance of writer variation.
 	val zipMagic = byteArrayOf(0x50, 0x4B, 0x03, 0x04) // "PK\x03\x04"
+
 	if (bytes.size < zipMagic.size) {
 		return false
 	}
+
 	for (magicIndex in zipMagic.indices) {
 		if (bytes[magicIndex] != zipMagic[magicIndex]) {
 			return false
 		}
 	}
+
 	val scanLimit = min(bytes.size, 128)
+
 	return KRA_MIMETYPE_MARKERS.any { marker -> indexOfBytes(bytes, marker.encodeToByteArray(), scanLimit) >= 0 }
 }
 
@@ -156,18 +161,24 @@ private fun indexOfBytes(haystack: ByteArray, needle: ByteArray, scanLimit: Int)
 	if (needle.isEmpty()) {
 		return -1
 	}
+
 	val lastStart = min(scanLimit, haystack.size - needle.size + 1)
 	var startIndex = 0
+
 	while (startIndex < lastStart) {
 		var matchIndex = 0
+
 		while (matchIndex < needle.size && haystack[startIndex + matchIndex] == needle[matchIndex]) {
 			matchIndex++
 		}
+
 		if (matchIndex == needle.size) {
 			return startIndex
 		}
+
 		startIndex++
 	}
+
 	return -1
 }
 
@@ -197,6 +208,7 @@ private fun collectPaintLayers(
 				?: ""
 		val nodeType = rawNodeType.lowercase()
 		val name = layerElement.getAttributeValue("name") ?: ""
+
 		when (nodeType) {
 			"grouplayer" -> {
 				val childPath = if (parentPath.isEmpty()) name else "$parentPath/$name"
@@ -204,6 +216,7 @@ private fun collectPaintLayers(
 				val nested =
 					layerElement.childrenNamed("layers").firstOrNull()
 						?: layerElement.childrenNamed("LAYERS").firstOrNull()
+
 				if (nested != null) {
 					collectPaintLayers(nested, childPath, paintLayers, groupPaths, groups)
 				}
@@ -213,8 +226,11 @@ private fun collectPaintLayers(
 				paintLayers.add(layerElement)
 				groupPaths.add(parentPath)
 			}
+
 			// adjustment/generator/clone/shape/file layers and masks carry no plain raster - skip.
-			else -> Unit
+			else -> {
+				Unit
+			}
 		}
 	}
 }
@@ -336,12 +352,14 @@ private fun assembleRaster(
 	var minTop = Int.MAX_VALUE
 	var maxRight = Int.MIN_VALUE
 	var maxBottom = Int.MIN_VALUE
+
 	for (tile in tiles.tiles) {
 		minLeft = min(minLeft, tile.left)
 		minTop = min(minTop, tile.top)
 		maxRight = max(maxRight, tile.left + tiles.tileWidth)
 		maxBottom = max(maxBottom, tile.top + tiles.tileHeight)
 	}
+
 	val width = maxRight - minLeft
 	val height = maxBottom - minTop
 	val rgba = ByteArray(width * height * 4)
@@ -349,9 +367,11 @@ private fun assembleRaster(
 	// Pre-fill with the converted default pixel (the color Krita uses for untiled gaps). A
 	// transparent default leaves the zero-initialised buffer untouched.
 	val fillPixel = ByteArray(4)
+
 	if (defaultPixelBytes != null && defaultPixelBytes.size >= format.pixelSize) {
 		format.convertPixel(defaultPixelBytes, 0, fillPixel, 0)
 	}
+
 	if (fillPixel[0].toInt() != 0 || fillPixel[1].toInt() != 0 || fillPixel[2].toInt() != 0 || fillPixel[3].toInt() != 0) {
 		for (pixelIndex in 0 until width * height) {
 			fillPixel.copyInto(rgba, pixelIndex * 4, 0, 4)
@@ -363,6 +383,7 @@ private fun assembleRaster(
 			val destinationY = tile.top - minTop + rowIndex
 			val rowBase = (destinationY * width + (tile.left - minLeft)) * 4
 			val sourceRowBase = rowIndex * tiles.tileWidth * tiles.pixelSize
+
 			for (columnIndex in 0 until tiles.tileWidth) {
 				format.convertPixel(
 					tile.pixels,
@@ -375,6 +396,7 @@ private fun assembleRaster(
 	}
 
 	val bounds = LayerBounds(left = minLeft + layerX, top = minTop + layerY, width = width, height = height)
+
 	return AssembledRaster(bounds, LayerRaster(width = width, height = height, rgba = rgba))
 }
 
@@ -421,6 +443,7 @@ private fun parseMainDocument(xmlBytes: ByteArray): Element {
 		builder.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
 	}
 	builder.setEntityResolver { _, _ -> InputSource(StringReader("")) }
+
 	return builder.build(ByteArrayInputStream(xmlBytes)).rootElement
 }
 
@@ -436,6 +459,7 @@ private fun parseMainDocument(xmlBytes: ByteArray): Element {
  */
 private fun unzipEntries(bytes: ByteArray): Map<String, ByteArray> {
 	val archive = ZipArchive.read(bytes)
+
 	return archive.entries
 		.filterNot { entry -> entry.isDirectory }
 		.associate { entry -> entry.name to archive.contents(entry) }

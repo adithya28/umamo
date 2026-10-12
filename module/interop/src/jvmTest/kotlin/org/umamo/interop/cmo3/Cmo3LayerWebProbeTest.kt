@@ -106,6 +106,7 @@ class Cmo3LayerWebProbeTest {
 	private fun layerInputsOf(modelImage: CModelImage): List<CLayerInputData> {
 		// CMO3: CModelImage field inputFilterEnv -> CLayerSelectorMap field _imageToLayerInput
 		val selectorMap = modelImage.inputFilterEnv as? CLayerSelectorMap ?: return emptyList()
+
 		return elements(selectorMap._imageToLayerInput).flatMap { perImage ->
 			elements(perImage).filterIsInstance<CLayerInputData>()
 		}
@@ -124,13 +125,16 @@ class Cmo3LayerWebProbeTest {
 
 		var drawablesWithModelImage = 0
 		var optionalTransformsOnCanvas = 0
+
 		for (mesh in artMeshes(root)) {
 			// CMO3: CArtMeshSource field _extensions -> CTextureInputExtension field _textureInputs
 			val extension = elements(mesh._extensions).filterIsInstance<CTextureInputExtension>().firstOrNull()
 			val inputs = elements(extension?._textureInputs)
+
 			if (inputs.any { input -> input is CTextureInput_ModelImage }) {
 				drawablesWithModelImage++
 			}
+
 			// CMO3: ACTextureInput field optionalTransformOnCanvas
 			optionalTransformsOnCanvas +=
 				inputs.count { input -> (input as? org.umamo.format.cmo3.model.gen.ACTextureInput)?.optionalTransformOnCanvas != null }
@@ -140,22 +144,29 @@ class Cmo3LayerWebProbeTest {
 		var scaled = 0
 		var mirrored = 0
 		var fractional = 0
+
 		for (entry in placements) {
 			// CMO3: ModelImageEntry field materialLocalToAtlasTransform (GTransform2: position, scale, eulerAngle)
 			val placement = entry.materialLocalToAtlasTransform as? GTransform2 ?: continue
+
 			if (placement.eulerAngle != 0f) {
 				rotated++
 			}
+
 			val scale = placement.scale as? GVector2
+
 			if (scale != null) {
 				if (scale.x < 0f || scale.y < 0f) {
 					mirrored++
 				}
+
 				if (kotlin.math.abs(kotlin.math.abs(scale.x) - 1f) > 1e-4f || kotlin.math.abs(kotlin.math.abs(scale.y) - 1f) > 1e-4f) {
 					scaled++
 				}
 			}
+
 			val position = placement.position as? GVector2
+
 			if (position != null && (position.x != kotlin.math.floor(position.x) || position.y != kotlin.math.floor(position.y))) {
 				fractional++
 			}
@@ -183,12 +194,15 @@ class Cmo3LayerWebProbeTest {
 	@Test
 	fun surveysTheLayeredArtWebAcrossTheCorpus() {
 		val files = corpusFiles()
+
 		if (files.isEmpty()) {
 			println("cmo3.probe lists no readable samples; skipping the layered-art web probe")
+
 			return
 		}
 
 		val surveys = mutableListOf<LayerWebSurvey>()
+
 		for (file in files) {
 			val root = Cmo3.read(file).root as? CModelSource ?: continue
 			surveys.add(surveyOf(file.name, root))
@@ -196,6 +210,7 @@ class Cmo3LayerWebProbeTest {
 
 		println("CMO3 layered-art web survey (${surveys.size} files)")
 		println("file | drawables (w/ model image) | model images (packed) | atlases | rot | scaled | mirrored | fractional | multi-layer | no pixels | optionalTransform")
+
 		for (survey in surveys) {
 			println(
 				"${survey.fileName} | ${survey.drawableCount} (${survey.drawablesWithModelImage}) | " +
@@ -210,6 +225,7 @@ class Cmo3LayerWebProbeTest {
 		// join, or the walk above is broken rather than the corpus being sparse.
 		val webBearing = surveys.filter { survey -> survey.atlasCount > 0 && survey.modelImageCount > 0 }
 		assertTrue(webBearing.isNotEmpty(), "no corpus file carries both an atlas and model images; the walk is broken")
+
 		for (survey in webBearing) {
 			assertTrue(
 				survey.drawablesWithModelImage > 0,
@@ -227,24 +243,31 @@ class Cmo3LayerWebProbeTest {
 	@Test
 	fun characterizesTheOptionalCanvasTransform() {
 		val files = corpusFiles()
+
 		if (files.isEmpty()) {
 			println("cmo3.probe lists no readable samples; skipping the optional-canvas-transform probe")
+
 			return
 		}
+
 		val typeCounts = mutableMapOf<String, Int>()
 		var identityCount = 0
 		var nonIdentityCount = 0
 		val nonIdentityExamples = mutableListOf<String>()
+
 		for (file in files) {
 			val root = Cmo3.read(file).root as? CModelSource ?: continue
+
 			for (mesh in artMeshes(root)) {
 				val extension = elements(mesh._extensions).filterIsInstance<CTextureInputExtension>().firstOrNull()
+
 				for (input in elements(extension?._textureInputs)) {
 					// CMO3: ACTextureInput field optionalTransformOnCanvas
 					val transform = (input as? ACTextureInput)?.optionalTransformOnCanvas ?: continue
 					val typeName = "${input::class.simpleName}.${transform::class.simpleName}"
 					typeCounts[typeName] = (typeCounts[typeName] ?: 0) + 1
 					val affine = transform as? CAffine
+
 					if (affine != null &&
 						affine.m00 == 1f &&
 						affine.m01 == 0f &&
@@ -256,6 +279,7 @@ class Cmo3LayerWebProbeTest {
 						identityCount++
 					} else {
 						nonIdentityCount++
+
 						if (nonIdentityExamples.size < 8) {
 							nonIdentityExamples.add("${file.name} ${(mesh.id as? Id)?.idstr} $typeName $transform")
 						}
@@ -263,11 +287,14 @@ class Cmo3LayerWebProbeTest {
 				}
 			}
 		}
+
 		println("optionalTransformOnCanvas: identity=$identityCount nonIdentity=$nonIdentityCount")
 		println("  by type: $typeCounts")
+
 		for (example in nonIdentityExamples) {
 			println("  non-identity: $example")
 		}
+
 		assertTrue(typeCounts.isNotEmpty(), "no optionalTransformOnCanvas values were seen; the walk is broken")
 	}
 
@@ -288,13 +315,17 @@ class Cmo3LayerWebProbeTest {
 	@Test
 	fun boundDrawablesAgreeOnSamplingTheAtlas() {
 		val files = corpusFiles()
+
 		if (files.isEmpty()) {
 			println("cmo3.probe lists no readable samples; skipping the placement-agreement probe")
+
 			return
 		}
+
 		var checkedModelImages = 0
 		var sharedModelImages = 0
 		val disagreements = mutableListOf<String>()
+
 		for (file in files) {
 			val root = Cmo3.read(file).root as? CModelSource ?: continue
 			// CMO3: CTextureAtlas field cachedAtlasImage - identity membership is the test the real
@@ -307,6 +338,7 @@ class Cmo3LayerWebProbeTest {
 					.toHashSet()
 			// Per model image, the distinct samplesAtlasPage answers its drawables give.
 			val answersByModelImage = HashMap<String, MutableSet<Boolean>>()
+
 			for (mesh in artMeshes(root)) {
 				// CMO3: CArtMeshSource field _extensions -> CTextureInputExtension field _textureInputs ->
 				// CTextureInput_ModelImage field _modelImageGuid
@@ -318,14 +350,18 @@ class Cmo3LayerWebProbeTest {
 				val sampledResource = (mesh.texture as? GTexture2D)?.srcImageResource as? CImageResource
 				answersByModelImage.getOrPut(key) { mutableSetOf() }.add(sampledResource != null && sampledResource in atlasPageResources)
 			}
+
 			for ((key, answers) in answersByModelImage) {
 				checkedModelImages++
+
 				if (answers.size > 1) {
 					disagreements.add("${file.name}: model image $key has drawables on both sides")
 				}
 			}
+
 			sharedModelImages += answersByModelImage.count { (_, answers) -> answers.isNotEmpty() }
 		}
+
 		println("[placement-agreement] $checkedModelImages model images across ${files.size} files, $sharedModelImages bound")
 		disagreements.forEach { line -> println("[placement-agreement] DISAGREEMENT $line") }
 		assertTrue(checkedModelImages > 0, "the walk found no bound model images at all, so it proved nothing")
@@ -340,13 +376,18 @@ class Cmo3LayerWebProbeTest {
 	@Test
 	fun everyArtMeshCarriesAJoinableId() {
 		val files = corpusFiles()
+
 		if (files.isEmpty()) {
 			println("cmo3.probe lists no readable samples; skipping the art-mesh id probe")
+
 			return
 		}
+
 		var checked = 0
+
 		for (file in files) {
 			val root = Cmo3.read(file).root as? CModelSource ?: continue
+
 			for (mesh in artMeshes(root)) {
 				// CMO3: CArtMeshSource field id - the DrawableId Cmo3Import mints, and the store's join key.
 				val idString = (mesh.id as? Id)?.idstr
@@ -354,6 +395,7 @@ class Cmo3LayerWebProbeTest {
 				checked++
 			}
 		}
+
 		assertTrue(checked > 0, "no art meshes were checked; the corpus walk is broken")
 	}
 }

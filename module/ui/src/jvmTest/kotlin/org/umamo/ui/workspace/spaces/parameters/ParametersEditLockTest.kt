@@ -36,6 +36,7 @@ class ParametersEditLockTest {
 		val harness = ParametersPanelHarness(showHeader = showHeader)
 		test.mountParametersPanel(harness)
 		lock(test, harness)
+
 		return harness
 	}
 

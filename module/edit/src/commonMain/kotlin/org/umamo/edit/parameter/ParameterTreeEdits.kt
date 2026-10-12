@@ -65,6 +65,7 @@ internal fun collectParameterGroupIds(nodes: List<ParameterNode>): Set<Parameter
 		}
 	}
 	walk(nodes)
+
 	return ids
 }
 
@@ -89,6 +90,7 @@ private fun ParameterMoveSubject.movedGroupId(): ParameterGroupId? =
 private fun List<ParameterNode>.detachSubject(subject: ParameterMoveSubject): List<ParameterNode> {
 	val movedLeaves = subject.movedLeafIds()
 	val movedGroup = subject.movedGroupId()
+
 	return filterNot { node ->
 		when (node) {
 			is ParameterNode.Param -> node.id in movedLeaves
@@ -105,6 +107,7 @@ private fun List<ParameterNode>.withNodesInsertedBefore(inserted: List<Parameter
 			result.indexOfFirst { node -> node.matchesRef(ref) }
 		}?.takeIf { index -> index >= 0 } ?: result.size
 	result.addAll(insertAt, inserted)
+
 	return result
 }
 
@@ -140,15 +143,20 @@ fun PuppetModel.withParameterRowMoved(
 	if (subject is ParameterMoveSubject.Group && newParentGroupId != null) {
 		return this
 	}
+
 	val workingTree = materializedParameterTree()
+
 	if (newParentGroupId != null && newParentGroupId !in collectParameterGroupIds(workingTree)) {
 		return this
 	}
+
 	// Detached-first snapshot of what is being moved, resolved before the tree loses it.
 	val insertedNodes = collectSubjectNodes(workingTree, subject)
+
 	if (insertedNodes.isEmpty()) {
 		return this
 	}
+
 	// Detach at the root and inside every group.
 	val detachedRoot =
 		workingTree.detachSubject(subject).map { node ->
@@ -170,9 +178,11 @@ fun PuppetModel.withParameterRowMoved(
 				}
 			}
 		}
+
 	if (newTree == workingTree) {
 		return this
 	}
+
 	return copy(parameterTree = newTree)
 }
 
@@ -187,8 +197,10 @@ private fun collectSubjectNodes(tree: List<ParameterNode>, subject: ParameterMov
 			val present = collectLeafIds(tree)
 			subject.ids.filter { id -> id in present }.map { id -> ParameterNode.Param(id) }
 		}
+
 		is ParameterMoveSubject.Group -> {
 			val found = findGroupNode(tree, subject.id)
+
 			if (found == null) {
 				emptyList()
 			} else {
@@ -210,6 +222,7 @@ private fun collectLeafIds(nodes: List<ParameterNode>): Set<ParameterId> {
 		}
 	}
 	walk(nodes)
+
 	return ids
 }
 
@@ -220,12 +233,15 @@ private fun findGroupNode(nodes: List<ParameterNode>, groupId: ParameterGroupId)
 			if (node.id == groupId) {
 				return node
 			}
+
 			val nested = findGroupNode(node.children, groupId)
+
 			if (nested != null) {
 				return nested
 			}
 		}
 	}
+
 	return null
 }
 

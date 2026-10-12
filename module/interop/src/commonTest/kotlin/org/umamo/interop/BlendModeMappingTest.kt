@@ -53,6 +53,7 @@ class BlendModeMappingTest {
 	fun colorTableIsACompleteBijection() {
 		assertEquals(BlendMode.entries.size, colorRows.size, "one row per BlendMode constant")
 		assertEquals(colorRows.size, colorRows.map { it.mode }.toSet().size, "modes are distinct")
+
 		for (row in colorRows) {
 			assertEquals(row.mode, colorBlendOfToken(row.token), "token ${row.token}")
 			assertEquals(row.mode, colorBlendOfPacked(row.packedColor), "packed colorMode ${row.packedColor}")
@@ -63,6 +64,7 @@ class BlendModeMappingTest {
 	fun alphaTableIsACompleteBijection() {
 		assertEquals(AlphaBlendMode.entries.size, alphaRows.size, "one row per AlphaBlendMode constant")
 		assertEquals(alphaRows.size, alphaRows.map { it.mode }.toSet().size, "modes are distinct")
+
 		for (row in alphaRows) {
 			assertEquals(row.mode, alphaBlendOfToken(row.token), "token ${row.token}")
 			assertEquals(row.mode, alphaBlendOfPacked(row.packedAlpha shl 8), "packed alphaMode ${row.packedAlpha}")

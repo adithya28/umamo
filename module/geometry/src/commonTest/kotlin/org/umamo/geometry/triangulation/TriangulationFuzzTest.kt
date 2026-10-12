@@ -29,12 +29,14 @@ class TriangulationFuzzTest {
 			val random = Random(2000 + seed)
 			val pointCount = random.nextInt(3, 160)
 			val points = DoubleArray(2 * pointCount)
+
 			for (pointIndex in 0 until pointCount) {
 				val isOutlier = random.nextInt(20) == 0
 				val spread = if (isOutlier) 1e6 else 1e-3
 				points[2 * pointIndex] = random.nextDouble(-spread, spread)
 				points[2 * pointIndex + 1] = random.nextDouble(-spread, spread)
 			}
+
 			assertValidAtEveryStep(points)
 		}
 	}
@@ -45,6 +47,7 @@ class TriangulationFuzzTest {
 			val random = Random(3000 + seed)
 			val pointCount = random.nextInt(3, 160)
 			val points = DoubleArray(2 * pointCount)
+
 			for (pointIndex in 0 until pointCount) {
 				when (random.nextInt(3)) {
 					0 -> {
@@ -52,17 +55,20 @@ class TriangulationFuzzTest {
 						points[2 * pointIndex] = 10.0 * cos(angle)
 						points[2 * pointIndex + 1] = 10.0 * sin(angle)
 					}
+
 					1 -> {
 						val along = random.nextInt(-20, 21).toDouble()
 						points[2 * pointIndex] = along
 						points[2 * pointIndex + 1] = 0.5 * along + 3.0
 					}
+
 					else -> {
 						points[2 * pointIndex] = random.nextDouble(-12.0, 12.0)
 						points[2 * pointIndex + 1] = random.nextDouble(-12.0, 12.0)
 					}
 				}
 			}
+
 			assertValidAtEveryStep(points)
 		}
 	}

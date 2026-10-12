@@ -42,6 +42,7 @@ internal suspend fun collectUvObjectGizmoRequests(
 		if (session.mode.value != EditorMode.Object || request.areaId != areaId) {
 			return@collect
 		}
+
 		handleUvObjectSnapRequest(
 			session = session,
 			surface = surface.value,

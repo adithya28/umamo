@@ -29,10 +29,13 @@ class Cmo3PhysicsDeletedParameterExportTest {
 	@Test
 	fun deletingAPhysicsDrivenParameterReportsTheSettings() {
 		val sample = System.getProperty("cmo3.sample")?.let(::File)?.takeIf { file -> file.isFile }
+
 		if (sample == null) {
 			println("cmo3.sample not present; skipping the deleted-parameter physics notice")
+
 			return
 		}
+
 		val cmo3 = Cmo3.read(sample)
 		val root = cmo3.root as CModelSource
 		// CMO3: CModelSource field physicsSettingsSourceSet -> CPhysicsSettingsSourceSet field _sourceCubismPhysics.

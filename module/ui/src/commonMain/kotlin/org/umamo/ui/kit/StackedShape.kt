@@ -52,16 +52,25 @@ fun stackPositionOf(index: Int, count: Int): StackPosition =
  */
 fun stackedShape(groupShape: CornerBasedShape, position: StackPosition, axis: StackAxis): Shape =
 	when (position) {
-		StackPosition.Single -> groupShape
-		StackPosition.Middle -> RectangleShape
-		StackPosition.First ->
+		StackPosition.Single -> {
+			groupShape
+		}
+
+		StackPosition.Middle -> {
+			RectangleShape
+		}
+
+		StackPosition.First -> {
 			when (axis) {
 				StackAxis.Horizontal -> groupShape.copy(topEnd = ZeroCornerSize, bottomEnd = ZeroCornerSize)
 				StackAxis.Vertical -> groupShape.copy(bottomStart = ZeroCornerSize, bottomEnd = ZeroCornerSize)
 			}
-		StackPosition.Last ->
+		}
+
+		StackPosition.Last -> {
 			when (axis) {
 				StackAxis.Horizontal -> groupShape.copy(topStart = ZeroCornerSize, bottomStart = ZeroCornerSize)
 				StackAxis.Vertical -> groupShape.copy(topStart = ZeroCornerSize, topEnd = ZeroCornerSize)
 			}
+		}
 	}

@@ -86,6 +86,7 @@ internal fun Viewport2DBody(scope: AreaScope) {
 			} else {
 				Box(modifier = Modifier.fillMaxSize().background(LocalUmamoColors.current.viewportGridBackground))
 			}
+
 			if (chrome.showToolbar) {
 				ViewportToolbarOverlay(
 					modifier =
@@ -94,6 +95,7 @@ internal fun Viewport2DBody(scope: AreaScope) {
 							.padding(start = 6.dp),
 				)
 			}
+
 			ViewportSidebarDrawer(modifier = Modifier.align(Alignment.CenterEnd))
 		}
 	}

@@ -42,6 +42,7 @@ internal fun overlayCommands(areaOverlays: AreaOverlayHub, routing: CommandRouti
 	 * @return ViewportOverlayState? The hovered 2D viewport's overlay state, or null.
 	 */
 	fun hovered2DOverlays(): ViewportOverlayState? = hoveredOverlays()?.takeIf { state -> state.surface == OverlaySurface.Viewport2D }
+
 	return listOf(
 		// The Show Overlays master (Blender's Shift+Alt+Z): every overlay of the area at once, each row's own
 		// flag kept for when it comes back.

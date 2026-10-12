@@ -105,6 +105,7 @@ class KeyformGeometryEditsTest {
 		val vertical = Parameter(angleY, "ParamAngleY", min = -30f, max = 30f, default = 0f)
 		val onVertical = KeyformGrid(listOf(KeyformAxis(angleY, floatArrayOf(-30f, 0f, 30f))), meshGrid().cells)
 		val base = model()
+
 		return base.copy(
 			parameters = listOf(parameter, vertical),
 			drawables = listOf(base.drawables.single().copy(geometryGrid = onVertical)),

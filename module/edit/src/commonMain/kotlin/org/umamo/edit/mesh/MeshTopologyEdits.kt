@@ -104,6 +104,7 @@ fun PuppetModel.withMeshTopologyEdit(id: DrawableId, edit: MeshTopologyEdit): Pu
 	val drawable = drawables.firstOrNull { candidate -> candidate.id == id } ?: return this
 	val oldMesh = drawable.mesh ?: return this
 	val newVertexCount = edit.newMesh.vertexCount
+
 	if (edit.vertexSources.size != newVertexCount) {
 		return this
 	}
@@ -148,17 +149,19 @@ fun PuppetModel.withMeshTopologyEdit(id: DrawableId, edit: MeshTopologyEdit): Pu
 	val oldToNewIndex = IntArray(oldMesh.vertexCount) { -1 }
 	edit.vertexSources.forEachIndexed { newIndex, source ->
 		when (source) {
-			is VertexSource.FromOld ->
+			is VertexSource.FromOld -> {
 				if (source.oldIndex in 0 until oldMesh.vertexCount && oldToNewIndex[source.oldIndex] == -1) {
 					oldToNewIndex[source.oldIndex] = newIndex
 				}
+			}
 
-			is VertexSource.AverageOf ->
+			is VertexSource.AverageOf -> {
 				for (oldIndex in source.oldIndices) {
 					if (oldIndex in 0 until oldMesh.vertexCount && oldToNewIndex[oldIndex] == -1) {
 						oldToNewIndex[oldIndex] = newIndex
 					}
 				}
+			}
 
 			// A split point and an interpolated vertex are brand-new vertices; they claim no old identity.
 			is VertexSource.LerpOf, is VertexSource.Weighted -> {}
@@ -182,6 +185,7 @@ fun PuppetModel.withMeshTopologyEdit(id: DrawableId, edit: MeshTopologyEdit): Pu
 					glue.pairs.mapNotNull { pair ->
 						val newIndexA = if (glue.meshA == id) oldToNewIndex.getOrElse(pair.indexA) { -1 } else pair.indexA
 						val newIndexB = if (glue.meshB == id) oldToNewIndex.getOrElse(pair.indexB) { -1 } else pair.indexB
+
 						if (newIndexA < 0 || newIndexB < 0) {
 							// The welded vertex no longer exists: the pair is dropped, never left dangling.
 							null
@@ -192,6 +196,7 @@ fun PuppetModel.withMeshTopologyEdit(id: DrawableId, edit: MeshTopologyEdit): Pu
 				glue.copy(pairs = remappedPairs)
 			}
 		}
+
 	return copy(drawables = newDrawables, glues = newGlues)
 }
 
@@ -260,10 +265,12 @@ internal fun remapPerVertex(values: FloatArray, vertexSources: List<VertexSource
 				if (source.oldIndices.isNotEmpty()) {
 					var sumX = 0f
 					var sumY = 0f
+
 					for (oldIndex in source.oldIndices) {
 						sumX += oldX(oldIndex)
 						sumY += oldY(oldIndex)
 					}
+
 					newValues[newIndex * 2] = sumX / source.oldIndices.size
 					newValues[newIndex * 2 + 1] = sumY / source.oldIndices.size
 				}
@@ -288,6 +295,7 @@ internal fun remapPerVertex(values: FloatArray, vertexSources: List<VertexSource
 			}
 		}
 	}
+
 	return newValues
 }
 
@@ -310,9 +318,11 @@ internal fun remapPerVertex(values: FloatArray, vertexSources: List<VertexSource
  */
 fun EditorSession.commitMeshTopology(labelKey: String, drawableId: DrawableId, result: TopologyOpResult): Boolean {
 	val newModel = model.value.withMeshTopologyEdit(drawableId, result.edit)
+
 	if (newModel === model.value) {
 		return false
 	}
+
 	val current = meshSelection.value
 	val vertexResult =
 		MeshSelection(
@@ -324,6 +334,7 @@ fun EditorSession.commitMeshTopology(labelKey: String, drawableId: DrawableId, r
 		)
 	val newSelection = rederiveTopologyResult(vertexResult, current.selectMode, drawableId, newModel)
 	commitStep(MeshChange.TopologyEdit(drawableId, labelKey), model = newModel, meshSelection = newSelection)
+
 	return true
 }
 
@@ -350,14 +361,17 @@ private fun rederiveTopologyResult(
 	if (selectMode == MeshSelectMode.Vertex || vertexResult.elementsOf(drawableId).isEmpty()) {
 		return vertexResult
 	}
+
 	val rederived =
 		MeshSelectionOps.changeSelectMode(vertexResult, selectMode) { candidateId ->
 			newModel.meshOf(candidateId)?.indices
 		}
 	val rederivedElements = rederived.elementsOf(drawableId)
+
 	if (rederivedElements.isEmpty()) {
 		return vertexResult
 	}
+
 	return rederived.copy(activeElement = ActiveMeshElement(drawableId, rederivedElements.first()))
 }
 
@@ -370,6 +384,7 @@ fun EditorSession.duplicateSelectedElements() {
 	if (mode.value != EditorMode.Edit) {
 		return
 	}
+
 	val selection = meshSelection.value
 	val drawableId = selection.activeDrawableId ?: return
 	val mesh = model.value.meshOf(drawableId) ?: return
@@ -394,12 +409,16 @@ fun EditorSession.mergeSelectedVertices(target: MergeTarget, areaId: String? = n
 	if (mode.value != EditorMode.Edit) {
 		return
 	}
+
 	val selection = meshSelection.value
 	val drawableId = selection.activeDrawableId ?: return
+
 	if (selection.selectMode != MeshSelectMode.Vertex) {
 		emitNotice("notice.merge.needsVertices", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	// The element set is insertion-ordered (a LinkedHashSet built by the gestures), so "first" is
 	// the earliest-selected vertex; "last" prefers the active element (the most recent touch).
 	val orderedVertices = selection.elementsOf(drawableId).filterIsInstance<MeshElement.Vertex>().map { vertex -> vertex.index }.toMutableList()
@@ -408,15 +427,20 @@ fun EditorSession.mergeSelectedVertices(target: MergeTarget, areaId: String? = n
 			orderedVertices.add(activeVertex.index)
 		}
 	}
+
 	if (orderedVertices.size < 2) {
 		emitNotice("notice.merge.needsVertices", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	val mesh = model.value.meshOf(drawableId) ?: return
 	val result = MeshTopologyOps.mergeVertices(mesh, orderedVertices, target) ?: return
+
 	if (!commitMeshTopology("change.mesh.merge", drawableId, result)) {
 		return
 	}
+
 	val mergedVertices = orderedVertices.toList()
 	registerAdjustableOperation(model.value, areaId, mergeParameters(target)) { record ->
 		val adjustedTarget = mergeTargetOf(record.parameters, target)
@@ -436,18 +460,25 @@ fun EditorSession.connectSelectedVertices() {
 	if (mode.value != EditorMode.Edit) {
 		return
 	}
+
 	val selection = meshSelection.value
 	val drawableId = selection.activeDrawableId ?: return
 	val vertices = selection.elementsOf(drawableId).filterIsInstance<MeshElement.Vertex>().map { vertex -> vertex.index }
+
 	if (selection.selectMode != MeshSelectMode.Vertex || vertices.size != 2) {
 		emitNotice("notice.connect.needsTwoVertices", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	val mesh = model.value.meshOf(drawableId) ?: return
 	val result = MeshTopologyOps.connectVertices(mesh, vertices[0], vertices[1])
+
 	if (result == null) {
 		emitNotice("notice.connect.refused", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	commitMeshTopology("change.mesh.connect", drawableId, result)
 }

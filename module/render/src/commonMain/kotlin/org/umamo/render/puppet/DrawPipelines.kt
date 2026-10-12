@@ -91,6 +91,7 @@ internal class DrawPipelines(
 	 */
 	fun drawPipelineFor(isGlueMesh: Boolean, blendMode: BlendMode, cullBackFaces: Boolean): RenderPipeline {
 		val cache = (if (isGlueMesh) gluePipelines else puppetPipelines)[if (cullBackFaces) 1 else 0]
+
 		return cache.getOrPut(blendMode) {
 			val purpose = if (isGlueMesh) PipelinePurpose.PuppetGlueDraw else PipelinePurpose.PuppetDeformDraw
 			device.createRenderPipeline(RenderPipelineSpec(purpose, blendOf(blendMode), cullBackFaces))
@@ -115,14 +116,19 @@ internal class DrawPipelines(
 	private fun blendOf(mode: BlendMode): PipelineBlend =
 		when (mode) {
 			BlendMode.Normal -> PipelineBlend.Normal
+
 			BlendMode.AdditivePremultiplied -> PipelineBlend.Additive
+
 			BlendMode.MultiplyPremultiplied -> PipelineBlend.Multiply
+
 			// Scene draws never reach here with a 5.3 mode (renderPlanNodes routes extended blends
 			// through the destination-sampling composite pass); these branches are a safe fallback
 			// approximating with the legacy fixed-function analog where one exists - the same
 			// approximation the MOC3 constant-flags 2-bit field encodes for old runtimes.
 			BlendMode.Additive, BlendMode.AdditiveGlow -> PipelineBlend.Additive
+
 			BlendMode.Multiply -> PipelineBlend.Multiply
+
 			BlendMode.Darken,
 			BlendMode.ColorBurn,
 			BlendMode.LinearBurn,

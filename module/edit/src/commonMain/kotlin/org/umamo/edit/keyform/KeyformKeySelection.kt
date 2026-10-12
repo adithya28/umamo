@@ -40,6 +40,7 @@ fun selectionAfterKeyRemoval(current: Set<TrackKeyRef>, removed: Set<TrackKeyRef
 	if (removed.isEmpty()) {
 		return current
 	}
+
 	return current
 		.filterNot { key -> key in removed }
 		.map { key ->
@@ -119,6 +120,7 @@ fun EditorSession.dragTrackKeysKeepingSelection(keys: List<Pair<TrackKeyRef, Tri
 	if (keys.isEmpty()) {
 		return
 	}
+
 	val dragged = keys.map { (_, key) -> key }
 	val landed = model.value.trackKeyDragLandings(dragged, fraction)
 	val landedSelection =
@@ -184,6 +186,7 @@ private fun EditorSession.editingKeys(reconcile: (Set<TrackKeyRef>) -> Set<Track
 	val modelBeforeEdit = model.value
 	stageKeySelection(reconciled)
 	edit()
+
 	if (model.value === modelBeforeEdit) {
 		stageKeySelection(selectionBefore)
 	} else {

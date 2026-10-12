@@ -28,7 +28,9 @@ internal class AlphaMask(
 		if (columnIndex < 0 || columnIndex >= width || rowIndex < 0 || rowIndex >= height) {
 			return false
 		}
+
 		val pixelIndex = rowIndex * width + columnIndex
+
 		return (words[pixelIndex ushr 6] and (1L shl (pixelIndex and 63))) != 0L
 	}
 }
@@ -53,6 +55,7 @@ private class ContourPointBuffer {
 		if (size + 2 > storage.size) {
 			storage = storage.copyOf(storage.size * 2)
 		}
+
 		storage[size] = x
 		storage[size + 1] = y
 		size += 2
@@ -80,6 +83,7 @@ private class ContourPointBuffer {
 internal fun signedAreaTwice(points: IntArray): Long {
 	var doubledArea = 0L
 	val pointCount = points.size / 2
+
 	for (pointIndex in 0 until pointCount) {
 		val nextIndex = if (pointIndex + 1 == pointCount) 0 else pointIndex + 1
 		val x = points[pointIndex * 2].toLong()
@@ -88,6 +92,7 @@ internal fun signedAreaTwice(points: IntArray): Long {
 		val nextY = points[nextIndex * 2 + 1].toLong()
 		doubledArea += x * nextY - nextX * y
 	}
+
 	return doubledArea
 }
 
@@ -126,21 +131,27 @@ internal fun traceAlphaContours(mask: AlphaMask, opaqueBounds: LayerBounds): Lis
 	// Bit per pixel: set when the north edge of that pixel (the edge to the pixel above) has
 	// been walked.  Same geometry as the mask itself.
 	val northEdgeVisited = LongArray(((mask.width * mask.height) + 63) ushr 6)
+
 	for (rowIndex in opaqueBounds.top until opaqueBounds.top + opaqueBounds.height) {
 		for (columnIndex in opaqueBounds.left until opaqueBounds.left + opaqueBounds.width) {
 			if (!mask.isOpaque(columnIndex, rowIndex)) {
 				continue
 			}
+
 			if (mask.isOpaque(columnIndex, rowIndex - 1)) {
 				continue
 			}
+
 			val edgeIndex = rowIndex * mask.width + columnIndex
+
 			if ((northEdgeVisited[edgeIndex ushr 6] and (1L shl (edgeIndex and 63))) != 0L) {
 				continue
 			}
+
 			contours.add(traceLoop(mask, northEdgeVisited, columnIndex, rowIndex))
 		}
 	}
+
 	return contours
 }
 
@@ -184,6 +195,7 @@ private fun traceLoop(
 	// pixel to its west having a north edge on the same loop would have been discovered
 	// first), so emitting it up front never duplicates a straight-run point.
 	points.add(cornerX, cornerY)
+
 	while (true) {
 		if (headingX == 1) {
 			// An eastward edge always has its opaque pixel below (opaque-on-right), so the
@@ -191,6 +203,7 @@ private fun traceLoop(
 			val edgeIndex = cornerY * mask.width + cornerX
 			northEdgeVisited[edgeIndex ushr 6] = northEdgeVisited[edgeIndex ushr 6] or (1L shl (edgeIndex and 63))
 		}
+
 		cornerX += headingX
 		cornerY += headingY
 		// The two pixels flanking the edge straight ahead.  The quadrant offsets reduce to
@@ -207,6 +220,7 @@ private fun traceLoop(
 			)
 		val newHeadingX: Int
 		val newHeadingY: Int
+
 		if (leftOpaque && rightOpaque) {
 			// Turn left.
 			newHeadingX = headingY
@@ -222,15 +236,20 @@ private fun traceLoop(
 			newHeadingX = -headingY
 			newHeadingY = headingX
 		}
+
 		if (cornerX == startColumn && cornerY == startRow && newHeadingX == 1 && newHeadingY == 0) {
 			break
 		}
+
 		if (newHeadingX != headingX || newHeadingY != headingY) {
 			points.add(cornerX, cornerY)
 		}
+
 		headingX = newHeadingX
 		headingY = newHeadingY
 	}
+
 	val ring = points.toArray()
+
 	return AlphaContour(ring, isHole = signedAreaTwice(ring) < 0L)
 }

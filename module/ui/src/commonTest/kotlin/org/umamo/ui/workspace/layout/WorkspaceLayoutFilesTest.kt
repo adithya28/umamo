@@ -60,6 +60,7 @@ class WorkspaceLayoutFilesTest {
 			val split = latestLayout.withActiveRoot(reduce(root, AreaCommand.SplitArea(firstLeaf(root).id, SplitOrientation.Vertical)))
 			assertNotEquals(latestLayout, split, "the split must change the tree")
 			latestLayout = split
+
 			return split
 		}
 

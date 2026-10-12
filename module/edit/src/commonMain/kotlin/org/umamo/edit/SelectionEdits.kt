@@ -23,15 +23,18 @@ fun EditorSession.setMeshSelectMode(selectMode: MeshSelectMode) {
 	if (mode.value != EditorMode.Edit) {
 		return
 	}
+
 	val current = meshSelection.value
 	val model = model.value
 	val converted =
 		MeshSelectionOps.changeSelectMode(current, selectMode) { drawableId ->
 			model.meshOf(drawableId)?.indices
 		}
+
 	if (converted == current) {
 		return
 	}
+
 	commitStep(EditorStateChange.MeshSelectModeChanged(selectMode), meshSelection = converted)
 }
 
@@ -44,6 +47,7 @@ fun EditorSession.selectAllMeshElements() {
 	if (mode.value != EditorMode.Edit) {
 		return
 	}
+
 	val current = meshSelection.value
 	val model = model.value
 	setMeshSelection(MeshSelectionOps.selectAll(current) { drawableId -> model.meshOf(drawableId) })
@@ -58,6 +62,7 @@ fun EditorSession.invertMeshSelection() {
 	if (mode.value != EditorMode.Edit) {
 		return
 	}
+
 	val current = meshSelection.value
 	val model = model.value
 	setMeshSelection(MeshSelectionOps.invert(current) { drawableId -> model.meshOf(drawableId) })
@@ -72,6 +77,7 @@ fun EditorSession.selectAllObjects() {
 	if (mode.value != EditorMode.Object) {
 		return
 	}
+
 	setSelection(SelectionOps.selectAll(selection.value, model.value))
 }
 
@@ -83,6 +89,7 @@ fun EditorSession.invertObjectSelection() {
 	if (mode.value != EditorMode.Object) {
 		return
 	}
+
 	setSelection(SelectionOps.invert(selection.value, model.value))
 }
 
@@ -105,16 +112,21 @@ fun EditorSession.switchEditDrawable(drawableId: DrawableId) {
 	if (mode.value != EditorMode.Edit) {
 		return
 	}
+
 	val model = model.value
+
 	if (model.drawables.none { drawable -> drawable.id == drawableId && drawable.mesh != null }) {
 		return
 	}
+
 	elementMemory.stash(meshSelection.value)
 	elementMemory.lastActiveDrawableId = drawableId
 	val newObjectSelection = SelectionOps.replace(SelectionTarget.Drawable(drawableId))
 	val newMeshSelection = elementMemory.restore(MeshSelection.editing(listOf(drawableId)), model)
+
 	if (newObjectSelection == selection.value && newMeshSelection == meshSelection.value) {
 		return
 	}
+
 	commitStep(EditorStateChange.MeshSelectionChanged, selection = newObjectSelection, meshSelection = newMeshSelection)
 }

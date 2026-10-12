@@ -32,8 +32,10 @@ internal fun UvPageUnderlay(
 		// Before the first frame there is no camera to draw anything through, so the area is just the
 		// backdrop color the frame will arrive over - no grid of its own to swap out a moment later.
 		Box(modifier = modifier.fillMaxSize().background(LocalUmamoColors.current.viewportGridBackground))
+
 		return
 	}
+
 	Image(
 		bitmap = rendered.bitmap,
 		contentDescription = null,

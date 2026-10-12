@@ -29,6 +29,7 @@ class RasterThumbnailsTest {
 
 	private fun pixel(image: RasterImage, x: Int, y: Int): List<Int> {
 		val offset = (y * image.width + x) * 4
+
 		return (0 until 4).map { channel -> image.rgba[offset + channel].toInt() and 0xFF }
 	}
 
@@ -36,6 +37,7 @@ class RasterThumbnailsTest {
 	fun aWideRasterFillsTheWidthAndCentersVertically() {
 		val fitted = opaque(4, 2, 200, 100, 50).fittedInto(8)
 		assertEquals(8 to 8, fitted.width to fitted.height)
+
 		for (y in 0 until 8) {
 			for (x in 0 until 8) {
 				val expected = if (y in 2..5) listOf(200, 100, 50, 255) else listOf(0, 0, 0, 0)
@@ -47,6 +49,7 @@ class RasterThumbnailsTest {
 	@Test
 	fun aTallRasterFillsTheHeightAndCentersHorizontally() {
 		val fitted = opaque(1, 3, 10, 20, 30).fittedInto(6)
+
 		for (y in 0 until 6) {
 			for (x in 0 until 6) {
 				val expected = if (x in 2..3) listOf(10, 20, 30, 255) else listOf(0, 0, 0, 0)
@@ -69,6 +72,7 @@ class RasterThumbnailsTest {
 	@Test
 	fun aSmallRasterScalesUp() {
 		val fitted = opaque(1, 1, 5, 6, 7).fittedInto(4)
+
 		for (y in 0 until 4) {
 			for (x in 0 until 4) {
 				assertEquals(listOf(5, 6, 7, 255), pixel(fitted, x, y), "pixel ($x, $y)")

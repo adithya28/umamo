@@ -136,6 +136,7 @@ val checkCommonSourcePurity =
 			val jvmAnnotationImport = Regex("""^import kotlin\.jvm\.(Jvm[A-Za-z]+)""")
 			val charsetsUse = Regex("""\bCharsets\.""")
 			val violations = mutableListOf<String>()
+
 			for (sourceFile in sourceFiles.files.sortedBy { it.path }) {
 				val lines = sourceFile.readLines()
 				val relativePath = sourceFile.relativeTo(repositoryRoot).path
@@ -145,10 +146,13 @@ val checkCommonSourcePurity =
 					}.toSet()
 				lines.forEachIndexed { lineIndex, line ->
 					val trimmed = line.trim()
+
 					if (jvmImport.containsMatchIn(trimmed)) {
 						violations += "$relativePath:${lineIndex + 1}: a common source set must not import a JVM-only API -> $trimmed"
+
 						return@forEachIndexed
 					}
+
 					// Only flag real code, not prose in comments or docblocks.
 					if (!trimmed.startsWith("*") && !trimmed.startsWith("//") && !trimmed.startsWith("/*")) {
 						if (jvmQualifiedUse.containsMatchIn(line)) {
@@ -156,14 +160,17 @@ val checkCommonSourcePurity =
 								"$relativePath:${lineIndex + 1}: a common source set must not reference a JVM-only API, even fully " +
 								"qualified (a qualified use needs no import, so rule 1 alone would miss it) -> $trimmed"
 						}
+
 						jvmAnnotationUse.findAll(line).forEach { match ->
 							val annotation = match.groupValues[1]
+
 							if (annotation !in importedJvmAnnotations) {
 								violations +=
 									"$relativePath:${lineIndex + 1}: @$annotation needs an explicit `import kotlin.jvm.$annotation` " +
 									"(kotlin.jvm.* is a default import only on JVM targets)"
 							}
 						}
+
 						if (charsetsUse.containsMatchIn(line)) {
 							violations +=
 								"$relativePath:${lineIndex + 1}: Charsets is JVM-only (kotlin.text.Charsets); use " +
@@ -173,12 +180,14 @@ val checkCommonSourcePurity =
 					}
 				}
 			}
+
 			if (violations.isNotEmpty()) {
 				throw GradleException(
 					"common-source purity check failed (${violations.size} violation(s)):\n" +
 						violations.joinToString("\n") { "  $it" },
 				)
 			}
+
 			val reportFile = report.get().asFile
 			reportFile.parentFile.mkdirs()
 			reportFile.writeText("common-source purity: ${sourceFiles.files.size} file(s) checked, no violations.\n")

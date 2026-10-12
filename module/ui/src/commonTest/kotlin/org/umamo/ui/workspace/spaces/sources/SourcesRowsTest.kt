@@ -47,6 +47,7 @@ class SourcesRowsTest {
 				SourcesNodeKind.Tile(AtlasTileId("first")),
 				listOf(node("drawable:a", SourcesNodeKind.Drawable(DrawableId("a"))), node("drawable:b", SourcesNodeKind.Drawable(DrawableId("b")))),
 			)
+
 		return listOf(
 			node(
 				"source:art-0",

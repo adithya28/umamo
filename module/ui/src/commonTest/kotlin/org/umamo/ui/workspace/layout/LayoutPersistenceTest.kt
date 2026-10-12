@@ -26,6 +26,7 @@ class LayoutPersistenceTest {
 	private fun storage(): OkioAppStorage {
 		val fileSystem = FakeFileSystem()
 		fileSystem.createDirectories(configDir)
+
 		return OkioAppStorage(fileSystem, configDir, "/data".toPath())
 	}
 

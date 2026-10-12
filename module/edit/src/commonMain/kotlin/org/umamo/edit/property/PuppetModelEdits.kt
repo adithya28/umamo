@@ -37,11 +37,14 @@ import org.umamo.runtime.model.withDerivedRenderRoot
  */
 fun PuppetModel.withDrawableBlendMode(id: DrawableId, mode: BlendMode): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].blendMode == mode) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(blendMode = mode)
+
 	return copy(drawables = updated)
 }
 
@@ -55,11 +58,14 @@ fun PuppetModel.withDrawableBlendMode(id: DrawableId, mode: BlendMode): PuppetMo
  */
 fun PuppetModel.withDrawableAlphaBlendMode(id: DrawableId, mode: AlphaBlendMode): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].alphaBlendMode == mode) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(alphaBlendMode = mode)
+
 	return copy(drawables = updated)
 }
 
@@ -73,11 +79,14 @@ fun PuppetModel.withDrawableAlphaBlendMode(id: DrawableId, mode: AlphaBlendMode)
  */
 fun PuppetModel.withDrawableCulling(id: DrawableId, culling: Boolean): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].culling == culling) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(culling = culling)
+
 	return copy(drawables = updated)
 }
 
@@ -95,11 +104,14 @@ fun PuppetModel.withDrawableCulling(id: DrawableId, culling: Boolean): PuppetMod
  */
 fun PuppetModel.withDrawableOpacity(id: DrawableId, opacity: Float): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].opacity == opacity) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(opacity = opacity)
+
 	return copy(drawables = updated)
 }
 
@@ -117,11 +129,14 @@ fun PuppetModel.withDrawableOpacity(id: DrawableId, opacity: Float): PuppetModel
  */
 fun PuppetModel.withDrawableDrawOrder(id: DrawableId, drawOrder: Float): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].drawOrder == drawOrder) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(drawOrder = drawOrder)
+
 	return copy(drawables = updated)
 }
 
@@ -140,11 +155,14 @@ fun PuppetModel.withDrawableDrawOrder(id: DrawableId, drawOrder: Float): PuppetM
  */
 fun PuppetModel.withDrawableMultiplyColor(id: DrawableId, color: ColorRgb): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].multiplyColor == color) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(multiplyColor = color)
+
 	return copy(drawables = updated)
 }
 
@@ -158,11 +176,14 @@ fun PuppetModel.withDrawableMultiplyColor(id: DrawableId, color: ColorRgb): Pupp
  */
 fun PuppetModel.withDrawableScreenColor(id: DrawableId, color: ColorRgb): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].screenColor == color) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(screenColor = color)
+
 	return copy(drawables = updated)
 }
 
@@ -176,11 +197,14 @@ fun PuppetModel.withDrawableScreenColor(id: DrawableId, color: ColorRgb): Puppet
  */
 fun PuppetModel.withDrawableInvertMask(id: DrawableId, invert: Boolean): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].invertMask == invert) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(invertMask = invert)
+
 	return copy(drawables = updated)
 }
 
@@ -202,11 +226,14 @@ fun PuppetModel.withDrawableInvertMask(id: DrawableId, invert: Boolean): PuppetM
  */
 fun PuppetModel.withDrawableParentDeformer(id: DrawableId, parentDeformerId: DeformerId?, localPositions: FloatArray?): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].parentDeformerId == parentDeformerId) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].rebound(parentDeformerId, localPositions)
+
 	return copy(drawables = updated)
 }
 
@@ -220,9 +247,11 @@ fun PuppetModel.withDrawableParentDeformer(id: DrawableId, parentDeformerId: Def
  */
 internal fun Drawable.rebound(parentDeformerId: DeformerId?, localPositions: FloatArray?): Drawable {
 	val mesh = mesh
+
 	if (mesh == null || localPositions == null || localPositions.size != mesh.localPositions.size) {
 		return copy(parentDeformerId = parentDeformerId)
 	}
+
 	return copy(parentDeformerId = parentDeformerId, mesh = DrawableMesh(positions = mesh.positions, localPositions = localPositions, uvs = mesh.uvs, indices = mesh.indices))
 }
 
@@ -236,11 +265,14 @@ internal fun Drawable.rebound(parentDeformerId: DeformerId?, localPositions: Flo
  */
 fun PuppetModel.withDrawableMaskedBy(id: DrawableId, maskedBy: List<DrawableId>): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].maskedBy == maskedBy) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(maskedBy = maskedBy)
+
 	return copy(drawables = updated)
 }
 
@@ -256,15 +288,18 @@ fun PuppetModel.withDrawableMaskedBy(id: DrawableId, maskedBy: List<DrawableId>)
  */
 fun PuppetModel.withDeformerPart(id: DeformerId, partId: PartId?): PuppetModel {
 	val index = deformers.indexOfFirst { deformer -> deformer.id == id }
+
 	if (index < 0 || deformers[index].partId == partId) {
 		return this
 	}
+
 	val updated = deformers.toMutableList()
 	updated[index] =
 		when (val deformer = updated[index]) {
 			is Deformer.Warp -> deformer.copy(partId = partId)
 			is Deformer.Rotation -> deformer.copy(partId = partId)
 		}
+
 	return copy(deformers = updated)
 }
 
@@ -364,11 +399,14 @@ private inline fun PuppetModel.withDeformerRewritten(
 	rewrite: (Deformer) -> Deformer,
 ): PuppetModel {
 	val index = deformers.indexOfFirst { deformer -> deformer.id == id }
+
 	if (index < 0 || isNoOp(deformers[index])) {
 		return this
 	}
+
 	val updated = deformers.toMutableList()
 	updated[index] = rewrite(updated[index])
+
 	return copy(deformers = updated)
 }
 
@@ -383,15 +421,20 @@ private inline fun PuppetModel.withDeformerRewritten(
  */
 fun PuppetModel.withDeformerBaseAngle(id: DeformerId, angle: Float): PuppetModel {
 	val index = deformers.indexOfFirst { deformer -> deformer.id == id }
+
 	if (index < 0) {
 		return this
 	}
+
 	val deformer = deformers[index]
+
 	if (deformer !is Deformer.Rotation || deformer.baseAngle == angle) {
 		return this
 	}
+
 	val updated = deformers.toMutableList()
 	updated[index] = deformer.copy(baseAngle = angle)
+
 	return copy(deformers = updated)
 }
 
@@ -406,15 +449,20 @@ fun PuppetModel.withDeformerBaseAngle(id: DeformerId, angle: Float): PuppetModel
  */
 fun PuppetModel.withDeformerQuadTransform(id: DeformerId, quad: Boolean): PuppetModel {
 	val index = deformers.indexOfFirst { deformer -> deformer.id == id }
+
 	if (index < 0) {
 		return this
 	}
+
 	val deformer = deformers[index]
+
 	if (deformer !is Deformer.Warp || deformer.isQuadTransform == quad) {
 		return this
 	}
+
 	val updated = deformers.toMutableList()
 	updated[index] = deformer.copy(isQuadTransform = quad)
+
 	return copy(deformers = updated)
 }
 
@@ -428,11 +476,14 @@ fun PuppetModel.withDeformerQuadTransform(id: DeformerId, quad: Boolean): Puppet
  */
 fun PuppetModel.withPartSketch(id: PartId, sketch: Boolean): PuppetModel {
 	val index = parts.indexOfFirst { part -> part.id == id }
+
 	if (index < 0 || parts[index].isSketch == sketch) {
 		return this
 	}
+
 	val updated = parts.toMutableList()
 	updated[index] = updated[index].copy(isSketch = sketch)
+
 	return copy(parts = updated)
 }
 
@@ -446,11 +497,14 @@ fun PuppetModel.withPartSketch(id: PartId, sketch: Boolean): PuppetModel {
  */
 fun PuppetModel.withPartDrawOrder(id: PartId, order: Int): PuppetModel {
 	val index = parts.indexOfFirst { part -> part.id == id }
+
 	if (index < 0 || parts[index].drawOrder == order) {
 		return this
 	}
+
 	val updated = parts.toMutableList()
 	updated[index] = updated[index].copy(drawOrder = order)
+
 	// Draw order feeds the derived render tree (a part's group slot), so re-derive renderRoot or the
 	// renderer keeps sorting by the pre-edit order - the same reason every structural edit re-derives.
 	return copy(parts = updated).withDerivedRenderRoot()
@@ -467,11 +521,14 @@ fun PuppetModel.withPartDrawOrder(id: PartId, order: Int): PuppetModel {
  */
 fun PuppetModel.withPartGroupMode(id: PartId, mode: PartGroupMode): PuppetModel {
 	val index = parts.indexOfFirst { part -> part.id == id }
+
 	if (index < 0 || parts[index].groupMode == mode) {
 		return this
 	}
+
 	val updated = parts.toMutableList()
 	updated[index] = updated[index].copy(groupMode = mode)
+
 	// Group mode decides whether the part is a render-tree boundary (Isolated/Grouped) or transparent
 	// (PassThrough hoists its children), so re-derive renderRoot or the plan keeps the old structure.
 	return copy(parts = updated).withDerivedRenderRoot()
@@ -489,11 +546,14 @@ fun PuppetModel.withPartGroupMode(id: PartId, mode: PartGroupMode): PuppetModel 
  */
 fun PuppetModel.withPartComposite(id: PartId, composite: PartComposite): PuppetModel {
 	val index = parts.indexOfFirst { part -> part.id == id }
+
 	if (index < 0 || parts[index].composite == composite) {
 		return this
 	}
+
 	val updated = parts.toMutableList()
 	updated[index] = updated[index].copy(composite = composite)
+
 	// resolvedComposite bakes the composite into RenderGroup.composite at derive time (masked-by parts
 	// expanded), so re-derive renderRoot or the renderer re-reads the pre-edit blend/opacity/colors/masks.
 	return copy(parts = updated).withDerivedRenderRoot()
@@ -511,6 +571,7 @@ fun PuppetModel.withCanvasSize(width: Float, height: Float): PuppetModel {
 	if (canvasWidth == width && canvasHeight == height) {
 		return this
 	}
+
 	return copy(canvasWidth = width, canvasHeight = height)
 }
 
@@ -526,6 +587,7 @@ fun PuppetModel.withWorldOrigin(x: Float, z: Float): PuppetModel {
 	if (worldOriginX == x && worldOriginZ == z) {
 		return this
 	}
+
 	return copy(worldOriginX = x, worldOriginZ = z)
 }
 
@@ -540,6 +602,7 @@ fun PuppetModel.withRuntimeTarget(target: RuntimeTarget): PuppetModel {
 	if (runtimeTarget == target) {
 		return this
 	}
+
 	return copy(runtimeTarget = target)
 }
 
@@ -554,5 +617,6 @@ fun PuppetModel.withSourceLayerDisplay(fromSourceLayers: Boolean): PuppetModel {
 	if (rendersFromSourceLayers == fromSourceLayers) {
 		return this
 	}
+
 	return copy(rendersFromSourceLayers = fromSourceLayers)
 }

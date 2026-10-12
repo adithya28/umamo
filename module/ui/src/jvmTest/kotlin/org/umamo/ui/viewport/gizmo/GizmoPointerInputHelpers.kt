@@ -76,10 +76,12 @@ internal fun ComposeUiTest.dragIn(areaId: String, from: Offset, through: List<Of
 		advanceEventTime(GESTURE_GAP_MILLIS)
 		moveTo(from)
 		press()
+
 		for (point in through) {
 			advanceEventTime(GESTURE_STEP_MILLIS)
 			moveTo(point)
 		}
+
 		advanceEventTime(GESTURE_STEP_MILLIS)
 		release()
 	}

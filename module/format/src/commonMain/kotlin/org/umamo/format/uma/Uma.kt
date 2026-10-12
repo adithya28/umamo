@@ -43,10 +43,13 @@ public object Uma : FormatCodec<UmaModel> {
 	 */
 	override fun matches(candidateBytes: ByteArray): Boolean {
 		val mimetype = UmaContainer.MIMETYPE_BYTES
+
 		if (candidateBytes.size < PROBE_OFFSET + mimetype.size) {
 			return false
 		}
+
 		val reader = ByteReader(candidateBytes, littleEndian = true)
+
 		// UMA §2 over ZIP's local file header (APPNOTE.TXT 4.3.7): @ +0x00 signature, @ +0x08 method,
 		// @ +0x16 uncompressed size, @ +0x1A name length, @ +0x1C extra length, @ +0x1E the name.
 		return reader.u32(0) == ZipRecords.LOCAL_HEADER_SIGNATURE.toLong() &&
@@ -77,9 +80,11 @@ public object Uma : FormatCodec<UmaModel> {
 		// UMA §2: the mimetype entry identifies the file wherever a re-zipping tool left it; the writer puts
 		// it back first.
 		val mimetypeEntry = archive.entry(UmaContainer.MIMETYPE_PATH) ?: throw UmaFormatException(UmaReadFailure.NotUma("the archive has no mimetype entry"))
+
 		if (!contentsOf(archive, mimetypeEntry).contentEquals(UmaContainer.MIMETYPE_BYTES)) {
 			throw UmaFormatException(UmaReadFailure.NotUma("the mimetype entry does not hold ${UmaContainer.MIMETYPE}"))
 		}
+
 		val manifestEntry =
 			archive.entry(UmaContainer.MANIFEST_PATH)
 				?: throw UmaFormatException(UmaReadFailure.MalformedManifest("the archive has no ${UmaContainer.MANIFEST_PATH}"))
@@ -88,6 +93,7 @@ public object Uma : FormatCodec<UmaModel> {
 		// UMA §3.3: classify every listed entry.
 		val entries = ArrayList<UmaEntry>(manifest.records.size)
 		val readOnlyReasons = ArrayList<UmaReadOnlyReason>()
+
 		for (record in manifest.records) {
 			val zipEntry = archive.entry(record.path) ?: throw UmaFormatException(UmaReadFailure.MissingEntry(record.path))
 			val knownKind = UmaEntryKind.ofWireName(record.kind)
@@ -105,6 +111,7 @@ public object Uma : FormatCodec<UmaModel> {
 							}
 						readOnlyReasons += UmaReadOnlyReason(record.path, record.kind, cause)
 					}
+
 					UmaEntryContent.Preserved(UmaRawEntry(zipEntry, archive.bytes))
 				}
 			entries += UmaEntry(record.path, record.kind, record.version, record.minVersion, record.required, record.record, content)
@@ -115,21 +122,26 @@ public object Uma : FormatCodec<UmaModel> {
 		val listedPaths = manifest.records.mapTo(HashSet()) { record -> record.path }
 		val archiveOrder = ArrayList<String>(archive.entries.size)
 		val payloads = ArrayList<UmaPayload>()
+
 		for (zipEntry in archive.entries) {
 			if (UmaContainer.isReservedPath(zipEntry.name)) {
 				continue
 			}
+
 			archiveOrder += zipEntry.name
+
 			if (zipEntry.name !in listedPaths) {
 				payloads += UmaPayload(zipEntry.name, UmaRawEntry(zipEntry, archive.bytes))
 			}
 		}
+
 		val model = UmaModel(manifest.writer, entries, payloads, readOnlyReasons, manifest.tree, archiveOrder)
 		// UMA §4.8, §5.8, §6.6: decoding the domain entries here makes a malformed one fail the read, not a later
 		// access.
 		model.puppet
 		model.textures
 		model.sources
+
 		return model
 	}
 
@@ -165,18 +177,24 @@ public object Uma : FormatCodec<UmaModel> {
 			if (!writtenPaths.add(path)) {
 				return
 			}
+
 			// UMA §3.5: a payload an entry owns that a save rebuilt (a buffer, a pixel entry) is written stored in place
 			// of the payload read, or not at all when the entry no longer names it.
 			val owned = model.ownedPayloads[path]
+
 			if (owned != null) {
 				owned.bytes?.let { bytes -> writer.addStored(path, bytes) }
+
 				return
 			}
+
 			val entry = entryByPath[path]
+
 			if (entry != null) {
 				when (val content = entry.content) {
 					is UmaEntryContent.Live -> {
 						writer.addDeflated(path, encodeUmaJson(content.tree))
+
 						// UMA §3.5: a payload new to this file follows the entry that owns it, in the order the save laid it out.
 						for ((ownedPath, ownedPayload) in model.ownedPayloads) {
 							if (ownedPayload.owner == content.kind && ownedPath !in archivePaths) {
@@ -185,10 +203,14 @@ public object Uma : FormatCodec<UmaModel> {
 						}
 					}
 
-					is UmaEntryContent.Preserved -> writer.addRaw(content.raw.zipEntry, content.raw.archive, content.raw.zipEntry.payloadOffset)
+					is UmaEntryContent.Preserved -> {
+						writer.addRaw(content.raw.zipEntry, content.raw.archive, content.raw.zipEntry.payloadOffset)
+					}
 				}
+
 				return
 			}
+
 			payloadByPath[path]?.let { payload -> writer.addRaw(payload.raw.zipEntry, payload.raw.archive, payload.raw.zipEntry.payloadOffset) }
 		}
 
@@ -197,12 +219,15 @@ public object Uma : FormatCodec<UmaModel> {
 		for (path in model.archiveOrder) {
 			writePath(path)
 		}
+
 		for (entry in model.entries) {
 			writePath(entry.path)
 		}
+
 		for (payload in model.payloads) {
 			writePath(payload.path)
 		}
+
 		return writer.finish()
 	}
 

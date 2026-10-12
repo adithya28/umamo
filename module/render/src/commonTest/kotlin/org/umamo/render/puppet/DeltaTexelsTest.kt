@@ -20,6 +20,7 @@ class DeltaTexelsTest {
 	/** Reads texel (vertex, cell) out of the row-major RG buffer. */
 	private fun texelAt(texels: FloatArray, cellCount: Int, vertexIndex: Int, cellIndex: Int): Pair<Float, Float> {
 		val at = (vertexIndex * cellCount + cellIndex) * 2
+
 		return texels[at] to texels[at + 1]
 	}
 

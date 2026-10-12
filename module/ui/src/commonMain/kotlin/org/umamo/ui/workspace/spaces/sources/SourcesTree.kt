@@ -212,6 +212,7 @@ internal data class SourcesNode(
  */
 internal suspend fun probeSourcePresence(sources: List<ArtSource>, probe: SourceFilePresence?): Map<ArtSourceId, SourcePresence> {
 	val answers = LinkedHashMap<ArtSourceId, SourcePresence>()
+
 	for (source in sources) {
 		val path = source.path
 		val present = if (path == null || probe == null) null else probe(path)
@@ -222,6 +223,7 @@ internal suspend fun probeSourcePresence(sources: List<ArtSource>, probe: Source
 				false -> SourcePresence.Missing
 			}
 	}
+
 	return answers
 }
 
@@ -278,6 +280,7 @@ internal fun buildSourcesTree(
 		val placement = tile.placement
 		val drawableIds = drawableIdsByTile[tile.id].orEmpty()
 		val unlisted = tile.source?.takeIf { ref -> ref.sourceId !in listedSourceIds }
+
 		return SourcesNode(
 			id = "tile:${tile.id.raw}",
 			label = tile.name,
@@ -326,12 +329,18 @@ internal fun buildSourcesTree(
 		val status =
 			when {
 				!listed && replaced -> SourcesStatus.SourceReplaced
+
 				!listed -> SourcesStatus.NeedsReview
+
 				// The ignore mark means nothing for a bound layer, so a bound row reads bound whatever it says.
 				bound.isEmpty() && ignored -> SourcesStatus.Ignored
+
 				bound.isEmpty() -> SourcesStatus.Unbound
+
 				emptied -> SourcesStatus.Emptied
+
 				stable -> SourcesStatus.Bound
+
 				else -> SourcesStatus.BoundByName
 			}
 		val suggestion =
@@ -339,6 +348,7 @@ internal fun buildSourcesTree(
 				suggestionsFor(sourceId, key).firstNotNullOfOrNull { match ->
 					val candidate = source.layers.firstOrNull { layer -> layer.key == match.key && layer.present && !layer.empty }
 					val boundToCandidate = tilesByBinding[sourceId to match.key].orEmpty()
+
 					when {
 						candidate == null -> null
 						boundToCandidate.any { tile -> !puppet.tileCarriesNoRigWork(tile.id, candidate) } -> null
@@ -348,6 +358,7 @@ internal fun buildSourcesTree(
 			} else {
 				null
 			}
+
 		return SourcesNode(
 			id = sourcesLayerRowId(sourceId, key),
 			label = label,
@@ -376,6 +387,7 @@ internal fun buildSourcesTree(
 					if (!layer.present && !tilesByBinding.containsKey(source.id to layer.key)) {
 						return@mapNotNull null
 					}
+
 					val detail =
 						if (layerPositionsFromWorldAxes) {
 							// The inventory sits on the document canvas (canvas x, y down), and world z is the
@@ -397,6 +409,7 @@ internal fun buildSourcesTree(
 						)
 					val ordinal = (rowCountByKey[layer.key] ?: 0) + 1
 					rowCountByKey[layer.key] = ordinal
+
 					if (ordinal == 1) {
 						node
 					} else {
@@ -427,9 +440,11 @@ internal fun buildSourcesTree(
 	// The trailing group holds every tile no file row lists: the ones bound to no layer, and the ones bound to a
 	// file the document does not list, which would otherwise appear nowhere (UMA §3.6).
 	val unboundTiles = puppet.atlas.tiles.filter { tile -> tile.source == null || tile.source!!.sourceId !in listedSourceIds }
+
 	if (unboundTiles.isEmpty()) {
 		return sourceNodes
 	}
+
 	return sourceNodes +
 		SourcesNode(
 			id = SOURCES_UNBOUND_GROUP_ID,
@@ -471,11 +486,13 @@ internal fun filterSourcesTree(nodes: List<SourcesNode>, query: String, filters:
 		val satisfied = satisfiedAbove || matchesFilter(node)
 		val children = node.children.mapNotNull { child -> prune(child, satisfied) }
 		val labelMatches = trimmed.isEmpty() || node.label.contains(trimmed, ignoreCase = true)
+
 		return when {
 			children.isNotEmpty() -> node.copy(children = children)
 			satisfied && labelMatches -> node
 			else -> null
 		}
 	}
+
 	return nodes.mapNotNull { node -> prune(node, satisfiedAbove = false) }
 }

@@ -28,11 +28,16 @@ import org.umamo.edit.subtreeTargets
  */
 fun EditorSession.toggleVisibility(target: SelectionTarget) {
 	val newVisible = !model.value.visibilityOf(target)
+
 	when (target) {
-		is SelectionTarget.Part ->
+		is SelectionTarget.Part -> {
 			mutate(PartChange.SetVisibility(target.id, newVisible)) { model -> model.withPartVisibility(target.id, newVisible) }
-		is SelectionTarget.Drawable ->
+		}
+
+		is SelectionTarget.Drawable -> {
 			mutate(DrawableChange.SetVisibility(target.id, newVisible)) { model -> model.withDrawableVisibility(target.id, newVisible) }
+		}
+
 		is SelectionTarget.Deformer -> {
 			// Deformers have no visibility flag; nothing to toggle.
 		}
@@ -48,9 +53,11 @@ fun EditorSession.toggleVisibility(target: SelectionTarget) {
  */
 fun EditorSession.rename(target: SelectionTarget, newName: String) {
 	val trimmed = newName.trim()
+
 	if (trimmed.isEmpty()) {
 		return
 	}
+
 	when (target) {
 		is SelectionTarget.Part -> mutate(PartChange.Rename(target.id, trimmed)) { model -> model.withPartName(target.id, trimmed) }
 		is SelectionTarget.Drawable -> mutate(DrawableChange.Rename(target.id, trimmed)) { model -> model.withDrawableName(target.id, trimmed) }
@@ -66,13 +73,19 @@ fun EditorSession.rename(target: SelectionTarget, newName: String) {
  */
 fun EditorSession.toggleSelectable(target: SelectionTarget) {
 	val newSelectable = !model.value.selectableOf(target)
+
 	when (target) {
-		is SelectionTarget.Part ->
+		is SelectionTarget.Part -> {
 			mutate(PartChange.SetSelectable(target.id, newSelectable)) { model -> model.withPartSelectable(target.id, newSelectable) }
-		is SelectionTarget.Drawable ->
+		}
+
+		is SelectionTarget.Drawable -> {
 			mutate(DrawableChange.SetSelectable(target.id, newSelectable)) { model -> model.withDrawableSelectable(target.id, newSelectable) }
-		is SelectionTarget.Deformer ->
+		}
+
+		is SelectionTarget.Deformer -> {
 			mutate(DeformerChange.SetSelectable(target.id, newSelectable)) { model -> model.withDeformerSelectable(target.id, newSelectable) }
+		}
 	}
 }
 
@@ -108,7 +121,9 @@ fun EditorSession.toggleVisibilitySubtree(target: SelectionTarget) {
 	val change: Change =
 		when (target) {
 			is SelectionTarget.Part -> PartChange.SetVisibility(target.id, newVisible)
+
 			is SelectionTarget.Drawable -> DrawableChange.SetVisibility(target.id, newVisible)
+
 			// A deformer has no visibility flag; nothing to toggle.
 			is SelectionTarget.Deformer -> return
 		}

@@ -41,6 +41,7 @@ class CaptureDrawableWorldsTest {
 		val rig = model()
 		val batched = captureDrawableWorlds(rig, emptyMap(), requested)
 		val drawableById = rig.drawables.associateBy { drawable -> drawable.id }
+
 		for (geometry in batched) {
 			val single = assertNotNull(captureDrawableWorld(rig, emptyMap(), geometry.drawableId), "the single capture answers for ${geometry.drawableId}")
 			assertContentEquals(single.local, geometry.local, "base of ${geometry.drawableId}")
@@ -111,6 +112,7 @@ class CaptureDrawableWorldsTest {
 				),
 			)
 		val latticeTriangle = floatArrayOf(0.25f, 0.25f, 0.75f, 0.25f, 0.25f, 0.75f)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(parameterId, "P", -1f, 1f, 0f)),
 			parts = emptyList(),

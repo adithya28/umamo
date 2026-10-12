@@ -85,6 +85,7 @@ class KeyformAimEditsTest {
 				),
 			)
 		editorSession.setParameterSelection(ParameterSelection.of(angleX))
+
 		return editorSession
 	}
 
@@ -92,6 +93,7 @@ class KeyformAimEditsTest {
 	private fun EditorSession.keysOn(parameterId: ParameterId): List<Float>? {
 		val grid = model.value.drawables.single().channelGrids[FormChannel.OPACITY] ?: return null
 		val axisIndex = grid.axisIndexOf(parameterId)
+
 		return if (axisIndex < 0) null else grid.axes[axisIndex].keys.toList()
 	}
 

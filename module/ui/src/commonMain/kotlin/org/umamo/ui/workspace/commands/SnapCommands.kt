@@ -75,6 +75,7 @@ internal fun snapCommands(
 			// The hovered 2D viewport's grid is the one the snap rounds to, since each area draws its own; over
 			// anything else the command does nothing (Blender's hovered-area rule, no fallback).
 			val areaId = routing.viewportArea()
+
 			if (editorSession != null && areaId != null) {
 				// An unplaced cursor snaps from the world origin (its resting place).  The world grid is anchored
 				// on the origin, so the snap targets the same lines that viewport's backdrop draws.

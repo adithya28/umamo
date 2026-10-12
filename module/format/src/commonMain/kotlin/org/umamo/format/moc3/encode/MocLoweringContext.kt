@@ -84,14 +84,17 @@ internal class MocLoweringContext(val doc: MocDocument) {
 	val unionKeysByParameter: List<List<Float>> =
 		doc.parameters.indices.map { parameterIndex ->
 			val unionKeys = mutableSetOf<Float>()
+
 			for (keys in keySetsByParameter[parameterIndex]) {
 				unionKeys.addAll(keys)
 			}
+
 			for (bindingIndex in blendLayout.bindingKeys.indices) {
 				if (blendLayout.bindingOwnerParameter[bindingIndex] == parameterIndex) {
 					blendLayout.bindingKeys[bindingIndex].forEach { unionKeys.add(it) }
 				}
 			}
+
 			unionKeys.sorted()
 		}
 
@@ -164,6 +167,7 @@ internal class BlendShapeLayout(doc: MocDocument) {
 		val rotationLocal = HashMap<Int, Int>()
 		var nextWarpLocal = 0
 		var nextRotationLocal = 0
+
 		for ((deformerIndex, deformer) in doc.deformers.withIndex()) {
 			if (deformer is WarpDeformer) {
 				warpLocal[deformerIndex] = nextWarpLocal++
@@ -171,6 +175,7 @@ internal class BlendShapeLayout(doc: MocDocument) {
 				rotationLocal[deformerIndex] = nextRotationLocal++
 			}
 		}
+
 		warpLocalByDeformer = warpLocal
 		rotationLocalByDeformer = rotationLocal
 		warpRecords =
@@ -188,11 +193,13 @@ internal class BlendShapeLayout(doc: MocDocument) {
 		data class BindingIdentity(val parameterIndex: Int, val keys: List<Float>, val neutralKeyIndex: Int)
 
 		val discoveredBindings = LinkedHashSet<BindingIdentity>()
+
 		for (record in recordsInFileOrder) {
 			discoveredBindings.add(
 				BindingIdentity(record.parameterIndex, record.keyPositions.toList(), record.neutralKeyIndex),
 			)
 		}
+
 		val orderedBindings = discoveredBindings.toList().sortedBy { it.parameterIndex }
 		bindingKeys = orderedBindings.map { it.keys.toFloatArray() }
 		bindingNeutral = IntArray(orderedBindings.size) { bindingIndex -> orderedBindings[bindingIndex].neutralKeyIndex }
@@ -208,6 +215,7 @@ internal class BlendShapeLayout(doc: MocDocument) {
 		parameterBegin = IntArray(doc.parameters.size)
 		parameterBindingCount = IntArray(doc.parameters.size)
 		var bindingCursor = 0
+
 		for (parameterIndex in doc.parameters.indices) {
 			parameterBindingCount[parameterIndex] =
 				orderedBindings.count { it.parameterIndex == parameterIndex }
@@ -230,11 +238,13 @@ internal class BlendShapeLayout(doc: MocDocument) {
 			listOf(limit.parameterIndex, limit.keyPositions.toList(), limit.weights.toList())
 
 		val distinctLimits = LinkedHashMap<List<Any>, BlendShapeLimit>()
+
 		for (record in recordsInFileOrder) {
 			for (limit in record.limits) {
 				distinctLimits.getOrPut(identityOf(limit)) { limit }
 			}
 		}
+
 		pool = distinctLimits.values.sortedBy { it.parameterIndex }
 		poolIndexByValue = pool.withIndex().associate { (poolIndex, poolEntry) -> identityOf(poolEntry) to poolIndex }
 	}

@@ -41,6 +41,7 @@ class PartCompositeEvalTest {
 
 	private fun values(vararg pairs: Pair<ParameterId, Float>): (ParameterId) -> Float {
 		val map = pairs.toMap()
+
 		return { map[it] ?: 0f }
 	}
 
@@ -133,6 +134,7 @@ class PartCompositeEvalTest {
 				composite = staticComposite,
 				channelGrids = channelGrids,
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = listOf(part),
@@ -189,6 +191,7 @@ class PartCompositeEvalTest {
 				listOf(KeyformAxis(paramA, floatArrayOf(0f))),
 				listOf(KeyformCell(intArrayOf(0), MeshForm(FloatArray(positions.size), opacity = ownOpacity))),
 			).fanOutMesh()
+
 		return Drawable(
 			id = DrawableId(id),
 			name = id,

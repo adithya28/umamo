@@ -70,6 +70,7 @@ class Moc3RestMeshTest {
 						),
 					),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", 0f, 1f, 0f)),
 			parts = emptyList(),

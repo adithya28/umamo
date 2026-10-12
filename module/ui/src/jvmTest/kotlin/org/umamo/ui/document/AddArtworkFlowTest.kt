@@ -41,10 +41,13 @@ class AddArtworkFlowTest {
 		runBlocking {
 			val first = sample
 			val second = first?.let { file -> File(file.parentFile, "EricaVisibilityTest.psd") }?.takeIf { it.isFile }
+
 			if (first == null || second == null) {
 				println("psd.sample (and its EricaVisibilityTest.psd sibling) not present; skipping the add-artwork flow gate")
+
 				return@runBlocking
 			}
+
 			val load = loadDocument(first.readBytes(), first.name, first.path)
 			val document = assertIs<ArtDocument>(assertIs<DocumentLoad.Loaded>(load).document)
 			val session = EditorSession(document.puppet, document.liveParams.values)
@@ -69,9 +72,11 @@ class AddArtworkFlowTest {
 			val grown = session.model.value
 			assertEquals(2, grown.sources.size, "the document lists both files")
 			assertEquals(before.drawables.size * 2, grown.drawables.size, "the twin PSD adds one drawable per layer")
+
 			for ((tileId, placement) in placementsBefore) {
 				assertEquals(placement, grown.atlas.tileById.getValue(tileId).placement, "existing tile '${tileId.raw}' did not move")
 			}
+
 			val addedTiles = grown.atlas.tiles.filter { tile -> tile.id !in placementsBefore }
 			assertTrue(addedTiles.isNotEmpty() && addedTiles.all { tile -> tile.placement != null }, "every added tile is placed")
 			withTimeout(120_000) {
@@ -82,6 +87,7 @@ class AddArtworkFlowTest {
 			val published = sessionAtlasPages.binding.value.textures
 			val derived = assertNotNull(deriveAtlasTextures(grown, document.artRasters, premultipliedAlpha = false), "the grown model derives")
 			assertEquals(derived.atlases.size, published.atlases.size, "page count")
+
 			for ((pageIndex, page) in published.atlases.withIndex()) {
 				assertTrue(page.rgba.contentEquals(derived.atlases[pageIndex].rgba), "published page $pageIndex equals its derivation")
 			}
@@ -127,10 +133,13 @@ class AddArtworkFlowTest {
 		runBlocking {
 			val first = sample
 			val second = first?.let { file -> File(file.parentFile, "EricaVisibilityTest.psd") }?.takeIf { it.isFile }
+
 			if (first == null || second == null) {
 				println("psd.sample (and its EricaVisibilityTest.psd sibling) not present; skipping the new-document import gate")
+
 				return@runBlocking
 			}
+
 			val document = newBlankDocument()
 			val session = EditorSession(document.puppet, document.liveParams.values)
 			val sessionAtlasPages = SessionAtlasPages(session, document.puppet.atlas, document.textures, document.artRasters)

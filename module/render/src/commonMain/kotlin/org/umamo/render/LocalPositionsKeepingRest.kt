@@ -34,6 +34,7 @@ fun localPositionsKeepingRest(before: PuppetModel, after: PuppetModel, drawableI
 	if (drawableIds.isEmpty()) {
 		return emptyMap()
 	}
+
 	// One resolver per model, so each deformer chain bakes once for the whole set, and the inverse shares the
 	// new chain's rather than baking it again.
 	val beforeSpaces = DrawableSpaceResolver(before, emptyMap())
@@ -49,12 +50,14 @@ fun localPositionsKeepingRest(before: PuppetModel, after: PuppetModel, drawableI
 		}
 	val toParentSpace = canvasToParentSpaceFor(after, afterSpaces, anyHiddenAfter)
 	val converted = LinkedHashMap<DrawableId, FloatArray>()
+
 	for (drawableId in drawableIds) {
 		val mapping = beforeSpaces.mapping(drawableId) ?: continue
 		val rest = beforeSpaces.localPosed(drawableId) ?: continue
 		val canvas = worldToCanvas(mapping.localToWorld(rest))
 		parentSpaceOf(afterSpaces, drawableId, canvas, toParentSpace)?.let { local -> converted[drawableId] = local }
 	}
+
 	return converted
 }
 
@@ -72,15 +75,19 @@ fun localPositionsKeepingRest(before: PuppetModel, after: PuppetModel, drawableI
  */
 private fun parentSpaceOf(spaces: DrawableSpaceResolver, drawableId: DrawableId, canvas: FloatArray, toParentSpace: (DrawableId, FloatArray) -> FloatArray?): FloatArray? {
 	val local = toParentSpace(drawableId, canvas) ?: return null
+
 	if (local.size != canvas.size || local.any { component -> !component.isFinite() }) {
 		return null
 	}
+
 	val mapping = spaces.mapping(drawableId) ?: return local
 	val landed = worldToCanvas(mapping.localToWorld(local))
+
 	for (coordIndex in canvas.indices) {
 		if (abs(landed[coordIndex] - canvas[coordIndex]) > LANDING_TOLERANCE_PX) {
 			return null
 		}
 	}
+
 	return local
 }

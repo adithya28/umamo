@@ -52,6 +52,7 @@ internal object CaffZip {
 		val extraLength = reader.u16(28)
 		val payloadStart = ZipRecords.LOCAL_HEADER_SIZE + nameLength + extraLength
 		require(payloadStart <= zipStream.size) { "Truncated CAFF zip local header" }
+
 		return inflateRawDeflate(zipStream, payloadStart, zipStream.size - payloadStart, declaredSize(reader))
 	}
 
@@ -73,17 +74,22 @@ internal object CaffZip {
 	 */
 	private fun declaredSize(reader: ByteReader): Int {
 		val blobSize = reader.bytes.size
+
 		if (blobSize < ZipRecords.LOCAL_HEADER_SIZE + ZipRecords.DATA_DESCRIPTOR_SIZE) {
 			return Int.MAX_VALUE
 		}
+
 		val descriptorStart = blobSize - ZipRecords.DATA_DESCRIPTOR_SIZE
+
 		if (reader.u32(descriptorStart) != ZipRecords.DATA_DESCRIPTOR_SIGNATURE.toLong()) {
 			return Int.MAX_VALUE
 		}
+
 		// ZIP: data descriptor @ +0x0C uncompressed size. Zero is what the LOCAL header carries, so a
 		// zero here reads as "not really a descriptor"; past Int range needs zip64 and cannot be a
 		// ByteArray length anyway. Both fall back rather than truncate.
 		val declared = reader.u32(descriptorStart + 12)
+
 		return if (declared in 1..Int.MAX_VALUE.toLong()) declared.toInt() else Int.MAX_VALUE
 	}
 
@@ -147,6 +153,7 @@ internal object CaffZip {
 	 */
 	private fun currentDosDateTime(): Int {
 		val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+
 		return ZipRecords.dosDateTimeOf(now.year, now.month.number, now.day, now.hour, now.minute, now.second)
 	}
 }

@@ -45,16 +45,20 @@ internal object FileChannelSessionLogLocks : SessionLogLocks {
 			} catch (_: OverlappingFileLockException) {
 				null
 			}
+
 		if (mark == null) {
 			closeQuietly(channel)
+
 			return null
 		}
+
 		return {
 			try {
 				mark.release()
 			} catch (_: IOException) {
 				// Closing the channel below drops the lock regardless.
 			}
+
 			closeQuietly(channel)
 		}
 	}
@@ -73,8 +77,10 @@ internal object FileChannelSessionLogLocks : SessionLogLocks {
 			} catch (_: IOException) {
 				return false
 			}
+
 		return try {
 			val probe = channel.tryLock(MARK_OFFSET, 1, false)
+
 			if (probe == null) {
 				true
 			} else {

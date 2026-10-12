@@ -34,9 +34,11 @@ import org.umamo.ui.viewport.viewport2d.registerDrawableWorldAdjustment
 internal fun EditorSession.setDrawableWorldCenterAdjustable(id: DrawableId, centerX: Float, centerZ: Float, areaId: String?) {
 	val modelBefore = model.value
 	val geometry = setDrawableWorldCenter(id, centerX, centerZ) ?: return
+
 	if (model.value === modelBefore) {
 		return
 	}
+
 	// The delta the setter moved by, from the same bounds it measured.
 	val bounds = meshBounds(geometry.world)
 	val parameters = TransformGestureParameters(centerX - bounds.centerX, centerZ - bounds.centerY, 1f, 1f, 0f)
@@ -57,9 +59,11 @@ internal fun EditorSession.setDrawableWorldCenterAdjustable(id: DrawableId, cent
 internal fun EditorSession.setDrawableWorldSizeAdjustable(id: DrawableId, width: Float, height: Float, areaId: String?) {
 	val modelBefore = model.value
 	val geometry = setDrawableWorldSize(id, width, height) ?: return
+
 	if (model.value === modelBefore) {
 		return
 	}
+
 	val bounds = meshBounds(geometry.world)
 	val factorX = if (bounds.width > 0f) width / bounds.width else 1f
 	val factorZ = if (bounds.height > 0f) height / bounds.height else 1f

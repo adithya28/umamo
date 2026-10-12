@@ -42,14 +42,17 @@ internal class HttpUpdateTransport(
 	): TransportResponse =
 		withContext(Dispatchers.IO) {
 			val connection = URI(overrideUrl ?: url).toURL().openConnection() as HttpURLConnection
+
 			try {
 				connection.requestMethod = "GET"
 				connection.connectTimeout = UPDATE_CHECK_TIMEOUT_MILLIS
 				connection.readTimeout = UPDATE_CHECK_TIMEOUT_MILLIS
 				connection.instanceFollowRedirects = true
+
 				for ((name, value) in headers) {
 					connection.setRequestProperty(name, value)
 				}
+
 				val status = connection.responseCode
 				val stream = if (status in 200..299) connection.inputStream else connection.errorStream
 				TransportResponse(status, stream?.use { input -> input.readBytes().toString(Charsets.UTF_8) } ?: "")

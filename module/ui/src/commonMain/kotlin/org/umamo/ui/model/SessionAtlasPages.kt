@@ -79,16 +79,21 @@ class SessionAtlasPages(
 
 	private suspend fun publishFor(model: PuppetModel) {
 		val atlas = model.atlas
+
 		if (mutableBinding.value.atlas === atlas) {
 			return
 		}
+
 		if (atlas === baseline.atlas || atlas == baseline.atlas) {
 			mutableBinding.value = baseline
+
 			return
 		}
+
 		derived?.let { cached ->
 			if (cached.atlas === atlas) {
 				mutableBinding.value = cached
+
 				return
 			}
 		}

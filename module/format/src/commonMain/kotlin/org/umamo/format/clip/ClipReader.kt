@@ -44,6 +44,7 @@ object ClipReader : ArtReader {
 		// CLIP: CSFCHUNK container -> CHNKSQLi payload holds the layer table; raster tiles live in the
 		// CHNKExta chunks of the same byte stream, located via ExternalChunk offsets.
 		val databaseBytes = ClipContainer.extractSqliteDatabase(bytes)
+
 		return readDatabase(bytes, databaseBytes)
 	}
 
@@ -102,6 +103,7 @@ object ClipReader : ArtReader {
 	): Map<Long, ClipDecodedRaster> {
 		// CLIP: ExternalChunk.ExternalID ("extrnlid"+GUID) -> absolute CHNKExta file offset.
 		val offsetByExternalId = HashMap<String, Int>()
+
 		for (external in database.clipQueries.selectExternalChunks().executeAsList()) {
 			val externalId = external.ExternalID ?: continue
 			val offset = external.Offset ?: continue
@@ -112,6 +114,7 @@ object ClipReader : ArtReader {
 
 		// Per-layer mask offscreen (Attribute + external chunk offset), keyed by layer MainId.
 		val maskByMainId = HashMap<Long, MaskSource>()
+
 		for (maskRow in database.clipQueries.selectLayerMaskRasters().executeAsList()) {
 			val mainId = maskRow.MainId ?: continue
 			val attribute = maskRow.Attribute ?: continue
@@ -123,6 +126,7 @@ object ClipReader : ArtReader {
 		}
 
 		val rasters = HashMap<Long, ClipDecodedRaster>()
+
 		for (rasterRow in database.clipQueries.selectLayerRasters().executeAsList()) {
 			val mainId = rasterRow.MainId ?: continue
 			val attribute = rasterRow.Attribute ?: continue
@@ -143,10 +147,12 @@ object ClipReader : ArtReader {
 					anchorX = (layerRow.offsetX + layerRow.renderOffscrX).toInt(),
 					anchorY = (layerRow.offsetY + layerRow.renderOffscrY).toInt(),
 				)
+
 			if (decoded != null) {
 				rasters[mainId] = decoded
 			}
 		}
+
 		return rasters
 	}
 }

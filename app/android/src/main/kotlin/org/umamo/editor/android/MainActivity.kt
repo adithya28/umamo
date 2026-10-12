@@ -42,11 +42,13 @@ class MainActivity : ComponentActivity() {
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
+
 		// Only a fresh launch reads the launching intent: a recreated activity (a rotation the manifest does not
 		// absorb, a process restore) would otherwise reopen the file over whatever the rigger has open by then.
 		if (savedInstanceState == null) {
 			openFrom(intent)
 		}
+
 		// FileKit owns the activity-result registry its open/save pickers dispatch through, so it must be
 		// initialised once with the Activity before any file dialog (or a .clip read) runs.
 		FileKit.init(this)

@@ -151,6 +151,7 @@ class RowDragController<Payload : Any> {
 	 */
 	val dropTarget: RowDropTarget? by derivedStateOf {
 		val dragged = draggingKey
+
 		if (dragged == null) {
 			null
 		} else {
@@ -192,15 +193,20 @@ class RowDragController<Payload : Any> {
 	 */
 	fun <Band : Any> roleOf(rowKey: String, bandFor: (dragged: Payload, fraction: Float) -> Band?): RowDragRole<Band> {
 		val dragged = draggingKey ?: return RowDragRole.Idle
+
 		if (dragged == rowKey) {
 			return RowDragRole.Dragged
 		}
+
 		val payload = draggedPayload ?: return RowDragRole.Idle
 		val target = dropTarget ?: return RowDragRole.Idle
+
 		if (target.key != rowKey) {
 			return RowDragRole.Idle
 		}
+
 		val band = bandFor(payload, target.fraction) ?: return RowDragRole.Idle
+
 		return RowDragRole.Target(band)
 	}
 }

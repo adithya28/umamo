@@ -80,9 +80,11 @@ private const val TILE_REVISION_SEPARATOR = '~'
 val AtlasTileId.lineageRoot: AtlasTileId
 	get() {
 		val separator = raw.lastIndexOf(TILE_REVISION_SEPARATOR)
+
 		if (separator <= 0 || raw.substring(separator + 1).toIntOrNull() == null) {
 			return this
 		}
+
 		return AtlasTileId(raw.substring(0, separator))
 	}
 
@@ -92,9 +94,11 @@ val AtlasTileId.lineageRoot: AtlasTileId
 val AtlasTileId.revision: Int
 	get() {
 		val separator = raw.lastIndexOf(TILE_REVISION_SEPARATOR)
+
 		if (separator <= 0) {
 			return 0
 		}
+
 		return raw.substring(separator + 1).toIntOrNull() ?: 0
 	}
 
@@ -110,11 +114,14 @@ val AtlasTileId.revision: Int
 fun reloadTileId(previous: AtlasTileId, taken: Set<AtlasTileId>): AtlasTileId {
 	val root = previous.lineageRoot
 	var revision = previous.revision + 1
+
 	while (true) {
 		val candidate = AtlasTileId("${root.raw}$TILE_REVISION_SEPARATOR$revision")
+
 		if (candidate !in taken) {
 			return candidate
 		}
+
 		revision++
 	}
 }

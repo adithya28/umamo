@@ -214,16 +214,26 @@ internal class ObjectPickController(
 	 */
 	private fun applyClickPick(position: Offset, toggleMembership: Boolean, alt: Boolean) {
 		val model = session.model.value
+
 		if (alt) {
 			val candidates =
 				pickStack(position).filter { candidate -> model.selectableOf(SelectionTarget.Drawable(candidate.id)) }
+
 			when (val resolution = resolveAltOverlapPick(candidates)) {
-				is AltPickResolution.ShowOverlap -> onOverlapRequest(position, resolution.candidates)
-				is AltPickResolution.SelectSingle -> session.setSelection(SelectionOps.replace(SelectionTarget.Drawable(resolution.id)))
+				is AltPickResolution.ShowOverlap -> {
+					onOverlapRequest(position, resolution.candidates)
+				}
+
+				is AltPickResolution.SelectSingle -> {
+					session.setSelection(SelectionOps.replace(SelectionTarget.Drawable(resolution.id)))
+				}
+
 				AltPickResolution.None -> {}
 			}
+
 			return
 		}
+
 		val hit = pickTopmost(position)?.takeIf { drawableId -> model.selectableOf(SelectionTarget.Drawable(drawableId)) }
 		session.setSelection(
 			resolveObjectClickSelection(

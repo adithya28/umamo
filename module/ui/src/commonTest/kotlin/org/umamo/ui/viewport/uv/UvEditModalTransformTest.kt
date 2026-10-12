@@ -71,6 +71,7 @@ class UvEditModalTransformTest {
 		val shownFrame = mutableStateOf(uvRigPageFrame())
 		val radiusHolder = mutableStateOf<MutableState<Float?>>(mutableStateOf(null))
 		val transform = UvEditModalTransform(LEFT_AREA, session, radiusHolder) { model -> pushed.add(model) }
+
 		return Rig(session, shownFrame, radiusHolder, transform, pushed)
 	}
 
@@ -105,6 +106,7 @@ class UvEditModalTransformTest {
 		val layerRadius = mutableStateOf<Float?>(null)
 		shownFrame.value = uvRigLayerFrame()
 		radiusHolder.value = layerRadius
+
 		return layerRadius
 	}
 

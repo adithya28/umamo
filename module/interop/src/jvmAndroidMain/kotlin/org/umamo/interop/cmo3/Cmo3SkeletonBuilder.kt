@@ -208,6 +208,7 @@ internal object Cmo3SkeletonBuilder {
 						_modelStateSets = CArrayList<Any?>()
 					}
 			}
+
 		return BlankSkeleton(root, icons)
 	}
 
@@ -231,6 +232,7 @@ internal object Cmo3SkeletonBuilder {
 				multiplyColor = identityMultiplyColor()
 				screenColor = identityScreenColor()
 			}
+
 		return part.apply {
 			localName = "Root Part"
 			isVisible = true

@@ -102,6 +102,7 @@ internal class DrawableResidency(
 		fitGlueStore(glueLayout.globalVertexCount)
 
 		val uploaded = ArrayList<GpuDrawable>()
+
 		for (drawable in model.drawables) {
 			val gpuDrawable =
 				uploadDrawable(
@@ -113,6 +114,7 @@ internal class DrawableResidency(
 				) ?: continue
 			uploaded.add(gpuDrawable)
 		}
+
 		residents = uploaded.associateBy { it.id }
 		glueDeformList = uploaded.filter { it.isGlueMesh }
 		renderableById = residents.mapValues { (_, resident) -> resident.indexCount > 0 }
@@ -144,13 +146,16 @@ internal class DrawableResidency(
 		val previousLayout = glueLayout
 		val layout = if (glueLayoutFits(previousLayout, newModel)) previousLayout else planGlueLayout(newModel)
 		val replanned = layout !== previousLayout
+
 		if (replanned) {
 			fitGlueStore(layout.globalVertexCount)
 		}
+
 		val reconciled = LinkedHashMap<DrawableId, GpuDrawable>()
+
 		for (action in diff.actions) {
 			when (action) {
-				is DrawableAction.Upload ->
+				is DrawableAction.Upload -> {
 					uploadDrawable(
 						action.drawable,
 						glueLayout = layout,
@@ -158,6 +163,7 @@ internal class DrawableResidency(
 						defaultParameters = residentModel.parameters,
 						atlasTextureOf = atlasTextureOf,
 					)?.let { reconciled[action.drawableId] = it }
+				}
 
 				is DrawableAction.Reupload -> {
 					residents[action.drawableId]?.let { deleteDrawable(it) }
@@ -172,6 +178,7 @@ internal class DrawableResidency(
 
 				is DrawableAction.Keep -> {
 					val existing = residents[action.drawableId] ?: continue
+
 					if (replanned && glueEntryChanged(previousLayout, layout, action.drawableId)) {
 						// A mesh's weld attributes and store region are fixed at upload, so a moved entry
 						// re-uploads the mesh whole.
@@ -183,8 +190,10 @@ internal class DrawableResidency(
 							defaultParameters = residentModel.parameters,
 							atlasTextureOf = atlasTextureOf,
 						)?.let { reconciled[action.drawableId] = it }
+
 						continue
 					}
+
 					reconciled[action.drawableId] = existing
 					// Re-stamp the static composite state from the edited drawable: a blend/alpha/culling/
 					// mask/invert edit does no buffer work, so it lands here, and these were otherwise
@@ -204,11 +213,13 @@ internal class DrawableResidency(
 				}
 			}
 		}
+
 		// Free residents the edit dropped. A Reupload already freed its own and is never in `removed`, so
 		// nothing is freed twice.
 		for (drawableId in diff.removed) {
 			residents[drawableId]?.let { deleteDrawable(it) }
 		}
+
 		residents = reconciled
 		glueDeformList = reconciled.values.filter { it.isGlueMesh }
 		renderableById = reconciled.mapValues { (_, resident) -> resident.indexCount > 0 }
@@ -226,11 +237,13 @@ internal class DrawableResidency(
 		for (gpuDrawable in residents.values) {
 			gpuDrawable.visible = false
 		}
+
 		for (posedDrawable in resolved.posed.values) {
 			val gpuDrawable = residents[posedDrawable.drawableId] ?: continue
 			gpuDrawable.corners = posedDrawable.corners
 			val parentWorld = posedDrawable.parentWorld
 			gpuDrawable.parentWorld = parentWorld
+
 			// Warp control points are pose-dependent but frame-INVARIANT: upload them here, once per pose
 			// change, NOT every frame in the draw loop. Re-specifying this texture 60×/sec would churn the
 			// d3d12/Mesa driver and progressively corrupt the sampled control points, causing visible
@@ -238,6 +251,7 @@ internal class DrawableResidency(
 			if (parentWorld is WarpWorld && gpuDrawable.cpTexture != null) {
 				device.updateFloatTexture(gpuDrawable.cpTexture, parentWorld.cols + 1, parentWorld.rows + 1, parentWorld.cp)
 			}
+
 			gpuDrawable.opacity = posedDrawable.opacity
 			gpuDrawable.multiplyColor = posedDrawable.multiplyColor
 			gpuDrawable.screenColor = posedDrawable.screenColor
@@ -254,6 +268,7 @@ internal class DrawableResidency(
 		for (gpuDrawable in residents.values) {
 			deleteDrawable(gpuDrawable)
 		}
+
 		positionStore?.let { store -> device.destroyDeformedPositionStore(store) }
 		positionStore = null
 		positionStoreCapacity = 0
@@ -289,14 +304,18 @@ internal class DrawableResidency(
 		// its rest mesh. Refusing to upload it would leave a freshly created (or freshly unbound) drawable
 		// invisible - the one state where the rigger most needs to see it.
 		val grid = drawable.geometryGrid
+
 		if (mesh.localPositions.isEmpty()) {
 			return null
 		}
+
 		val glueAttributes = glueLayout.attributesById[drawable.id]
 		val isGlue = glueAttributes != null
+
 		if (!isGlue && mesh.indices.isEmpty()) {
 			return null // a non-glue mesh with no triangles draws nothing and is no weld partner
 		}
+
 		val cellCount = keyformCellCount(grid)
 		val vertexCount = mesh.localPositions.size / 2
 		// Built once and shared: the delta-texel bake and the composite-bounds walk both need it. An
@@ -324,6 +343,7 @@ internal class DrawableResidency(
 			} else {
 				null
 			}
+
 		return GpuDrawable(
 			id = drawable.id,
 			mesh = gpuMesh,
@@ -372,8 +392,10 @@ internal class DrawableResidency(
 			positionStore?.let { store -> device.destroyDeformedPositionStore(store) }
 			positionStore = null
 			positionStoreCapacity = 0
+
 			return
 		}
+
 		if (vertexCount > positionStoreCapacity) {
 			positionStore?.let { store -> device.destroyDeformedPositionStore(store) }
 			positionStore = device.createDeformedPositionStore(vertexCount)
@@ -390,18 +412,23 @@ internal class DrawableResidency(
 	private fun rebuildGluePartners(fromModel: PuppetModel) {
 		if (fromModel.glues.isEmpty()) {
 			gluePartnersById = emptyMap()
+
 			return
 		}
+
 		val partners = HashMap<DrawableId, MutableList<DrawableId>>()
+
 		for ((glueIndex, glue) in fromModel.glues.withIndex()) {
 			// Glues past MAX_GLUES render unwelded (resolvePose / planGlueLayout skip them by the same
 			// index), so their partners move nothing - don't union those extents into the bounds.
 			if (glueIndex >= MAX_GLUES) {
 				break
 			}
+
 			partners.getOrPut(glue.meshA) { ArrayList() }.add(glue.meshB)
 			partners.getOrPut(glue.meshB) { ArrayList() }.add(glue.meshA)
 		}
+
 		gluePartnersById = partners
 	}
 }

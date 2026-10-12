@@ -80,8 +80,12 @@ internal suspend fun PointerInputScope.trackLaneHoverLoop(
 		while (true) {
 			val event = awaitPointerEvent()
 			val change = event.changes.firstOrNull() ?: continue
+
 			when (event.type) {
-				PointerEventType.Exit -> callbacks.value.onLaneHover?.invoke(row, null)
+				PointerEventType.Exit -> {
+					callbacks.value.onLaneHover?.invoke(row, null)
+				}
+
 				PointerEventType.Enter, PointerEventType.Move -> {
 					val value = domainAt(change.position.x, axis, size.width, markRadiusPx)
 					val mark =
@@ -89,7 +93,9 @@ internal suspend fun PointerInputScope.trackLaneHoverLoop(
 					callbacks.value.onLaneHover?.invoke(row, TrackLaneHit(row, value, mark))
 				}
 
-				else -> Unit
+				else -> {
+					Unit
+				}
 			}
 		}
 	}
@@ -119,6 +125,7 @@ internal suspend fun PointerInputScope.trackLaneGestureLoop(
 ) {
 	awaitEachGesture {
 		val down = awaitFirstDown(requireUnconsumed = false)
+
 		// A secondary (right) press belongs to the context menu and a tertiary (middle) one to the sheet's
 		// pan.  Without this guard either would also run the tap path on its way past: scrubbing the
 		// playhead if the press missed every mark, or selecting the mark if it landed on one - instead of
@@ -126,12 +133,14 @@ internal suspend fun PointerInputScope.trackLaneGestureLoop(
 		if (currentEvent.buttons.isSecondaryPressed || currentEvent.buttons.isTertiaryPressed) {
 			return@awaitEachGesture
 		}
+
 		// A sheet mounted with no handlers at all is read-only; it must not show drag feedback for a gesture
 		// that can go nowhere.  Checked per gesture rather than keying the loop, because the handlers change
 		// identity on every selection change and keying on them tears the stroke down.
 		if (callbacks.value.onMarkClick == null && callbacks.value.onTrackScrub == null && callbacks.value.onMarkDragEnd == null) {
 			return@awaitEachGesture
 		}
+
 		// Sampled at the PRESS: the modifier is part of what the gesture meant when it began, and a key
 		// released between press and release would otherwise silently change an extend-click into a
 		// replace-click.
@@ -160,22 +169,28 @@ internal suspend fun PointerInputScope.trackLaneGestureLoop(
 		// land on nothing.  The clamp is the same one the pointer position is drawn with, so the playhead
 		// stops where the pointer stops.
 		val scrubBounds = minOf(axis.start, axis.end)..maxOf(axis.start, axis.end)
+
 		if (hitMark == null) {
 			callbacks.value.onTrackScrub?.invoke(row, pressedValue.coerceIn(scrubBounds), additive)
 		}
+
 		while (true) {
 			val event = awaitPointerEvent()
 			val change = event.changes.firstOrNull { candidate -> candidate.id == down.id } ?: break
+
 			if (!change.pressed) {
 				break
 			}
+
 			if (change.positionChange().x != 0f || change.positionChange().y != 0f) {
 				if (!dragging && abs(change.position.x - down.position.x) > touchSlop) {
 					dragging = true
+
 					if (hitMark != null) {
 						drag.mark = hitMark
 					}
 				}
+
 				if (dragging) {
 					val pointerValue = domainAt(change.position.x, axis, size.width, markRadiusPx)
 					// A MARK drag is clamped as it moves rather than on release: one that follows the
@@ -188,6 +203,7 @@ internal suspend fun PointerInputScope.trackLaneGestureLoop(
 						} else {
 							pointerValue.coerceIn(dragBounds)
 						}
+
 					if (hitMark == null) {
 						callbacks.value.onTrackScrub?.invoke(row, releaseValue, additive)
 					} else {
@@ -196,15 +212,18 @@ internal suspend fun PointerInputScope.trackLaneGestureLoop(
 						// the live value, and it is the owner - not the lane - that knows what travels with it.
 						callbacks.value.onMarkDrag?.invoke(row, hitMark, releaseValue)
 					}
+
 					change.consume()
 				}
 			}
 		}
+
 		when {
 			hitMark != null && dragging -> callbacks.value.onMarkDragEnd?.invoke(row, hitMark, releaseValue)
 			hitMark != null -> callbacks.value.onMarkClick?.invoke(row, hitMark, additive)
 			else -> callbacks.value.onTrackScrubEnd?.invoke(row, releaseValue)
 		}
+
 		drag.mark = null
 	}
 }

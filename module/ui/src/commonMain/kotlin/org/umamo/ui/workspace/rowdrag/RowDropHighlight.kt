@@ -32,6 +32,7 @@ fun Modifier.rowDropHighlight(active: Boolean, shape: Shape, colors: UmamoColors
 	if (!active) {
 		return this
 	}
+
 	return drawBehind {
 		drawOutline(shape.createOutline(size, layoutDirection, this), colors.dropTargetBackground)
 		val stroke = RING_STROKE.toPx()

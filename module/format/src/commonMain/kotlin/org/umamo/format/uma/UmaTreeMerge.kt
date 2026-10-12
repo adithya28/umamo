@@ -101,6 +101,7 @@ internal fun firstIdentityProblem(tree: JsonElement, descriptor: SerialDescripto
 	when (descriptor.kind) {
 		StructureKind.CLASS -> {
 			val treeObject = tree as? JsonObject ?: return null
+
 			for (elementIndex in 0 until descriptor.elementsCount) {
 				val child = treeObject[descriptor.getElementName(elementIndex)] ?: continue
 				val childPath = if (path.isEmpty()) descriptor.getElementName(elementIndex) else "$path.${descriptor.getElementName(elementIndex)}"
@@ -113,13 +114,16 @@ internal fun firstIdentityProblem(tree: JsonElement, descriptor: SerialDescripto
 			val elementDescriptor = descriptor.getElementDescriptor(0)
 			val identityOf = (identities.ruleFor(elementDescriptor.serialName) as? UmaListRule.ByIdentity)?.identityIn?.invoke(holder)
 			val seen = HashSet<String>()
+
 			for ((elementIndex, element) in treeArray.withIndex()) {
 				if (identityOf != null && element is JsonObject) {
 					val identity = identityOf(element) ?: return "$path[$elementIndex] has no identity"
+
 					if (!seen.add(identity)) {
 						return "$path[$elementIndex] repeats the identity '${identity.replace(Char(0), ',')}'"
 					}
 				}
+
 				firstIdentityProblem(element, elementDescriptor, identities, "$path[$elementIndex]")?.let { problem -> return problem }
 			}
 		}
@@ -127,6 +131,7 @@ internal fun firstIdentityProblem(tree: JsonElement, descriptor: SerialDescripto
 		StructureKind.MAP -> {
 			val treeObject = tree as? JsonObject ?: return null
 			val valueDescriptor = descriptor.getElementDescriptor(1)
+
 			for ((key, value) in treeObject) {
 				firstIdentityProblem(value, valueDescriptor, identities, "$path.$key")?.let { problem -> return problem }
 			}
@@ -134,6 +139,7 @@ internal fun firstIdentityProblem(tree: JsonElement, descriptor: SerialDescripto
 
 		else -> {}
 	}
+
 	return null
 }
 
@@ -150,11 +156,13 @@ private fun mergeObject(retained: JsonObject?, updated: JsonElement, descriptor:
 	val updatedObject = updated as? JsonObject ?: return updated
 	val merged = LinkedHashMap<String, JsonElement>()
 	val knownKeys = HashSet<String>(descriptor.elementsCount)
+
 	for (elementIndex in 0 until descriptor.elementsCount) {
 		val key = descriptor.getElementName(elementIndex)
 		knownKeys += key
 		val elementDescriptor = descriptor.getElementDescriptor(elementIndex)
 		val value = updatedObject[key]
+
 		if (value != null) {
 			// UMA §4.7: an array's identities resolve in the object holding it - the retained elements in the object as
 			// read, the new ones in the object as written - so a grid's cells read their key values through their own axes.
@@ -164,20 +172,25 @@ private fun mergeObject(retained: JsonObject?, updated: JsonElement, descriptor:
 				} else {
 					mergeRetainedTree(retained?.get(key), value, elementDescriptor, identities)
 				}
+
 			continue
 		}
+
 		// UMA §4.7: an object omitted because everything it knows is at its default (a part's composite) still
 		// carries the keys this reader did not know, so it keeps an object holding just those.  An object with a
 		// required key (a tile's placement, a drawable's mesh) is omitted because it is gone, and its unknown keys
 		// leave with it, as a deleted array element's do; keeping them would write an object no reader accepts.
 		val retainedChild = retained?.get(key) as? JsonObject
+
 		if (retainedChild != null && elementDescriptor.kind == StructureKind.CLASS && everyElementIsOptional(elementDescriptor)) {
 			val unknownOnly = mergeObject(retainedChild, JsonObject(emptyMap()), elementDescriptor, identities) as JsonObject
+
 			if (unknownOnly.isNotEmpty()) {
 				merged[key] = unknownOnly
 			}
 		}
 	}
+
 	// UMA §4.7: unknown keys follow the known ones, so a document without them writes the same bytes
 	// whichever file it was last read from.
 	retained?.forEach { (key, value) ->
@@ -185,6 +198,7 @@ private fun mergeObject(retained: JsonObject?, updated: JsonElement, descriptor:
 			merged[key] = value
 		}
 	}
+
 	return JsonObject(merged)
 }
 
@@ -217,9 +231,11 @@ private fun mergeArray(
 	updatedHolder: JsonObject,
 ): JsonElement {
 	val updatedArray = updated as? JsonArray ?: return updated
+
 	if (elementDescriptor.kind != StructureKind.CLASS) {
 		return updatedArray
 	}
+
 	val rule =
 		when (
 			val listRule =
@@ -236,11 +252,13 @@ private fun mergeArray(
 	retained?.forEach { element ->
 		val retainedElement = element as? JsonObject ?: return@forEach
 		val identity = retainedIdentityOf(retainedElement) ?: return@forEach
+
 		// Identities are unique in any tree that was read (firstIdentityProblem); the first wins regardless.
 		if (identity !in retainedByIdentity) {
 			retainedByIdentity[identity] = retainedElement
 		}
 	}
+
 	return JsonArray(
 		updatedArray.map { element ->
 			val twin = (element as? JsonObject)?.let(updatedIdentityOf)?.let(retainedByIdentity::get)
@@ -260,6 +278,7 @@ private fun mergeArray(
  */
 private fun mergeMap(retained: JsonObject?, updated: JsonElement, valueDescriptor: SerialDescriptor, identities: UmaIdentityTable): JsonElement {
 	val updatedObject = updated as? JsonObject ?: return updated
+
 	return JsonObject(updatedObject.mapValuesTo(LinkedHashMap()) { (key, value) -> mergeRetainedTree(retained?.get(key), value, valueDescriptor, identities) })
 }
 
@@ -282,13 +301,17 @@ private fun mergeMap(retained: JsonObject?, updated: JsonElement, valueDescripto
  */
 internal fun applyMergePatch(target: JsonObject, patch: JsonObject): JsonObject {
 	val merged = LinkedHashMap<String, JsonElement>(target)
+
 	for ((memberName, patchValue) in patch) {
 		when (patchValue) {
 			// UMA §7.5: null removes.
-			is JsonNull -> merged.remove(memberName)
+			is JsonNull -> {
+				merged.remove(memberName)
+			}
 
 			is JsonObject -> {
 				val mergedChild = applyMergePatch(merged[memberName] as? JsonObject ?: JsonObject(emptyMap()), patchValue)
+
 				if (mergedChild.isEmpty()) {
 					merged.remove(memberName)
 				} else {
@@ -296,8 +319,11 @@ internal fun applyMergePatch(target: JsonObject, patch: JsonObject): JsonObject 
 				}
 			}
 
-			else -> merged[memberName] = patchValue
+			else -> {
+				merged[memberName] = patchValue
+			}
 		}
 	}
+
 	return JsonObject(merged)
 }

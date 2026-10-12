@@ -45,6 +45,7 @@ public fun PlanarTriangleMesh.measureQuality(): MeshQuality {
 
 		if (orient2d(firstX, firstY, secondX, secondY, thirdX, thirdY) == 0.0) {
 			degenerateCount++
+
 			continue
 		}
 

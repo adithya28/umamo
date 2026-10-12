@@ -100,12 +100,14 @@ fun Pad2D(
 		drawLine(crossColor, Offset(0f, padHeight / 2f), Offset(padWidth, padHeight / 2f), strokeWidth = 1.dp.toPx())
 		// Nine reference dots at the 0 / 0.5 / 1 grid intersections on each axis.
 		val dotRadius = 1.5.dp.toPx()
+
 		for (gridRow in 0..2) {
 			for (gridColumn in 0..2) {
 				val center = Offset(padWidth * gridColumn / 2f, padHeight * gridRow / 2f)
 				drawCircle(color = gridColor, radius = dotRadius, center = center)
 			}
 		}
+
 		// The handle at the current value (X across, Y measured from the top).
 		val handleCenter =
 			Offset(
@@ -147,5 +149,6 @@ private fun valueAt(
 		} else {
 			rawFraction
 		}
+
 	return range.start + fraction * (range.endInclusive - range.start)
 }

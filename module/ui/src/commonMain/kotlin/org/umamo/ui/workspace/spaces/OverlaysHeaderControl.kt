@@ -89,12 +89,15 @@ internal fun OverlaysHeaderControl(state: ViewportOverlayState, enabled: Boolean
 	) {
 		val rows = overlayRowsFor(state.surface)
 		val fields = overlayFieldsFor(state.surface)
+
 		for (section in OverlaySection.entries) {
 			val sectionRows = rows.filter { row -> row.section == section }
 			val sectionFields = fields.filter { field -> field.section == section }
+
 			if (sectionRows.isEmpty() && sectionFields.isEmpty()) {
 				continue
 			}
+
 			Tooltip(text = stringResource(section.description)) {
 				FilterSectionLabel(stringResource(section.label))
 			}
@@ -109,10 +112,12 @@ internal fun OverlaysHeaderControl(state: ViewportOverlayState, enabled: Boolean
 						label = stringResource(row.label),
 						description = stringResource(row.description),
 					)
+
 					if (row == OverlayToggle.Grid) {
 						GridGeometryFields(state)
 					}
 				}
+
 				for (field in sectionFields) {
 					when (field) {
 						OverlayField.WireframeOpacity -> WireframeOpacityField(state, field)
@@ -228,6 +233,7 @@ private fun GridGeometryRow(
 		Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
 			field(Modifier.weight(1f))
 			Spacer(modifier = Modifier.width(GRID_RESET_GAP))
+
 			if (resettable) {
 				IconButton(
 					icon = LocalUmamoIcons.reset,

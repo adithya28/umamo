@@ -72,6 +72,7 @@ internal fun reviewMenuItems(labels: SourcesLabels, acceptLabel: String?, onAcce
 		if (acceptLabel != null) {
 			add(MenuItem.Action(label = acceptLabel, onSelect = onAccept))
 		}
+
 		add(MenuItem.Action(label = labels.relinkByHand, onSelect = onRelinkByHand))
 		add(MenuItem.Action(label = labels.leave, onSelect = {}))
 	}
@@ -105,21 +106,27 @@ internal fun relinkMenuItems(
 ): List<MenuItem> =
 	buildList {
 		add(MenuItem.Search(value = query, onValueChange = onQueryChange, width = SOURCES_RELINK_MENU_WIDTH))
+
 		if (onUnbind != null) {
 			add(MenuItem.Action(label = labels.unbind, onSelect = onUnbind))
 		}
+
 		if (onDelete != null) {
 			add(MenuItem.Action(label = labels.deleteArt, onSelect = onDelete))
 		}
+
 		if (onUnbind != null || onDelete != null) {
 			add(MenuItem.Separator)
 		}
+
 		if (groups.isEmpty()) {
 			add(MenuItem.Action(label = labels.noMatches, onSelect = {}, enabled = false))
 		}
+
 		for (group in groups) {
 			val source = group.source
 			add(MenuItem.Heading(source.name))
+
 			for (layer in group.layers) {
 				val key = layer.key
 				val bound = current?.sourceId == source.id && current.layerKey == key

@@ -149,15 +149,20 @@ internal fun buildMoc3Document(
 	// a file is absent when it is sitting right there.
 	val manifestName = "$basename.model3.json"
 	val manifestBytes = readRelative(manifestName)
+
 	if (manifestBytes == null) {
 		UmamoLog.warn("cannot import $path: no $manifestName next to it")
+
 		return DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.MissingManifest, name))
 	}
+
 	val manifest =
 		runCatching { Moc3.readModel3(manifestBytes.decodeToString()) }.getOrElse { failure ->
 			UmamoLog.error("cannot import $path: $manifestName failed to parse", failure)
+
 			return DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.ParseFailed, name))
 		}
+
 	if (manifest.fileReferences.moc.substringAfterLast('/') != name) {
 		// The manifest names a different moc (a renamed file); the picked bytes stay authoritative.
 		UmamoLog.warn("$manifestName references ${manifest.fileReferences.moc}, not $name; importing the picked file")
@@ -166,16 +171,20 @@ internal fun buildMoc3Document(
 	val mocDocument =
 		runCatching { Moc3.read(mocBytes) }.getOrElse { failure ->
 			UmamoLog.error("failed to decode $path", failure)
+
 			return DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.ParseFailed, name))
 		}
 
 	// Atlas pages, in manifest order (a mesh's textureIndex indexes this list). Hard requirement.
 	// model3: FileReferences.Textures - the ordered atlas page paths, manifest-relative.
 	val textureReferences = manifest.fileReferences.textures
+
 	if (textureReferences.isEmpty()) {
 		UmamoLog.warn("cannot import $path: $manifestName lists no textures")
+
 		return DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.MissingTexture, name))
 	}
+
 	// Validate the moc's page indices against the manifest BEFORE decoding megabytes of PNG.  The
 	// texture build rejects an out-of-range index too, so this is not the correctness guard - it is
 	// what keeps a stale or foreign manifest from costing a full atlas decode first, and what names
@@ -186,13 +195,16 @@ internal fun buildMoc3Document(
 				"cannot import $path: ${artMesh.id} references texture page ${artMesh.textureIndex}, " +
 					"but $manifestName lists ${textureReferences.size} page(s)",
 			)
+
 			return DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.MissingTexture, name))
 		}
 	}
+
 	val pageBytes =
 		textureReferences.map { textureReference ->
 			readRelative(textureReference) ?: run {
 				UmamoLog.warn("cannot import $path: texture $textureReference is missing")
+
 				return DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.MissingTexture, name))
 			}
 		}
@@ -209,6 +221,7 @@ internal fun buildMoc3Document(
 		)
 			?: run {
 				UmamoLog.warn("cannot import $path: an atlas page failed to decode")
+
 				return DocumentLoad.Failed(DocumentOpenFailure(DocumentOpenError.MissingTexture, name))
 			}
 
@@ -277,14 +290,19 @@ private fun readPassThroughSidecars(
 		motions.forEach { motion -> references[motion.file] = Moc3Sidecars.SidecarKind.Motion }
 	}
 	val sidecars = ArrayList<Moc3Sidecars.PassThroughSidecar>(references.size)
+
 	for ((reference, kind) in references) {
 		val bytes = readRelative(reference)
+
 		if (bytes == null) {
 			UmamoLog.warn("sidecar $reference is missing; a MOC3 export will not carry it")
+
 			continue
 		}
+
 		sidecars.add(Moc3Sidecars.PassThroughSidecar(kind, reference, bytes.decodeToString()))
 	}
+
 	return sidecars
 }
 
@@ -303,15 +321,18 @@ private fun readDisplayInfo(
 	readRelative: (String) -> ByteArray?,
 ): Cdi3Json? {
 	val candidates = listOfNotNull(manifestReference, "$basename.cdi3.json").distinct()
+
 	for (candidate in candidates) {
 		val bytes = readRelative(candidate) ?: continue
 		val parsed =
 			runCatching { Moc3.readCdi3(bytes.decodeToString()) }
 				.onFailure { failure -> UmamoLog.warn("ignoring unparseable $candidate: ${failure.message}") }
 				.getOrNull()
+
 		if (parsed != null) {
 			return parsed
 		}
 	}
+
 	return null
 }

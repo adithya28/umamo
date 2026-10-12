@@ -97,6 +97,7 @@ fun DrawableMesh.isUntouchedBirthQuad(
 	if (vertexCount != 4 || artUvs.size != 8 || !indices.contentEquals(BIRTH_QUAD_INDICES)) {
 		return false
 	}
+
 	val left = positions[0]
 	val top = positions[1]
 	val right = positions[2]
@@ -106,16 +107,20 @@ fun DrawableMesh.isUntouchedBirthQuad(
 			near(positions[4], right, tolerance) &&
 			near(positions[6], left, tolerance) &&
 			near(positions[7], bottom, tolerance)
+
 	if (!axisAligned || right <= left || bottom <= top) {
 		return false
 	}
+
 	for (corner in 0 until 4) {
 		val texelX = artUvs[corner * 2] * tileWidth + layerLeft
 		val texelY = artUvs[corner * 2 + 1] * tileHeight + layerTop
+
 		if (!near(texelX, positions[corner * 2], tolerance) || !near(texelY, positions[corner * 2 + 1], tolerance)) {
 			return false
 		}
 	}
+
 	return true
 }
 

@@ -126,6 +126,7 @@ internal fun UpdateCheckSettingRow() {
 	if (!LocalUpdateChecks.current) {
 		return
 	}
+
 	var checkForUpdates by rememberBooleanSetting(CHECK_FOR_UPDATES_KEY, true)
 	Checkbox(
 		checked = checkForUpdates,

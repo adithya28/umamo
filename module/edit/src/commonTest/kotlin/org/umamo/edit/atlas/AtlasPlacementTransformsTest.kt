@@ -53,6 +53,7 @@ class AtlasPlacementTransformsTest {
 			placementAffine(composed),
 			"the composed placement's forward affine is the gesture applied after the original",
 		)
+
 		return composed
 	}
 

@@ -34,6 +34,7 @@ import org.umamo.storage.UmamoLog
  */
 fun existingBundleFiles(destination: PlatformFile, bundle: Moc3Sidecars.Bundle): List<String> {
 	val directory = runCatching { destination.absolutePath().toPath().parent }.getOrNull() ?: return emptyList()
+
 	return bundle.files
 		.map { file -> file.name }
 		.filter { name -> FileSystem.SYSTEM.exists(directory / name) }
@@ -58,17 +59,22 @@ suspend fun writeMoc3Bundle(destination: PlatformFile, bundle: Moc3Sidecars.Bund
 	destination.write(mocFile.bytes)
 
 	val directory = runCatching { destination.absolutePath().toPath().parent }.getOrNull()
+
 	if (directory == null) {
 		// The moc is written; the family is not.  Loud, because the result is a file no runtime can
 		// open on its own - and silent partial success is exactly what a rigger would not check for.
 		UmamoLog.error("exported ${destination.absolutePath()} alone: its directory is not writable from here")
+
 		return 1
 	}
+
 	var written = 1
+
 	for (file in bundle.files) {
 		if (file === mocFile) {
 			continue
 		}
+
 		val target = directory / file.name
 		runCatching {
 			target.parent?.let { parent -> FileSystem.SYSTEM.createDirectories(parent) }
@@ -78,6 +84,7 @@ suspend fun writeMoc3Bundle(destination: PlatformFile, bundle: Moc3Sidecars.Bund
 			UmamoLog.error("could not write ${file.name} beside the exported moc", failure)
 		}
 	}
+
 	return written
 }
 

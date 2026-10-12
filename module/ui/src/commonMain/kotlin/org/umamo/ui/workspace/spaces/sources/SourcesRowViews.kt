@@ -131,11 +131,19 @@ internal fun SourcesRowView(
 			hoverPreview = hoverPreview,
 		)
 	}
+
 	when {
-		sourceKind != null -> ContextMenuArea(items = sourceFileMenuItems(sourceKind.sourceId, labels, commands), content = body)
-		layerKind != null && node.status.isIgnorable ->
+		sourceKind != null -> {
+			ContextMenuArea(items = sourceFileMenuItems(sourceKind.sourceId, labels, commands), content = body)
+		}
+
+		layerKind != null && node.status.isIgnorable -> {
 			ContextMenuArea(items = layerMenuItems(layerKind.ref, ignored = node.status == SourcesStatus.Ignored, labels = labels, commands = commands), content = body)
-		else -> body()
+		}
+
+		else -> {
+			body()
+		}
 	}
 }
 
@@ -231,6 +239,7 @@ private fun SourcesRowBody(
 				.focusProperties { canFocus = false }
 				.clickable(interactionSource = interaction, indication = null) {
 					val targets = sourcesSelectionTargets(node)
+
 					if (targets.isNotEmpty()) {
 						onSelect(targets)
 					} else if (node.children.isNotEmpty()) {
@@ -273,11 +282,13 @@ private fun SourcesRowBody(
 		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
 			Text(text = node.label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
 			val detail = detailText(node.detail)
+
 			if (detail != null) {
 				Spacer(modifier = Modifier.width(SOURCES_LABEL_DETAIL_GAP))
 				Text(text = detail, color = colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
 			}
 		}
+
 		when (val kind = node.kind) {
 			is SourcesNodeKind.Tile -> {
 				Spacer(modifier = Modifier.width(SOURCES_CHIP_GAP))
@@ -291,7 +302,8 @@ private fun SourcesRowBody(
 					onDelete = { commands.invoke(DELETE_ART_COMMAND, DeleteArtRequest(kind.tileId)) },
 				)
 			}
-			is SourcesNodeKind.Layer ->
+
+			is SourcesNodeKind.Layer -> {
 				if (node.status.isReview) {
 					Spacer(modifier = Modifier.width(SOURCES_CHIP_GAP))
 					ReviewChip(node = node, ref = kind.ref, labels = labels, onRelink = onRelink)
@@ -301,11 +313,16 @@ private fun SourcesRowBody(
 						layerMenuItems(kind.ref, ignored = node.status == SourcesStatus.Ignored, labels = labels, commands = commands)
 					}
 				}
+			}
+
 			is SourcesNodeKind.Source -> {
 				Spacer(modifier = Modifier.width(SOURCES_CHIP_GAP))
 				SourcesActionsChip(contentDescription = labels.fileActions) { sourceFileMenuItems(kind.sourceId, labels, commands) }
 			}
-			is SourcesNodeKind.Drawable, SourcesNodeKind.UnboundGroup -> Unit
+
+			is SourcesNodeKind.Drawable, SourcesNodeKind.UnboundGroup -> {
+				Unit
+			}
 		}
 	}
 }
@@ -323,11 +340,25 @@ private fun detailText(detail: SourcesDetail): String? =
 			val summary = stringResource(Res.string.sources_source_detail, detail.format.uppercase(), detail.layerCount)
 			if (detail.hasPath) summary else "$summary · ${stringResource(Res.string.sources_source_no_path)}"
 		}
-		is SourcesDetail.Layer -> stringResource(Res.string.sources_layer_detail, detail.width, detail.height, detail.left, detail.top)
+
+		is SourcesDetail.Layer -> {
+			stringResource(Res.string.sources_layer_detail, detail.width, detail.height, detail.left, detail.top)
+		}
+
 		// One decimal, like the Properties Position rows: a half-pixel origin (an odd canvas) is real.
-		is SourcesDetail.LayerOnAxes ->
+		is SourcesDetail.LayerOnAxes -> {
 			stringResource(Res.string.sources_layer_detail_axes, detail.width, detail.height, formatDecimals(detail.x, 1), formatDecimals(detail.z, 1))
-		is SourcesDetail.TilePage -> stringResource(Res.string.sources_tile_page, detail.pageNumber)
-		is SourcesDetail.UnlistedBinding -> stringResource(Res.string.sources_tile_unlisted_binding, detail.sourceId.raw, detail.layerKey)
-		SourcesDetail.None -> null
+		}
+
+		is SourcesDetail.TilePage -> {
+			stringResource(Res.string.sources_tile_page, detail.pageNumber)
+		}
+
+		is SourcesDetail.UnlistedBinding -> {
+			stringResource(Res.string.sources_tile_unlisted_binding, detail.sourceId.raw, detail.layerKey)
+		}
+
+		SourcesDetail.None -> {
+			null
+		}
 	}

@@ -246,6 +246,7 @@ private fun distinctIdsOf(
 ): List<String> {
 	val claimedIds = fileIds.filterTo(HashSet()) { fileId -> fileId.isNotEmpty() }
 	val usedIds = HashSet<String>()
+
 	return fileIds.mapIndexed { fileIndex, fileId ->
 		if (fileId.isNotEmpty() && usedIds.add(fileId)) {
 			fileId
@@ -273,10 +274,12 @@ private fun synthesizedId(
 ): String {
 	var candidate = "$fallbackPrefix$fileIndex"
 	var disambiguator = 2
+
 	while (!claimedIds.add(candidate)) {
 		candidate = "$fallbackPrefix$fileIndex-$disambiguator"
 		disambiguator++
 	}
+
 	return candidate
 }
 

@@ -63,6 +63,7 @@ class ArtworkReloadPlannerTest {
 
 	private fun model(): PuppetModel {
 		val drawables = listOf(drawable("d1", tile1, birthQuad1), drawable("d2", tile2, editedMesh2))
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = emptyList(),

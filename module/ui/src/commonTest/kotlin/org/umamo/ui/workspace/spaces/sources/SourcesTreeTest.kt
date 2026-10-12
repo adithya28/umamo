@@ -38,6 +38,7 @@ class SourcesTreeTest {
 
 	private fun model(): PuppetModel {
 		val drawables = listOf(drawable("a", "tA1"), drawable("b", "tA1"), drawable("c", "tA3"), drawable("d", "tLoose"))
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = emptyList(),

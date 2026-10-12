@@ -101,6 +101,7 @@ class UmaGeometryMergeTest {
 				}
 			}
 		tree = withArray(tree, "glues") { glueIndex, glue -> if (glueIndex == 1) withKey(glue, "futureGlue", plantedValue("B,A")) else glue }
+
 		return Uma.read(Uma.write(saved.withLiveContent(UmaEntryKind.Puppet, tree)))
 	}
 
@@ -181,6 +182,7 @@ class UmaGeometryMergeTest {
 				}
 				planted
 			}
+
 		return Uma.read(Uma.write(document.withLiveContent(UmaEntryKind.Puppet, tree)))
 	}
 
@@ -194,6 +196,7 @@ class UmaGeometryMergeTest {
 	private fun markersOf(document: UmaModel, key: String): Map<String, JsonElement?> {
 		val drawable = assertNotNull(elementOf(document.liveContent(UmaEntryKind.Puppet)!!, "drawables", "id", "A"))
 		val grid = if (key == "geometry") drawable["geometry"] as JsonObject else (drawable["channels"] as JsonObject)[key] as JsonObject
+
 		return (grid["cells"] as JsonArray).associate { cell -> (cell as JsonObject)["coordinate"].toString() to cell["futureCell"] }
 	}
 

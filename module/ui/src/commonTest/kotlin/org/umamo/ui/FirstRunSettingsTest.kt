@@ -26,9 +26,11 @@ class FirstRunSettingsTest {
 	private fun storageWith(userJson: String? = null): Pair<FakeFileSystem, OkioAppStorage> {
 		val fileSystem = FakeFileSystem()
 		fileSystem.createDirectories(configDir)
+
 		if (userJson != null) {
 			fileSystem.write(configDir / "settings.json") { writeUtf8(userJson) }
 		}
+
 		return fileSystem to OkioAppStorage(fileSystem, configDir, "/data".toPath())
 	}
 

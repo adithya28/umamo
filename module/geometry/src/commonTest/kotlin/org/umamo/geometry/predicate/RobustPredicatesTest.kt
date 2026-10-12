@@ -22,6 +22,7 @@ class RobustPredicatesTest {
 		// on a 256 x 256 grid of ulp steps at (0.5, 0.5), q and r lie on y = x, and orient2d(p, q, r)
 		// is exactly 12 * (py - px), so its sign is sign(j - i).  Naive evaluation gets it wrong.
 		var naiveMistakes = 0
+
 		for (stepX in 0 until 256) {
 			for (stepY in 0 until 256) {
 				val pointX = 0.5 + stepX * ULP_AT_HALF
@@ -29,17 +30,20 @@ class RobustPredicatesTest {
 				val expected = (stepY - stepX).coerceIn(-1, 1)
 				assertEquals(expected, signOf(orient2d(pointX, pointY, 12.0, 12.0, 24.0, 24.0)), "grid step ($stepX, $stepY)")
 				val naive = (pointX - 24.0) * (12.0 - 24.0) - (pointY - 24.0) * (12.0 - 24.0)
+
 				if (signOf(naive) != expected) {
 					naiveMistakes++
 				}
 			}
 		}
+
 		assertTrue(naiveMistakes > 0, "the grid must defeat naive evaluation, or it tests nothing")
 	}
 
 	@Test
 	fun orientationOfIntegerPointsMatchesLongArithmetic() {
 		val random = Random(31)
+
 		for (range in intArrayOf(8, 1 shl 20)) {
 			repeat(20_000) {
 				val coordinates = IntArray(6) { random.nextInt(-range, range + 1) }
@@ -61,6 +65,7 @@ class RobustPredicatesTest {
 	@Test
 	fun incircleOfIntegerPointsMatchesLongArithmetic() {
 		val random = Random(37)
+
 		for (range in intArrayOf(8, 1 shl 13)) {
 			repeat(20_000) {
 				val coordinates = IntArray(8) { random.nextInt(-range, range + 1) }
@@ -92,10 +97,12 @@ class RobustPredicatesTest {
 				val shiftedX = pointX + offset
 				val shiftedY = pointY + offset
 				assertCircleSide(0, offset, shiftedX, shiftedY)
+
 				if (pointX != 0.0) {
 					assertCircleSide(1, offset, stepToward(shiftedX, offset), shiftedY)
 					assertCircleSide(-1, offset, stepToward(shiftedX, if (pointX > 0.0) Double.POSITIVE_INFINITY else Double.NEGATIVE_INFINITY), shiftedY)
 				}
+
 				if (pointY != 0.0) {
 					assertCircleSide(1, offset, shiftedX, stepToward(shiftedY, offset))
 					assertCircleSide(-1, offset, shiftedX, stepToward(shiftedY, if (pointY > 0.0) Double.POSITIVE_INFINITY else Double.NEGATIVE_INFINITY))
@@ -132,11 +139,13 @@ class RobustPredicatesTest {
 			val centerY = random.nextDouble(-100.0, 100.0)
 			val radius = random.nextDouble(0.5, 50.0)
 			val circle = DoubleArray(8)
+
 			for (pointIndex in 0 until 4) {
 				val angle = random.nextDouble(0.0, 2.0 * PI)
 				circle[2 * pointIndex] = nudge(centerX + radius * cos(angle), random)
 				circle[2 * pointIndex + 1] = nudge(centerY + radius * sin(angle), random)
 			}
+
 			val sign = signOf(incircleOf(circle, 0, 1, 2, 3))
 			// incircle is a 4 x 4 determinant: an even permutation keeps its sign, a swap flips it.
 			assertEquals(sign, signOf(incircleOf(circle, 1, 2, 0, 3)))
@@ -172,6 +181,7 @@ class RobustPredicatesTest {
 		val acy = coordinates[1].toLong() - coordinates[5]
 		val bcx = coordinates[2].toLong() - coordinates[4]
 		val bcy = coordinates[3].toLong() - coordinates[5]
+
 		return (acx * bcy - acy * bcx).coerceIn(-1L, 1L).toInt()
 	}
 
@@ -192,6 +202,7 @@ class RobustPredicatesTest {
 			(adx * adx + ady * ady) * (bdx * cdy - cdx * bdy) +
 				(bdx * bdx + bdy * bdy) * (cdx * ady - adx * cdy) +
 				(cdx * cdx + cdy * cdy) * (adx * bdy - bdx * ady)
+
 		return determinant.coerceIn(-1L, 1L).toInt()
 	}
 
@@ -248,6 +259,7 @@ internal fun stepToward(value: Double, target: Double): Double {
 	// For positive values the raw bits grow with the value; for negative values they shrink.
 	val growsWithBits = value > 0.0
 	val stepUp = target > value
+
 	return Double.fromBits(if (stepUp == growsWithBits) bits + 1 else bits - 1)
 }
 
@@ -262,5 +274,6 @@ internal fun nudge(value: Double, random: Random): Double {
 	if (value == 0.0) {
 		return value
 	}
+
 	return Double.fromBits(value.toRawBits() + random.nextInt(-1, 2))
 }

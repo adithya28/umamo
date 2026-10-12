@@ -107,6 +107,7 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	 */
 	fun isGhostTriangle(triangle: Int): Boolean {
 		val base = 3 * triangle
+
 		return origin[base] == ghostVertex || origin[base + 1] == ghostVertex || origin[base + 2] == ghostVertex
 	}
 
@@ -121,6 +122,7 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 
 		for (offset in 0 until 3) {
 			val halfEdge = base + offset
+
 			if (origin[halfEdge] != ghostVertex && destination(halfEdge) != ghostVertex) {
 				return halfEdge
 			}

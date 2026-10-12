@@ -76,6 +76,7 @@ public object MocDecoder {
 
 		// GLUES
 		val glueList = decodeGlues(sections)
+
 		// Register glue bindings in the cache like every other object kind: a glue names a binding
 		// from the same shared table (MOC3.md §5.6), and without this a glue-exclusive binding would
 		// be missing from MocDocument.keyformBinding (dropping the glue's parameter-driven intensity
@@ -172,6 +173,7 @@ public object MocDecoder {
 		if (!sections.isPresent(Section.BLENDSHAPE_PARAMETER_BEGIN)) {
 			return emptyList()
 		}
+
 		return BlendShapeDecoder(sections, parameterCount, keyPositions, deltaTables)
 			.decodeAll(warpToDeformer, rotationToDeformer)
 	}
@@ -200,6 +202,7 @@ public object MocDecoder {
 		if (count == 0 || !sections.isPresent(Section.OFFSCREEN_OWNER_PART)) {
 			return emptyList()
 		}
+
 		val owner = sections.intArray(Section.OFFSCREEN_OWNER_PART)
 		val flags = sections.byteArray(Section.OFFSCREEN_CONSTANT_FLAGS)
 		val blendModes = sections.intArray(Section.OFFSCREEN_BLEND_MODE) // one packed value per offscreen
@@ -207,6 +210,7 @@ public object MocDecoder {
 		val maskBases = sections.intArray(Section.OFFSCREEN_MASK_BASE)
 		val opacity = sections.floatArray(Section.OFFSCREEN_OPACITY)
 		var keyformRowCursor = 0
+
 		return (0 until count).map { offscreenIndex ->
 			val keyformCount = parts[owner[offscreenIndex]].drawOrderKeyforms.size
 			val keyforms =
@@ -242,9 +246,11 @@ public object MocDecoder {
 	 */
 	private fun decodeGlues(sections: MocSections): List<Glue> {
 		val meshA = sections.intArray(Section.GLUE_MESH_A)
+
 		if (meshA.isEmpty()) {
 			return emptyList()
 		}
+
 		val meshB = sections.intArray(Section.GLUE_MESH_B)
 		val glueId = sections.idArray(Section.GLUE_ID)
 		val keyformBinding = sections.intArray(Section.GLUE_KEYFORM_BINDING)
@@ -255,6 +261,7 @@ public object MocDecoder {
 		val weights = sections.floatArray(Section.GLUE_WEIGHTS)
 		val indices = sections.shortArray(Section.GLUE_VERTEX_INDICES)
 		val intensities = sections.floatArray(Section.GLUE_INTENSITIES)
+
 		return (meshA.indices).map { glueIndex ->
 			val vertexStartIndex = glueVertexStart[glueIndex]
 			val pairCount = glueVertexCount[glueIndex] / 2
@@ -293,11 +300,13 @@ public object MocDecoder {
 		if (groupCount == 0) {
 			return emptyList()
 		}
+
 		val childCount = sections.intArray(Section.RENDER_ORDER_CHILD_COUNT)
 		val childKind = sections.intArray(Section.RENDER_ORDER_CHILD_KIND)
 		val childIndex = sections.intArray(Section.RENDER_ORDER_CHILD_INDEX)
 		val childGroupIndex = sections.intArray(Section.RENDER_ORDER_GROUP_INDEX)
 		var childBase = 0
+
 		return (0 until groupCount).map { groupIndex ->
 			val children =
 				(0 until childCount[groupIndex]).map { childOrdinal ->

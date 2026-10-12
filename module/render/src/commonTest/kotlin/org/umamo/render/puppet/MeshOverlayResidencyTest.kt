@@ -258,6 +258,7 @@ class MeshOverlayResidencyTest {
 	 */
 	private fun quad(id: DrawableId, originX: Float): Drawable {
 		val positions = floatArrayOf(originX, 0f, originX + 10f, 0f, originX, 10f, originX + 10f, 10f)
+
 		return Drawable(
 			id = id,
 			name = id.raw,
@@ -295,6 +296,7 @@ class MeshOverlayResidencyTest {
 		val drawableResidency = DrawableResidency(device)
 		drawableResidency.uploadAll(model, model.parameters) { null }
 		device.clearLog()
+
 		return device to drawableResidency.residents
 	}
 

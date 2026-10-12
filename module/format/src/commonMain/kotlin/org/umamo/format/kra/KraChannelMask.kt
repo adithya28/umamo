@@ -39,6 +39,7 @@ internal fun channelMaskFrom(channelFlags: String?, format: KraPixelFormat): Cha
 
 	fun channelEnabled(channelIndex: Int): Boolean =
 		channelIndex !in channelFlags.indices || channelFlags[channelIndex] != '0'
+
 	return if (format.isRgb) {
 		ChannelMask(red = channelEnabled(2), green = channelEnabled(1), blue = channelEnabled(0), alpha = channelEnabled(3))
 	} else {

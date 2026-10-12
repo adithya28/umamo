@@ -131,6 +131,7 @@ class UmaBufferTest {
 	fun aMeshWithoutBothPositionArraysIsMalformed() {
 		val positions = accessor(bufferPath, 0, 6, "float32")
 		val rest = """"uvs": ${accessor(bufferPath, 24, 6, "float32")}, "indices": ${accessor(bufferPath, 48, 3, "int32")}"""
+
 		for ((label, meshJson) in listOf(
 			"no localPositions" to """{ "canvasPositions": $positions, $rest }""",
 			"no canvasPositions" to """{ "localPositions": $positions, $rest }""",

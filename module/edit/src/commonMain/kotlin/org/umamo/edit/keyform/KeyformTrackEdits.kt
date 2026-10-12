@@ -63,7 +63,9 @@ fun PuppetModel.withTrackKeyInserted(
 			if (heldValue == null) this else withChannelKeyCaptured(track.target, parameter, posed, heldValue)
 		}
 
-		is KeyformTrackRef.Geometry -> withGeometryKeyInserted(track.owner, parameter, position)
+		is KeyformTrackRef.Geometry -> {
+			withGeometryKeyInserted(track.owner, parameter, position)
+		}
 	}
 
 /**
@@ -126,6 +128,7 @@ fun EditorSession.moveTrackKey(
 	mutate(KeyformChange.MoveKey(channelOf(track))) { model ->
 		model.withTrackKeyMoved(track, parameter, keyIndex, clamped)
 	}
+
 	return landedIndex
 }
 
@@ -210,6 +213,7 @@ fun EditorSession.moveTrackKeys(keys: List<Triple<KeyformTrackRef, Parameter, In
 	if (keys.isEmpty()) {
 		return
 	}
+
 	mutate(KeyformChange.MoveKey(channelOf(keys.first().first))) { model ->
 		keys.fold(model) { current, (track, parameter, keyIndex) ->
 			current.withTrackKeyMoved(track, parameter, keyIndex, clampToParameterRange(toValue, parameter))
@@ -274,6 +278,7 @@ fun EditorSession.dragTrackKeys(keys: List<Triple<KeyformTrackRef, Parameter, In
 	// handing it the finished model is equivalent - including the reference-equality no-op check, which
 	// still fires when nothing moved.
 	mutate(KeyformChange.MoveKey(channelOf(keys.first().first))) { plan.model }
+
 	return plan.landedOrdinals
 }
 
@@ -318,15 +323,20 @@ private fun PuppetModel.planTrackKeyDrag(
 	if (keys.isEmpty() || fraction == 0f) {
 		return null
 	}
+
 	val moves = keyDragsOf(keys)
 	val live = moves.filterNotNull()
+
 	if (live.isEmpty()) {
 		return null
 	}
+
 	val effectiveFraction = live.fold(fraction) { limited, move -> move.limitedTo(limited) }
+
 	if (effectiveFraction == 0f) {
 		return null
 	}
+
 	val destinations = live.associateWith { move -> move.destinationAt(effectiveFraction) }
 	// Nearest the destination first, so a run of keys shuffling the same way cannot have an earlier one
 	// clamp against a neighbour that is about to move out of the way.
@@ -341,6 +351,7 @@ private fun PuppetModel.planTrackKeyDrag(
 			val landed = moves[position]?.let { move -> outcome.landedValueByMove[move] } ?: return@mapIndexed keyIndex
 			outcome.model.trackKeyIndexAt(track, parameter, landed).takeIf { index -> index >= 0 } ?: keyIndex
 		}
+
 	return KeyDragPlan(outcome.model, landedOrdinals)
 }
 
@@ -368,19 +379,23 @@ private class KeyDragOutcome(val model: PuppetModel, val landedValueByMove: Map<
 private fun PuppetModel.withKeyDragsApplied(ordered: List<KeyDrag>, destinations: Map<KeyDrag, Float>): KeyDragOutcome {
 	val landed = HashMap<KeyDrag, Float>(ordered.size)
 	var working = this
+
 	for (move in ordered) {
 		// Re-found BY VALUE, not by the ordinal the caller passed: an earlier key crossing an unselected
 		// neighbour renumbers the axis under the keys still to be moved.
 		val liveIndex = working.trackKeyIndexAt(move.track, move.parameter, move.fromValue)
+
 		if (liveIndex < 0) {
 			continue
 		}
+
 		val requested = destinations.getValue(move)
 		// Asked BEFORE the move, off the same grid withTrackKeyMoved will consult, so the answer is the one
 		// that is about to be applied.  Null is a refusal - the key stays exactly where it is.
 		landed[move] = working.trackKeyDestination(move.track, move.parameter, liveIndex, requested) ?: move.fromValue
 		working = working.withTrackKeyMoved(move.track, move.parameter, liveIndex, requested)
 	}
+
 	return KeyDragOutcome(working, landed)
 }
 
@@ -420,6 +435,7 @@ private class KeyDrag(val track: KeyformTrackRef, val parameter: Parameter, val 
 	fun limitedTo(fraction: Float): Float {
 		val low = minOf(parameter.min, parameter.max)
 		val high = maxOf(parameter.min, parameter.max)
+
 		return if (fraction > 0f) {
 			minOf(fraction, ((high - fromValue) / span).coerceAtLeast(0f))
 		} else {
@@ -449,6 +465,7 @@ fun PuppetModel.trackKeyValue(track: KeyformTrackRef, parameter: Parameter, keyI
 	val axis =
 		trackGridOf(this, track)?.axes?.firstOrNull { candidate -> candidate.parameterId == parameter.id }
 			?: return null
+
 	return axis.keys.getOrNull(keyIndex)
 }
 
@@ -467,6 +484,7 @@ fun PuppetModel.trackKeyValue(track: KeyformTrackRef, parameter: Parameter, keyI
  */
 fun PuppetModel.trackKeyIndexAtPose(track: KeyformTrackRef, parameter: Parameter, pose: Pose): Int {
 	val grid = trackGridOf(this, track) ?: return -1
+
 	return grid.keyIndexAt(parameter.id, pose[parameter.id] ?: parameter.default)
 }
 
@@ -505,6 +523,7 @@ fun EditorSession.removeTrackKeys(keys: List<Triple<KeyformTrackRef, Parameter, 
 	if (keys.isEmpty()) {
 		return
 	}
+
 	mutate(KeyformChange.DeleteKey(channelOf(keys.first().first))) { model ->
 		keys
 			.sortedByDescending { (_, _, keyIndex) -> keyIndex }

@@ -57,8 +57,10 @@ class ProportionalEditingTest {
 	@Test
 	fun everyFalloffIsMonotonicallyNonIncreasing() {
 		val sampleCount = 20
+
 		for (falloff in allFalloffs) {
 			var previousWeight = proportionalWeight(falloff, 0f, ANY_VERTEX)
+
 			for (sampleIndex in 1..sampleCount) {
 				val weight = proportionalWeight(falloff, sampleIndex / sampleCount.toFloat(), ANY_VERTEX)
 				assertTrue(weight <= previousWeight + 1e-6f, "$falloff must not increase with distance (sample $sampleIndex)")

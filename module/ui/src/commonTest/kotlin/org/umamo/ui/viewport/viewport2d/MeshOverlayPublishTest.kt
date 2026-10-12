@@ -226,6 +226,7 @@ class MeshOverlayPublishTest {
 		val service = StubPuppetViewportService()
 		backgroundScope.launch { publishMeshOverlay(service, session, flowOf(sizes), wanted, StandardTestDispatcher(testScheduler)) }
 		runCurrent()
+
 		return service
 	}
 }

@@ -85,6 +85,7 @@ class PositionsOnlyUpdateRenderTest {
 		renderer.initGl()
 		renderer.setCamera(ViewportCamera(0f, 0f, 1f))
 		renderer.setPose(emptyMap())
+
 		return renderer
 	}
 
@@ -101,6 +102,7 @@ class PositionsOnlyUpdateRenderTest {
 		renderer.render(target, size, size)
 		val image = device.readPixels(target)
 		device.destroyRenderTarget(target)
+
 		return image
 	}
 
@@ -116,11 +118,13 @@ class PositionsOnlyUpdateRenderTest {
 		var sum = 0f
 		var vertexCount = 0
 		var coordinateIndex = 0
+
 		while (coordinateIndex + 1 < positions.size) {
 			sum += positions[coordinateIndex]
 			vertexCount++
 			coordinateIndex += 2
 		}
+
 		return sum / vertexCount
 	}
 
@@ -186,6 +190,7 @@ class PositionsOnlyUpdateRenderTest {
 				groupMode = PartGroupMode.Isolated,
 				composite = PartComposite(opacity = 0.5f),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = listOf(fxPart),

@@ -89,34 +89,42 @@ internal class ModalTransformController(
 		areaScreenOrigin: Offset?,
 	): Offset {
 		var pointer = change.position
+
 		when (event.type) {
 			PointerEventType.Move, PointerEventType.Exit -> {
 				// Discard stale pre-warp events, keeping the HUD anchored at the landing instead of
 				// flicking back to the old edge (see CursorWrapState.resolveArrival).
 				val staleLanding = cursorWrap.resolveArrival(change.position, size)
+
 				if (staleLanding != null) {
 					change.consume()
+
 					return staleLanding
 				}
+
 				// Drive from the virtual pointer so the transform stays continuous across wraps (what
 				// makes Scale / Rotate unbounded), then wrap at the viewport edge, folding the ACTUAL
 				// landing into the wrap offset (see CursorWrapState.maybeWrap).
 				if (target.drivePreview(cursorWrap.virtualPointer(change.position), camera, size)) {
 					val landed = cursorWrap.maybeWrap(change.position, size, areaScreenOrigin)
+
 					if (landed != null) {
 						pointer = landed
 					}
 				}
 			}
 
-			PointerEventType.Press ->
+			PointerEventType.Press -> {
 				if (event.buttons.isSecondaryPressed) {
 					target.cancel()
 				} else if (event.buttons.isPrimaryPressed) {
 					target.confirm()
 				}
+			}
 
-			PointerEventType.Scroll -> target.onScroll(change.scrollDelta.y, camera, size)
+			PointerEventType.Scroll -> {
+				target.onScroll(change.scrollDelta.y, camera, size)
+			}
 
 			else -> {}
 		}

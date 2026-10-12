@@ -157,9 +157,11 @@ class HistoryLimitTest {
 	@Test
 	fun sessionCapTrimsAndRepublishesTheHistoryView() {
 		val session = EditorSession(model("A"))
+
 		for (stepNumber in 1..8) {
 			session.mutate(PartChange.Rename(PartId("a"), "A$stepNumber")) { it.withPartName(PartId("a"), "A$stepNumber") }
 		}
+
 		// Seed plus eight edits.
 		assertEquals(9, session.historyView.value.steps.size)
 		assertTrue(session.canUndo.value)

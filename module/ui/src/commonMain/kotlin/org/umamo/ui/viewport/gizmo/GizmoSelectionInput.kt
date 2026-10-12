@@ -141,17 +141,23 @@ internal class MeshPickController(
 			when {
 				// Shift and Ctrl both toggle membership (Blender-style): a second modified click on a selected
 				// element deselects it.
-				modifiers.isShiftPressed || modifiers.isCtrlPressed || modifiers.isMetaPressed ->
+				modifiers.isShiftPressed || modifiers.isCtrlPressed || modifiers.isMetaPressed -> {
 					MeshSelectionOps.toggle(current, hit.drawableId, hit.element)
-				else -> MeshSelectionOps.replace(current, hit.drawableId, hit.element)
+				}
+
+				else -> {
+					MeshSelectionOps.replace(current, hit.drawableId, hit.element)
+				}
 			}
 		session.setMeshSelection(updated)
+
 		return true
 	}
 
 	/** An un-armed sub-threshold click on empty canvas clears the selection. */
 	private fun clearSelection() {
 		val current = session.meshSelection.value
+
 		if (!current.isEmpty) {
 			session.setMeshSelection(MeshSelectionOps.clear(current))
 		}
@@ -182,19 +188,24 @@ internal fun handleSelectLinkedRequest(
 	size: IntSize,
 ) {
 	var selection = session.meshSelection.value
+
 	if (fromSelection) {
 		for (geometry in geometries) {
 			val covered = MeshTopology.coveredVertexIndices(selection.elementsOf(geometry.drawableId), geometry.indices)
+
 			if (covered.isEmpty()) {
 				continue
 			}
+
 			val adjacency = MeshTopology.buildVertexAdjacency(geometry.positions.size / 2, geometry.indices)
 			val reached = HashSet<Int>()
+
 			for (seedVertex in covered) {
 				if (seedVertex !in reached) {
 					reached.addAll(MeshTopology.connectedVertices(adjacency, seedVertex))
 				}
 			}
+
 			selection = MeshSelectionOps.selectLinked(selection, geometry.drawableId, reached, geometry.indices)
 		}
 	} else {
@@ -205,5 +216,6 @@ internal fun handleSelectLinkedRequest(
 		selection =
 			MeshSelectionOps.selectLinked(selection, hit.drawableId, MeshTopology.connectedVertices(adjacency, seedVertex), geometry.indices)
 	}
+
 	session.setMeshSelection(selection)
 }

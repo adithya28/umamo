@@ -46,9 +46,11 @@ class KeyformGridAlgebraTest {
 		val corners = gridCorners(grid) { parameterId -> if (parameterId == angleX) poseValue else otherValue } ?: return null
 		val formByIndex = grid.cells.associate { cell -> grid.linearIndexOf(cell.coordinate) to cell.form }
 		var total = 0f
+
 		for (corner in corners) {
 			total += corner.weight * ((formByIndex[corner.linearIndex] as? ChannelValue.Scalar)?.value ?: 0f)
 		}
+
 		return total
 	}
 
@@ -82,6 +84,7 @@ class KeyformGridAlgebraTest {
 		assertEquals(listOf(angleX, angleY), seeded.axes.map { axis -> axis.parameterId }, "the new axis is appended, not spliced")
 		assertEquals(6, seeded.cells.size)
 		assertTrue(seeded.isDense)
+
 		// The pre-existing motion is unchanged at every angleY key, which is what makes binding non-destructive.
 		for (poseY in listOf(-1f, 0f, 1f)) {
 			assertEquals(15f, sample(seeded, poseValue = 0f, otherValue = poseY))
@@ -104,6 +107,7 @@ class KeyformGridAlgebraTest {
 		val after = before.withKeyInserted(angleX, 2.5f, ChannelValueInterpolator)
 		assertEquals(listOf(0f, 2.5f, 10f), after.axes.single().keys.toList())
 		assertEquals(25f, scalarOf(after.cells.first { cell -> cell.coordinate.single() == 1 }))
+
 		for (poseValue in listOf(0f, 1f, 2.5f, 6f, 10f)) {
 			val beforeValue = assertNotNull(sample(before, poseValue))
 			val afterValue = assertNotNull(sample(after, poseValue))

@@ -77,6 +77,7 @@ internal class DocumentExportController(
 					}
 				}
 			}
+
 		if (!started) {
 			exported.session.emitNotice("notice.document.exportBusy", NoticePlacement.StatusBar)
 		}
@@ -126,10 +127,13 @@ internal class DocumentExportController(
 	 */
 	fun exportMoc3() {
 		val exported = puppet ?: return
+
 		if (services.modelExports.isBusy) {
 			exported.session.emitNotice("notice.document.exportBusy", NoticePlacement.StatusBar)
+
 			return
 		}
+
 		val puppetDocument = exported.document
 		val moc3Document = puppetDocument as? Moc3Document
 		val seedModel = exportedModelFor(puppetDocument, exported.session)
@@ -143,6 +147,7 @@ internal class DocumentExportController(
 				canvasHeight = seedModel.canvasHeight,
 				onConfirm = { options ->
 					moc3ExportOptions.recordConfirmed(puppetDocument.path, options)
+
 					// Checked again: another export can have started while the options dialog was up.
 					if (!services.modelExports.tryStart(services.scope) { prepareMoc3(exported, options) }) {
 						exported.session.emitNotice("notice.document.exportBusy", NoticePlacement.StatusBar)
@@ -184,10 +189,13 @@ internal class DocumentExportController(
 		// textures, sidecars) lands beside it unannounced, so anything already there gets one warning naming
 		// what an OK would replace.
 		val existing = existingBundleFiles(destination, bundle)
+
 		if (existing.isEmpty()) {
 			writeMoc3(exported, destination, bundle)
+
 			return
 		}
+
 		services.commandRegistry.invoke(
 			"document.confirm",
 			ConfirmRequest(
@@ -235,6 +243,7 @@ internal class DocumentExportController(
 		for (notice in report.notices) {
 			UmamoLog.warn("export: ${describeExportNotice(notice)}")
 		}
+
 		if (!report.isEmpty) {
 			services.commandRegistry.invoke("document.exportReport", report)
 		}

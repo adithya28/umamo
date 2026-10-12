@@ -227,6 +227,7 @@ fun helpMenu(
 ): TopLevelMenu {
 	val logFolderRow = commandRow(stringResource(Res.string.menu_open_log_folder), "help.openLogFolder", keymap, dispatch)
 	val updateRow = commandRow(stringResource(Res.string.menu_check_for_updates), "help.checkForUpdates", keymap, dispatch)
+
 	return TopLevelMenu(
 		label = stringResource(Res.string.menu_help),
 		items =

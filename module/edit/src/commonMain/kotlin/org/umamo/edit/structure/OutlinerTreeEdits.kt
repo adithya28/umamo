@@ -65,17 +65,22 @@ fun outlinerDropBandFor(dragged: SelectionTarget, target: SelectionTarget, fract
 	if ((dragged is SelectionTarget.Deformer) != (target is SelectionTarget.Deformer)) {
 		return null
 	}
+
 	return when (target) {
 		// A part (and a deformer, which also nests) gets a wider middle "into" band; before / after reorder.
-		is SelectionTarget.Part, is SelectionTarget.Deformer ->
+		is SelectionTarget.Part, is SelectionTarget.Deformer -> {
 			when {
 				fraction < 0.33f -> RowDropBand.Before
 				fraction > 0.66f -> RowDropBand.After
 				else -> RowDropBand.Into
 			}
+		}
+
 		// A drawable has no children, so a drop next to it is only before / after (a sibling reorder - which,
 		// for an org child dropped next to a drawable, is the cross-kind interleave Cubism allows).
-		is SelectionTarget.Drawable -> if (fraction >= 0.5f) RowDropBand.After else RowDropBand.Before
+		is SelectionTarget.Drawable -> {
+			if (fraction >= 0.5f) RowDropBand.After else RowDropBand.Before
+		}
 	}
 }
 
@@ -94,6 +99,7 @@ fun SelectionTarget.asOrgChild(): OrgChild? =
 /** The org child [child]'s sibling list - its owning part's children, or the root level when it is top-level. */
 private fun PuppetModel.orgSiblingsOf(child: OrgChild): List<OrgChild> {
 	val parent = parts.firstOrNull { child in it.children }
+
 	return parent?.children ?: rootChildren
 }
 
@@ -104,6 +110,7 @@ private fun PuppetModel.orgParentOf(child: OrgChild): PartId? =
 /** The org child immediately after [child] among its siblings, or null when it is last (append). */
 private fun PuppetModel.orgSiblingAfter(child: OrgChild): OrgChild? {
 	val siblings = orgSiblingsOf(child)
+
 	return siblings.getOrNull(siblings.indexOf(child) + 1)
 }
 
@@ -115,6 +122,7 @@ private fun PuppetModel.deformerParentOf(id: DeformerId): DeformerId? =
 private fun PuppetModel.deformerSiblingAfter(id: DeformerId): DeformerId? {
 	val parent = deformerParentOf(id)
 	val siblings = deformers.filter { it.parent == parent }.map { it.id }
+
 	return siblings.getOrNull(siblings.indexOf(id) + 1)
 }
 
@@ -136,26 +144,38 @@ private fun PuppetModel.deformerSiblingAfter(id: DeformerId): DeformerId? {
  */
 fun PuppetModel.resolveOutlinerDrop(dragged: SelectionTarget, target: SelectionTarget, fraction: Float): OutlinerDrop? {
 	val band = outlinerDropBandFor(dragged, target, fraction) ?: return null
+
 	// Deformers move within the armature only.
 	if (dragged is SelectionTarget.Deformer && target is SelectionTarget.Deformer) {
 		return when (band) {
-			RowDropBand.Before ->
+			RowDropBand.Before -> {
 				OutlinerDrop.MoveDeformer(dragged.id, deformerParentOf(target.id), beforeId = target.id, expandTarget = false)
-			RowDropBand.After ->
+			}
+
+			RowDropBand.After -> {
 				OutlinerDrop.MoveDeformer(dragged.id, deformerParentOf(target.id), beforeId = deformerSiblingAfter(target.id), expandTarget = false)
-			RowDropBand.Into ->
+			}
+
+			RowDropBand.Into -> {
 				OutlinerDrop.MoveDeformer(dragged.id, target.id, beforeId = null, expandTarget = true)
+			}
 		}
 	}
+
 	// Org children (parts / drawables): one move covers reparent, reorder, and cross-kind interleave.
 	val draggedChild = dragged.asOrgChild() ?: return null
 	val targetChild = target.asOrgChild() ?: return null
+
 	return when (band) {
-		RowDropBand.Before ->
+		RowDropBand.Before -> {
 			OutlinerDrop.MoveOrgChild(draggedChild, orgParentOf(targetChild), before = targetChild, expandTarget = false)
-		RowDropBand.After ->
+		}
+
+		RowDropBand.After -> {
 			OutlinerDrop.MoveOrgChild(draggedChild, orgParentOf(targetChild), before = orgSiblingAfter(targetChild), expandTarget = false)
-		RowDropBand.Into ->
+		}
+
+		RowDropBand.Into -> {
 			if (target is SelectionTarget.Part) {
 				OutlinerDrop.MoveOrgChild(draggedChild, target.id, before = null, expandTarget = true)
 			} else {
@@ -163,6 +183,7 @@ fun PuppetModel.resolveOutlinerDrop(dragged: SelectionTarget, target: SelectionT
 				// practice; resolving to null keeps the function total anyway.
 				null
 			}
+		}
 	}
 }
 

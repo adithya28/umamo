@@ -20,10 +20,13 @@ class Cmo3SourceFileExportTest {
 	@Test
 	fun aRelinkedSourcePathAndNameSurviveTheRoundTrip() {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.sample not present; skipping the source-file export gate")
+
 			return
 		}
+
 		val cmo3 = Cmo3.read(file.readBytes())
 		val puppet = Cmo3Import.fromModelSource(cmo3.root as CModelSource)
 		assertTrue(puppet.sources.isNotEmpty(), "the sample lists its decomposed artwork")

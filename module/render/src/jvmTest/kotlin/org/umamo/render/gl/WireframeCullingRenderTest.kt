@@ -147,6 +147,7 @@ class WireframeCullingRenderTest {
 	 */
 	private fun RasterImage.at(column: Int, row: Int): List<Int> {
 		val offset = (row * viewportSize + column) * 4
+
 		return (0 until 4).map { channelIndex -> rgba[offset + channelIndex].toInt() and 0xFF }
 	}
 
@@ -191,6 +192,7 @@ class WireframeCullingRenderTest {
 		 */
 		fun render(overlays: FrameOverlays = FrameOverlays()): RasterImage {
 			renderer.render(target, viewportSize, viewportSize, overlays = overlays)
+
 			return device.readPixels(target)
 		}
 	}
@@ -203,10 +205,12 @@ class WireframeCullingRenderTest {
 	private fun solidBlueImage(): DecodedImage {
 		val size = 16
 		val rgba = ByteArray(size * size * 4)
+
 		for (pixel in rgba.indices step 4) {
 			rgba[pixel + 2] = 0xFF.toByte()
 			rgba[pixel + 3] = 0xFF.toByte()
 		}
+
 		return DecodedImage(rgba, size, size)
 	}
 
@@ -223,6 +227,7 @@ class WireframeCullingRenderTest {
 		val mask = quad(maskId, maskPositions)
 		val front = quad(frontId, frontPositions, opacity = frontOpacity, maskedBy = if (masked) listOf(maskId) else emptyList())
 		val drawables = if (masked) listOf(back, mask, front) else listOf(back, front)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),

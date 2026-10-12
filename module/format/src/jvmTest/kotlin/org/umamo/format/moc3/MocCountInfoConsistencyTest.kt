@@ -128,13 +128,17 @@ class MocCountInfoConsistencyTest {
 	@Test
 	fun countInfoFieldsMatchTheSectionsTheySize() {
 		val files = samples()
+
 		if (files.isEmpty()) {
 			println("moc3.samples not present; skipping CountInfo consistency test")
+
 			return
 		}
+
 		val failures = ArrayList<String>()
 		val uncheckedTableSections = sortedSetOf<String>()
 		var checkedTotal = 0
+
 		for (file in files) {
 			val model = MocCodec.read(file.readBytes())
 			val doc = Moc3.decode(model)
@@ -146,9 +150,11 @@ class MocCountInfoConsistencyTest {
 
 			for (section in Section.entries) {
 				val index = section.indexIn(version)
+
 				if (index < 0) {
 					continue
 				}
+
 				val bytes = lowered[index] ?: continue
 				val countField =
 					if (section.sizing == Sizing.TABLE) {
@@ -156,13 +162,17 @@ class MocCountInfoConsistencyTest {
 					} else {
 						countFieldBySizing[section.sizing]
 					}
+
 				if (countField == null) {
 					uncheckedTableSections.add(section.name)
+
 					continue
 				}
+
 				val declaredCount = countInfo.getOrElse(countField) { 0 }
 				val expectedBytes = declaredCount * section.element.size
 				checkedTotal++
+
 				if (bytes.size != expectedBytes) {
 					failures.add(
 						"${file.name}: ${section.name}@$index is ${bytes.size} bytes but CountInfo[$countField]" +
@@ -171,9 +181,11 @@ class MocCountInfoConsistencyTest {
 				}
 			}
 		}
+
 		if (uncheckedTableSections.isNotEmpty()) {
 			println("[countinfo] table sections with no CountInfo pairing (unchecked): $uncheckedTableSections")
 		}
+
 		println("[countinfo] ${files.size} models, $checkedTotal section/field identities checked")
 		failures.forEach { failureMessage -> println("[countinfo] FAIL $failureMessage") }
 		assertTrue(failures.isEmpty(), "CountInfo disagrees with the sections it sizes:\n" + failures.joinToString("\n"))

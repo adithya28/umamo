@@ -57,6 +57,7 @@ internal fun activeElementMedian(selection: MeshSelection, geometries: List<Gizm
 	val active = selection.activeElement ?: return null
 	val activeGeometry = geometries.firstOrNull { geometry -> geometry.drawableId == active.drawableId } ?: return null
 	val activeCovered = MeshTopology.coveredVertexIndices(setOf(active.element), activeGeometry.indices)
+
 	return if (activeCovered.isEmpty()) {
 		null
 	} else {
@@ -86,12 +87,14 @@ internal fun hitTestMeshes(
 ): ActiveMeshElement? {
 	var best: ActiveMeshElement? = null
 	var bestMetric = Float.MAX_VALUE
+
 	for (geometry in geometries) {
 		when (selectMode) {
 			MeshSelectMode.Vertex -> {
 				val vertexIndex = hitTestVertex(geometry.positions, pointer, camera, size) ?: continue
 				val screen = worldToScreen(geometry.positions[vertexIndex * 2], geometry.positions[vertexIndex * 2 + 1], camera, size)
 				val metric = (screen - pointer).getDistance()
+
 				if (metric < bestMetric) {
 					bestMetric = metric
 					best = ActiveMeshElement(geometry.drawableId, MeshElement.Vertex(vertexIndex))
@@ -103,6 +106,7 @@ internal fun hitTestMeshes(
 				val start = worldToScreen(geometry.positions[edge.endpointLow * 2], geometry.positions[edge.endpointLow * 2 + 1], camera, size)
 				val end = worldToScreen(geometry.positions[edge.endpointHigh * 2], geometry.positions[edge.endpointHigh * 2 + 1], camera, size)
 				val metric = distanceToSegment(pointer.x, pointer.y, start.x, start.y, end.x, end.y)
+
 				if (metric < bestMetric) {
 					bestMetric = metric
 					best = ActiveMeshElement(geometry.drawableId, edge)
@@ -119,6 +123,7 @@ internal fun hitTestMeshes(
 				val screenC = worldToScreen(geometry.positions[cornerC * 2], geometry.positions[cornerC * 2 + 1], camera, size)
 				val centroid = Offset((screenA.x + screenB.x + screenC.x) / 3f, (screenA.y + screenB.y + screenC.y) / 3f)
 				val metric = (centroid - pointer).getDistance()
+
 				if (metric < bestMetric) {
 					bestMetric = metric
 					best = ActiveMeshElement(geometry.drawableId, face)
@@ -126,6 +131,7 @@ internal fun hitTestMeshes(
 			}
 		}
 	}
+
 	return best
 }
 
@@ -150,14 +156,19 @@ internal fun elementsInBox(
 	size: IntSize,
 ): Set<MeshElement> =
 	when (selectMode) {
-		MeshSelectMode.Vertex ->
+		MeshSelectMode.Vertex -> {
 			verticesInBox(geometry.positions, cornerA, cornerB, camera, size)
 				.map { vertexIndex -> MeshElement.Vertex(vertexIndex) }
 				.toSet<MeshElement>()
+		}
 
-		MeshSelectMode.Edge -> edgesInBox(geometry.positions, geometry.edges, cornerA, cornerB, camera, size)
+		MeshSelectMode.Edge -> {
+			edgesInBox(geometry.positions, geometry.edges, cornerA, cornerB, camera, size)
+		}
 
-		MeshSelectMode.Face -> facesInBox(geometry.positions, geometry.indices, cornerA, cornerB, camera, size)
+		MeshSelectMode.Face -> {
+			facesInBox(geometry.positions, geometry.indices, cornerA, cornerB, camera, size)
+		}
 	}
 
 /**
@@ -187,17 +198,23 @@ internal fun circleSelection(
 		geometries.associate { geometry ->
 			val inside: Set<MeshElement> =
 				when (working.selectMode) {
-					MeshSelectMode.Vertex ->
+					MeshSelectMode.Vertex -> {
 						verticesInCircle(geometry.positions, center, radiusPx, camera, size)
 							.map { vertexIndex -> MeshElement.Vertex(vertexIndex) }
 							.toSet<MeshElement>()
+					}
 
-					MeshSelectMode.Edge -> edgesInCircle(geometry.positions, geometry.edges, center, radiusPx, camera, size)
+					MeshSelectMode.Edge -> {
+						edgesInCircle(geometry.positions, geometry.edges, center, radiusPx, camera, size)
+					}
 
-					MeshSelectMode.Face -> facesInCircle(geometry.positions, geometry.indices, center, radiusPx, camera, size)
+					MeshSelectMode.Face -> {
+						facesInCircle(geometry.positions, geometry.indices, center, radiusPx, camera, size)
+					}
 				}
 			geometry.drawableId to inside
 		}
+
 	return if (erasing) {
 		MeshSelectionOps.remove(working, insideByDrawable)
 	} else {

@@ -42,12 +42,15 @@ class OperationStripLabelsTest {
 	private val everyRow: List<OperatorParameter> =
 		buildList {
 			addAll(repackParameters(AtlasPackOptions()))
+
 			for (kind in listOf(MeshOperatorKind.Grab, MeshOperatorKind.Rotate, MeshOperatorKind.Scale)) {
 				addAll(placementParameters(PlacementDragStatus(kind, 0, 0, 0f, 1f, 1f, 0, false), 1024, 1024))
+
 				for (space in TransformRowSpace.entries) {
 					addAll(transformParameters(kind, TransformGestureParameters.IDENTITY, space, ProportionalRows(true, ProportionalFalloff.Smooth, 50f, false)))
 				}
 			}
+
 			addAll(addArtworkParameters(SourceArtImportOptions(), placed = true))
 			addAll(matchArtworkParameters(0.8f, SourceArtImportOptions()))
 			addAll(slideParameters(0.5f))
@@ -84,6 +87,7 @@ class OperationStripLabelsTest {
 	fun choiceEntriesHaveNoDescription() {
 		val entryKeys = everyRow.filterIsInstance<OperatorParameter.ChoiceParameter>().flatMap { row -> row.choices.mapNotNull { choice -> choice.labelKey } }
 		assertTrue(entryKeys.isNotEmpty(), "the strip has choice rows whose entries carry label keys")
+
 		for (entryKey in entryKeys) {
 			assertNull(operatorParameterDescriptionRes(entryKey), "the choice entry $entryKey resolved a row description")
 		}

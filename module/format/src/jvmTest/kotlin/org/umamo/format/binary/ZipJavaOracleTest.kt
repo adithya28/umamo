@@ -41,12 +41,14 @@ class ZipJavaOracleTest {
 		val entries = ArrayList<JavaReadEntry>()
 		ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
 			var entry = zip.nextEntry
+
 			while (entry != null) {
 				entries += JavaReadEntry(entry.name, zip.readBytes())
 				zip.closeEntry()
 				entry = zip.nextEntry
 			}
 		}
+
 		return entries
 	}
 
@@ -58,6 +60,7 @@ class ZipJavaOracleTest {
 	 */
 	private fun readWithZipFile(bytes: ByteArray): List<JavaReadEntry> {
 		val file = File.createTempFile("umamo-zip-oracle", ".zip")
+
 		try {
 			file.writeBytes(bytes)
 			ZipFile(file).use { zip ->
@@ -78,6 +81,7 @@ class ZipJavaOracleTest {
 	private fun assertArchiveReads(bytes: ByteArray, expected: List<JavaReadEntry>, label: String) {
 		val archive = ZipArchive.read(bytes)
 		assertEquals(expected.map { entry -> entry.name }, archive.entries.map { entry -> entry.name }, "$label: entry names and order")
+
 		for ((entryIndex, entry) in archive.entries.withIndex()) {
 			assertContentEquals(expected[entryIndex].contents, archive.contents(entry), "$label: '${entry.name}' contents")
 		}
@@ -110,6 +114,7 @@ class ZipJavaOracleTest {
 		ZipOutputStream(sink).use { zip ->
 			for ((name, contents, deflated) in entries) {
 				val entry = JavaZipEntry(name)
+
 				if (!deflated) {
 					val checksum = CRC32()
 					checksum.update(contents)
@@ -118,11 +123,13 @@ class ZipJavaOracleTest {
 					entry.compressedSize = contents.size.toLong()
 					entry.crc = checksum.value
 				}
+
 				zip.putNextEntry(entry)
 				zip.write(contents)
 				zip.closeEntry()
 			}
 		}
+
 		return sink.toByteArray()
 	}
 
@@ -159,9 +166,11 @@ class ZipJavaOracleTest {
 	fun rawCopyOfADataDescriptorEntryDropsTheFlag() {
 		val source = ZipArchive.read(javaArchiveOf(syntheticEntries()))
 		val copier = ZipWriter(TEST_DOS_DATE_TIME)
+
 		for (entry in source.entries) {
 			copier.addRaw(entry, source.rawPayload(entry))
 		}
+
 		val copied = copier.finish()
 		assertTrue(
 			ZipArchive.read(copied).entries.none { entry -> (entry.flags and ZipRecords.FLAG_DATA_DESCRIPTOR) != 0 },
@@ -178,8 +187,10 @@ class ZipJavaOracleTest {
 		val entries = syntheticEntries()
 		val bytes = archiveOf(*entries.toTypedArray())
 		val expected = entries.map { (name, contents) -> JavaReadEntry(name, contents) }
+
 		for ((label, javaRead) in listOf("ZipInputStream" to readWithZipInputStream(bytes), "ZipFile" to readWithZipFile(bytes))) {
 			assertEquals(expected.map { entry -> entry.name }, javaRead.map { entry -> entry.name }, "$label: entry names and order")
+
 			for ((entryIndex, entry) in javaRead.withIndex()) {
 				assertContentEquals(expected[entryIndex].contents, entry.contents, "$label: '${entry.name}' contents")
 			}
@@ -209,10 +220,13 @@ class ZipJavaOracleTest {
 	@Test
 	fun corpusKraArchivesMatchZipInputStream() {
 		val samples = locateKraSamples()
+
 		if (samples.isEmpty()) {
 			println("no kra.sample and no test/corpus/krita samples; skipping the KRA ZIP oracle")
+
 			return
 		}
+
 		for (sample in samples) {
 			val bytes = sample.readBytes()
 			val expected = readWithZipInputStream(bytes)
@@ -232,13 +246,17 @@ class ZipJavaOracleTest {
 			return listOfNotNull(File(path).takeIf(File::isFile))
 		}
 		var directory: File? = File(System.getProperty("user.dir"))
+
 		while (directory != null) {
 			val corpus = File(directory, "test/corpus/krita")
+
 			if (corpus.isDirectory) {
 				return corpus.listFiles { file -> file.extension.equals("kra", ignoreCase = true) }?.sortedBy { it.name } ?: emptyList()
 			}
+
 			directory = directory.parentFile
 		}
+
 		return emptyList()
 	}
 }

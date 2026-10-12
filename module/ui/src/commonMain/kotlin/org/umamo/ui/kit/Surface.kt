@@ -39,13 +39,17 @@ fun Surface(
 	content: @Composable () -> Unit,
 ) {
 	var surfaceModifier = modifier
+
 	if (shadowElevation > 0.dp) {
 		surfaceModifier = surfaceModifier.shadow(shadowElevation, shape)
 	}
+
 	surfaceModifier = surfaceModifier.clip(shape).background(color)
+
 	if (border != null) {
 		surfaceModifier = surfaceModifier.border(border, shape)
 	}
+
 	Box(modifier = surfaceModifier) { content() }
 }
 

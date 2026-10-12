@@ -72,21 +72,28 @@ internal object UmaPuppetShape {
 	 */
 	private fun checkPuppet(puppet: UmaPuppet) {
 		val drawables = puppet.drawables.orEmpty()
+
 		for (drawable in drawables) {
 			checkDrawable(drawable)
 		}
+
 		puppet.parameterTree.orEmpty().forEachIndexed { nodeIndex, node -> checkParameterNode(node, "parameterTree[$nodeIndex]") }
+
 		for (part in puppet.parts.orEmpty()) {
 			checkPart(part)
 		}
+
 		for (deformer in puppet.deformers.orEmpty()) {
 			checkDeformer(deformer)
 		}
+
 		// UMA §4.14: a glue's indices are checked against the meshes it welds, when those meshes are in the entry.
 		val vertexCountByDrawable = drawables.associate { drawable -> drawable.id to drawable.mesh?.let { mesh -> mesh.canvasPositions.size / 2 } }
+
 		for (glue in puppet.glues.orEmpty()) {
 			checkGlue(glue, vertexCountByDrawable)
 		}
+
 		puppet.rootChildren.orEmpty().forEachIndexed { childIndex, child -> checkOrgRef(child, "rootChildren[$childIndex]") }
 	}
 
@@ -99,18 +106,23 @@ internal object UmaPuppetShape {
 	private fun checkParameterNode(node: UmaParameterNode, path: String) {
 		val isLeaf = node.parameter != null
 		val isGroup = node.group != null
+
 		if (isLeaf == isGroup) {
 			problem("$path must name exactly one of a parameter and a group")
 		}
+
 		if (isLeaf) {
 			if (node.name != null || node.initiallyOpen != null || node.children != null) {
 				problem("$path is a parameter leaf but carries group fields")
 			}
+
 			return
 		}
+
 		if (node.name == null) {
 			problem("$path is a group without a name")
 		}
+
 		node.children.orEmpty().forEachIndexed { childIndex, child -> checkParameterNode(child, "$path.children[$childIndex]") }
 	}
 
@@ -160,33 +172,43 @@ internal object UmaPuppetShape {
 		val path = "deformers[${deformer.id}]"
 		checkColor(deformer.multiplyColor, "$path.multiplyColor")
 		checkColor(deformer.screenColor, "$path.screenColor")
+
 		when (deformer.kind) {
 			UmaDeformerKind.Warp -> {
 				if (deformer.baseAngle != null || deformer.flipX != null || deformer.flipY != null) {
 					problem("$path is a warp but carries rotation fields")
 				}
+
 				val rows = deformer.rows ?: problem("$path is a warp without rows")
 				val columns = deformer.columns ?: problem("$path is a warp without columns")
+
 				if (rows < 0 || columns < 0) {
 					problem("$path has a negative lattice size")
 				}
+
 				// UMA §4.11: a rows x columns lattice holds (rows + 1) x (columns + 1) control points, counted wide so a
 				// huge lattice cannot wrap to a small float count its arrays would then pass.
 				val pointFloatsWide = (rows + 1L) * (columns + 1L) * 2L
+
 				if (pointFloatsWide > Int.MAX_VALUE) {
 					problem("$path has a $rows x $columns lattice, too large to hold")
 				}
+
 				val pointFloats = pointFloatsWide.toInt()
+
 				if (deformer.isQuadTransform == null) {
 					problem("$path is a warp without isQuadTransform")
 				}
+
 				deformer.geometry?.let { grid ->
 					checkGrid(grid.axes, grid.cells.map { cell -> cell.coordinate }, "$path.geometry")
 					grid.cells.forEachIndexed { cellIndex, cell ->
 						val cellPath = "$path.geometry.cells[$cellIndex]"
+
 						if (cell.originX != null || cell.originY != null || cell.angle != null || cell.scale != null) {
 							problem("$cellPath belongs to a warp but carries rotation fields")
 						}
+
 						checkLattice(cell.controlPoints, pointFloats, cellPath)
 					}
 				}
@@ -197,9 +219,11 @@ internal object UmaPuppetShape {
 					binding.forms.forEachIndexed { formIndex, form ->
 						form?.let {
 							val formPath = "$bindingPath.forms[$formIndex]"
+
 							if (form.originX != null || form.originY != null || form.angle != null || form.scale != null || form.flipX != null || form.flipY != null) {
 								problem("$formPath belongs to a warp but carries rotation fields")
 							}
+
 							checkLattice(form.controlPoints, pointFloats, formPath)
 							checkColor(form.multiplyColor, "$formPath.multiplyColor")
 							checkColor(form.screenColor, "$formPath.screenColor")
@@ -212,16 +236,20 @@ internal object UmaPuppetShape {
 				if (deformer.rows != null || deformer.columns != null || deformer.isQuadTransform != null) {
 					problem("$path is a rotation but carries warp fields")
 				}
+
 				if (deformer.baseAngle == null) {
 					problem("$path is a rotation without baseAngle")
 				}
+
 				deformer.geometry?.let { grid ->
 					checkGrid(grid.axes, grid.cells.map { cell -> cell.coordinate }, "$path.geometry")
 					grid.cells.forEachIndexed { cellIndex, cell ->
 						val cellPath = "$path.geometry.cells[$cellIndex]"
+
 						if (cell.controlPoints != null) {
 							problem("$cellPath belongs to a rotation but carries controlPoints")
 						}
+
 						checkPivot(cell.originX, cell.originY, cell.angle, cell.scale, cellPath)
 					}
 				}
@@ -232,9 +260,11 @@ internal object UmaPuppetShape {
 					binding.forms.forEachIndexed { formIndex, form ->
 						form?.let {
 							val formPath = "$bindingPath.forms[$formIndex]"
+
 							if (form.controlPoints != null) {
 								problem("$formPath belongs to a rotation but carries controlPoints")
 							}
+
 							checkPivot(form.originX, form.originY, form.angle, form.scale, formPath)
 							checkColor(form.multiplyColor, "$formPath.multiplyColor")
 							checkColor(form.screenColor, "$formPath.screenColor")
@@ -283,18 +313,23 @@ internal object UmaPuppetShape {
 	 */
 	private fun checkMesh(mesh: UmaMesh, path: String) {
 		val positions = mesh.canvasPositions
+
 		if (positions.size % 2 != 0) {
 			problem("$path.canvasPositions holds ${positions.size} floats, not whole x, y pairs")
 		}
+
 		if (mesh.localPositions.size != positions.size) {
 			problem("$path.localPositions holds ${mesh.localPositions.size} floats against ${positions.size} canvasPositions")
 		}
+
 		if (mesh.uvs.size != positions.size) {
 			problem("$path.uvs holds ${mesh.uvs.size} floats against ${positions.size} canvasPositions")
 		}
+
 		if (mesh.indices.size % 3 != 0) {
 			problem("$path.indices holds ${mesh.indices.size} indices, not whole triangles")
 		}
+
 		checkIndices(mesh.indices, positions.size / 2, "$path.indices")
 	}
 
@@ -310,6 +345,7 @@ internal object UmaPuppetShape {
 		if (vertexCount == null) {
 			return
 		}
+
 		indices.forEachIndexed { indexIndex, index ->
 			if (index !in 0 until vertexCount) {
 				problem("$path[$indexIndex] is $index, outside the mesh's $vertexCount vertices")
@@ -342,6 +378,7 @@ internal object UmaPuppetShape {
 		if (controlPoints == null) {
 			problem("$path belongs to a warp but has no controlPoints")
 		}
+
 		if (controlPoints.size != pointFloats) {
 			problem("$path.controlPoints holds ${controlPoints.size} floats; the lattice needs $pointFloats")
 		}
@@ -377,9 +414,11 @@ internal object UmaPuppetShape {
 		axes.forEachIndexed { axisIndex, axis -> checkAscending(axis.keys, "$path.axes[$axisIndex].keys") }
 		coordinates.forEachIndexed { cellIndex, coordinate ->
 			val cellPath = "$path.cells[$cellIndex]"
+
 			if (coordinate.size != axes.size) {
 				problem("$cellPath.coordinate has ${coordinate.size} components for ${axes.size} axes")
 			}
+
 			coordinate.forEachIndexed { axisIndex, keyIndex ->
 				if (keyIndex !in axes[axisIndex].keys.indices) {
 					problem("$cellPath.coordinate[$axisIndex] is $keyIndex, outside the axis's ${axes[axisIndex].keys.size} keys")
@@ -435,6 +474,7 @@ internal object UmaPuppetShape {
 
 			UmaChannelValueKind.Color -> {
 				val components = value as? JsonArray
+
 				if (components == null || components.size != 3 || components.any { component -> finiteNumberOf(component) == null }) {
 					problem("$path must be three numbers")
 				}
@@ -470,9 +510,11 @@ internal object UmaPuppetShape {
 		if (formCount != keys.size) {
 			problem("$path has ${keys.size} keys but $formCount forms")
 		}
+
 		if (neutralIndex !in keys.indices) {
 			problem("$path.neutralIndex is $neutralIndex, outside its ${keys.size} keys")
 		}
+
 		checkAscending(keys, "$path.keys")
 		limits.orEmpty().forEachIndexed { limitIndex, limit -> checkAscending(limit.points.map { point -> point.value }, "$path.limits[$limitIndex].points") }
 	}
@@ -487,9 +529,11 @@ internal object UmaPuppetShape {
 		val path = "glues[${glue.meshA},${glue.meshB}]"
 		val pairs = glue.pairs
 		val pairCount = pairs.indicesA.size
+
 		if (pairs.indicesB.size != pairCount || pairs.weightsA.size != pairCount || pairs.weightsB.size != pairCount) {
 			problem("$path.pairs holds arrays of different lengths")
 		}
+
 		checkIndices(pairs.indicesA, vertexCountByDrawable[glue.meshA], "$path.pairs.indicesA")
 		checkIndices(pairs.indicesB, vertexCountByDrawable[glue.meshB], "$path.pairs.indicesB")
 		checkChannels(glue.channels, path)

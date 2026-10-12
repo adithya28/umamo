@@ -103,9 +103,11 @@ internal class CommandRouting(
 	 */
 	fun operationStripArea(): String? {
 		val hovered = hoveredSurface()
+
 		if (hovered != null && hovered.kind.hostsOperationStrip) {
 			return hovered.areaId
 		}
+
 		return lastTouchedStripHost()?.areaId ?: defaultStripHost()
 	}
 
@@ -176,6 +178,7 @@ internal class CommandRouting(
 	 */
 	fun transformTarget(): TransformTarget? {
 		val hovered = hoveredSurface() ?: return null
+
 		return when (hovered.kind) {
 			SpaceKind.UvEditor -> TransformTarget.Uv(hovered.areaId)
 			SpaceKind.Viewport2D -> TransformTarget.Viewport(hovered.areaId)
@@ -197,6 +200,7 @@ internal class CommandRouting(
 	 */
 	fun selectToolArea(session: EditorSession?): String? {
 		val hovered = hoveredSurface() ?: return null
+
 		return when (hovered.kind) {
 			SpaceKind.Viewport2D -> hovered.areaId
 			SpaceKind.UvEditor -> hovered.areaId.takeIf { session?.mode?.value == EditorMode.Edit }

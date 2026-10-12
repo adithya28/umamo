@@ -115,9 +115,11 @@ class ModalKeyLadderTest {
 		val drawable = SelectionTarget.Drawable(DrawableId("a"))
 		session.setSelection(Selection(setOf(drawable), drawable))
 		session.setMode(mode)
+
 		if (mode == EditorMode.Edit) {
 			session.selectAllMeshElements()
 		}
+
 		return session
 	}
 
@@ -151,6 +153,7 @@ class ModalKeyLadderTest {
 
 	private fun nonEmptySelection(): RecordingSelection {
 		val drawable = SelectionTarget.Drawable(DrawableId("a"))
+
 		return RecordingSelection(Selection(setOf(drawable), drawable))
 	}
 
@@ -190,6 +193,7 @@ class ModalKeyLadderTest {
 		val sheet = RecordingSheet(armed)
 		val views = KeyformSheetViews()
 		views.register("sheet-1", sheet.surface)
+
 		return views to sheet
 	}
 
@@ -415,6 +419,7 @@ class ModalKeyLadderTest {
 				Triple("export report", { overlays -> overlays.exportReport = ExportReport(ExportFormat.Cmo3, emptyList()) }, { overlays -> overlays.exportReport != null }),
 				Triple("repack report", { overlays -> overlays.repackReport = AtlasRepackReport(emptyList()) }, { overlays -> overlays.repackReport != null }),
 			)
+
 		for ((label, raise, isUp) in kinds) {
 			val overlays = ShellOverlayState()
 			raise(overlays)
@@ -490,6 +495,7 @@ class ModalKeyLadderTest {
 				"app alert" to { overlays -> overlays.pendingAlert = AlertRequest(Res.string.cmd_mesh_grab) },
 				"export report" to { overlays -> overlays.exportReport = ExportReport(ExportFormat.Cmo3, emptyList()) },
 			)
+
 		for ((label, raise) in alerts) {
 			val overlays = ShellOverlayState().apply(raise)
 			val state = ShellModalState(overlays = overlays)
@@ -672,6 +678,7 @@ class ModalKeyLadderTest {
 					{ it.pendingExportOptions != null },
 				),
 			)
+
 		for ((name, overlays, isOpen) in cases) {
 			val state = ShellModalState(overlays = overlays)
 

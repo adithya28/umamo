@@ -22,6 +22,7 @@ class GetVersionCorpusTest {
 		val file =
 			cmo3Sample ?: run {
 				println("cmo3.sample not present; skipping cmo3 getVersion corpus test")
+
 				return
 			}
 		val version = Cmo3.getVersion(file.readBytes())
@@ -33,14 +34,18 @@ class GetVersionCorpusTest {
 		val directory =
 			mocSamplesDir ?: run {
 				println("moc3.samples not present; skipping moc3 getVersion corpus test")
+
 				return
 			}
 		val samples =
 			directory.walkTopDown().filter { it.isFile && it.extension.equals("moc3", ignoreCase = true) }.toList()
+
 		if (samples.isEmpty()) {
 			println("moc3.samples contains no .moc3 files; skipping")
+
 			return
 		}
+
 		for (sample in samples) {
 			val bytes = sample.readBytes()
 			val version = Moc3.getVersion(bytes)

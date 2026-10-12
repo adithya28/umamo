@@ -113,10 +113,12 @@ fun PuppetModel.atlasBindingFor(drawable: Drawable): DrawableLayerBinding? =
  */
 fun PuppetModel.drawableIdsByAtlasTile(): Map<AtlasTileId, List<DrawableId>> {
 	val byTile = LinkedHashMap<AtlasTileId, MutableList<DrawableId>>()
+
 	for (drawable in drawables) {
 		val tileId = drawable.atlasTileId ?: continue
 		byTile.getOrPut(tileId) { ArrayList() }.add(drawable.id)
 	}
+
 	return byTile
 }
 
@@ -148,11 +150,13 @@ fun PuppetAtlas.bindingForTile(tileId: AtlasTileId): DrawableLayerBinding? {
 	val tile = tileById[tileId] ?: return null
 	val placement = tile.placement?.takeIf { storedUvsAddressPages }
 	val page = placement?.let { packed -> pages.getOrNull(packed.pageIndex) }
+
 	if (placement != null && page == null) {
 		// A placement naming a page the document does not have is broken wiring, not a tile that is
 		// sampled directly - resolving it to the identity would silently draw the wrong frame.
 		return null
 	}
+
 	return DrawableLayerBinding(tile.id.raw, placement, page?.width ?: 0, page?.height ?: 0)
 }
 
@@ -168,6 +172,7 @@ fun PuppetAtlas.bindingForTile(tileId: AtlasTileId): DrawableLayerBinding? {
 fun PuppetAtlas.storedToArtAffineForTile(tileId: AtlasTileId): FloatArray? {
 	val tile = tileById[tileId] ?: return null
 	val binding = bindingForTile(tileId) ?: return null
+
 	return layerUvAffineOf(binding, tile.width, tile.height)
 }
 
@@ -185,32 +190,38 @@ fun PuppetModel.drawablesByPartSubtree(): Map<PartId, List<DrawableId>> {
 
 	fun collect(partId: PartId, guard: MutableSet<PartId>): List<DrawableId> {
 		collected[partId]?.let { return it }
+
 		// A malformed tree could cycle; the guard makes this terminate rather than blow the stack.
 		if (!guard.add(partId)) {
 			return emptyList()
 		}
+
 		val part = partById[partId]
 		val gathered =
 			if (part == null) {
 				emptyList()
 			} else {
 				val into = ArrayList<DrawableId>()
+
 				for (child in part.children) {
 					when (child) {
 						is OrgChild.Drawable -> into.add(child.id)
 						is OrgChild.Part -> into.addAll(collect(child.id, guard))
 					}
 				}
+
 				into
 			}
 		guard.remove(partId)
 		collected[partId] = gathered
+
 		return gathered
 	}
 
 	for (part in parts) {
 		collect(part.id, mutableSetOf())
 	}
+
 	return collected
 }
 
@@ -224,6 +235,7 @@ fun PuppetModel.drawablesByPartSubtree(): Map<PartId, List<DrawableId>> {
  */
 fun PuppetModel.parentPartByPart(): Map<PartId, PartId> {
 	val parentOf = HashMap<PartId, PartId>(parts.size)
+
 	for (part in parts) {
 		for (child in part.children) {
 			if (child is OrgChild.Part) {
@@ -231,6 +243,7 @@ fun PuppetModel.parentPartByPart(): Map<PartId, PartId> {
 			}
 		}
 	}
+
 	return parentOf
 }
 
@@ -255,6 +268,7 @@ fun PuppetModel.partSelfAndDescendants(id: PartId): Set<PartId> {
 		if (!collected.add(current)) {
 			return
 		}
+
 		partById[current]?.children?.forEach { child ->
 			if (child is OrgChild.Part) {
 				walk(child.id)
@@ -262,6 +276,7 @@ fun PuppetModel.partSelfAndDescendants(id: PartId): Set<PartId> {
 		}
 	}
 	walk(id)
+
 	return collected
 }
 
@@ -282,9 +297,11 @@ fun PuppetModel.deformerSelfAndDescendants(id: DeformerId): Set<DeformerId> {
 		if (!collected.add(current)) {
 			return
 		}
+
 		childrenByParent[current]?.forEach { child -> walk(child.id) }
 	}
 	walk(id)
+
 	return collected
 }
 
@@ -310,7 +327,9 @@ fun flattenedMasks(composite: PartComposite, subtrees: Map<PartId, List<Drawable
 	if (composite.maskedByParts.isEmpty()) {
 		return composite.maskedBy
 	}
+
 	val expanded = composite.maskedByParts.flatMap { maskPartId -> subtrees[maskPartId].orEmpty() }
+
 	return (composite.maskedBy + expanded).distinct()
 }
 
@@ -331,11 +350,13 @@ fun PuppetModel.withPartMasksFlattened(): PuppetModel {
 	if (parts.none { part -> part.composite.maskedByParts.isNotEmpty() }) {
 		return this
 	}
+
 	// One index for the whole batch (see flattenedMasks).
 	val subtrees = drawablesByPartSubtree()
 	val flattened =
 		parts.map { part ->
 			val composite = part.composite
+
 			if (composite.maskedByParts.isEmpty()) {
 				part
 			} else {
@@ -344,6 +365,7 @@ fun PuppetModel.withPartMasksFlattened(): PuppetModel {
 				)
 			}
 		}
+
 	return copy(parts = flattened).withDerivedRenderRoot()
 }
 
@@ -385,17 +407,22 @@ fun PuppetModel.differsOnlyInMeshPositions(previous: PuppetModel): Boolean {
 	if (this === previous) {
 		return true
 	}
+
 	if (drawables.size != previous.drawables.size || copy(drawables = previous.drawables) != previous) {
 		return false
 	}
+
 	for (drawableIndex in drawables.indices) {
 		val nextDrawable = drawables[drawableIndex]
 		val previousDrawable = previous.drawables[drawableIndex]
+
 		if (nextDrawable === previousDrawable) {
 			continue
 		}
+
 		val nextMesh = nextDrawable.mesh ?: return false
 		val previousMesh = previousDrawable.mesh ?: return false
+
 		if (nextMesh.uvs !== previousMesh.uvs ||
 			nextMesh.indices !== previousMesh.indices ||
 			nextMesh.positions.size != previousMesh.positions.size ||
@@ -403,9 +430,11 @@ fun PuppetModel.differsOnlyInMeshPositions(previous: PuppetModel): Boolean {
 		) {
 			return false
 		}
+
 		if (nextDrawable.copy(mesh = previousMesh) != previousDrawable) {
 			return false
 		}
 	}
+
 	return true
 }

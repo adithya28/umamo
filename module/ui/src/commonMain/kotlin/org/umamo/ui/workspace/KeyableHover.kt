@@ -150,9 +150,11 @@ fun Modifier.keyableTrack(track: KeyformTrackRef): Modifier {
 		} else {
 			hover.exit(track)
 		}
+
 		// Leaving composition mid-hover (the panel switching tabs under the pointer) must not strand the
 		// target, or the next I would key a row that is no longer on screen.
 		onDispose { hover.exit(track) }
 	}
+
 	return this.hoverable(interaction)
 }

@@ -11,5 +11,6 @@ import android.content.res.Resources
  */
 actual fun systemLanguageTags(): List<String> {
 	val locales = Resources.getSystem().configuration.locales
+
 	return (0 until locales.size()).map { localeIndex -> locales.get(localeIndex).toLanguageTag() }
 }

@@ -38,10 +38,13 @@ class CompositeAccelerationParityTest {
 				?.takeIf { it.isDirectory }
 				?.walkTopDown()
 				?.firstOrNull { it.name == "modelA.moc3" }
+
 		if (mocFile == null) {
 			println("modelA.moc3 not present; skipping composite acceleration parity")
+
 			return
 		}
+
 		requireHeadlessGl("[composite-accel-parity]")
 		val puppet = restMeshesToCanvasSpace(Moc3Import.fromMocDocument(Moc3.read(mocFile.readBytes()), null))
 		// The plain full-viewport composite path is the reference (the pre-optimization behavior the
@@ -61,11 +64,14 @@ class CompositeAccelerationParityTest {
 		var maxX = -1
 		var maxY = -1
 		val samples = ArrayList<String>()
+
 		for (index in reference.indices) {
 			val diff = abs(reference[index] - candidate[index])
+
 			if (diff > maxDiff) {
 				maxDiff = diff
 			}
+
 			// Report every over-tolerance channel INCLUDING alpha (channel 3): the pass/fail check below
 			// is over all four channels, so excluding alpha here would let an alpha-only divergence fail
 			// the test while printing an empty, misleading diagnostic.
@@ -78,15 +84,18 @@ class CompositeAccelerationParityTest {
 				minY = minOf(minY, py)
 				maxX = maxOf(maxX, px)
 				maxY = maxOf(maxY, py)
+
 				if (samples.size < 12) {
 					samples.add("($px,$py) ch${index % 4} ref=${reference[index]} cand=${candidate[index]}")
 				}
 			}
 		}
+
 		if (differingSamples > 0) {
 			println("[$label] diff bbox x[$minX,$maxX] y[$minY,$maxY], $differingSamples samples, maxDiff $maxDiff")
 			samples.forEach { println("[$label]   $it") }
 		}
+
 		assertTrue(
 			maxDiff <= channelTolerance,
 			"$label must match the full-viewport composite path (max channel diff $maxDiff, $differingSamples channel " +
@@ -105,6 +114,7 @@ class CompositeAccelerationParityTest {
 		val target = device.createRenderTarget(RenderTargetSpec(viewportWidth, viewportHeight, TextureFormat.Rgba8, sampled = true))
 		renderer.render(target, viewportWidth, viewportHeight)
 		val image = device.readPixels(target)
+
 		return IntArray(image.rgba.size) { image.rgba[it].toInt() and 0xFF }
 	}
 }

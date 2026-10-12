@@ -96,10 +96,13 @@ internal fun intOf(element: JsonElement?): Int? = (element as? JsonPrimitive)?.t
  */
 internal fun floatListOf(tree: JsonObject, memberName: String, size: Int): List<Float>? {
 	val elements = tree[memberName] as? JsonArray ?: return null
+
 	if (elements.size != size) {
 		return null
 	}
+
 	val floats = elements.mapNotNull(::finiteFloatOf)
+
 	return floats.takeIf { kept -> kept.size == size }
 }
 
@@ -124,6 +127,7 @@ internal fun stringArrayOrNull(values: Collection<String>): JsonElement = if (va
 internal fun foldDeviationsOf(states: Map<String, Boolean>, defaultOpen: (String) -> Boolean): Pair<JsonElement, JsonElement> {
 	val opened = states.filter { (nodeId, open) -> open && !defaultOpen(nodeId) }.keys
 	val closed = states.filter { (nodeId, open) -> !open && defaultOpen(nodeId) }.keys
+
 	return stringArrayOrNull(opened) to stringArrayOrNull(closed)
 }
 

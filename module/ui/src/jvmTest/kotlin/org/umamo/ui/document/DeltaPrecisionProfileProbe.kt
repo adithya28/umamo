@@ -46,6 +46,7 @@ class DeltaPrecisionProfileProbe {
 			System.gc()
 			Thread.sleep(150)
 		}
+
 		return ManagementFactory.getMemoryMXBean().heapMemoryUsage.used
 	}
 
@@ -102,6 +103,7 @@ class DeltaPrecisionProfileProbe {
 	private fun inventoryOf(arrays: List<Any>): Pair<Long, Long> {
 		var components = 0L
 		var bytes = 0L
+
 		for (array in arrays) {
 			val size =
 				when (array) {
@@ -112,6 +114,7 @@ class DeltaPrecisionProfileProbe {
 			components += size
 			bytes += arrayBytes(size, componentBytesOf(array))
 		}
+
 		return components to bytes
 	}
 
@@ -137,10 +140,12 @@ class DeltaPrecisionProfileProbe {
 		known.addAll(arraysOf(before))
 		val counted = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Any, Boolean>())
 		var bytes = 0L
+
 		for (array in arraysOf(after)) {
 			if (array in known || !counted.add(array)) {
 				continue
 			}
+
 			bytes +=
 				when (array) {
 					is FloatArray -> arrayBytes(array.size, 4)
@@ -149,6 +154,7 @@ class DeltaPrecisionProfileProbe {
 					else -> 0L
 				}
 		}
+
 		return bytes
 	}
 
@@ -164,22 +170,29 @@ class DeltaPrecisionProfileProbe {
 	fun profileDeltaPrecision() =
 		runBlocking {
 			val samples = System.getProperty("profile.samples")?.split(',')?.map { path -> File(path.trim()) }?.filter { file -> file.isFile }.orEmpty()
+
 			if (samples.isEmpty()) {
 				println("[profile] no profile.samples; skipping")
+
 				return@runBlocking
 			}
+
 			val outputDirectory = File(System.getProperty("profile.output") ?: createTempDirectory("delta-profile").toString()).also { directory -> directory.mkdirs() }
 			println("[profile] heap cap ${mib(Runtime.getRuntime().maxMemory())}")
+
 			if (System.getProperty("profile.openOnly") == "true") {
 				// The heap an open document holds, read in a JVM that has opened nothing else: across several samples
 				// in one JVM, what the previous one left behind is still settling when the next baseline is read.
 				for (sample in samples) {
 					reportOpenOnly(sample)
 				}
+
 				return@runBlocking
 			}
+
 			// A first sample run and thrown away, so the timings below are not the JIT warming up.
 			System.getProperty("profile.warmup")?.let(::File)?.takeIf { file -> file.isFile }?.let { warmup -> profileSample(warmup, outputDirectory, report = false) }
+
 			for (sample in samples) {
 				profileSample(sample, outputDirectory, report = true)
 			}
@@ -217,6 +230,7 @@ class DeltaPrecisionProfileProbe {
 		val metrics = LinkedHashMap<String, Any>()
 		metrics["sample"] = sample.name
 		metrics["format"] = sample.extension
+
 		try {
 			measureSample(sample, outputDirectory, metrics)
 			metrics["status"] = "ok"
@@ -227,6 +241,7 @@ class DeltaPrecisionProfileProbe {
 			metrics["status"] = "failed"
 			metrics["reason"] = "${failure::class.simpleName}: ${failure.message}".take(300)
 		}
+
 		if (report) {
 			println("[profile-json] " + buildJsonObject { metrics.forEach { (key, value) -> put(key, if (value is Number) JsonPrimitive(value) else JsonPrimitive(value.toString())) } })
 		}
@@ -332,9 +347,11 @@ class DeltaPrecisionProfileProbe {
 			deflater.finish()
 			val scratch = ByteArray(1 shl 16)
 			var deflatedBytes = 0L
+
 			while (!deflater.finished()) {
 				deflatedBytes += deflater.deflate(scratch)
 			}
+
 			deflater.end()
 			metrics["fileBytes"] = target.length()
 			metrics["bufferBytes"] = bufferBytes.size

@@ -75,6 +75,7 @@ class Cmo3ExportKeyformRoundTripTest {
 		val report = Cmo3Export.apply(edited, cmo3)
 		val reimportedSource =
 			Cmo3.read(Cmo3.write(cmo3)).root as? CModelSource ?: error("re-read root is not a CModelSource")
+
 		return RoundTrip(edited, Cmo3Import.fromModelSource(reimportedSource), report, formsBefore, artMeshFormPositions(reimportedSource))
 	}
 
@@ -88,15 +89,18 @@ class Cmo3ExportKeyformRoundTripTest {
 	private fun artMeshFormPositions(root: CModelSource): Map<String, Map<String, FloatArray>> {
 		val byDrawable = LinkedHashMap<String, MutableMap<String, FloatArray>>()
 		val sources = elementsOf((root.drawableSourceSet as? CDrawableSourceSet)?._sources).filterIsInstance<CArtMeshSource>()
+
 		for (source in sources) {
 			val sourceId = (source.id as? Id)?.idstr ?: continue
 			val byGuid = byDrawable.getOrPut(sourceId) { LinkedHashMap() }
+
 			for (form in elementsOf(source.keyforms).filterIsInstance<CArtMeshForm>()) {
 				val guid = (form.guid as? Guid)?.uuid ?: continue
 				val positions = form.positions as? FloatArray ?: continue
 				byGuid[guid] = positions.copyOf()
 			}
 		}
+
 		return byDrawable
 	}
 
@@ -128,9 +132,11 @@ class Cmo3ExportKeyformRoundTripTest {
 	private fun assertLosslessWithinGeometryUlp(result: RoundTrip, drawableId: DrawableId, label: String) {
 		assertTrue(result.report.isEmpty, "$label: expected no notices, got ${result.report.notices}")
 		val residual = diffPuppetModels(result.reimported, result.edited)
+
 		if (residual.isEmpty) {
 			return
 		}
+
 		val onlyExpectedResidue =
 			residual.parameters.isEmpty() &&
 				residual.parameterGroups.isEmpty() &&
@@ -153,10 +159,12 @@ class Cmo3ExportKeyformRoundTripTest {
 		val reimportedLocal = reimported.mesh!!.localPositions
 		val reimportedByCoordinate =
 			reimportedGrid.cells.associate { cell -> cell.coordinate.toList() to positionsFromDeltas(reimportedLocal, cell.form.positionDeltas) }
+
 		for (cell in editedGrid.cells) {
 			val editedShape = positionsFromDeltas(editedLocal, cell.form.positionDeltas)
 			val reimportedShape = reimportedByCoordinate[cell.coordinate.toList()]
 			assertTrue(reimportedShape != null, "$label: cell ${cell.coordinate.toList()} vanished")
+
 			for (component in editedShape.indices) {
 				val bound = Math.ulp(maxOf(abs(editedShape[component]), abs(editedLocal[component]), abs(reimportedLocal[component])))
 				assertTrue(
@@ -169,9 +177,11 @@ class Cmo3ExportKeyformRoundTripTest {
 
 	private fun skipMessageOrNull(): File? {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.sample not present; skipping keyform round-trip test")
 		}
+
 		return file
 	}
 
@@ -184,20 +194,26 @@ class Cmo3ExportKeyformRoundTripTest {
 	 */
 	private fun firstProbeFileWith(predicate: (PuppetModel) -> Boolean): File? {
 		val spec = System.getProperty("cmo3.probe") ?: System.getProperty("cmo3.sample")
+
 		if (spec == null) {
 			println("cmo3.probe not present; skipping")
+
 			return null
 		}
+
 		for (candidate in spec.split(',').map { File(it.trim()) }.filter { it.isFile }) {
 			val imported =
 				runCatching {
 					Cmo3Import.fromModelSource(Cmo3.read(candidate.readBytes()).root as CModelSource)
 				}.getOrNull() ?: continue
+
 			if (predicate(imported)) {
 				return candidate
 			}
 		}
+
 		println("no corpus model has the feature; skipping")
+
 		return null
 	}
 
@@ -226,9 +242,11 @@ class Cmo3ExportKeyformRoundTripTest {
 					grid.cells.mapIndexed { cellIndex, cell ->
 						if (cellIndex == 0) {
 							val nudged = cell.form.positionDeltas.copyOf()
+
 							if (nudged.isNotEmpty()) {
 								nudged[0] += 2f
 							}
+
 							KeyformCell(cell.coordinate, MeshDeltaForm(nudged))
 						} else {
 							cell
@@ -304,6 +322,7 @@ class Cmo3ExportKeyformRoundTripTest {
 		val formsAfter = result.formsAfter.getValue(editedId!!.raw)
 		assertTrue(removedCells > 0, "key delete: the removed key held cells")
 		assertEquals(formsBefore.size - removedCells, formsAfter.size, "key delete: only the removed key's forms are gone")
+
 		for ((guid, positions) in formsAfter) {
 			val original = formsBefore[guid]
 			assertTrue(original != null, "key delete: form $guid is new")
@@ -452,14 +471,17 @@ class Cmo3ExportKeyformRoundTripTest {
 						if (bindingIndex != 0) {
 							return@mapIndexed binding
 						}
+
 						val formIndex = binding.forms.indexOfFirst { it != null }
 						val editedForms =
 							binding.forms.mapIndexed { candidateIndex, form ->
 								if (candidateIndex == formIndex && form != null) {
 									val nudged = form.positionDeltas.copyOf()
+
 									if (nudged.isNotEmpty()) {
 										nudged[0] += 2f
 									}
+
 									org.umamo.runtime.model.MeshForm(
 										nudged,
 										form.drawOrder,
@@ -546,9 +568,11 @@ class Cmo3ExportKeyformRoundTripTest {
 					grid.cells.mapIndexed { cellIndex, cell ->
 						if (cellIndex == 0) {
 							val nudged = cell.form.positionDeltas.copyOf()
+
 							if (nudged.isNotEmpty()) {
 								nudged[0] += localSpan * 0.02f
 							}
+
 							KeyformCell(cell.coordinate, MeshDeltaForm(nudged))
 						} else {
 							cell
@@ -583,15 +607,18 @@ class Cmo3ExportKeyformRoundTripTest {
 		// keyform edit can have moved.
 		val editedLocal = editedDrawable.mesh!!.localPositions
 		val reimportedLocal = reimportedDrawable.mesh!!.localPositions
+
 		for (bindingIndex in editedDrawable.blendShapes.indices) {
 			val editedBinding = editedDrawable.blendShapes[bindingIndex]
 			val reimportedBinding = reimportedDrawable.blendShapes[bindingIndex]
+
 			for (formIndex in editedBinding.forms.indices) {
 				val editedForm = editedBinding.forms[formIndex] ?: continue
 				val reimportedForm = reimportedBinding.forms.getOrNull(formIndex)
 				assertTrue(reimportedForm != null, "base move + keyform edit: blend-shape form $formIndex vanished")
 				val editedShape = positionsFromDeltas(editedLocal, editedForm.positionDeltas)
 				val reimportedShape = positionsFromDeltas(reimportedLocal, reimportedForm.positionDeltas)
+
 				for (component in editedShape.indices) {
 					val bound = Math.ulp(maxOf(abs(editedShape[component]), abs(editedLocal[component]), abs(reimportedLocal[component])))
 					assertTrue(

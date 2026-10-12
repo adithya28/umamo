@@ -107,5 +107,6 @@ fun defaultSpaceRegistry(): SpaceRegistry {
 					headerContent = { logsHeaderControls() },
 				) { LogsSpace() },
 		)
+
 	return SpaceRegistry(descriptors)
 }

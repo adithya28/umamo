@@ -185,11 +185,13 @@ class OffscreenPuppetService(
 
 	override fun pickAt(areaId: String, cursorXpx: Float, cursorYpx: Float): DrawableId? {
 		val view = registry.viewFor(areaId) ?: return null
+
 		return picker.pickAt(view.camera, view.width, view.height, cursorXpx, cursorYpx)
 	}
 
 	override fun pickAllAt(areaId: String, cursorXpx: Float, cursorYpx: Float): List<PickCandidate> {
 		val view = registry.viewFor(areaId) ?: return emptyList()
+
 		return picker.pickAllAt(view.camera, view.width, view.height, cursorXpx, cursorYpx)
 	}
 
@@ -206,6 +208,7 @@ class OffscreenPuppetService(
 	 */
 	override suspend fun renderImage(frame: ImageFrame, backdrop: FrameBackdrop, overlays: AreaOverlays): RasterImage? {
 		val premultiplied = engine.requestSnapshot(frame.camera, frame.width, frame.height, backdrop, overlays).await() ?: return null
+
 		return withContext(Dispatchers.Default) { premultiplied.capturedOver(backdrop) }
 	}
 

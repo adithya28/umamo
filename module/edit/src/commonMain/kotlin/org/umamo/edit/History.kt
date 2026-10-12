@@ -173,6 +173,7 @@ class History(
 		while (entries.lastIndex > cursor) {
 			entries.removeAt(entries.lastIndex)
 		}
+
 		entries.add(HistoryEntry(snapshot, change))
 		cursor = entries.lastIndex
 		trimToLimit()
@@ -195,7 +196,9 @@ class History(
 		if (canRedo) {
 			return false
 		}
+
 		entries[cursor] = HistoryEntry(snapshot, change)
+
 		return true
 	}
 
@@ -222,7 +225,9 @@ class History(
 		if (!canUndo) {
 			return null
 		}
+
 		cursor--
+
 		return current
 	}
 
@@ -235,7 +240,9 @@ class History(
 		if (!canRedo) {
 			return null
 		}
+
 		cursor++
+
 		return current
 	}
 
@@ -249,10 +256,13 @@ class History(
 	 */
 	fun jumpTo(index: Int): EditorSnapshot? {
 		val target = index.coerceIn(0, entries.lastIndex)
+
 		if (target == cursor) {
 			return null
 		}
+
 		cursor = target
+
 		return current
 	}
 }

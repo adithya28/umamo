@@ -55,15 +55,18 @@ class SessionLogFile private constructor(
 		val byteCount = text.utf8Size()
 		synchronized(lock) {
 			val openSink = sink ?: return
+
 			if (hardCapReached || (softCapReached && record.level != LogLevel.Error)) {
 				return
 			}
+
 			val cap =
 				if (record.level == LogLevel.Error) {
 					hardCapBytes
 				} else {
 					softCapBytes
 				}
+
 			if (writtenBytes + byteCount > cap) {
 				if (record.level == LogLevel.Error) {
 					hardCapReached = true
@@ -72,8 +75,10 @@ class SessionLogFile private constructor(
 					softCapReached = true
 					appendLocked(openSink, "# The session log reached $softCapBytes bytes; only errors are written from here.\n")
 				}
+
 				return
 			}
+
 			appendLocked(openSink, text)
 		}
 	}
@@ -86,6 +91,7 @@ class SessionLogFile private constructor(
 		synchronized(lock) {
 			val openSink = sink
 			sink = null
+
 			if (openSink != null) {
 				try {
 					openSink.close()
@@ -93,6 +99,7 @@ class SessionLogFile private constructor(
 					// Every line was already flushed; a failed close loses nothing.
 				}
 			}
+
 			// Released here even when a failed write already closed the file: the lines it holds are still this
 			// session's until the session ends.
 			releaseHold?.invoke()
@@ -113,11 +120,13 @@ class SessionLogFile private constructor(
 			writtenBytes += text.utf8Size()
 		} catch (failure: IOException) {
 			sink = null
+
 			try {
 				openSink.close()
 			} catch (_: IOException) {
 				// Already failing; the report below is the one that matters.
 			}
+
 			// Straight to stdout: reporting through UmamoLog would call back into this sink.
 			println("[Umamo] the session log at $path stopped: ${failure.message}")
 		}
@@ -157,6 +166,7 @@ class SessionLogFile private constructor(
 			// Before this session's own file exists, so the probe never touches the file this session holds.
 			pruneSessionLogs(fileSystem, directory, keptSessions - 1, locks)
 			var attempt = 0
+
 			while (true) {
 				val path = directory / sessionLogFileName(startedAt, random.nextInt(SUFFIX_RANGE).toString(16).padStart(SUFFIX_DIGITS, '0'))
 				val sink =
@@ -165,21 +175,26 @@ class SessionLogFile private constructor(
 						fileSystem.sink(path, mustCreate = true).buffer()
 					} catch (failure: IOException) {
 						attempt += 1
+
 						if (attempt >= MAX_NAME_ATTEMPTS || !fileSystem.exists(path)) {
 							throw failure
 						}
+
 						continue
 					}
 				val releaseHold = locks.holdForSession(path)
 				val header = "# Umamo session log, started ${formatLogTimestamp(startedAt)} (UTC timestamps)\n"
+
 				try {
 					sink.writeUtf8(header)
 					sink.flush()
 				} catch (failure: IOException) {
 					sink.close()
 					releaseHold?.invoke()
+
 					throw failure
 				}
+
 				return SessionLogFile(path, sink, softCapBytes, hardCapBytes, header.utf8Size(), releaseHold)
 			}
 		}
@@ -197,6 +212,7 @@ class SessionLogFile private constructor(
  */
 internal fun sessionLogFileName(startedAt: Instant, suffix: String): String {
 	val secondStamp = startedAt.toString().take(SECOND_PRECISION_LENGTH).replace(':', '-')
+
 	return "$SESSION_LOG_PREFIX${secondStamp}Z-$suffix$SESSION_LOG_EXTENSION"
 }
 
@@ -217,6 +233,7 @@ internal fun formatLogRecord(record: LogRecord): String =
 		append('\n')
 		record.cause?.let { cause ->
 			append(cause.stackTraceToString())
+
 			if (!endsWith('\n')) {
 				append('\n')
 			}
@@ -232,6 +249,7 @@ internal fun formatLogRecord(record: LogRecord): String =
  */
 internal fun formatLogTimestamp(instant: Instant): String {
 	val milliseconds = (instant.nanosecondsOfSecond / NANOSECONDS_PER_MILLISECOND).toString().padStart(3, '0')
+
 	return "${instant.toString().take(SECOND_PRECISION_LENGTH)}.${milliseconds}Z"
 }
 
@@ -250,10 +268,12 @@ private fun pruneSessionLogs(fileSystem: FileSystem, directory: Path, keepNewest
 		fileSystem.listOrNull(directory).orEmpty()
 			.filter { candidate -> candidate.name.startsWith(SESSION_LOG_PREFIX) && candidate.name.endsWith(SESSION_LOG_EXTENSION) }
 			.sortedByDescending { sessionLog -> sessionLog.name }
+
 	for (expired in sessionLogs.drop(keepNewest.coerceAtLeast(0))) {
 		if (locks.isHeldElsewhere(expired)) {
 			continue
 		}
+
 		try {
 			fileSystem.delete(expired, mustExist = false)
 		} catch (_: IOException) {

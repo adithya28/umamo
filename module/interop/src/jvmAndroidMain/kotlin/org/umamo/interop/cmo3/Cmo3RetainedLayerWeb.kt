@@ -166,6 +166,7 @@ internal class Cmo3RetainedLayerWeb(
 		for (entry in pendingEntries) {
 			target.addPng(entry.path, entry.pngBytes)
 		}
+
 		pendingEntries.clear()
 	}
 
@@ -181,6 +182,7 @@ internal class Cmo3RetainedLayerWeb(
 		val source = sourceById[ref.sourceId] ?: return null
 		val row = source.layers.firstOrNull { candidate -> candidate.key == ref.layerKey } ?: return null
 		val raster = tileRasters(tile.id) ?: return null
+
 		return Job(tile.id.lineageRoot.raw, tile, source, row, raster)
 	}
 
@@ -196,19 +198,24 @@ internal class Cmo3RetainedLayerWeb(
 	fun rewriteJobFor(tile: AtlasTile, modelImage: CModelImage): RewriteJob? {
 		val art = artOf(tile) ?: return null
 		val sole = soleLayerInputOf(modelImage) ?: return null
+
 		if (sole.input.layer !is CLayer) {
 			return null
 		}
+
 		// CMO3: CModelImage field _filteredImage - the composite the editor shows; for a single layer
 		// at identity it is the layer's own pixels, so it takes the new raster too.
 		val filtered = modelImage._filteredImage as? CImageResource ?: return null
+
 		if (filtered.imageFileBuf?.archivePath == null) {
 			return null
 		}
+
 		if (art.source.id.raw != sole.imageGuid && !canMintFiles) {
 			// A relink into a file the graph never held needs the file's web minted.
 			return null
 		}
+
 		return RewriteJob(art.tileId, tile, art.source, art.row, art.raster, modelImage, sole, filtered)
 	}
 
@@ -221,9 +228,11 @@ internal class Cmo3RetainedLayerWeb(
 	 */
 	fun mintJobFor(tile: AtlasTile): MintJob? {
 		val art = artOf(tile) ?: return null
+
 		if (!canMintFiles) {
 			return null
 		}
+
 		return MintJob(art.tileId, tile, art.source, art.row, art.raster)
 	}
 
@@ -263,14 +272,18 @@ internal class Cmo3RetainedLayerWeb(
 		if (rewrites.isEmpty() && mints.isEmpty()) {
 			return Applied(emptyMap())
 		}
+
 		val siteBySourceId = HashMap<String, ImageSite>()
 		val modelImageByTileId = HashMap<String, CModelImage>()
+
 		for (job in rewrites) {
 			rewrite(job, siteBySourceId)
 		}
+
 		for (job in mints) {
 			modelImageByTileId[job.tileId] = mint(job, siteBySourceId)
 		}
+
 		return Applied(modelImageByTileId, releasedCopy)
 	}
 
@@ -286,6 +299,7 @@ internal class Cmo3RetainedLayerWeb(
 		val icon32 = Cmo3Icons.iconOf(patch, 32, names.nextIconPath(), pendingEntries)
 		val icon16 = Cmo3Icons.iconOf(patch, 16, names.nextIconPath(), pendingEntries)
 		embedPending()
+
 		return icon32 to icon16
 	}
 
@@ -344,6 +358,7 @@ internal class Cmo3RetainedLayerWeb(
 	 */
 	private fun refreshIcon(current: Any?, raster: RasterImage, size: Int, assign: (CImageIcon) -> Unit) {
 		val path = Cmo3Icons.archivePathOf(current)
+
 		if (path != null && target.archive.byPath(path) != null) {
 			target.replacePng(path, Cmo3Icons.iconPngOf(raster, size))
 			(current as CImageIcon).image.let { image ->
@@ -352,8 +367,10 @@ internal class Cmo3RetainedLayerWeb(
 					image.height = size
 				}
 			}
+
 			return
 		}
+
 		assign(Cmo3Icons.iconOf(raster, size, names.nextIconPath(), pendingEntries))
 		embedPending()
 	}
@@ -408,6 +425,7 @@ internal class Cmo3RetainedLayerWeb(
 				?: Cmo3ImageChainBuilder.FilterCommons.fresh()
 		val bufferPaths = Cmo3ImageChainBuilder.FreshPathSequence.continuingFrom("imageFileBuf", target.nextImageFileBufPath())
 		val iconPaths = Cmo3ImageChainBuilder.FreshPathSequence.continuingFrom("image", target.nextImagePath())
+
 		return Cmo3ImageChainBuilder.Cmo3FreshChainNames(filters, bufferPaths::next, iconPaths::next)
 	}
 
@@ -440,30 +458,37 @@ internal class Cmo3RetainedLayerWeb(
 		// CMO3: CModelImage field _filteredImage - replaced in place when it is a resource of its own
 		// rather than the layer's (the fresh web shares one instance; an editor import may not).
 		val filtered = job.filtered
+
 		if (filtered !== layer.imageResource) {
 			if (filtered.imageFileBuf?.archivePath != null) {
 				target.replaceLayerPng(filtered, pngBytes)
 			}
+
 			filtered.width = job.raster.width
 			filtered.height = job.raster.height
 		}
+
 		if (layer !== compositedLayer) {
 			// CMO3: CLayerInputData field layer - the selector's target, repointed at the row's layer.
 			job.sole.input.layer = layer
+
 			if (!sameFile) {
 				repointImage(modelImage, job.sole, site.image)
 			}
 		}
+
 		// CMO3: CModelImage fields name / _materialLocalToCanvasTransform / cachedImageManager - the
 		// tile's name, the row's origin as a pure translation, and a cache over the new dimensions.
 		modelImage.name = job.tile.name
 		val placement = modelImage._materialLocalToCanvasTransform as? CAffine
+
 		if (placement == null) {
 			modelImage._materialLocalToCanvasTransform = Cmo3SourceLayerWeb.layerPlacement(job.row.left, job.row.top)
 			editor.ensureChildSlot(modelImage, "CModelImage", "_materialLocalToCanvasTransform", "_group")
 		} else {
 			placement.setFromAffineArray(job.canvasAffine)
 		}
+
 		modelImage.cachedImageManager = Cmo3ImageChainBuilder.paddedCacheManager(filtered, job.raster.width, job.raster.height)
 		retargetDrawablesOnto(modelImage, filtered, job.raster.width, job.raster.height)
 		replaceModelImageIcon(modelImage, job.raster)
@@ -491,19 +516,24 @@ internal class Cmo3RetainedLayerWeb(
 		// CMO3: CModelSource field drawableSourceSet -> CDrawableSourceSet field _sources.
 		val drawableSources = Cmo3Import.elementsOf((modelSource.drawableSourceSet as? CDrawableSourceSet)?._sources).filterIsInstance<CArtMeshSource>()
 		val shownFromImage = drawableSources.filter { source -> textureFrames.isShownFrom(source, modelImage) }
+
 		if (shownFromImage.isEmpty()) {
 			return
 		}
+
 		// The frames as they are before any texture moves: shared textures make a later read stale.
 		val frameBefore = shownFromImage.associateWith { source -> textureFrames.storedFrameOf(source) }
 		val scaleBefore = shownFromImage.associateWith { source -> affineValuesOf((source.texture as? GTexture2D)?.transformImageResource01toLogical01) }
 		val releasedCopies = HashSet<CImageResource>()
 		val retargeted = HashSet<GTexture2D>()
+
 		for (source in shownFromImage) {
 			val texture = source.texture as? GTexture2D ?: continue
+
 			if (!retargeted.add(texture)) {
 				continue
 			}
+
 			(texture.srcImageResource as? CImageResource)?.takeIf { sampled -> textureFrames.isReducedCopy(sampled) }?.let(releasedCopies::add)
 			// CMO3: GTexture2D fields srcImageResource / transformImageResource01toLogical01 / mipmapLevel -
 			// the raster, its cache scale, and the full-resolution level, as every corpus texture over a
@@ -514,13 +544,16 @@ internal class Cmo3RetainedLayerWeb(
 			editor.ensureChildSlot(texture, "GTexture2D", "transformImageResource01toLogical01", "mipmapLevel")
 			editor.ensureChildSlot(texture, "GTexture2D", "mipmapLevel", "isPremultiplied")
 		}
+
 		for (source in shownFromImage) {
 			val frameNow = textureFrames.storedFrameOf(source)
 			val scaleNow = affineValuesOf((source.texture as? GTexture2D)?.transformImageResource01toLogical01)
 			val meaningChanged = frameNow != frameBefore[source] || (frameNow == Cmo3StoredFrame.Cache && !scaleNow.contentEquals(scaleBefore[source]))
+
 			if (!meaningChanged) {
 				continue
 			}
+
 			val drawableId = (source.id as? Id)?.idstr ?: continue
 			val editedDrawable = editedDrawableById[drawableId] ?: continue
 			val editedUvs = editedDrawable.mesh?.uvs ?: continue
@@ -529,14 +562,18 @@ internal class Cmo3RetainedLayerWeb(
 			source.uvs = textureFrames.storedUvsOf(source, editedUvs, storedToArt)
 			editor.ensureChildSlot(source, "CArtMeshSource", "uvs", "texture")
 		}
+
 		for (copy in releasedCopies) {
 			val stillSampled = drawableSources.any { source -> (source.texture as? GTexture2D)?.srcImageResource === copy }
+
 			if (stillSampled) {
 				continue
 			}
+
 			if (copy.imageFileBuf?.archivePath != null) {
 				target.removeLayerPng(copy)
 			}
+
 			releasedCopy = true
 		}
 	}
@@ -549,6 +586,7 @@ internal class Cmo3RetainedLayerWeb(
 	 */
 	private fun affineValuesOf(affine: Any?): FloatArray {
 		val values = affine as? CAffine ?: return floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f)
+
 		return floatArrayOf(values.m00, values.m01, values.m02, values.m10, values.m11, values.m12)
 	}
 
@@ -564,8 +602,10 @@ internal class Cmo3RetainedLayerWeb(
 		// CMO3: ModelImageFilterEnv field envValues -> EnvValueSet field value: the CLayerSelectorMap's
 		// _imageToLayerInput keyed by image guid, and the current-image guid value beside it.
 		val filterEnv = modelImage.inputFilterEnv as? FilterEnv ?: return
+
 		for (valueSet in Cmo3Import.elementsOf(filterEnv.envValues).filterIsInstance<EnvValueSet>()) {
 			val selectorMap = valueSet.value as? CLayerSelectorMap
+
 			if (selectorMap != null) {
 				selectorMap._imageToLayerInput = LinkedHashMap<Any?, Any?>().apply { put(image.guid, ArrayList<Any?>(mutableListOf(sole.input))) }
 				valueSet.updateTimeMs = nowMillis
@@ -574,6 +614,7 @@ internal class Cmo3RetainedLayerWeb(
 				valueSet.updateTimeMs = nowMillis
 			}
 		}
+
 		// CMO3: CModelImage field linkedRawImageGuids.
 		modelImage.linkedRawImageGuids = CArrayList<Any?>(mutableListOf(image.guid))
 	}
@@ -589,14 +630,17 @@ internal class Cmo3RetainedLayerWeb(
 	 */
 	private fun writeLayer(layer: CLayer, row: ArtSourceLayer, raster: RasterImage, pngBytes: ByteArray) {
 		val resource = layer.imageResource as? CImageResource
+
 		if (resource != null && resource.imageFileBuf?.archivePath != null) {
 			target.replaceLayerPng(resource, pngBytes)
 			// CMO3: CImageResource fields width / height - corpus-verified to equal the decoded PNG's.
 			resource.width = raster.width
 			resource.height = raster.height
 		}
+
 		// CMO3: CLayer field boundsOnImageDoc, written into the existing rect when there is one.
 		val bounds = layer.boundsOnImageDoc as? CRect
+
 		if (bounds == null) {
 			layer.boundsOnImageDoc = Cmo3SourceLayerWeb.layerBounds(row.left, row.top, raster.width, raster.height)
 			editor.ensureChildSlot(layer, "CLayer", "boundsOnImageDoc", "layerIdentifier")
@@ -606,6 +650,7 @@ internal class Cmo3RetainedLayerWeb(
 			bounds.width = raster.width
 			bounds.height = raster.height
 		}
+
 		// CMO3: ACLayerEntry fields name / isVisible - as the file reads today.
 		layer.name = row.name
 		layer.isVisible = row.visible
@@ -641,6 +686,7 @@ internal class Cmo3RetainedLayerWeb(
 			)
 		checkNotNull(mutableGraphListOf(site.group._modelImages)) { "a site's group has a model-image list" }.add(modelImage)
 		embedPending()
+
 		return modelImage
 	}
 
@@ -684,6 +730,7 @@ internal class Cmo3RetainedLayerWeb(
 				ImageSite(minted.image, group) { minted.layerEntryList }.also { site -> site.folderByPath[""] = minted.rootGroup }
 			}
 		siteBySourceId[source.id.raw] = site
+
 		return site
 	}
 
@@ -702,6 +749,7 @@ internal class Cmo3RetainedLayerWeb(
 					image.layerSet = created
 					editor.ensureChildSlot(image, "CLayeredImage", "layerSet")
 				}
+
 		return mutableGraphListOf(layerSet._layerEntryList)
 			?: CArrayList<Any?>().also { created ->
 				layerSet._layerEntryList = created
@@ -744,6 +792,7 @@ internal class Cmo3RetainedLayerWeb(
 		site.layerEntryList.add(layer)
 		site.mintedLayerByKey[row.key] = layer
 		embedPending()
+
 		return layer
 	}
 
@@ -757,6 +806,7 @@ internal class Cmo3RetainedLayerWeb(
 	 */
 	private fun folderAt(site: ImageSite, path: String): CLayerGroup {
 		site.folderByPath[path]?.let { known -> return known }
+
 		if (path.isEmpty()) {
 			// CMO3: CLayeredImage field _rootLayer - the tree's root group.
 			val root =
@@ -767,8 +817,10 @@ internal class Cmo3RetainedLayerWeb(
 						site.layerEntryList.add(0, minted)
 					}
 			site.folderByPath[""] = root
+
 			return root
 		}
+
 		val parent = folderAt(site, path.substringBeforeLast('/', ""))
 		val name = path.substringAfterLast('/')
 		val siblings = childrenOf(parent)
@@ -780,6 +832,7 @@ internal class Cmo3RetainedLayerWeb(
 					site.layerEntryList.add(minted)
 				}
 		site.folderByPath[path] = folder
+
 		return folder
 	}
 

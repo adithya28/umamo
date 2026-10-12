@@ -75,6 +75,7 @@ class UmaReopenReloadTest {
 		lines += "report ${plan.report.results}"
 		lines += "notices ${plan.notices}"
 		lines += "leftovers ${plan.leftovers}"
+
 		return lines
 	}
 

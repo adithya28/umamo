@@ -46,6 +46,7 @@ class LiveParamsAdapterTest {
 
 	private fun adapter(editorSession: EditorSession): Pair<LiveParams, LiveParamsAdapter> {
 		val liveParams = LiveParams(mapOf(angleX to 0f))
+
 		return liveParams to LiveParamsAdapter(liveParams, editorSession)
 	}
 
@@ -123,6 +124,7 @@ class LiveParamsAdapterTest {
 		editorSession.setMode(EditorMode.Edit)
 		assertEquals(EditorMode.Edit, editorSession.mode.value, "the fixture must really be in Edit mode")
 		val liveParams = LiveParams(emptyMap())
+
 		return Triple(editorSession, liveParams, LiveParamsAdapter(liveParams, editorSession))
 	}
 

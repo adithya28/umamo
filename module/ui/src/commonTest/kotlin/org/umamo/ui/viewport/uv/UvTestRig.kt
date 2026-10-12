@@ -154,6 +154,7 @@ internal fun uvRigModel(): PuppetModel =
 internal fun uvRigPlacedModel(): PuppetModel {
 	val model = uvRigModel()
 	val tileByDrawable = mapOf(UV_RIG_QUAD to UV_RIG_QUAD_TILE, UV_RIG_OTHER to UV_RIG_OTHER_TILE)
+
 	return model.copy(
 		drawables = model.drawables.map { drawable -> drawable.copy(atlasTileId = tileByDrawable.getValue(drawable.id)) },
 		atlas =
@@ -186,6 +187,7 @@ internal fun uvRigTilePlacement(positionX: Float): AtlasPlacement =
 internal fun uvRigArtRasters(): SourceArtRasters {
 	val rgba = ByteArray(UV_RIG_TILE_SIDE * UV_RIG_TILE_SIDE * 4) { byteIndex -> if (byteIndex % 4 == 3) 0xFF.toByte() else 0x80.toByte() }
 	val rasterByTile = listOf(UV_RIG_QUAD_TILE, UV_RIG_OTHER_TILE).associateWith { DecodedImage(rgba, UV_RIG_TILE_SIDE, UV_RIG_TILE_SIDE) }
+
 	return SourceArtRasters { tileId -> rasterByTile[tileId] }
 }
 
@@ -228,6 +230,7 @@ internal fun uvRigLayerFrame(): UvEditFrame {
 		)
 	val frame = sourceLayerEditFrame(binding, UV_RIG_LAYER_SIDE, UV_RIG_LAYER_SIDE)
 	check(frame != null && !frame.isStoredFrame) { "the rig's layer frame must be a real conversion" }
+
 	return frame
 }
 
@@ -243,11 +246,13 @@ internal fun uvRigGeometries(model: PuppetModel, frame: UvEditFrame, shown: List
 	shown.map { drawableId ->
 		val mesh = model.drawables.first { drawable -> drawable.id == drawableId }.mesh!!
 		val display = FloatArray(mesh.uvs.size)
+
 		for (vertexIndex in 0 until mesh.uvs.size / 2) {
 			val (displayX, displayY) = frame.displayAt(mesh.uvs[vertexIndex * 2], mesh.uvs[vertexIndex * 2 + 1])
 			display[vertexIndex * 2] = displayX
 			display[vertexIndex * 2 + 1] = displayY
 		}
+
 		GizmoMeshGeometry(drawableId, mesh.indices, MeshTopology.uniqueEdges(mesh.indices), display)
 	}
 
@@ -262,6 +267,7 @@ internal fun uvRigCameraOver(geometries: List<GizmoMeshGeometry>): ViewportCamer
 	val quad = geometries.first { geometry -> geometry.drawableId == UV_RIG_QUAD }.positions
 	val xs = quad.filterIndexed { componentIndex, _ -> componentIndex % 2 == 0 }
 	val ys = quad.filterIndexed { componentIndex, _ -> componentIndex % 2 == 1 }
+
 	return ViewportCamera(centerX = (xs.min() + xs.max()) / 2f, centerY = (ys.min() + ys.max()) / 2f, zoom = 4f)
 }
 
@@ -296,12 +302,15 @@ internal fun uvEditSession(
 	session.setMode(EditorMode.Edit)
 	assertEquals(EditorMode.Edit, session.mode.value, "the rig must really be in Edit mode")
 	var selection = session.meshSelection.value
+
 	for (element in elements) {
 		selection = MeshSelectionOps.add(selection, editing.first(), element)
 	}
+
 	if (elements.isNotEmpty()) {
 		session.setMeshSelection(selection)
 	}
+
 	return session
 }
 
@@ -317,6 +326,7 @@ internal fun uvObjectSession(selected: List<DrawableId> = listOf(UV_RIG_QUAD), m
 	val session = EditorSession(model)
 	val targets = selected.map { drawableId -> SelectionTarget.Drawable(drawableId) }
 	session.setSelection(Selection(targets.toSet(), targets.firstOrNull()))
+
 	return session
 }
 
@@ -392,5 +402,6 @@ internal fun uvRigPlacementDrag(model: PuppetModel = uvRigPlacedModel(), selecte
 		gesture.frozenPositionsByDrawable.mapValues { (drawableId, frozen) ->
 			applyUvAffine(frozen, result.displayAffineByTile.getValue(gesture.tileByDrawable.getValue(drawableId)))
 		}
+
 	return PlacementDragView(gesture, result, preview)
 }

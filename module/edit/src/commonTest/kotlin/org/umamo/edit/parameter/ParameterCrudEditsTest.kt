@@ -83,6 +83,7 @@ class ParameterCrudEditsTest {
 					}
 				}
 			}
+
 		return Drawable(
 			id = DrawableId("d"),
 			name = "d",

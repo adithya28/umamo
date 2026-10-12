@@ -41,6 +41,7 @@ internal class ParameterPoseWriter(
 		if (locked) {
 			return
 		}
+
 		recordLocalValue(id, newValue)
 		liveParams?.preview(id, newValue)
 	}
@@ -54,6 +55,7 @@ internal class ParameterPoseWriter(
 		if (locked) {
 			return
 		}
+
 		liveParams?.commit(ids)
 	}
 

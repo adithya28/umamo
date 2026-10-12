@@ -205,6 +205,7 @@ object MeshSelectionOps {
 	 */
 	fun toggle(selection: MeshSelection, drawableId: DrawableId, element: MeshElement): MeshSelection {
 		val current = selection.elementsOf(drawableId)
+
 		return if (element in current) {
 			val remaining = current - element
 			val fallback = remaining.lastOrNull()?.let { survivor -> ActiveMeshElement(drawableId, survivor) }
@@ -253,10 +254,12 @@ object MeshSelectionOps {
 	 */
 	fun box(selection: MeshSelection, elementsByDrawable: Map<DrawableId, Set<MeshElement>>, additive: Boolean): MeshSelection {
 		val resulting = HashMap<DrawableId, Set<MeshElement>>()
+
 		if (additive) {
 			selection.elementsByDrawable.forEach { (drawableId, elements) -> resulting[drawableId] = elements }
 			elementsByDrawable.forEach { (drawableId, elements) ->
 				val current = resulting[drawableId] ?: emptySet()
+
 				if (!current.containsAll(elements)) {
 					resulting[drawableId] = current + elements
 				}
@@ -268,8 +271,10 @@ object MeshSelectionOps {
 				}
 			}
 		}
+
 		resulting.values.removeAll { elements -> elements.isEmpty() }
 		val active = selection.activeElement?.takeIf { active -> active.element in (resulting[active.drawableId] ?: emptySet()) }
+
 		return selection.copy(elementsByDrawable = resulting, activeElement = active)
 	}
 
@@ -286,10 +291,13 @@ object MeshSelectionOps {
 		val resulting = HashMap<DrawableId, Set<MeshElement>>(selection.elementsByDrawable)
 		elementsByDrawable.forEach { (drawableId, elements) ->
 			val current = resulting[drawableId] ?: emptySet()
+
 			if (elements.none { element -> element in current }) {
 				return@forEach
 			}
+
 			val remaining = current - elements
+
 			if (remaining.isEmpty()) {
 				resulting.remove(drawableId)
 			} else {
@@ -297,6 +305,7 @@ object MeshSelectionOps {
 			}
 		}
 		val active = selection.activeElement?.takeIf { active -> active.element in (resulting[active.drawableId] ?: emptySet()) }
+
 		return selection.copy(elementsByDrawable = resulting, activeElement = active)
 	}
 
@@ -347,14 +356,18 @@ object MeshSelectionOps {
 		if (newMode == selection.selectMode) {
 			return selection
 		}
+
 		val converted = HashMap<DrawableId, Set<MeshElement>>()
+
 		for ((drawableId, elements) in selection.elementsByDrawable) {
 			val triangleIndices = triangleIndicesOf(drawableId) ?: continue
 			val convertedElements = convertElements(elements, selection.selectMode, newMode, triangleIndices)
+
 			if (convertedElements.isNotEmpty()) {
 				converted[drawableId] = convertedElements
 			}
 		}
+
 		return selection.copy(selectMode = newMode, elementsByDrawable = converted, activeElement = null)
 	}
 
@@ -375,46 +388,57 @@ object MeshSelectionOps {
 		triangleIndices: IntArray,
 	): Set<MeshElement> =
 		when (newMode) {
-			MeshSelectMode.Vertex ->
+			MeshSelectMode.Vertex -> {
 				MeshTopology.coveredVertexIndices(elements, triangleIndices)
 					.map { vertexIndex -> MeshElement.Vertex(vertexIndex) }
 					.toSet()
+			}
 
-			MeshSelectMode.Edge ->
+			MeshSelectMode.Edge -> {
 				when (fromMode) {
-					MeshSelectMode.Vertex ->
+					MeshSelectMode.Vertex -> {
 						MeshTopology.edgesWithBothEndpointsSelected(
 							triangleIndices,
 							MeshTopology.coveredVertexIndices(elements, triangleIndices),
 						)
+					}
 
-					MeshSelectMode.Face ->
+					MeshSelectMode.Face -> {
 						elements
 							.filterIsInstance<MeshElement.Face>()
 							.flatMap { face -> MeshTopology.edgesOfTriangle(triangleIndices, face.triangleIndex) }
 							.toSet()
+					}
 
 					// Unreachable: the same-mode case returned above; kept for exhaustiveness.
-					MeshSelectMode.Edge -> elements
+					MeshSelectMode.Edge -> {
+						elements
+					}
 				}
+			}
 
-			MeshSelectMode.Face ->
+			MeshSelectMode.Face -> {
 				when (fromMode) {
-					MeshSelectMode.Vertex ->
+					MeshSelectMode.Vertex -> {
 						MeshTopology.facesWithAllVerticesSelected(
 							triangleIndices,
 							MeshTopology.coveredVertexIndices(elements, triangleIndices),
 						)
+					}
 
-					MeshSelectMode.Edge ->
+					MeshSelectMode.Edge -> {
 						MeshTopology.facesWithAllEdgesSelected(
 							triangleIndices,
 							elements.filterIsInstance<MeshElement.Edge>().toSet(),
 						)
+					}
 
 					// Unreachable: the same-mode case returned above; kept for exhaustiveness.
-					MeshSelectMode.Face -> elements
+					MeshSelectMode.Face -> {
+						elements
+					}
 				}
+			}
 		}
 
 	/**
@@ -445,14 +469,18 @@ object MeshSelectionOps {
 	 */
 	fun selectAll(selection: MeshSelection, meshOf: (DrawableId) -> DrawableMesh?): MeshSelection {
 		val filled = HashMap<DrawableId, Set<MeshElement>>()
+
 		for (drawableId in selection.drawableIds) {
 			val mesh = meshOf(drawableId) ?: continue
 			val all = allElements(selection.selectMode, mesh)
+
 			if (all.isNotEmpty()) {
 				filled[drawableId] = all
 			}
 		}
+
 		val active = selection.activeElement?.takeIf { active -> active.element in (filled[active.drawableId] ?: emptySet()) }
+
 		return selection.copy(elementsByDrawable = filled, activeElement = active)
 	}
 
@@ -467,14 +495,18 @@ object MeshSelectionOps {
 	 */
 	fun invert(selection: MeshSelection, meshOf: (DrawableId) -> DrawableMesh?): MeshSelection {
 		val inverted = HashMap<DrawableId, Set<MeshElement>>()
+
 		for (drawableId in selection.drawableIds) {
 			val mesh = meshOf(drawableId) ?: continue
 			val complement = allElements(selection.selectMode, mesh) - selection.elementsOf(drawableId)
+
 			if (complement.isNotEmpty()) {
 				inverted[drawableId] = complement
 			}
 		}
+
 		val active = selection.activeElement?.takeIf { active -> active.element in (inverted[active.drawableId] ?: emptySet()) }
+
 		return selection.copy(elementsByDrawable = inverted, activeElement = active)
 	}
 
@@ -503,9 +535,11 @@ object MeshSelectionOps {
 				MeshSelectMode.Edge -> MeshTopology.edgesWithBothEndpointsSelected(triangleIndices, islandVertices)
 				MeshSelectMode.Face -> MeshTopology.facesWithAllVerticesSelected(triangleIndices, islandVertices)
 			}
+
 		if (islandElements.isEmpty()) {
 			return selection
 		}
+
 		return selection.copy(
 			elementsByDrawable = withElements(selection, drawableId, selection.elementsOf(drawableId) + islandElements),
 		)
@@ -527,6 +561,7 @@ object MeshSelectionOps {
 			val mesh = meshOf(drawableId) ?: return false
 			// Built lazily: vertex- and face-only selections never pay for the edge scan.
 			val meshEdges by lazy { MeshTopology.uniqueEdges(mesh.indices).toSet() }
+
 			for (element in elements) {
 				val fits =
 					when (element) {
@@ -534,11 +569,13 @@ object MeshSelectionOps {
 						is MeshElement.Edge -> element in meshEdges
 						is MeshElement.Face -> element.triangleIndex in 0 until mesh.triangleCount
 					}
+
 				if (!fits) {
 					return false
 				}
 			}
 		}
+
 		return true
 	}
 }

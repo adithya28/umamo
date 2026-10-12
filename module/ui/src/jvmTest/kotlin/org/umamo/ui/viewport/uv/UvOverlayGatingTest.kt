@@ -32,6 +32,7 @@ class UvOverlayGatingTest {
 			setContent {
 				UmamoTheme {
 					UvHudOverlay(areaId = "bare", session = session, liveCamera = ViewportCamera(0f, 0f, 1f), proportionalRadiusDisplay = null, placementDragStatus = null)
+
 					for (state in listOf(shown, infoOff, masterOff)) {
 						CompositionLocalProvider(LocalAreaOverlays provides state) {
 							UvHudOverlay(areaId = "area", session = session, liveCamera = ViewportCamera(0f, 0f, 1f), proportionalRadiusDisplay = null, placementDragStatus = null)
@@ -57,6 +58,7 @@ class UvOverlayGatingTest {
 			setContent {
 				UmamoTheme {
 					UvCursorOverlay(session = session, frame = frame, camera = ViewportCamera(0f, 0f, 1f), widthPx = 200, heightPx = 200)
+
 					for (state in listOf(shown, cursorOff, masterOff)) {
 						CompositionLocalProvider(LocalAreaOverlays provides state) {
 							UvCursorOverlay(session = session, frame = frame, camera = ViewportCamera(0f, 0f, 1f), widthPx = 200, heightPx = 200)

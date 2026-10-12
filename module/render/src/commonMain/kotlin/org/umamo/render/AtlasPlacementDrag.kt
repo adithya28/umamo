@@ -57,11 +57,13 @@ import kotlin.math.floor
  */
 public fun meshReserveByTile(model: PuppetModel): Map<AtlasTileId, AtlasPackReserve> {
 	val boundsByTile = HashMap<AtlasTileId, FloatArray>()
+
 	for (drawable in model.drawables) {
 		val tileId = drawable.atlasTileId ?: continue
 		val bounds = boundsByTile.getOrPut(tileId) { emptyReachBounds() }
 		widenByMeshReach(model, drawable, bounds)
 	}
+
 	return boundsByTile.filterValues { bounds -> bounds[0] <= bounds[2] }.mapValues { (_, bounds) -> reserveOfBounds(bounds) }
 }
 
@@ -77,6 +79,7 @@ public fun meshReserveOf(model: PuppetModel, drawableId: DrawableId): AtlasPackR
 	val drawable = model.drawables.firstOrNull { candidate -> candidate.id == drawableId } ?: return null
 	val bounds = emptyReachBounds()
 	widenByMeshReach(model, drawable, bounds)
+
 	return if (bounds[0] <= bounds[2]) reserveOfBounds(bounds) else null
 }
 
@@ -99,12 +102,15 @@ private fun widenByMeshReach(model: PuppetModel, drawable: Drawable, bounds: Flo
 	val tileId = drawable.atlasTileId ?: return
 	val tile = model.atlas.tileById[tileId] ?: return
 	val uvs = drawable.mesh?.uvs ?: return
+
 	if (uvs.size < 2) {
 		return
 	}
+
 	val storedToArt = model.atlas.storedToArtAffineForTile(tileId) ?: return
 	val artUvs = applyUvAffine(uvs, storedToArt)
 	var componentIndex = 0
+
 	while (componentIndex + 1 < artUvs.size) {
 		val artX = artUvs[componentIndex] * tile.width
 		val artY = artUvs[componentIndex + 1] * tile.height
@@ -199,17 +205,20 @@ fun placementFootprint(placement: AtlasPlacement, trim: LayerBounds, reserve: At
 	var localTop = trim.top.toFloat()
 	var localRight = (trim.left + trim.width).toFloat()
 	var localBottom = (trim.top + trim.height).toFloat()
+
 	if (reserve != null) {
 		localLeft = minOf(localLeft, reserve.left.toFloat())
 		localTop = minOf(localTop, reserve.top.toFloat())
 		localRight = maxOf(localRight, reserve.right.toFloat())
 		localBottom = maxOf(localBottom, reserve.bottom.toFloat())
 	}
+
 	val affine = placementAffine(placement)
 	var left = Float.POSITIVE_INFINITY
 	var top = Float.POSITIVE_INFINITY
 	var right = Float.NEGATIVE_INFINITY
 	var bottom = Float.NEGATIVE_INFINITY
+
 	for (cornerIndex in 0 until 4) {
 		val cornerX = if (cornerIndex and 1 == 0) localLeft else localRight
 		val cornerY = if (cornerIndex and 2 == 0) localTop else localBottom
@@ -220,6 +229,7 @@ fun placementFootprint(placement: AtlasPlacement, trim: LayerBounds, reserve: At
 		right = maxOf(right, pageX)
 		bottom = maxOf(bottom, pageY)
 	}
+
 	return PlacementFootprint(left, top, right, bottom)
 }
 
@@ -245,10 +255,13 @@ class TileOpaqueMask private constructor(
 	fun isOpaque(tileX: Int, tileY: Int): Boolean {
 		val column = tileX - trim.left
 		val row = tileY - trim.top
+
 		if (column < 0 || row < 0 || column >= trim.width || row >= trim.height) {
 			return false
 		}
+
 		val bitIndex = row * trim.width + column
+
 		return (words[bitIndex ushr 6] ushr (bitIndex and 63)) and 1L == 1L
 	}
 
@@ -264,16 +277,20 @@ class TileOpaqueMask private constructor(
 		fun of(raster: DecodedImage, trim: LayerBounds, alphaThreshold: Int): TileOpaqueMask {
 			val bitCount = trim.width * trim.height
 			val words = LongArray((bitCount + 63) ushr 6)
+
 			for (row in 0 until trim.height) {
 				val rowOffset = (trim.top + row) * raster.width + trim.left
+
 				for (column in 0 until trim.width) {
 					val alpha = raster.rgba[(rowOffset + column) * 4 + 3].toInt() and 0xFF
+
 					if (alpha >= alphaThreshold) {
 						val bitIndex = row * trim.width + column
 						words[bitIndex ushr 6] = words[bitIndex ushr 6] or (1L shl (bitIndex and 63))
 					}
 				}
 			}
+
 			return TileOpaqueMask(trim, words)
 		}
 	}
@@ -336,11 +353,13 @@ class PageOccupancy private constructor(
 		if (x < 0 || y < 0 || x >= width || y >= height) {
 			return false
 		}
+
 		for (rect in excluded) {
 			if (rect.contains(x, y)) {
 				return false
 			}
 		}
+
 		return (rgba[(y * width + x) * 4 + 3].toInt() and 0xFF) != 0
 	}
 
@@ -355,6 +374,7 @@ class PageOccupancy private constructor(
 	 */
 	fun blockMayBePainted(blockX: Int, blockY: Int): Boolean {
 		val bitIndex = blockY * blockColumns + blockX
+
 		return (blockWords[bitIndex ushr 6] ushr (bitIndex and 63)) and 1L == 1L
 	}
 
@@ -373,18 +393,22 @@ class PageOccupancy private constructor(
 		val endX = ceil(bounds.right).toInt().coerceAtMost(width)
 		val startY = floor(bounds.top).toInt().coerceAtLeast(0)
 		val endY = ceil(bounds.bottom).toInt().coerceAtMost(height)
+
 		if (startX >= endX || startY >= endY) {
 			return null
 		}
+
 		for (blockY in (startY / OCCUPANCY_BLOCK_SIDE)..((endY - 1) / OCCUPANCY_BLOCK_SIDE)) {
 			for (blockX in (startX / OCCUPANCY_BLOCK_SIDE)..((endX - 1) / OCCUPANCY_BLOCK_SIDE)) {
 				if (!blockMayBePainted(blockX, blockY)) {
 					continue
 				}
+
 				val pixelStartX = maxOf(startX, blockX * OCCUPANCY_BLOCK_SIDE)
 				val pixelEndX = minOf(endX, (blockX + 1) * OCCUPANCY_BLOCK_SIDE)
 				val pixelStartY = maxOf(startY, blockY * OCCUPANCY_BLOCK_SIDE)
 				val pixelEndY = minOf(endY, (blockY + 1) * OCCUPANCY_BLOCK_SIDE)
+
 				for (y in pixelStartY until pixelEndY) {
 					for (x in pixelStartX until pixelEndX) {
 						if (region.contains(x + 0.5f, y + 0.5f) && isPainted(x, y)) {
@@ -394,6 +418,7 @@ class PageOccupancy private constructor(
 				}
 			}
 		}
+
 		return null
 	}
 
@@ -409,9 +434,11 @@ class PageOccupancy private constructor(
 			val blockColumns = (page.width + OCCUPANCY_BLOCK_SIDE - 1) / OCCUPANCY_BLOCK_SIDE
 			val blockRows = (page.height + OCCUPANCY_BLOCK_SIDE - 1) / OCCUPANCY_BLOCK_SIDE
 			val blockWords = LongArray((blockColumns * blockRows + 63) ushr 6)
+
 			for (y in 0 until page.height) {
 				val rowOffset = y * page.width
 				val blockRow = (y / OCCUPANCY_BLOCK_SIDE) * blockColumns
+
 				for (x in 0 until page.width) {
 					if (page.rgba[(rowOffset + x) * 4 + 3].toInt() != 0) {
 						val bitIndex = blockRow + x / OCCUPANCY_BLOCK_SIDE
@@ -419,6 +446,7 @@ class PageOccupancy private constructor(
 					}
 				}
 			}
+
 			return PageOccupancy(page.width, page.height, page.rgba, blockColumns, blockWords, excluded)
 		}
 	}
@@ -445,10 +473,13 @@ class TileMeshMask private constructor(
 	fun isCovered(tileX: Int, tileY: Int): Boolean {
 		val column = tileX - bounds.left
 		val row = tileY - bounds.top
+
 		if (column < 0 || row < 0 || column >= bounds.width || row >= bounds.height) {
 			return false
 		}
+
 		val bitIndex = row * bounds.width + column
+
 		return (words[bitIndex ushr 6] ushr (bitIndex and 63)) and 1L == 1L
 	}
 
@@ -466,10 +497,12 @@ class TileMeshMask private constructor(
 			if (triangles.isEmpty()) {
 				return null
 			}
+
 			var minX = Float.POSITIVE_INFINITY
 			var minY = Float.POSITIVE_INFINITY
 			var maxX = Float.NEGATIVE_INFINITY
 			var maxY = Float.NEGATIVE_INFINITY
+
 			for (triangle in triangles) {
 				for (cornerIndex in 0 until 3) {
 					minX = minOf(minX, triangle[cornerIndex * 2])
@@ -478,6 +511,7 @@ class TileMeshMask private constructor(
 					maxY = maxOf(maxY, triangle[cornerIndex * 2 + 1])
 				}
 			}
+
 			// One pixel of margin for the dilation on every side.
 			val left = floor(minX).toInt() - 1
 			val top = floor(minY).toInt() - 1
@@ -489,9 +523,11 @@ class TileMeshMask private constructor(
 				if (column < 0 || row < 0 || column >= width || row >= height) {
 					return
 				}
+
 				val bitIndex = row * width + column
 				raw[bitIndex ushr 6] = raw[bitIndex ushr 6] or (1L shl (bitIndex and 63))
 			}
+
 			for (triangle in triangles) {
 				val x0 = triangle[0] - left
 				val y0 = triangle[1] - top
@@ -503,54 +539,69 @@ class TileMeshMask private constructor(
 				mark(floor(x1).toInt(), floor(y1).toInt())
 				mark(floor(x2).toInt(), floor(y2).toInt())
 				val area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)
+
 				if (area == 0f) {
 					continue
 				}
+
 				val startColumn = floor(minOf(x0, x1, x2)).toInt().coerceAtLeast(0)
 				val endColumn = ceil(maxOf(x0, x1, x2)).toInt().coerceAtMost(width - 1)
 				val startRow = floor(minOf(y0, y1, y2)).toInt().coerceAtLeast(0)
 				val endRow = ceil(maxOf(y0, y1, y2)).toInt().coerceAtMost(height - 1)
 				val orientation = if (area > 0f) 1f else -1f
+
 				for (row in startRow..endRow) {
 					val centerY = row + 0.5f
+
 					for (column in startColumn..endColumn) {
 						val centerX = column + 0.5f
 						val edge0 = ((x1 - x0) * (centerY - y0) - (y1 - y0) * (centerX - x0)) * orientation
 						val edge1 = ((x2 - x1) * (centerY - y1) - (y2 - y1) * (centerX - x1)) * orientation
 						val edge2 = ((x0 - x2) * (centerY - y2) - (y0 - y2) * (centerX - x2)) * orientation
+
 						if (edge0 >= 0f && edge1 >= 0f && edge2 >= 0f) {
 							mark(column, row)
 						}
 					}
 				}
 			}
+
 			// Dilate by one pixel: a bit set anywhere in the 3x3 neighborhood sets the pixel.
 			val dilated = LongArray(raw.size)
+
 			for (row in 0 until height) {
 				for (column in 0 until width) {
 					var covered = false
+
 					for (rowOffset in -1..1) {
 						val neighborRow = row + rowOffset
+
 						if (neighborRow < 0 || neighborRow >= height) {
 							continue
 						}
+
 						for (columnOffset in -1..1) {
 							val neighborColumn = column + columnOffset
+
 							if (neighborColumn < 0 || neighborColumn >= width) {
 								continue
 							}
+
 							val bitIndex = neighborRow * width + neighborColumn
+
 							if ((raw[bitIndex ushr 6] ushr (bitIndex and 63)) and 1L == 1L) {
 								covered = true
 							}
 						}
 					}
+
 					if (covered) {
 						val bitIndex = row * width + column
 						dilated[bitIndex ushr 6] = dilated[bitIndex ushr 6] or (1L shl (bitIndex and 63))
 					}
 				}
 			}
+
 			return TileMeshMask(LayerBounds(left, top, width, height), dilated)
 		}
 	}
@@ -568,13 +619,16 @@ fun meshTrianglesOf(model: PuppetModel, tileId: AtlasTileId): List<FloatArray> {
 	val tile = model.atlas.tileById[tileId] ?: return emptyList()
 	val storedToArt = model.atlas.storedToArtAffineForTile(tileId) ?: return emptyList()
 	val triangles = ArrayList<FloatArray>()
+
 	for (drawable in model.drawables) {
 		if (drawable.atlasTileId != tileId) {
 			continue
 		}
+
 		val mesh = drawable.mesh ?: continue
 		addArtTriangles(mesh, storedToArt, tile.width, tile.height, triangles)
 	}
+
 	return triangles
 }
 
@@ -594,6 +648,7 @@ fun drawableMeshTrianglesOf(model: PuppetModel, drawableId: DrawableId): List<Fl
 	val mesh = drawable.mesh ?: return emptyList()
 	val triangles = ArrayList<FloatArray>()
 	addArtTriangles(mesh, storedToArt, tile.width, tile.height, triangles)
+
 	return triangles
 }
 
@@ -610,17 +665,21 @@ private fun addArtTriangles(mesh: DrawableMesh, storedToArt: FloatArray, tileWid
 	if (mesh.uvs.size < 2 || mesh.indices.size < 3) {
 		return
 	}
+
 	val artUvs = applyUvAffine(mesh.uvs, storedToArt)
 	val vertexCount = artUvs.size / 2
 	var indexOffset = 0
+
 	while (indexOffset + 2 < mesh.indices.size) {
 		val cornerA = mesh.indices[indexOffset]
 		val cornerB = mesh.indices[indexOffset + 1]
 		val cornerC = mesh.indices[indexOffset + 2]
 		indexOffset += 3
+
 		if (cornerA >= vertexCount || cornerB >= vertexCount || cornerC >= vertexCount) {
 			continue
 		}
+
 		triangles.add(
 			floatArrayOf(
 				artUvs[cornerA * 2] * tileWidth,
@@ -671,6 +730,7 @@ class SampledRegion(
 		val inverse = pageToTile ?: return false
 		val tileX = inverse[0] * pageX + inverse[1] * pageY + inverse[2]
 		val tileY = inverse[3] * pageX + inverse[4] * pageY + inverse[5]
+
 		return mask.isCovered(floor(tileX).toInt(), floor(tileY).toInt())
 	}
 }
@@ -697,9 +757,11 @@ fun sampledRegionHitsMask(
 ): Boolean {
 	val painted = placementFootprint(placement, mask.trim, reserve = null).expanded(extrude.toFloat())
 	val bounds = region.bounds
+
 	if (!bounds.overlaps(painted)) {
 		return false
 	}
+
 	val inverse = inversePlacementAffine(placement) ?: return false
 	val forward = placementAffine(placement)
 	val startX = floor(maxOf(bounds.left, painted.left)).toInt()
@@ -712,35 +774,45 @@ fun sampledRegionHitsMask(
 	val trimRight = (trim.left + trim.width).toFloat()
 	val trimBottom = (trim.top + trim.height).toFloat()
 	val extrudeSquared = extrude.toFloat() * extrude.toFloat()
+
 	for (y in startY until endY) {
 		val centerY = y + 0.5f
+
 		for (x in startX until endX) {
 			val centerX = x + 0.5f
+
 			if (!region.contains(centerX, centerY)) {
 				continue
 			}
+
 			val tileX = inverse[0] * centerX + inverse[1] * centerY + inverse[2]
 			val tileY = inverse[3] * centerX + inverse[4] * centerY + inverse[5]
 			val clampedX = tileX.coerceIn(trimLeft, trimRight)
 			val clampedY = tileY.coerceIn(trimTop, trimBottom)
+
 			if (clampedX != tileX || clampedY != tileY) {
 				if (extrude == 0) {
 					continue
 				}
+
 				val backX = forward[0] * clampedX + forward[1] * clampedY + forward[2]
 				val backY = forward[3] * clampedX + forward[4] * clampedY + forward[5]
 				val deltaX = backX - centerX
 				val deltaY = backY - centerY
+
 				if (deltaX * deltaX + deltaY * deltaY > extrudeSquared) {
 					continue
 				}
 			}
+
 			val texelX = floor(clampedX).toInt().coerceIn(trim.left, trim.left + trim.width - 1)
 			val texelY = floor(clampedY).toInt().coerceIn(trim.top, trim.top + trim.height - 1)
+
 			if (mask.isOpaque(texelX, texelY)) {
 				return true
 			}
 		}
 	}
+
 	return false
 }

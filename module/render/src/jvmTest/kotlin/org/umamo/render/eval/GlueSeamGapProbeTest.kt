@@ -46,22 +46,29 @@ class GlueSeamGapProbeTest {
 	@Test
 	fun probeRestPoseWeldDisplacement() {
 		val rigs = corpusRigs()
+
 		if (rigs.isEmpty()) {
 			println("$PROBE_TAG no corpus rigs (cmo3.probe, moc3.samples); skipping")
+
 			return
 		}
+
 		for (rig in rigs) {
 			val model =
 				try {
 					rig.load()
 				} catch (failure: Exception) {
 					report("${rig.name}: could not load (${failure.message}); skipped")
+
 					continue
 				}
+
 			if (model.glues.isEmpty()) {
 				report("${rig.name}: no glue")
+
 				continue
 			}
+
 			measure(rig.name, model)
 		}
 	}
@@ -82,12 +89,14 @@ class GlueSeamGapProbeTest {
 		val leftoverGaps = ArrayList<Double>()
 		var worstGlue = ""
 		var worstDisplacement = 0.0
+
 		for (glue in model.glues) {
 			val beforeA = before[glue.meshA] ?: continue
 			val beforeB = before[glue.meshB] ?: continue
 			val afterA = after[glue.meshA] ?: continue
 			val afterB = after[glue.meshB] ?: continue
 			var glueWorst = 0.0
+
 			for (pair in glue.pairs) {
 				val movedA = distance(beforeA, afterA, pair.indexA, pair.indexA)
 				val movedB = distance(beforeB, afterB, pair.indexB, pair.indexB)
@@ -96,16 +105,21 @@ class GlueSeamGapProbeTest {
 				leftoverGaps.add(distance(afterA, afterB, pair.indexA, pair.indexB))
 				glueWorst = maxOf(glueWorst, movedA, movedB)
 			}
+
 			if (glueWorst > worstDisplacement) {
 				worstDisplacement = glueWorst
 				worstGlue = glue.id ?: "${glue.meshA.raw}/${glue.meshB.raw}"
 			}
 		}
+
 		val displacements = displacementByVertex.values.sorted()
+
 		if (displacements.isEmpty()) {
 			report("$rigName: ${model.glues.size} glues, none posed at rest")
+
 			return
 		}
+
 		val pastShaderLimit = (model.glues.size - MAX_GLUES).coerceAtLeast(0)
 		report("$rigName: glues=${model.glues.size} (past the shader's $MAX_GLUES: $pastShaderLimit) gluedVertices=${displacements.size} fitZoom=${"%.4f".format(zoom)} px/unit")
 		report("$rigName:   weld displacement, world  ${percentileRow(displacements, 1.0)}")
@@ -134,6 +148,7 @@ class GlueSeamGapProbeTest {
 		 * @return String The formatted value.
 		 */
 		fun at(fraction: Double): String = "%.3f".format(sorted[((sorted.size - 1) * fraction).toInt()] * scale)
+
 		return "max ${at(1.0)}  p50 ${at(0.5)}  p90 ${at(0.9)}  p99 ${at(0.99)}"
 	}
 
@@ -163,8 +178,10 @@ class GlueSeamGapProbeTest {
 		var minY = Float.MAX_VALUE
 		var maxX = -Float.MAX_VALUE
 		var maxY = -Float.MAX_VALUE
+
 		for (array in positions.values) {
 			var slot = 0
+
 			while (slot + 1 < array.size) {
 				minX = minOf(minX, array[slot])
 				maxX = maxOf(maxX, array[slot])
@@ -173,6 +190,7 @@ class GlueSeamGapProbeTest {
 				slot += 2
 			}
 		}
+
 		return ViewportCamera.fit(ContentBounds(minX, minY, maxX - minX, maxY - minY), VIEW_WIDTH, VIEW_HEIGHT).zoom.toDouble()
 	}
 
@@ -214,6 +232,7 @@ class GlueSeamGapProbeTest {
 				?.toList()
 				.orEmpty()
 				.map { file -> CorpusRig(file.name) { restMeshesToCanvasSpace(Moc3Import.fromMocDocument(Moc3.read(file.readBytes()), null)) } }
+
 		return cmo3Rigs + moc3Rigs
 	}
 

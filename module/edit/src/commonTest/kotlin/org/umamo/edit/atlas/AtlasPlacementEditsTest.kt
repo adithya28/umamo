@@ -67,11 +67,13 @@ class AtlasPlacementEditsTest {
 	private fun storedUvsAt(artUvs: FloatArray, tileId: AtlasTileId, placed: AtlasPlacement?): FloatArray {
 		val binding = DrawableLayerBinding(tileId.raw, placed, page.width, page.height)
 		val storedToArt = assertNotNull(layerUvAffineOf(binding, 16, 16))
+
 		return applyUvAffine(artUvs, assertNotNull(invertUvAffine(storedToArt)))
 	}
 
 	private fun assertUvsClose(expected: FloatArray, actual: FloatArray, message: String) {
 		assertEquals(expected.size, actual.size, message)
+
 		for (componentIndex in expected.indices) {
 			assertTrue(
 				abs(expected[componentIndex] - actual[componentIndex]) < 1e-5f,

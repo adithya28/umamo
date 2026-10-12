@@ -86,7 +86,7 @@ internal class MarqueeSelectController<StrokeSelection>(
 	 */
 	fun handleCircleEvent(event: PointerEvent, change: PointerInputChange, radiusPx: Float, camera: ViewportCamera, size: IntSize) {
 		when (event.type) {
-			PointerEventType.Press ->
+			PointerEventType.Press -> {
 				if (event.buttons.isSecondaryPressed) {
 					// Right-click leaves the tool; a held stroke keeps what it painted (Blender
 					// parity), so commit it here before clearing rather than dropping it.
@@ -97,9 +97,11 @@ internal class MarqueeSelectController<StrokeSelection>(
 				} else if (event.buttons.isTertiaryPressed) {
 					beginStamp(erasing = true, change.position, radiusPx, camera, size)
 				}
+			}
 
 			PointerEventType.Move -> {
 				val stroke = circleStroke
+
 				if (stroke != null) {
 					val painted = stampStroke(stroke, circleErasing, change.position, radiusPx, camera, size)
 					circleStroke = painted
@@ -107,15 +109,17 @@ internal class MarqueeSelectController<StrokeSelection>(
 				}
 			}
 
-			PointerEventType.Release ->
+			PointerEventType.Release -> {
 				if (change.isConsumed) {
 					discard()
 				} else {
 					endStroke()
 				}
+			}
 
 			PointerEventType.Scroll -> {
 				val steps = change.scrollDelta.y
+
 				if (steps != 0f) {
 					// Wheel up (negative y) grows the brush; the session clamps the radius.
 					setCircleRadius(radiusPx - steps * CIRCLE_RADIUS_STEP_PX)
@@ -124,6 +128,7 @@ internal class MarqueeSelectController<StrokeSelection>(
 
 			else -> {}
 		}
+
 		change.consume()
 	}
 
@@ -147,7 +152,9 @@ internal class MarqueeSelectController<StrokeSelection>(
 		if (boxStart == null) {
 			return false
 		}
+
 		boxCurrent = position
+
 		return true
 	}
 
@@ -199,6 +206,7 @@ internal class MarqueeSelectController<StrokeSelection>(
 		val painted = stampStroke(live ?: seedStroke(), erasing, center, radiusPx, camera, size)
 		circleStroke = painted
 		previewStroke(painted)
+
 		if (live == null) {
 			setGestureActive(true)
 		}
@@ -215,6 +223,7 @@ internal class MarqueeSelectController<StrokeSelection>(
 		circleErasing = false
 		boxStart = null
 		boxCurrent = null
+
 		if (hadStroke) {
 			previewStroke(null)
 			setGestureActive(false)
@@ -229,9 +238,11 @@ internal class MarqueeSelectController<StrokeSelection>(
 	private fun endStroke() {
 		val stroke = circleStroke
 		circleErasing = false
+
 		if (stroke == null) {
 			return
 		}
+
 		commitStroke(stroke)
 		circleStroke = null
 		previewStroke(null)

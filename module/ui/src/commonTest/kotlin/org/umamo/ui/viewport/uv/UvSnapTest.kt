@@ -60,13 +60,17 @@ class UvSnapTest {
 	private fun snapSession(select: Boolean = true): EditorSession {
 		val session = EditorSession(snapModel())
 		session.setMode(EditorMode.Edit)
+
 		if (select) {
 			var selection = session.meshSelection.value
+
 			for (vertexIndex in 0..2) {
 				selection = MeshSelectionOps.add(selection, DrawableId("a"), MeshElement.Vertex(vertexIndex))
 			}
+
 			session.setMeshSelection(selection)
 		}
+
 		return session
 	}
 
@@ -85,6 +89,7 @@ class UvSnapTest {
 
 	private fun assertUvsEqual(expected: List<Float>, actual: FloatArray, message: String) {
 		assertEquals(expected.size, actual.size, message)
+
 		for (componentIndex in expected.indices) {
 			assertEquals(expected[componentIndex], actual[componentIndex], 1e-4f, "$message (component $componentIndex)")
 		}

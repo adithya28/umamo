@@ -55,6 +55,7 @@ class UmamoLogTest {
 		// Append past the documented cap (MAX_LOG_ENTRIES = 2000); the oldest lines fall off the front.
 		val cap = 2000
 		val overflow = 50
+
 		for (lineIndex in 0 until cap + overflow) {
 			UmamoLog.info("line $lineIndex")
 		}
@@ -71,6 +72,7 @@ class UmamoLogTest {
 		val received = ArrayList<LogRecord>()
 		val detach = UmamoLog.addSink { logged -> received.add(logged) }
 		val failure = RuntimeException("missing")
+
 		try {
 			UmamoLog.info("started")
 			UmamoLog.warn("odd")
@@ -91,11 +93,13 @@ class UmamoLogTest {
 	fun aDetachedSinkReceivesNothingFurther() {
 		val received = ArrayList<LogRecord>()
 		val detach = UmamoLog.addSink { logged -> received.add(logged) }
+
 		try {
 			UmamoLog.info("before")
 		} finally {
 			detach()
 		}
+
 		UmamoLog.info("after")
 
 		assertEquals(listOf("before"), received.map { logged -> logged.message })

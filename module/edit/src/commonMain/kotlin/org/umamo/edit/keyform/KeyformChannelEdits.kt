@@ -49,7 +49,7 @@ import org.umamo.runtime.model.withDerivedRenderRoot
  */
 private fun PuppetModel.staticValueOf(owner: KeyformOwner, channel: FormChannel): ChannelValue? =
 	when (owner) {
-		is KeyformOwner.Drawable ->
+		is KeyformOwner.Drawable -> {
 			drawables.firstOrNull { it.id == owner.id }?.let { drawable ->
 				when (channel) {
 					FormChannel.DRAW_ORDER -> ChannelValue.Scalar(drawable.drawOrder)
@@ -59,8 +59,9 @@ private fun PuppetModel.staticValueOf(owner: KeyformOwner, channel: FormChannel)
 					else -> null
 				}
 			}
+		}
 
-		is KeyformOwner.Part ->
+		is KeyformOwner.Part -> {
 			parts.firstOrNull { it.id == owner.id }?.let { part ->
 				when (channel) {
 					FormChannel.DRAW_ORDER -> ChannelValue.Scalar(part.drawOrder.toFloat())
@@ -70,19 +71,21 @@ private fun PuppetModel.staticValueOf(owner: KeyformOwner, channel: FormChannel)
 					else -> null
 				}
 			}
+		}
 
-		is KeyformOwner.Deformer ->
+		is KeyformOwner.Deformer -> {
 			deformers.firstOrNull { it.id == owner.id }?.let { deformer ->
 				when (deformer) {
-					is Deformer.Warp ->
+					is Deformer.Warp -> {
 						when (channel) {
 							FormChannel.OPACITY -> ChannelValue.Scalar(deformer.opacity)
 							FormChannel.MULTIPLY_COLOR -> ChannelValue.Color(deformer.multiplyColor)
 							FormChannel.SCREEN_COLOR -> ChannelValue.Color(deformer.screenColor)
 							else -> null
 						}
+					}
 
-					is Deformer.Rotation ->
+					is Deformer.Rotation -> {
 						when (channel) {
 							FormChannel.OPACITY -> ChannelValue.Scalar(deformer.opacity)
 							FormChannel.MULTIPLY_COLOR -> ChannelValue.Color(deformer.multiplyColor)
@@ -91,13 +94,16 @@ private fun PuppetModel.staticValueOf(owner: KeyformOwner, channel: FormChannel)
 							FormChannel.FLIP_Y -> ChannelValue.Flag(deformer.flipY)
 							else -> null
 						}
+					}
 				}
 			}
+		}
 
-		is KeyformOwner.Glue ->
+		is KeyformOwner.Glue -> {
 			glues.firstOrNull { it.meshA == owner.meshA && it.meshB == owner.meshB }?.let { glue ->
 				if (channel == FormChannel.GLUE_INTENSITY) ChannelValue.Scalar(glue.intensity) else null
 			}
+		}
 	}
 
 /**
@@ -108,14 +114,16 @@ private fun PuppetModel.staticValueOf(owner: KeyformOwner, channel: FormChannel)
  */
 private fun PuppetModel.withChannelGrids(owner: KeyformOwner, channelGrids: ChannelGrids): PuppetModel =
 	when (owner) {
-		is KeyformOwner.Drawable ->
+		is KeyformOwner.Drawable -> {
 			copy(drawables = drawables.map { if (it.id == owner.id) it.copy(channelGrids = channelGrids) else it })
+		}
 
-		is KeyformOwner.Part ->
+		is KeyformOwner.Part -> {
 			copy(parts = parts.map { if (it.id == owner.id) it.copy(channelGrids = channelGrids) else it })
 				.withDerivedRenderRoot()
+		}
 
-		is KeyformOwner.Deformer ->
+		is KeyformOwner.Deformer -> {
 			copy(
 				deformers =
 					deformers.map { deformer ->
@@ -129,8 +137,9 @@ private fun PuppetModel.withChannelGrids(owner: KeyformOwner, channelGrids: Chan
 						}
 					},
 			)
+		}
 
-		is KeyformOwner.Glue ->
+		is KeyformOwner.Glue -> {
 			copy(
 				glues =
 					glues.map { glue ->
@@ -141,6 +150,7 @@ private fun PuppetModel.withChannelGrids(owner: KeyformOwner, channelGrids: Chan
 						}
 					},
 			)
+		}
 	}
 
 /** Whether [value] is the kind [channel] stores - a guard against writing a color into a scalar track. */
@@ -180,6 +190,7 @@ fun PuppetModel.withChannelKeyCaptured(
 	if (!target.channel.accepts(value)) {
 		return this
 	}
+
 	val grids = channelGridsOf(target.owner) ?: return this
 	val staticValue = staticValueOf(target.owner, target.channel) ?: return this
 	val defaults = parameters.associate { it.id to it.default }
@@ -195,9 +206,11 @@ fun PuppetModel.withChannelKeyCaptured(
 	// Compared against BOUND, not existing: a capture that refuses after a fresh seed must refuse the whole
 	// op - committing the bare axis bind would discard the user's value while the channel reads as keyed.
 	val captured = bound.withFormCaptured(poseValue, value, ChannelValueInterpolator)
+
 	if (captured === bound) {
 		return this
 	}
+
 	return withChannelGrids(target.owner, ChannelGrids(grids.gridsByChannel + (target.channel to captured)))
 }
 
@@ -221,9 +234,11 @@ fun PuppetModel.withChannelKeyRemoved(target: KeyableTarget, parameter: Paramete
 	val track = channelGridsOf(target.owner)?.get(target.channel) ?: return this
 	val scrubValue = pose[parameter.id] ?: parameters.firstOrNull { it.id == parameter.id }?.default ?: 0f
 	val keyIndex = track.keyIndexAt(parameter.id, scrubValue)
+
 	if (keyIndex < 0) {
 		return this
 	}
+
 	// One removal body: the pose-addressed remove is the ordinal-addressed one after resolving the key,
 	// so the collapse-below-two-keys rule cannot fork between the two paths.
 	return withChannelKeyRemovedAt(target, parameter, keyIndex)
@@ -248,6 +263,7 @@ fun PuppetModel.channelValueAt(target: KeyableTarget, pose: Pose): ChannelValue?
 	// No defaults map: this runs per keyable row per recomposition, a track has at most a few axes, and
 	// the pose usually answers - the per-miss linear scan beats an every-call full-map build.
 	val poseValue: (ParameterId) -> Float = { id -> pose[id] ?: parameters.firstOrNull { it.id == id }?.default ?: 0f }
+
 	return when (staticValue) {
 		is ChannelValue.Scalar -> ChannelValue.Scalar(grids.scalarAt(target.channel, staticValue.value, poseValue))
 		is ChannelValue.Color -> ChannelValue.Color(grids.colorAt(target.channel, staticValue.color, poseValue))
@@ -277,9 +293,11 @@ fun PuppetModel.withChannelKeyMoved(
 	val grids = channelGridsOf(target.owner) ?: return this
 	val track = grids[target.channel] ?: return this
 	val moved = track.withKeyMoved(parameter.id, keyIndex, toValue)
+
 	if (moved === track) {
 		return this
 	}
+
 	return withChannelGrids(target.owner, ChannelGrids(grids.gridsByChannel + (target.channel to moved)))
 }
 
@@ -298,15 +316,18 @@ fun PuppetModel.withChannelKeyRemovedAt(target: KeyableTarget, parameter: Parame
 	val grids = channelGridsOf(target.owner) ?: return this
 	val track = grids[target.channel] ?: return this
 	val reduced = track.withKeyRemoved(parameter.id, keyIndex)
+
 	if (reduced === track) {
 		return this
 	}
+
 	val remaining =
 		if (reduced == null) {
 			grids.gridsByChannel - target.channel
 		} else {
 			grids.gridsByChannel + (target.channel to reduced)
 		}
+
 	return withChannelGrids(target.owner, ChannelGrids(remaining))
 }
 
@@ -320,6 +341,7 @@ fun PuppetModel.withChannelKeyRemovedAt(target: KeyableTarget, parameter: Parame
  */
 fun PuppetModel.isChannelKeyedOn(target: KeyableTarget, parameterId: ParameterId): Boolean {
 	val track = channelGridsOf(target.owner)?.get(target.channel) ?: return false
+
 	return track.axisIndexOf(parameterId) >= 0
 }
 

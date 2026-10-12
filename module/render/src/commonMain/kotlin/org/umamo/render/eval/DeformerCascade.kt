@@ -87,6 +87,7 @@ internal fun cascadeDeformerChannels(local: DeformerChannels, parent: DeformerWo
 	val parentOpacity = parent?.accumulatedOpacity ?: 1f
 	val parentMultiply = parent?.accumulatedMultiplyColor ?: ColorRgb.MultiplyIdentity
 	val parentScreen = parent?.accumulatedScreenColor ?: ColorRgb.ScreenIdentity
+
 	return DeformerChannels(
 		opacity = local.opacity * parentOpacity,
 		multiplyColor =
@@ -186,29 +187,38 @@ internal fun buildDeformerWorlds(
 	val ids = deformers.mapTo(HashSet()) { it.id }
 	var pending = deformers
 	var passes = 0
+
 	while (pending.isNotEmpty() && passes <= deformers.size + 2) {
 		passes++
 		val deferred = ArrayList<Deformer>()
 		var built = false
+
 		for (deformer in pending) {
 			val parentId = deformer.parent
 			val parentKnown = parentId == null || parentId !in ids || parentId in worlds
+
 			if (!parentKnown) {
 				deferred.add(deformer)
+
 				continue
 			}
+
 			val parentWorld = parentId?.let { worlds[it] }
 			val world = buildDeformerWorld(deformer, paramValue, defaultValue, parentWorld, channelOverrides)
+
 			if (world != null) {
 				worlds[deformer.id] = world
 				built = true
 			}
 		}
+
 		if (!built) {
 			break // no progress: the rest are hidden or orphaned
 		}
+
 		pending = deferred
 	}
+
 	return worlds
 }
 
@@ -257,16 +267,20 @@ private fun buildWarpWorld(
 	val cells = cellsByLinearIndex(grid)
 	val pointCount = (warp.rows + 1) * (warp.columns + 1)
 	val cp = FloatArray(pointCount * 2)
+
 	for (corner in corners) {
 		val controlPoints = cells[corner.linearIndex]?.form?.controlPoints ?: continue
 		val count = minOf(cp.size, controlPoints.size)
+
 		for (coordIndex in 0 until count) {
 			cp[coordIndex] += corner.weight * controlPoints[coordIndex]
 		}
 	}
+
 	// Blend shapes: additive control-point deltas on top of the grid blend, before parent transforms.
 	warpBlendDeltas(warp, paramValue, defaultValue)?.let { deltas ->
 		val count = minOf(cp.size, deltas.size)
+
 		for (coordIndex in 0 until count) {
 			cp[coordIndex] += deltas[coordIndex]
 		}
@@ -313,11 +327,13 @@ private fun buildWarpWorld(
 			parentWorld,
 		)
 	val parentAccY = parentWorld?.accY ?: 1f
+
 	if (parentWorld != null) {
 		for (pointIndex in 0 until pointCount) {
 			parentWorld.apply(cp[pointIndex * 2], cp[pointIndex * 2 + 1], cp, pointIndex * 2)
 		}
 	}
+
 	return WarpWorld(
 		cp,
 		warp.columns,
@@ -356,6 +372,7 @@ private fun buildRotationWorld(
 	var originY = 0f
 	var scaleAccum = 0f
 	var angleAccum = 0f
+
 	for (corner in corners) {
 		val form = cells[corner.linearIndex]?.form ?: continue
 		originX += corner.weight * form.originX
@@ -363,6 +380,7 @@ private fun buildRotationWorld(
 		scaleAccum += corner.weight * form.scale
 		angleAccum += corner.weight * form.angle
 	}
+
 	// The render channels blend, never snap to the nearest key (unlike the flip flags below, which are
 	// not interpolable and take the floor cell).
 	// A constant null in the steady state, so the lookups allocate nothing (see buildWarpWorld's note).
@@ -423,6 +441,7 @@ private fun buildRotationWorld(
 	val worldPivotX: Float
 	val worldPivotY: Float
 	val worldAngle: Float
+
 	if (parentWorld == null) {
 		worldPivotX = originX
 		worldPivotY = originY
@@ -439,33 +458,43 @@ private fun buildRotationWorld(
 		var dy = 0f
 		var probeScale = 1f
 		var iteration = 0
+
 		while (iteration < 10) {
 			parentWorld.apply(originX, originY + disp * probeScale, scratch, 0)
 			dx = scratch[0] - worldPosX
 			dy = scratch[1] - worldPosY
+
 			if (dx != 0f || dy != 0f) {
 				break
 			}
+
 			parentWorld.apply(originX, originY - disp * probeScale, scratch, 0)
 			dx = worldPosX - scratch[0]
 			dy = worldPosY - scratch[1]
+
 			if (dx != 0f || dy != 0f) {
 				break
 			}
+
 			probeScale *= 0.1f
 			iteration++
 		}
+
 		var inherited = atan2(disp.toDouble(), 0.0).toFloat() - atan2(dy.toDouble(), dx.toDouble()).toFloat()
+
 		while (inherited > PI_F) {
 			inherited -= 2f * PI_F
 		}
+
 		while (inherited < -PI_F) {
 			inherited += 2f * PI_F
 		}
+
 		worldPivotX = worldPosX
 		worldPivotY = worldPosY
 		worldAngle = angleDegrees - inherited * 180f / PI_F
 	}
+
 	return RotationWorld(
 		rotationXform(worldAngle, scale, flipX, flipY, worldPivotX, worldPivotY),
 		scale,
@@ -489,10 +518,12 @@ internal fun deformMeshThroughParent(grid: KeyformGrid<MeshDeltaForm>, base: Flo
 	val local = sampleMeshLocal(grid, base, paramValue) ?: return null
 	val world = FloatArray(local.size)
 	val vertexCount = local.size / 2
+
 	for (vertexIndex in 0 until vertexCount) {
 		parent.apply(local[vertexIndex * 2], local[vertexIndex * 2 + 1], world, vertexIndex * 2)
 		world[vertexIndex * 2 + 1] = -world[vertexIndex * 2 + 1]
 	}
+
 	return world
 }
 
@@ -517,20 +548,24 @@ internal fun deformMeshWorldFromCorners(
 	blend: MeshBlendState? = null,
 ): FloatArray {
 	val local = blendLocalFromCorners(grid, base, corners)
+
 	// Blend shapes: additive per-vertex deltas (form minus the grid-at-default reference) on top of
 	// the grid blend, before the parent transform. Binding-free drawables never reach this loop.
 	if (blend != null) {
 		for (contribution in blend.contributions) {
 			val deltas = contribution.form.positionDeltas
 			val count = minOf(local.size, deltas.size)
+
 			for (componentIndex in 0 until count) {
 				val reference = blend.referenceDeltas?.get(componentIndex) ?: 0f
 				local[componentIndex] += contribution.weight * (deltas[componentIndex] - reference)
 			}
 		}
 	}
+
 	val world = FloatArray(local.size)
 	val vertexCount = local.size / 2
+
 	for (vertexIndex in 0 until vertexCount) {
 		if (parent != null) {
 			parent.apply(local[vertexIndex * 2], local[vertexIndex * 2 + 1], world, vertexIndex * 2)
@@ -538,8 +573,10 @@ internal fun deformMeshWorldFromCorners(
 			world[vertexIndex * 2] = local[vertexIndex * 2]
 			world[vertexIndex * 2 + 1] = local[vertexIndex * 2 + 1]
 		}
+
 		world[vertexIndex * 2 + 1] = -world[vertexIndex * 2 + 1]
 	}
+
 	return world
 }
 
@@ -561,6 +598,7 @@ internal fun withBlendChannelDeltas(
 	if (deltas == null) {
 		return local
 	}
+
 	return DeformerChannels(
 		(local.opacity + deltas.opacity).coerceIn(0f, 1f),
 		ColorRgb(

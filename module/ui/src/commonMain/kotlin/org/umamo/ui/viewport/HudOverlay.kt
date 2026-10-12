@@ -88,6 +88,7 @@ internal fun ActiveMeshInfoLabel(
 				overflow = TextOverflow.Ellipsis,
 				modifier = Modifier.widthIn(max = ACTIVE_MESH_INFO_MAX_WIDTH),
 			)
+
 			if (deformerName != null) {
 				Text(
 					text = deformerName,
@@ -118,6 +119,7 @@ internal fun ViewportZoomBadge(
 	if (camera == null) {
 		return
 	}
+
 	val hudColors = LocalUmamoColors.current
 	// The operation settings strip owns the bottom-left while it shows; the badge lifts above it.
 	val stripInset = LocalOperationStripInset.current

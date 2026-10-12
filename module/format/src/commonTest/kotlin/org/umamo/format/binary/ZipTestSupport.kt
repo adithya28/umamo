@@ -81,6 +81,7 @@ internal fun centralHeaderOffset(archive: ByteArray, entryIndex: Int): Int {
 		val commentLength = readU16Le(archive, position + 32)
 		position += ZipRecords.CENTRAL_HEADER_SIZE + nameLength + extraLength + commentLength
 	}
+
 	return position
 }
 
@@ -101,6 +102,7 @@ internal fun localHeaderOffset(archive: ByteArray, entryIndex: Int): Int = readU
  */
 internal fun archiveOf(vararg entries: Triple<String, ByteArray, Boolean>): ByteArray {
 	val writer = ZipWriter(TEST_DOS_DATE_TIME)
+
 	for ((name, contents, deflated) in entries) {
 		if (deflated) {
 			writer.addDeflated(name, contents)
@@ -108,5 +110,6 @@ internal fun archiveOf(vararg entries: Triple<String, ByteArray, Boolean>): Byte
 			writer.addStored(name, contents)
 		}
 	}
+
 	return writer.finish()
 }

@@ -50,6 +50,7 @@ class UvGizmoHeldDriveTest {
 		fixture.session.beginUvOperator(MeshOperatorKind.Grab, LEFT_AREA)
 		waitForIdle()
 		awaitPlacementCapture(fixture, LEFT_AREA, UV_RIG_GESTURE_START)
+
 		return fixture
 	}
 

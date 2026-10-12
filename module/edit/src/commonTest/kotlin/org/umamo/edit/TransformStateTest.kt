@@ -76,6 +76,7 @@ class TransformStateTest {
 				rootChildren = emptyList(),
 				rootPartId = null,
 			)
+
 		return EditorSession(model)
 	}
 

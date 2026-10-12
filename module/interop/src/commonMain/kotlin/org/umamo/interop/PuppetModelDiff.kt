@@ -250,27 +250,36 @@ private inline fun <TEntity, TId, TField> diffEntities(
 	val baselineById = baselineEntities.associateBy(idOf)
 	val editedById = editedEntities.associateBy(idOf)
 	val diffs = ArrayList<EntityDiff<TId, TField>>()
+
 	for (baselineEntity in baselineEntities) {
 		val entityId = idOf(baselineEntity)
 		val editedEntity = editedById[entityId]
+
 		if (editedEntity == null) {
 			diffs.add(EntityDiff.Deleted(entityId))
+
 			continue
 		}
+
 		if (baselineEntity === editedEntity) {
 			continue
 		}
+
 		val fields = changedFields(baselineEntity, editedEntity)
+
 		if (fields.isNotEmpty()) {
 			diffs.add(EntityDiff.Changed(entityId, fields))
 		}
 	}
+
 	for (editedEntity in editedEntities) {
 		val entityId = idOf(editedEntity)
+
 		if (entityId !in baselineById) {
 			diffs.add(EntityDiff.Created(entityId))
 		}
 	}
+
 	return diffs
 }
 
@@ -279,9 +288,11 @@ private fun parameterFields(baseline: Parameter, edited: Parameter): Set<Paramet
 		if (baseline.name != edited.name) {
 			add(ParameterField.NAME)
 		}
+
 		if (!floatEq(baseline.min, edited.min) || !floatEq(baseline.max, edited.max) || !floatEq(baseline.default, edited.default)) {
 			add(ParameterField.RANGE)
 		}
+
 		if (baseline.kind != edited.kind) {
 			add(ParameterField.KIND)
 		}
@@ -292,9 +303,11 @@ private fun parameterGroupFields(baseline: ParameterNode.Group, edited: Paramete
 		if (baseline.name != edited.name) {
 			add(ParameterGroupField.NAME)
 		}
+
 		if (baseline.initiallyOpen != edited.initiallyOpen) {
 			add(ParameterGroupField.INITIALLY_OPEN)
 		}
+
 		if (nodeIdentities(baseline.children) != nodeIdentities(edited.children)) {
 			add(ParameterGroupField.CHILDREN)
 		}
@@ -305,27 +318,35 @@ private fun partFields(baseline: Part, edited: Part): Set<PartField> =
 		if (baseline.name != edited.name) {
 			add(PartField.NAME)
 		}
+
 		if (baseline.isVisible != edited.isVisible) {
 			add(PartField.VISIBLE)
 		}
+
 		if (baseline.isSketch != edited.isSketch) {
 			add(PartField.SKETCH)
 		}
+
 		if (baseline.isSelectable != edited.isSelectable) {
 			add(PartField.SELECTABLE)
 		}
+
 		if (baseline.groupMode != edited.groupMode) {
 			add(PartField.GROUP_MODE)
 		}
+
 		if (baseline.drawOrder != edited.drawOrder) {
 			add(PartField.DRAW_ORDER)
 		}
+
 		if (baseline.children != edited.children) {
 			add(PartField.CHILDREN)
 		}
+
 		if (!channelGridsEqual(baseline.channelGrids, edited.channelGrids)) {
 			add(PartField.CHANNELS)
 		}
+
 		if (baseline.composite != edited.composite) {
 			add(PartField.COMPOSITE)
 		}
@@ -336,32 +357,42 @@ private fun deformerFields(baseline: Deformer, edited: Deformer): Set<DeformerFi
 		if (baseline::class != edited::class) {
 			// A kind swap under one id has no edit op; surfacing it beats mis-reading field diffs.
 			add(DeformerField.KIND)
+
 			return@buildSet
 		}
+
 		if (baseline.name != edited.name) {
 			add(DeformerField.NAME)
 		}
+
 		if (baseline.parent != edited.parent) {
 			add(DeformerField.PARENT)
 		}
+
 		if (baseline.partId != edited.partId) {
 			add(DeformerField.PART)
 		}
+
 		if (baseline.isSelectable != edited.isSelectable) {
 			add(DeformerField.SELECTABLE)
 		}
+
 		when (baseline) {
 			is Deformer.Warp -> {
 				val editedWarp = edited as Deformer.Warp
+
 				if (baseline.rows != editedWarp.rows || baseline.columns != editedWarp.columns) {
 					add(DeformerField.LATTICE)
 				}
+
 				if (baseline.isQuadTransform != editedWarp.isQuadTransform) {
 					add(DeformerField.QUAD_TRANSFORM)
 				}
+
 				if (!gridEquals(baseline.geometryGrid, editedWarp.geometryGrid, ::warpLatticeFormEqual)) {
 					add(DeformerField.GEOMETRY)
 				}
+
 				if (
 					!floatEq(baseline.opacity, editedWarp.opacity) ||
 					baseline.multiplyColor != editedWarp.multiplyColor ||
@@ -369,6 +400,7 @@ private fun deformerFields(baseline: Deformer, edited: Deformer): Set<DeformerFi
 				) {
 					add(DeformerField.STATICS)
 				}
+
 				if (!blendShapesEqual(baseline.blendShapes, editedWarp.blendShapes, ::warpFormEqual)) {
 					add(DeformerField.BLEND_SHAPES)
 				}
@@ -376,12 +408,15 @@ private fun deformerFields(baseline: Deformer, edited: Deformer): Set<DeformerFi
 
 			is Deformer.Rotation -> {
 				val editedRotation = edited as Deformer.Rotation
+
 				if (!floatEq(baseline.baseAngle, editedRotation.baseAngle)) {
 					add(DeformerField.BASE_ANGLE)
 				}
+
 				if (!gridEquals(baseline.geometryGrid, editedRotation.geometryGrid, ::rotationPivotFormEqual)) {
 					add(DeformerField.GEOMETRY)
 				}
+
 				if (
 					!floatEq(baseline.opacity, editedRotation.opacity) ||
 					baseline.multiplyColor != editedRotation.multiplyColor ||
@@ -391,11 +426,13 @@ private fun deformerFields(baseline: Deformer, edited: Deformer): Set<DeformerFi
 				) {
 					add(DeformerField.STATICS)
 				}
+
 				if (!blendShapesEqual(baseline.blendShapes, editedRotation.blendShapes, ::rotationFormEqual)) {
 					add(DeformerField.BLEND_SHAPES)
 				}
 			}
 		}
+
 		if (!channelGridsEqual(baseline.channelGrids, edited.channelGrids)) {
 			add(DeformerField.CHANNELS)
 		}
@@ -425,6 +462,7 @@ private fun diffAtlasTiles(baseline: List<AtlasTile>, edited: List<AtlasTile>): 
 	// A reloaded tile is a new tile whose lineage root is the baseline's id; it is the same art to the
 	// graph, compared under the root so the reload reads as that tile changing.
 	val editedByRoot = edited.filter { tile -> tile.replaces != null }.associateBy { tile -> tile.id.lineageRoot }
+
 	return baseline.mapNotNull { baselineTile ->
 		val editedTile = editedById[baselineTile.id] ?: editedByRoot[baselineTile.id] ?: return@mapNotNull null
 		val fields = atlasTileFields(baselineTile, editedTile)
@@ -444,11 +482,13 @@ private fun atlasTileFields(baseline: AtlasTile, edited: AtlasTile): Set<AtlasTi
 		if (baseline.placement != edited.placement) {
 			add(AtlasTileField.PLACEMENT)
 		}
+
 		// A tile's pixels never change under its id, and a reload mints a new id only for a layer whose art
 		// changed - so an edited tile standing in for the baseline's under another id is new pixels.
 		if (baseline.id != edited.id) {
 			add(AtlasTileField.PIXELS)
 		}
+
 		if (
 			baseline.name != edited.name ||
 			baseline.width != edited.width ||
@@ -464,49 +504,64 @@ private fun drawableFields(baseline: Drawable, edited: Drawable): Set<DrawableFi
 		if (baseline.name != edited.name) {
 			add(DrawableField.NAME)
 		}
+
 		if (baseline.parentDeformerId != edited.parentDeformerId) {
 			add(DrawableField.PARENT_DEFORMER)
 		}
+
 		if (baseline.blendMode != edited.blendMode) {
 			add(DrawableField.BLEND_MODE)
 		}
+
 		if (baseline.alphaBlendMode != edited.alphaBlendMode) {
 			add(DrawableField.ALPHA_BLEND_MODE)
 		}
+
 		if (baseline.maskedBy != edited.maskedBy) {
 			add(DrawableField.MASKED_BY)
 		}
+
 		if (baseline.invertMask != edited.invertMask) {
 			add(DrawableField.INVERT_MASK)
 		}
+
 		if (baseline.culling != edited.culling) {
 			add(DrawableField.CULLING)
 		}
+
 		if (baseline.isVisible != edited.isVisible) {
 			add(DrawableField.VISIBLE)
 		}
+
 		if (baseline.isSelectable != edited.isSelectable) {
 			add(DrawableField.SELECTABLE)
 		}
+
 		if (baseline.textureSourceId != edited.textureSourceId) {
 			add(DrawableField.TEXTURE_SOURCE)
 		}
+
 		// Absence is "not tracked", not "unbound", for the same reason the page list is only compared
 		// when there is an atlas: a drawable the model carries no art for says nothing about the art the
 		// graph carries for it.
 		// Compared under the lineage root: a drawable carried onto its tile's reload replacement still
 		// samples the same art as far as the graph knows.
 		val editedTileId = edited.atlasTileId
+
 		if (editedTileId != null && baseline.atlasTileId?.lineageRoot != editedTileId.lineageRoot) {
 			add(DrawableField.ATLAS_TILE)
 		}
+
 		addAll(meshFields(baseline.mesh, edited.mesh))
+
 		if (!meshGeometryEqual(baseline, edited)) {
 			add(DrawableField.GEOMETRY)
 		}
+
 		if (!channelGridsEqual(baseline.channelGrids, edited.channelGrids)) {
 			add(DrawableField.CHANNELS)
 		}
+
 		if (
 			!floatEq(baseline.drawOrder, edited.drawOrder) ||
 			!floatEq(baseline.opacity, edited.opacity) ||
@@ -515,10 +570,12 @@ private fun drawableFields(baseline: Drawable, edited: Drawable): Set<DrawableFi
 		) {
 			add(DrawableField.STATICS)
 		}
+
 		val baselineLocal = baseline.mesh?.localPositions
 		val editedLocal = edited.mesh?.localPositions
 		// The same bindings over a moved base are moved blend forms, so the shared-list shortcut holds only for one base.
 		val blendFormEqual = { baselineForm: MeshForm, editedForm: MeshForm -> meshFormEqual(baselineLocal, baselineForm, editedLocal, editedForm) }
+
 		if (!blendShapesEqual(baseline.blendShapes, edited.blendShapes, blendFormEqual, sameInstanceIsEqual = baselineLocal === editedLocal)) {
 			add(DrawableField.BLEND_SHAPES)
 		}
@@ -540,16 +597,20 @@ private fun meshFields(baseline: DrawableMesh?, edited: DrawableMesh?): Set<Draw
 	if (baseline === edited) {
 		return emptySet()
 	}
+
 	if (baseline == null || edited == null) {
 		return setOf(DrawableField.MESH_TOPOLOGY)
 	}
+
 	if (baseline.vertexCount != edited.vertexCount || !baseline.indices.contentEquals(edited.indices)) {
 		return setOf(DrawableField.MESH_TOPOLOGY)
 	}
+
 	return buildSet {
 		if (!baseline.positions.contentEquals(edited.positions)) {
 			add(DrawableField.MESH_POSITIONS)
 		}
+
 		if (!baseline.uvs.contentEquals(edited.uvs)) {
 			add(DrawableField.MESH_UVS)
 		}
@@ -560,30 +621,40 @@ private fun diffGlues(baselineGlues: List<Glue>, editedGlues: List<Glue>): List<
 	if (baselineGlues === editedGlues) {
 		return emptyList()
 	}
+
 	// A glue has no id: key by the ordered mesh pair, with an ordinal among same-pair glues.
 	val baselineByPair = baselineGlues.groupBy { glue -> glue.meshA to glue.meshB }
 	val editedByPair = editedGlues.groupBy { glue -> glue.meshA to glue.meshB }
 	val diffs = ArrayList<GlueDiff>()
+
 	for ((pair, baselineList) in baselineByPair) {
 		val editedList = editedByPair[pair].orEmpty()
+
 		for (ordinal in baselineList.indices) {
 			val editedGlue = editedList.getOrNull(ordinal)
+
 			if (editedGlue == null) {
 				diffs.add(GlueDiff.Deleted(pair.first, pair.second, ordinal))
+
 				continue
 			}
+
 			val fields = glueFields(baselineList[ordinal], editedGlue)
+
 			if (fields.isNotEmpty()) {
 				diffs.add(GlueDiff.Changed(pair.first, pair.second, ordinal, fields))
 			}
 		}
 	}
+
 	for ((pair, editedList) in editedByPair) {
 		val baselineCount = baselineByPair[pair].orEmpty().size
+
 		for (ordinal in baselineCount until editedList.size) {
 			diffs.add(GlueDiff.Created(pair.first, pair.second, ordinal))
 		}
 	}
+
 	return diffs
 }
 
@@ -591,6 +662,7 @@ private fun glueFields(baseline: Glue, edited: Glue): Set<GlueField> {
 	if (baseline === edited) {
 		return emptySet()
 	}
+
 	return buildSet {
 		val pairsEqual =
 			baseline.pairs.size == edited.pairs.size &&
@@ -602,12 +674,15 @@ private fun glueFields(baseline: Glue, edited: Glue): Set<GlueField> {
 						floatEq(baselinePair.weightA, editedPair.weightA) &&
 						floatEq(baselinePair.weightB, editedPair.weightB)
 				}
+
 		if (!pairsEqual) {
 			add(GlueField.PAIRS)
 		}
+
 		if (!channelGridsEqual(baseline.channelGrids, edited.channelGrids)) {
 			add(GlueField.CHANNELS)
 		}
+
 		if (!floatEq(baseline.intensity, edited.intensity)) {
 			add(GlueField.INTENSITY)
 		}
@@ -619,15 +694,19 @@ private fun documentFields(baseline: PuppetModel, edited: PuppetModel): Set<Docu
 		if (!floatEq(baseline.canvasWidth, edited.canvasWidth) || !floatEq(baseline.canvasHeight, edited.canvasHeight)) {
 			add(DocumentField.CANVAS_SIZE)
 		}
+
 		if (!floatEq(baseline.worldOriginX, edited.worldOriginX) || !floatEq(baseline.worldOriginZ, edited.worldOriginZ)) {
 			add(DocumentField.WORLD_ORIGIN)
 		}
+
 		if (baseline.runtimeTarget != edited.runtimeTarget) {
 			add(DocumentField.RUNTIME_TARGET)
 		}
+
 		if (baseline.rendersFromSourceLayers != edited.rendersFromSourceLayers) {
 			add(DocumentField.SOURCE_LAYER_DISPLAY)
 		}
+
 		// The page LIST, not the tiles on it: a page appearing, disappearing, or resizing changes what
 		// every placement on it means, and no per-tile diff would say so.
 		//
@@ -637,20 +716,25 @@ private fun documentFields(baseline: PuppetModel, edited: PuppetModel): Set<Docu
 		if (edited.atlas.tiles.isNotEmpty() && baseline.atlas.pages != edited.atlas.pages) {
 			add(DocumentField.ATLAS_PAGES)
 		}
+
 		// Document order of the flat parameter list is semantic in CMO3: combined (2D) pairs are
 		// encoded positionally (the Y axis is the next source after its combined X).
 		if (baseline.parameters.map(Parameter::id) != edited.parameters.map(Parameter::id)) {
 			add(DocumentField.PARAMETER_ORDER)
 		}
+
 		if (baseline.parameterLinks != edited.parameterLinks) {
 			add(DocumentField.PARAMETER_LINKS)
 		}
+
 		if (nodeIdentities(baseline.parameterTree) != nodeIdentities(edited.parameterTree)) {
 			add(DocumentField.PARAMETER_TREE)
 		}
+
 		if (baseline.rootChildren != edited.rootChildren) {
 			add(DocumentField.ROOT_CHILDREN)
 		}
+
 		// The file each source record points at - its name, path, and modification time - and nothing
 		// else about the record: the inventory and the hashes change on every reload and have no CMO3
 		// home, so they must not turn a reload into a document change the export cannot lower.  Only
@@ -671,6 +755,7 @@ private fun documentFields(baseline: PuppetModel, edited: PuppetModel): Set<Docu
  */
 private fun sourceFilesChanged(baseline: PuppetModel, edited: PuppetModel): Boolean {
 	val baselineById = baseline.sources.associateBy { source -> source.id }
+
 	return edited.sources.any { source ->
 		val before = baselineById[source.id] ?: return@any false
 		before.name != source.name || before.path != source.path || before.lastModified != source.lastModified
@@ -705,6 +790,7 @@ private fun flattenGroups(tree: List<ParameterNode>): List<ParameterNode.Group> 
 		}
 	}
 	walk(tree)
+
 	return groups
 }
 
@@ -738,14 +824,18 @@ private fun meshGeometryEqual(baseline: Drawable, edited: Drawable): Boolean {
 	val editedLocal = edited.mesh?.localPositions
 	val baselineRestOnly = baseline.geometryGrid.holdsOnlyTheRest()
 	val editedRestOnly = edited.geometryGrid.holdsOnlyTheRest()
+
 	if (baselineRestOnly || editedRestOnly) {
 		if (baselineRestOnly != editedRestOnly) {
 			return false
 		}
+
 		return baselineLocal === editedLocal || (baselineLocal != null && editedLocal != null && rawBitsEqual(baselineLocal, editedLocal))
 	}
+
 	// One grid over a moved base is a moved set of keyforms, so the shared-grid shortcut holds only for one base.
 	val cellEqual = { baselineForm: MeshDeltaForm, editedForm: MeshDeltaForm -> rebuildsEqual(baselineLocal, baselineForm.positionDeltas, editedLocal, editedForm.positionDeltas) }
+
 	return gridEquals(baseline.geometryGrid, edited.geometryGrid, cellEqual, sameInstanceIsEqual = baselineLocal === editedLocal)
 }
 
@@ -776,12 +866,15 @@ private fun rebuildsEqual(baselineLocal: FloatArray?, baselineDeltas: FloatArray
 	if (baselineLocal === editedLocal && baselineDeltas === editedDeltas) {
 		return true
 	}
+
 	if (baselineLocal == null || editedLocal == null || baselineLocal.size < baselineDeltas.size || editedLocal.size < editedDeltas.size) {
 		return baselineDeltas.contentEquals(editedDeltas)
 	}
+
 	if (baselineLocal.size != editedLocal.size) {
 		return false
 	}
+
 	return baselineLocal.indices.all { componentIndex ->
 		floatEq(rebuiltComponent(baselineLocal, baselineDeltas, componentIndex), rebuiltComponent(editedLocal, editedDeltas, componentIndex))
 	}
@@ -808,31 +901,40 @@ private fun <TForm> gridEquals(
 	if (baseline === edited && (sameInstanceIsEqual || baseline == null)) {
 		return true
 	}
+
 	if (baseline == null || edited == null) {
 		return false
 	}
+
 	if (baseline.axes.size != edited.axes.size || baseline.cells.size != edited.cells.size) {
 		return false
 	}
+
 	for (axisIndex in baseline.axes.indices) {
 		val baselineAxis = baseline.axes[axisIndex]
 		val editedAxis = edited.axes[axisIndex]
+
 		if (baselineAxis.parameterId != editedAxis.parameterId || !baselineAxis.keys.contentEquals(editedAxis.keys)) {
 			return false
 		}
 	}
+
 	// Cells compare by coordinate, not list position: the import and the edit ops are both free to
 	// order cells differently without that being a semantic change.
 	val baselineByCoordinate = HashMap<List<Int>, TForm>(baseline.cells.size)
+
 	for (cell in baseline.cells) {
 		baselineByCoordinate[cell.coordinate.toList()] = cell.form
 	}
+
 	for (cell in edited.cells) {
 		val baselineForm = baselineByCoordinate[cell.coordinate.toList()] ?: return false
+
 		if (!formEqual(baselineForm, cell.form)) {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -840,15 +942,19 @@ private fun channelGridsEqual(baseline: ChannelGrids, edited: ChannelGrids): Boo
 	if (baseline === edited) {
 		return true
 	}
+
 	if (baseline.gridsByChannel.keys != edited.gridsByChannel.keys) {
 		return false
 	}
+
 	for ((channel, baselineGrid) in baseline.gridsByChannel) {
 		val editedGrid = edited.gridsByChannel.getValue(channel)
+
 		if (!gridEquals(baselineGrid, editedGrid, { baselineValue, editedValue -> baselineValue == editedValue })) {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -861,12 +967,15 @@ private fun <TForm : Any> blendShapesEqual(
 	if (baseline === edited && sameInstanceIsEqual) {
 		return true
 	}
+
 	if (baseline.size != edited.size) {
 		return false
 	}
+
 	for (bindingIndex in baseline.indices) {
 		val baselineBinding = baseline[bindingIndex]
 		val editedBinding = edited[bindingIndex]
+
 		if (
 			baselineBinding.parameterId != editedBinding.parameterId ||
 			!baselineBinding.keys.contentEquals(editedBinding.keys) ||
@@ -876,20 +985,25 @@ private fun <TForm : Any> blendShapesEqual(
 		) {
 			return false
 		}
+
 		for (formIndex in baselineBinding.forms.indices) {
 			val baselineForm = baselineBinding.forms[formIndex]
 			val editedForm = editedBinding.forms[formIndex]
+
 			if (baselineForm == null || editedForm == null) {
 				if (baselineForm !== editedForm) {
 					return false
 				}
+
 				continue
 			}
+
 			if (!formEqual(baselineForm, editedForm)) {
 				return false
 			}
 		}
 	}
+
 	return true
 }
 

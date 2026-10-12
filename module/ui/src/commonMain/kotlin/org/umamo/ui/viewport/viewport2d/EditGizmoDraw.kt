@@ -83,6 +83,7 @@ internal fun DrawScope.drawEditGizmoChrome(
 			// The proportional influence ring hugs the world-unit radius the weights use (scaled by the frame
 			// camera).  Vertex Slide and a suppressed latch never take weights, so they show no ring.
 			val proportionalState = proportionalEdit.value
+
 			if (hudOperator != null && proportionalState != null && session.meshOperatorTakesProportional(hudOperator.kind)) {
 				proportionalState.radiusWorld * camera.zoom
 			} else {

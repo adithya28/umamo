@@ -50,10 +50,12 @@ class EditMeshOverlayProducerTest {
 		val overlay = assertNotNull(produce(MeshSelection.editing(listOf(RIG_QUAD, RIG_OTHER))))
 		assertEquals(listOf(RIG_QUAD, RIG_OTHER), overlay.meshes.map { mesh -> mesh.drawableId }, "every session mesh, in the session's order")
 		assertEquals(MeshOverlaySelectMode.Vertex, overlay.selectMode)
+
 		for (mesh in overlay.meshes) {
 			assertTrue(mesh.vertexFlags.isEmpty() && mesh.edgeFlags.isEmpty() && mesh.faceFlags.isEmpty(), "${mesh.drawableId} has no flags")
 			assertNull(mesh.activeVertex ?: mesh.activeEdge ?: mesh.activeFace, "${mesh.drawableId} has no active element")
 		}
+
 		assertEquals(5, overlay.meshes.first().edgeCount, "the quad's five unique edges")
 	}
 
@@ -127,6 +129,7 @@ class EditMeshOverlayProducerTest {
 				selectionOf(MeshSelectMode.Edge, listOf(MeshElement.Edge.of(2, 3), MeshElement.Edge.of(0, 3))),
 				selectionOf(MeshSelectMode.Face, listOf(MeshElement.Face(0), MeshElement.Face(1))),
 			)
+
 		for (selection in selections) {
 			val quad = quadEntry(selection)
 			assertEquals(listOfNotNull(quad.activeVertex), activePositions(quad.vertexFlags), "vertices in ${selection.selectMode} mode")
@@ -324,10 +327,12 @@ class EditMeshOverlayProducerTest {
 		for (edgeOrdinal in 0 until mesh.edgeCount) {
 			val from = mesh.edgeEndpoints[edgeOrdinal * 2]
 			val to = mesh.edgeEndpoints[edgeOrdinal * 2 + 1]
+
 			if ((from == low && to == high) || (from == high && to == low)) {
 				return if (mesh.edgeFlags.isEmpty()) 0 else mesh.edgeFlags[edgeOrdinal].toInt()
 			}
 		}
+
 		return -1
 	}
 

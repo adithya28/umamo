@@ -98,6 +98,7 @@ internal fun ReviewChip(
 	) {
 		val puppet = LocalPuppet.current
 		val tiles = puppet?.atlas?.tiles.orEmpty()
+
 		if (byHand) {
 			val sources = puppet?.sources.orEmpty()
 			val groups = remember(sources, query) { relinkGroups(sources, query) }

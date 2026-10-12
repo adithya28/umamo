@@ -58,9 +58,11 @@ internal class AppControllerFixture(
 		val configDirectory = "/config".toPath()
 		fileSystem.createDirectories(configDirectory)
 		settings = Settings.load(OkioAppStorage(fileSystem, configDirectory, "/data".toPath()), "{}")
+
 		for (commandId in listOf("document.confirmReplace", "document.confirmExit", "document.openFailed", "document.alert", "document.confirm")) {
 			registry.register(Command(commandId, title = null) { argument -> invocations.add(commandId to argument) })
 		}
+
 		services =
 			EditorAppServices(
 				settings = settings,
@@ -105,6 +107,7 @@ internal class AppControllerFixture(
 		 */
 		fun contextFor(document: Document?): OpenDocumentContext {
 			val session = (document as? PuppetDocument)?.let { puppetDocument -> EditorSession(puppetDocument.puppet, puppetDocument.liveParams.values) }
+
 			return OpenDocumentContext(document, session, document?.let { origin -> DocumentFile(origin) }, atlasPages = null, areaViewStates = AreaViewStates(null))
 		}
 	}

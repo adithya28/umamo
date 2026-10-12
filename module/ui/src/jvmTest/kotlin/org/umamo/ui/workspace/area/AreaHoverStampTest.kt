@@ -96,6 +96,7 @@ class AreaHoverStampTest {
 			onNodeWithTag("leaf").performMouseInput(interact)
 			result = read(tracker)
 		}
+
 		return result
 	}
 

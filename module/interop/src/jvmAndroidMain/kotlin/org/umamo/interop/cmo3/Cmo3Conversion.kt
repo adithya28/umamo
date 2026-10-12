@@ -153,6 +153,7 @@ public object Cmo3Conversion {
 		// callers converting a raw Moc3Import puppet must do the same (the official source-level
 		// positions and the whole placement web are canvas geometry).
 		val regionsByPage = List(effectivePages.size) { ArrayList<Cmo3ImageChainBuilder.DrawableRegion>() }
+
 		for (drawable in effectivePuppet.drawables) {
 			val pageIndex = effectivePageIndexByDrawableId[drawable.id.raw] ?: continue
 			val mesh = drawable.mesh ?: continue
@@ -160,6 +161,7 @@ public object Cmo3Conversion {
 				Cmo3ImageChainBuilder.DrawableRegion(drawable.id.raw, mesh.uvs, mesh.positions, mesh.indices),
 			)
 		}
+
 		val chain =
 			Cmo3ImageChainBuilder.populate(
 				skeleton.root,
@@ -184,6 +186,7 @@ public object Cmo3Conversion {
 			)
 		rebindImageResources(chain, model)
 		val bindings = HashMap<String, Cmo3DrawableTextureBinding>()
+
 		for (drawable in effectivePuppet.drawables) {
 			// A real-layer drawable has its own binding; a crop-path drawable its own or its page's.
 			val binding =
@@ -191,6 +194,7 @@ public object Cmo3Conversion {
 					?: effectivePageIndexByDrawableId[drawable.id.raw]?.let { pageIndex -> chain.pageFallbackBindings.getOrNull(pageIndex) }
 			binding?.let { resolved -> bindings[drawable.id.raw] = resolved }
 		}
+
 		val report = Cmo3Export.apply(effectivePuppet, model, bindings)
 		// An export whose art did not all come from real layers - a drawable sliced out of a page or
 		// bound to no page, or a document with no real layer to write at all - is source-art-less, so
@@ -201,13 +205,16 @@ public object Cmo3Conversion {
 		// it, for the same reason.
 		val everyDrawableIsReal = sourceImages.isNotEmpty() && effectivePuppet.drawables.all { drawable -> drawable.id.raw in realDrawableIds }
 		val leading = ArrayList<ExportNotice>()
+
 		if (!everyDrawableIsReal) {
 			leading.add(ExportNotice.MissingSourceArt(effectivePages.size))
 		}
+
 		if (undedup.sharedDrawableIds.isNotEmpty()) {
 			val nameById = effectivePuppet.drawables.associate { drawable -> drawable.id.raw to drawable.name }
 			leading.add(ExportNotice.SharedAtlasSlotKept(undedup.sharedDrawableIds.map { drawableId -> nameById[drawableId] ?: drawableId }))
 		}
+
 		// A tile whose binding the routing could not honor - a file the document does not list, or a layer
 		// its file never inventoried - crossed as a flat image of its own, and the binding it stood in for
 		// is owed a notice: the Sources space shows that tile as waiting on a person, and a report that
@@ -222,6 +229,7 @@ public object Cmo3Conversion {
 					ExportNoticeReason.SourceLayerBindingNotInExport(sourceNameById[ref.sourceId] ?: ref.sourceId.raw, ref.layerKey),
 				)
 			}
+
 		return Result(model, report.copy(notices = leading + unresolvedBindings + report.notices), effectivePuppet)
 	}
 
@@ -252,27 +260,33 @@ public object Cmo3Conversion {
 		// CTextureAtlas field cachedAtlasImage - the page's own pixels.
 		val textureManager = (model.root as? CModelSource)?.textureManager as? CTextureManager ?: return
 		val pageResourceByPath = HashMap<String, CImageResource>()
+
 		for (atlas in Cmo3Import.elementsOf(textureManager._textureAtlases).filterIsInstance<CTextureAtlas>()) {
 			val pageResource = atlas.cachedAtlasImage as? CImageResource ?: continue
 			pageResource.imageFileBuf?.archivePath?.let { path -> pageResourceByPath[path] = pageResource }
 		}
+
 		// One texture per page, shared by every binding on it, so the page fallbacks reach them all.
 		for (binding in chain.pageFallbackBindings) {
 			val path = (binding.texture.srcImageResource as? CImageResource)?.imageFileBuf?.archivePath ?: continue
 			pageResourceByPath[path]?.let { pageResource -> binding.texture.srcImageResource = pageResource }
 		}
+
 		if (chain.rasterTextures.isEmpty()) {
 			return
 		}
+
 		// CMO3: CTextureManager field _modelImageGroups -> CModelImageGroup field _modelImages -> CModelImage
 		// field _filteredImage - the raster an unpacked drawable samples.
 		val rasterByPath = HashMap<String, CImageResource>()
+
 		for (group in Cmo3Import.elementsOf(textureManager._modelImageGroups).filterIsInstance<CModelImageGroup>()) {
 			for (modelImage in Cmo3Import.elementsOf(group._modelImages).filterIsInstance<CModelImage>()) {
 				val raster = modelImage._filteredImage as? CImageResource ?: continue
 				raster.imageFileBuf?.archivePath?.let { path -> rasterByPath[path] = raster }
 			}
 		}
+
 		for (texture in chain.rasterTextures) {
 			val path = (texture.srcImageResource as? CImageResource)?.imageFileBuf?.archivePath ?: continue
 			rasterByPath[path]?.let { raster -> texture.srcImageResource = raster }

@@ -119,6 +119,7 @@ class QuickSetupDialogTest {
 	private fun freshSettings(): Settings {
 		val fileSystem = FakeFileSystem()
 		fileSystem.createDirectories("/config".toPath())
+
 		return Settings.load(OkioAppStorage(fileSystem, "/config".toPath(), "/data".toPath()), defaultJson)
 	}
 

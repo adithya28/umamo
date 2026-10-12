@@ -163,6 +163,7 @@ class PersistentViewStatesTest {
 	@Test
 	fun theUvEditorRoundTripsEachTextureSelection() {
 		assertTrue(writesOnlyNulls(UvEditorViewState()), "following the selection is the default")
+
 		for (selection in listOf(UvTextureSelection.PinnedPage(2), UvTextureSelection.SourceLayer, UvTextureSelection.FollowSelection)) {
 			val saved = UvEditorViewState().also { state -> state.textureSelection = selection }
 			val reopened = UvEditorViewState().also { state -> state.restore(saved.toJson()) }
@@ -386,6 +387,7 @@ class PersistentViewStatesTest {
 				for (memberName in listOf("expanded", "collapsed", "hidden", "hiddenColumns", "expandedGroups", "collapsedGroups", "openRangeEditors", "collapsedParameters", "collapsedSections")) {
 					put(memberName, "not an array")
 				}
+
 				put("onlySelected", "yes")
 				put("overlays", "yes")
 				put("tab", 7)

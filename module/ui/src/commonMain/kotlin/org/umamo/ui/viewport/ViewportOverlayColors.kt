@@ -171,6 +171,7 @@ private fun Color.toOverlayColor(): OverlayColor = OverlayColor(red, green, blue
 @Composable
 private fun settingColor(key: String, defaultHex: String): Color {
 	val hexText by rememberStringSetting(key, defaultHex)
+
 	return parseHexColor(hexText) ?: parseHexColor(defaultHex)!!
 }
 
@@ -194,6 +195,7 @@ internal fun parseSelectionHighlightColor(hex: String?): Triple<Float, Float, Fl
 			8 -> cleaned.toLongOrNull(16)?.and(0xFFFFFF)
 			else -> null
 		} ?: ViewportColorSettings.SELECTION_HIGHLIGHT_DEFAULT.removePrefix("#").toLong(16)
+
 	return Triple(
 		((packed shr 16) and 0xFF) / 255f,
 		((packed shr 8) and 0xFF) / 255f,

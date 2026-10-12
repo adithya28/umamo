@@ -29,9 +29,11 @@ import kotlin.math.roundToInt
 public fun RasterImage.fittedInto(size: Int): RasterImage {
 	require(size > 0) { "a thumbnail needs a positive size, not $size" }
 	val square = ByteArray(size * size * 4)
+
 	if (width <= 0 || height <= 0) {
 		return RasterImage(size, size, square)
 	}
+
 	val scale = size.toDouble() / maxOf(width, height)
 	val fittedWidth = (width * scale).roundToInt().coerceIn(1, size)
 	val fittedHeight = (height * scale).roundToInt().coerceIn(1, size)
@@ -39,8 +41,10 @@ public fun RasterImage.fittedInto(size: Int): RasterImage {
 	val offsetY = (size - fittedHeight) / 2
 	val columnSpans = axisSpans(width, fittedWidth)
 	val rowSpans = axisSpans(height, fittedHeight)
+
 	for (destinationRow in 0 until fittedHeight) {
 		val rowSpan = rowSpans[destinationRow]
+
 		for (destinationColumn in 0 until fittedWidth) {
 			val columnSpan = columnSpans[destinationColumn]
 			var red = 0.0
@@ -48,9 +52,11 @@ public fun RasterImage.fittedInto(size: Int): RasterImage {
 			var blue = 0.0
 			var alpha = 0.0
 			var coverage = 0.0
+
 			for (rowTap in 0 until rowSpan.count) {
 				val sourceRow = rowSpan.first + rowTap
 				val rowWeight = rowSpan.weights[rowTap]
+
 				for (columnTap in 0 until columnSpan.count) {
 					val sourceColumn = columnSpan.first + columnTap
 					val weight = rowWeight * columnSpan.weights[columnTap]
@@ -64,9 +70,11 @@ public fun RasterImage.fittedInto(size: Int): RasterImage {
 					coverage += weight
 				}
 			}
+
 			if (coverage <= 0.0 || alpha <= 0.0) {
 				continue
 			}
+
 			val destinationOffset = ((offsetY + destinationRow) * size + offsetX + destinationColumn) * 4
 			// Un-premultiply: the color sums carry an alpha factor the alpha sum divides back out.
 			square[destinationOffset] = (red / alpha).roundToInt().coerceIn(0, 255).toByte()
@@ -75,6 +83,7 @@ public fun RasterImage.fittedInto(size: Int): RasterImage {
 			square[destinationOffset + 3] = (alpha / coverage).roundToInt().coerceIn(0, 255).toByte()
 		}
 	}
+
 	return RasterImage(size, size, square)
 }
 
@@ -97,6 +106,7 @@ private class AxisSpan(val first: Int, val count: Int, val weights: DoubleArray)
  */
 private fun axisSpans(sourceLength: Int, destinationLength: Int): Array<AxisSpan> {
 	val ratio = sourceLength.toDouble() / destinationLength
+
 	return Array(destinationLength) { destinationIndex ->
 		val start = destinationIndex * ratio
 		val end = ((destinationIndex + 1) * ratio).coerceAtMost(sourceLength.toDouble())
@@ -122,10 +132,13 @@ public fun RasterImage.cropped(bounds: LayerBounds): RasterImage {
 	if (bounds.left == 0 && bounds.top == 0 && bounds.width == width && bounds.height == height) {
 		return this
 	}
+
 	val out = ByteArray(bounds.width * bounds.height * 4)
+
 	for (rowIndex in 0 until bounds.height) {
 		val sourceOffset = ((bounds.top + rowIndex) * width + bounds.left) * 4
 		rgba.copyInto(out, rowIndex * bounds.width * 4, sourceOffset, sourceOffset + bounds.width * 4)
 	}
+
 	return RasterImage(bounds.width, bounds.height, out)
 }

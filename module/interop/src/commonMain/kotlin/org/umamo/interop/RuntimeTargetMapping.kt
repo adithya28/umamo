@@ -41,13 +41,20 @@ fun RuntimeTarget.mocVersion(): MocVersion =
 fun RuntimeTarget.cmo3TargetVersion(): Cmo3TargetVersion? =
 	when (this) {
 		RuntimeTarget.NoTarget -> null
+
 		// Ayagami writes its effective Cubism level, in lockstep with cubismLevel and mocVersion.
 		RuntimeTarget.Ayagami -> Cmo3TargetVersion.V50
+
 		RuntimeTarget.Cubism30 -> Cmo3TargetVersion.V30
+
 		RuntimeTarget.Cubism33 -> Cmo3TargetVersion.V33
+
 		RuntimeTarget.Cubism40 -> Cmo3TargetVersion.V40
+
 		RuntimeTarget.Cubism42 -> Cmo3TargetVersion.V42
+
 		RuntimeTarget.Cubism50 -> Cmo3TargetVersion.V50
+
 		RuntimeTarget.Cubism53 -> Cmo3TargetVersion.V53
 	}
 

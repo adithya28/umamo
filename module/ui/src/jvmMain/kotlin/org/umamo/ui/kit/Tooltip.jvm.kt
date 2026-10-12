@@ -30,8 +30,10 @@ actual fun Tooltip(text: String, modifier: Modifier, content: @Composable () -> 
 		Box(modifier = modifier) {
 			content()
 		}
+
 		return
 	}
+
 	TooltipArea(
 		tooltip = { TooltipCard(text) },
 		modifier = modifier,

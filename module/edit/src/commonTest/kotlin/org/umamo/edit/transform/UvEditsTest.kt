@@ -63,6 +63,7 @@ class UvEditsTest {
 	/** Asserts two interleaved uv arrays match element-wise within float tolerance. */
 	private fun assertUvsEqual(expected: List<Float>, actual: FloatArray, message: String) {
 		assertEquals(expected.size, actual.size, message)
+
 		for (componentIndex in expected.indices) {
 			assertEquals(expected[componentIndex], actual[componentIndex], 1e-5f, "$message (component $componentIndex)")
 		}
@@ -73,15 +74,19 @@ class UvEditsTest {
 		val session = EditorSession(uvModel())
 		session.setMode(EditorMode.Edit)
 		var selection = session.meshSelection.value
+
 		for (vertexIndex in 0..2) {
 			selection = MeshSelectionOps.add(selection, DrawableId("a"), MeshElement.Vertex(vertexIndex))
 		}
+
 		if (selectBothDrawables) {
 			for (vertexIndex in 0..2) {
 				selection = MeshSelectionOps.add(selection, DrawableId("b"), MeshElement.Vertex(vertexIndex))
 			}
 		}
+
 		session.setMeshSelection(selection)
+
 		return session
 	}
 
@@ -385,6 +390,7 @@ class UvEditsTest {
 		val original = session.model.value.drawables[0].mesh!!.uvs.copyOf()
 		session.mirrorSelectedUvs(mirrorU = true, frame = quarterTurnFrame())
 		val mirrored = session.model.value.drawables[0].mesh!!.uvs
+
 		for (componentIndex in 2 until original.size) {
 			assertEquals(
 				original[componentIndex].toRawBits(),

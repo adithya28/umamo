@@ -64,6 +64,7 @@ class Cmo3ToMoc3CrossFormatTest {
 				?.filter { file -> file.isFile && file.extension == "moc3" && file.parentFile?.name != "work" }
 				?.associateBy { file -> file.nameWithoutExtension }
 				.orEmpty()
+
 		return cmo3Files.keys
 			.intersect(moc3Files.keys)
 			.sorted()
@@ -81,24 +82,30 @@ class Cmo3ToMoc3CrossFormatTest {
 		val model = Cmo3.read(cmo3File)
 		val root = model.root as? CModelSource ?: error("${cmo3File.name}: root is not a CModelSource")
 		val imported = Cmo3Import.fromModelSource(root)
+
 		return imported to Moc3Export.toMocDocument(imported, baked.version).document
 	}
 
 	@Test
 	fun everyTwinLowersToTheSameStructure() {
 		val twins = twins()
+
 		if (twins.isEmpty()) {
 			println("no cmo3/moc3 twins in the corpus; skipping cross-format comparison")
+
 			return
 		}
+
 		val failures = ArrayList<String>()
 		val differentRevisions = ArrayList<String>()
 		var compared = 0
+
 		for ((name, cmo3File, moc3File) in twins) {
 			val baked = Moc3.read(moc3File.readBytes())
 			val (source, ours) =
 				runCatching { exportedFrom(cmo3File, baked) }.getOrElse { failure ->
 					failures.add("$name: the CMO3 would not lower to a moc ($failure)")
+
 					continue
 				}
 			// A twin pair is only an oracle when the two files are the same REVISION of the model.  The
@@ -109,10 +116,13 @@ class Cmo3ToMoc3CrossFormatTest {
 			// silently stops comparing cannot hide.
 			val bakedMeshIds = baked.artMeshes.map { it.id }.toSet()
 			val missingMeshes = bakedMeshIds - ours.artMeshes.map { it.id }.toSet()
+
 			if (missingMeshes.size > bakedMeshIds.size / 10) {
 				differentRevisions.add("$name (${missingMeshes.size}/${bakedMeshIds.size} art meshes absent)")
+
 				continue
 			}
+
 			compared++
 			// What the editor's bake omits and ours keeps: HIDDEN objects.  The official bake deletes them
 			// unless "export invisible drawable" is ticked; Umamo asks the same through Moc3ExportOptions,
@@ -158,6 +168,7 @@ class Cmo3ToMoc3CrossFormatTest {
 			fun checkIds(what: String, expected: Set<String>, actual: Set<String>, keptWhenHidden: Set<String>) {
 				val missing = (expected - actual).sorted()
 				val extra = (actual - expected - keptWhenHidden).sorted()
+
 				if (missing.isNotEmpty() || extra.isNotEmpty()) {
 					failures.add(
 						"$name: $what differ - ${missing.size} missing ${missing.take(4)}, " +
@@ -221,9 +232,11 @@ class Cmo3ToMoc3CrossFormatTest {
 					baked.deformers.getOrNull(deformer.parentDeformerIndex)?.id,
 					ours.deformers.getOrNull(mine.parentDeformerIndex)?.id,
 				)
+
 				if (deformer is WarpDeformer && mine is WarpDeformer) {
 					check("deformer ${deformer.id} lattice", deformer.rows to deformer.columns, mine.rows to mine.columns)
 				}
+
 				if (deformer is RotationDeformer && mine is RotationDeformer) {
 					check("deformer ${deformer.id} base angle", deformer.baseAngle, mine.baseAngle)
 				}
@@ -237,6 +250,7 @@ class Cmo3ToMoc3CrossFormatTest {
 				check("parameter ${parameter.id} type", parameter.type, mine.type)
 			}
 		}
+
 		assertTrue(compared > 0, "no twin could be lowered")
 		assertTrue(
 			differentRevisions.size < twins.size / 2,

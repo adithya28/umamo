@@ -62,6 +62,7 @@ class WriteReplacingTest {
 		val leftover = directory / ".rig.uma.tmp-deadbeef"
 		val anothersTemporary = directory / ".other.uma.tmp-cafe"
 		val lookAlike = directory / "rig.uma.tmp-notes"
+
 		for (path in listOf(leftover, anothersTemporary, lookAlike)) {
 			fileSystem.write(path) { write(byteArrayOf(0)) }
 		}
@@ -82,6 +83,7 @@ class WriteReplacingTest {
 			object : ForwardingFileSystem(disk) {
 				override fun sink(file: Path, mustCreate: Boolean): Sink {
 					val sink = super.sink(file, mustCreate)
+
 					return object : ForwardingSink(sink) {
 						override fun write(source: Buffer, byteCount: Long): Unit = throw IOException("no space left on device")
 					}

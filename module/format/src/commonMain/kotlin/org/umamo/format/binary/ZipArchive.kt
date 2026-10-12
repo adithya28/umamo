@@ -118,15 +118,19 @@ internal class ZipArchive private constructor(
 			val directoryEnd = directory.offset + directory.size
 			repeat(directory.entryCount) { entryIndex ->
 				val entry = readCentralEntry(reader, position, directoryEnd, directory.offset, entryIndex)
+
 				if (!names.add(entry.first.name)) {
 					throw ZipFormatException("the archive holds two entries named '${entry.first.name}'")
 				}
+
 				entries += entry.first
 				position = entry.second
 			}
+
 			if (position != directoryEnd) {
 				throw ZipFormatException("the central directory declares ${directory.size} bytes but its ${directory.entryCount} entries span ${position - directory.offset}")
 			}
+
 			return ZipArchive(bytes, entries)
 		}
 
@@ -159,14 +163,17 @@ internal class ZipArchive private constructor(
 		 */
 		private fun locateCentralDirectory(reader: ByteReader): CentralDirectory {
 			val size = reader.bytes.size
+
 			if (size < ZipRecords.END_SIZE) {
 				throw ZipFormatException("$size bytes is too short to be a ZIP archive")
 			}
+
 			val lowestCandidate = maxOf(0, size - ZipRecords.END_SIZE - ZipRecords.MAXIMUM_COMMENT_LENGTH)
 			// A candidate that declares Zip64 records the archive lacks is remembered rather than thrown: a
 			// look-alike may still be followed by the genuine record, but if nothing qualifies, its reason
 			// names the actual damage instead of the generic one.
 			var zip64Failure: String? = null
+
 			for (candidate in lowestCandidate..size - ZipRecords.END_SIZE) {
 				if (reader.u32(candidate) == ZipRecords.END_SIGNATURE.toLong() &&
 					// ZIP: end record @ +0x14 comment length (APPNOTE.TXT 4.3.16).
@@ -179,6 +186,7 @@ internal class ZipArchive private constructor(
 					}
 				}
 			}
+
 			throw ZipFormatException(zip64Failure ?: "no end of central directory record: the archive is truncated or not a ZIP")
 		}
 
@@ -233,12 +241,14 @@ internal class ZipArchive private constructor(
 			if (usesZip64 && hasLocator) {
 				return EndRecordMatch.Found(zip64CentralDirectory(reader, locatorOffset))
 			}
+
 			// A sentinel offset or size points at nothing, so the classic checks below cannot pass; what the
 			// record says is that Zip64 records should precede it and do not.  The caller decides whether
 			// that is the archive's fault or a look-alike's.
 			if (directorySize == ZipRecords.UINT32_SENTINEL || directoryOffset == ZipRecords.UINT32_SENTINEL) {
 				return EndRecordMatch.Zip64Missing("the end record declares Zip64 records, but no Zip64 locator precedes it")
 			}
+
 			// A classic count of exactly 0xFFFF with no Zip64 records is a legal classic archive, read as is.
 			if (diskNumber != 0 || directoryDisk != 0 || entriesOnDisk != totalEntries) {
 				// Only a genuine end record can be declared multi-disk; a look-alike is skipped instead.
@@ -248,9 +258,11 @@ internal class ZipArchive private constructor(
 					EndRecordMatch.LookAlike
 				}
 			}
+
 			if (!plausibleDirectory(reader, directoryOffset, directorySize, totalEntries.toLong(), endOffset)) {
 				return EndRecordMatch.LookAlike
 			}
+
 			return EndRecordMatch.Found(CentralDirectory(directoryOffset.toInt(), directorySize.toInt(), totalEntries))
 		}
 
@@ -267,12 +279,15 @@ internal class ZipArchive private constructor(
 			val recordDisk = reader.u32(locatorOffset + 4)
 			val recordOffset = u64AsOffset(reader, locatorOffset + 8, "Zip64 end record offset")
 			val totalDisks = reader.u32(locatorOffset + 16)
+
 			if (recordDisk != 0L || totalDisks > 1L) {
 				throw ZipFormatException("multi-disk (split) archives are not supported")
 			}
+
 			if (recordOffset > locatorOffset - ZipRecords.ZIP64_END_SIZE || reader.u32(recordOffset) != ZipRecords.ZIP64_END_SIGNATURE.toLong()) {
 				throw ZipFormatException("the Zip64 locator points at no Zip64 end record")
 			}
+
 			// ZIP: Zip64 end of central directory record (APPNOTE.TXT 4.3.14) - @ +0x10 this disk, @ +0x14 the
 			// directory's disk, @ +0x18 entries on this disk, @ +0x20 total entries, @ +0x28 directory size,
 			// @ +0x30 directory offset.
@@ -282,12 +297,15 @@ internal class ZipArchive private constructor(
 			val totalEntries = u64AsOffset(reader, recordOffset + 32, "Zip64 total entries")
 			val directorySize = u64AsOffset(reader, recordOffset + 40, "Zip64 central directory size")
 			val directoryOffset = u64AsOffset(reader, recordOffset + 48, "Zip64 central directory offset")
+
 			if (diskNumber != 0L || directoryDisk != 0L || entriesOnDisk != totalEntries) {
 				throw ZipFormatException("multi-disk (split) archives are not supported")
 			}
+
 			if (!plausibleDirectory(reader, directoryOffset.toLong(), directorySize.toLong(), totalEntries.toLong(), recordOffset)) {
 				throw ZipFormatException("the Zip64 end record describes a central directory the archive does not hold")
 			}
+
 			return CentralDirectory(directoryOffset, directorySize, totalEntries)
 		}
 
@@ -305,10 +323,12 @@ internal class ZipArchive private constructor(
 			if (offset < 0 || size < 0 || offset + size > limit) {
 				return false
 			}
+
 			// An empty directory has no header to check, so it must sit exactly where its end record starts.
 			if (entryCount == 0L) {
 				return size == 0L && offset == limit.toLong()
 			}
+
 			return size >= ZipRecords.CENTRAL_HEADER_SIZE &&
 				entryCount * ZipRecords.CENTRAL_HEADER_SIZE <= size &&
 				reader.u32(offset.toInt()) == ZipRecords.CENTRAL_HEADER_SIGNATURE.toLong()
@@ -328,6 +348,7 @@ internal class ZipArchive private constructor(
 			if (position + ZipRecords.CENTRAL_HEADER_SIZE > directoryEnd || reader.u32(position) != ZipRecords.CENTRAL_HEADER_SIGNATURE.toLong()) {
 				throw ZipFormatException("central directory entry $entryIndex is truncated or missing its signature")
 			}
+
 			// ZIP: central directory file header (APPNOTE.TXT 4.3.12) - @ +0x06 version needed, @ +0x08 flags, @ +0x0A method,
 			// @ +0x0C time, @ +0x0E date, @ +0x10 crc-32, @ +0x14 compressed size, @ +0x18 uncompressed size,
 			// @ +0x1C name length, @ +0x1E extra length, @ +0x20 comment length, @ +0x22 disk number start,
@@ -348,22 +369,27 @@ internal class ZipArchive private constructor(
 			val nameStart = position + ZipRecords.CENTRAL_HEADER_SIZE
 			val extraStart = nameStart + nameLength
 			val nextPosition = extraStart + extraLength + commentLength
+
 			if (nextPosition > directoryEnd) {
 				throw ZipFormatException("central directory entry $entryIndex runs past the end of the directory")
 			}
+
 			val name = decodeName(reader.bytes, nameStart, nameLength, entryIndex)
 
 			// ZIP: Zip64 extended information extra field (APPNOTE.TXT 4.5.3) - present values follow in this
 			// order, each only when its classic field holds the sentinel.
 			var extraPosition = extraStart
 			val extraEnd = extraStart + extraLength
+
 			while (extraPosition + 4 <= extraEnd) {
 				val headerId = reader.u16(extraPosition)
 				val dataSize = reader.u16(extraPosition + 2)
 				val dataStart = extraPosition + 4
+
 				if (dataStart + dataSize > extraEnd) {
 					throw ZipFormatException("entry '$name' has a truncated extra field")
 				}
+
 				if (headerId == ZipRecords.ZIP64_EXTRA_ID) {
 					var fieldPosition = dataStart
 					val dataEnd = dataStart + dataSize
@@ -378,36 +404,48 @@ internal class ZipArchive private constructor(
 						if (fieldPosition + 8 > dataEnd) {
 							throw ZipFormatException("entry '$name' has a Zip64 extra field too short for its $what")
 						}
+
 						return u64AsOffset(reader, fieldPosition, "entry '$name' $what").toLong().also { fieldPosition += 8 }
 					}
+
 					if (uncompressedSize == ZipRecords.UINT32_SENTINEL) {
 						uncompressedSize = nextValue("uncompressed size")
 					}
+
 					if (compressedSize == ZipRecords.UINT32_SENTINEL) {
 						compressedSize = nextValue("compressed size")
 					}
+
 					if (localOffset == ZipRecords.UINT32_SENTINEL) {
 						localOffset = nextValue("local header offset")
 					}
+
 					if (diskStart == ZipRecords.UINT16_SENTINEL.toLong()) {
 						if (fieldPosition + 4 > dataEnd) {
 							throw ZipFormatException("entry '$name' has a Zip64 extra field too short for its disk number")
 						}
+
 						diskStart = reader.u32(fieldPosition)
 					}
 				}
+
 				extraPosition = dataStart + dataSize
 			}
+
 			if (diskStart != 0L) {
 				throw ZipFormatException("entry '$name' starts on another disk: multi-disk archives are not supported")
 			}
+
 			if (uncompressedSize > MAXIMUM_ARRAY_SIZE - 1 || compressedSize > MAXIMUM_ARRAY_SIZE) {
 				throw ZipFormatException("entry '$name' is larger than a byte array can hold")
 			}
+
 			val payloadOffset = validateLocalHeader(reader, localOffset, name, nameStart, nameLength, method, directoryOffset)
+
 			if (payloadOffset.toLong() + compressedSize > directoryOffset) {
 				throw ZipFormatException("entry '$name' is truncated: its payload runs past the start of the central directory")
 			}
+
 			val entry =
 				ZipEntry(
 					name = name,
@@ -420,6 +458,7 @@ internal class ZipArchive private constructor(
 					payloadOffset = payloadOffset,
 					versionNeeded = versionNeeded,
 				)
+
 			return entry to nextPosition
 		}
 
@@ -450,25 +489,32 @@ internal class ZipArchive private constructor(
 			if (localOffset < 0 || localOffset + ZipRecords.LOCAL_HEADER_SIZE > directoryOffset) {
 				throw ZipFormatException("entry '$name' points at a local header outside the archive's entry data")
 			}
+
 			val headerOffset = localOffset.toInt()
+
 			if (reader.u32(headerOffset) != ZipRecords.LOCAL_HEADER_SIGNATURE.toLong()) {
 				throw ZipFormatException("entry '$name' points at bytes that are not a local file header")
 			}
+
 			// ZIP: local file header (APPNOTE.TXT 4.3.7) - @ +0x08 method, @ +0x1A name length, @ +0x1C extra
 			// length, @ +0x1E the name.
 			val localMethod = reader.u16(headerOffset + 8)
 			val localNameLength = reader.u16(headerOffset + 26)
 			val localExtraLength = reader.u16(headerOffset + 28)
 			val localNameStart = headerOffset + ZipRecords.LOCAL_HEADER_SIZE
+
 			if (localNameStart + localNameLength + localExtraLength > directoryOffset) {
 				throw ZipFormatException("entry '$name' has a local header that runs into the central directory")
 			}
+
 			if (localMethod != method) {
 				throw ZipFormatException("entry '$name' declares method $method centrally but $localMethod locally")
 			}
+
 			if (localNameLength != nameLength || !reader.bytes.rangeEquals(localNameStart, reader.bytes, nameStart, nameLength)) {
 				throw ZipFormatException("entry '$name' has a local header naming a different entry")
 			}
+
 			return localNameStart + localNameLength + localExtraLength
 		}
 
@@ -499,9 +545,11 @@ internal class ZipArchive private constructor(
 		private fun u64AsOffset(reader: ByteReader, at: Int, what: String): Int {
 			val high = reader.u32(at + 4)
 			val low = reader.u32(at)
+
 			if (high != 0L || low > MAXIMUM_ARRAY_SIZE) {
 				throw ZipFormatException("$what exceeds what a byte array can address")
 			}
+
 			return low.toInt()
 		}
 	}
@@ -522,6 +570,7 @@ internal fun ByteArray.rangeEquals(offset: Int, other: ByteArray, otherOffset: I
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -543,9 +592,11 @@ internal fun decodeZipPayload(entry: ZipEntry, source: ByteArray, payloadOffset:
 	if (entry.isEncrypted) {
 		throw ZipFormatException("entry '${entry.name}' is encrypted")
 	}
+
 	if (payloadOffset < 0 || payloadOffset.toLong() + entry.compressedSize > source.size) {
 		throw ZipFormatException("entry '${entry.name}' has a payload that does not fit its bytes")
 	}
+
 	val uncompressed =
 		when (entry.method) {
 			ZipRecords.METHOD_STORED -> {
@@ -554,6 +605,7 @@ internal fun decodeZipPayload(entry: ZipEntry, source: ByteArray, payloadOffset:
 						"stored entry '${entry.name}' declares ${entry.compressedSize} bytes on disk but ${entry.uncompressedSize} uncompressed",
 					)
 				}
+
 				source.copyOfRange(payloadOffset, payloadOffset + entry.compressedSize)
 			}
 
@@ -563,17 +615,23 @@ internal fun decodeZipPayload(entry: ZipEntry, source: ByteArray, payloadOffset:
 				inflateRawDeflate(source, payloadOffset, entry.compressedSize, entry.uncompressedSize + 1)
 			}
 
-			else -> throw ZipFormatException("entry '${entry.name}' uses unsupported compression method ${entry.method}")
+			else -> {
+				throw ZipFormatException("entry '${entry.name}' uses unsupported compression method ${entry.method}")
+			}
 		}
+
 	if (uncompressed.size != entry.uncompressedSize) {
 		throw ZipFormatException(
 			"entry '${entry.name}' inflates to ${if (uncompressed.size > entry.uncompressedSize) "more than" else "only"} " +
 				"${minOf(uncompressed.size, entry.uncompressedSize)} bytes, but declares ${entry.uncompressedSize}",
 		)
 	}
+
 	val checksum = Crc32().also { crc -> crc.update(uncompressed) }.value
+
 	if (checksum != entry.crc32) {
 		throw ZipFormatException("entry '${entry.name}' fails its CRC-32 check")
 	}
+
 	return uncompressed
 }

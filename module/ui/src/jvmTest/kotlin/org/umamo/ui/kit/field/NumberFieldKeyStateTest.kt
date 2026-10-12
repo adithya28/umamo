@@ -83,6 +83,7 @@ class NumberFieldKeyStateTest {
 			image.readPixels(captured)
 			pixels = captured
 		}
+
 		return requireNotNull(pixels)
 	}
 

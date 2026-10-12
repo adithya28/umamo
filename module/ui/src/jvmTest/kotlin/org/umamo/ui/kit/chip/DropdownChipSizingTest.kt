@@ -69,6 +69,7 @@ class DropdownChipSizingTest {
 			waitForIdle()
 			measured = onNodeWithContentDescription(CHIP_LABEL, useUnmergedTree = true).getUnclippedBoundsInRoot().width
 		}
+
 		return measured
 	}
 

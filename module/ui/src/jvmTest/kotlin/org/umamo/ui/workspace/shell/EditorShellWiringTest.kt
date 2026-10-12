@@ -90,6 +90,7 @@ class EditorShellWiringTest {
 	fun aNewWorkspaceIsNamedInTheLanguageSwitchedTo() {
 		// ProvideAppLocale applies a language through the process-wide default locale.
 		val defaultLocale = Locale.getDefault()
+
 		try {
 			runComposeUiTest {
 				val registry = CommandRegistry()
@@ -154,6 +155,7 @@ class EditorShellWiringTest {
 	private fun bundledSettings(): Settings {
 		val fileSystem = FakeFileSystem()
 		fileSystem.createDirectories("/config".toPath())
+
 		return Settings.load(OkioAppStorage(fileSystem, "/config".toPath(), "/data".toPath()), runBlocking { defaultSettingsJson() })
 	}
 

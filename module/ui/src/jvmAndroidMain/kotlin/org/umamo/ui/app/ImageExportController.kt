@@ -89,10 +89,13 @@ internal class ImageExportController(
 	private suspend fun export(options: ImageExportOptions, viewportAreaId: String?) {
 		val destination = services.filePicker.saveFile(file?.exportBaseName ?: services.untitledName(), FileKind.Png.extension) ?: return
 		val service = viewport.service
+
 		if (service == null) {
 			alert(destination, getString(Res.string.export_image_failed_renderer))
+
 			return
 		}
+
 		val framing =
 			resolveImageFrame(
 				options.region,
@@ -103,12 +106,25 @@ internal class ImageExportController(
 			)
 		val frame =
 			when (framing) {
-				is ImageFrameResult.Framed -> framing.frame
-				ImageFrameResult.NoViewport -> return alert(destination, getString(Res.string.export_options_image_no_viewport))
-				ImageFrameResult.NoCanvas -> return alert(destination, getString(Res.string.export_options_image_no_canvas))
-				ImageFrameResult.NothingVisible -> return alert(destination, getString(Res.string.export_options_image_nothing_visible))
-				is ImageFrameResult.TooLarge ->
+				is ImageFrameResult.Framed -> {
+					framing.frame
+				}
+
+				ImageFrameResult.NoViewport -> {
+					return alert(destination, getString(Res.string.export_options_image_no_viewport))
+				}
+
+				ImageFrameResult.NoCanvas -> {
+					return alert(destination, getString(Res.string.export_options_image_no_canvas))
+				}
+
+				ImageFrameResult.NothingVisible -> {
+					return alert(destination, getString(Res.string.export_options_image_nothing_visible))
+				}
+
+				is ImageFrameResult.TooLarge -> {
 					return alert(destination, getString(Res.string.export_options_image_too_large, framing.width, framing.height, MAX_IMAGE_EDGE))
+				}
 			}
 		puppet.session.emitNotice("notice.document.exportingImage", NoticePlacement.StatusBar)
 		val bytes =
@@ -117,26 +133,33 @@ internal class ImageExportController(
 				// behind the export, the editor's defaults.
 				val overlays = viewportAreaId?.let { areaId -> service.areaOverlays(areaId) } ?: AreaOverlays.Default
 				val image = service.renderImage(frame, options.frameBackdrop(), overlays)
+
 				if (image == null) {
 					alert(destination, getString(Res.string.export_image_failed_renderer))
+
 					return
 				}
+
 				withContext(Dispatchers.Default) { PngCodec.write(image) }
 			} catch (failure: OutOfMemoryError) {
 				// The image and its encoding are the large allocations here, up to a gigabyte each at the edge
 				// limit; running short costs this export, not the editor and the rig's unsaved work.
 				UmamoLog.error("export image: ran out of memory at ${frame.width}x${frame.height}", failure)
 				alert(destination, getString(Res.string.export_image_failed_memory, frame.width, frame.height))
+
 				return
 			}
+
 		try {
 			// Once the bytes exist they land, as with a save: a torn-down composition must not leave half a file.
 			withContext(NonCancellable) { destination.writeReplacing(bytes) }
 		} catch (failure: IOException) {
 			UmamoLog.error("export image: could not write ${destination.name}", failure)
 			alert(destination, failure.message ?: destination.name)
+
 			return
 		}
+
 		UmamoLog.info("exported image ${destination.absolutePath()} (${frame.width}x${frame.height})")
 		puppet.session.emitNotice("notice.document.exportedImage", NoticePlacement.StatusBar, listOf(destination.name))
 	}

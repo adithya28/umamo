@@ -66,6 +66,7 @@ class UvEditGizmoRequestsTest {
 		val frame = uvRigPageFrame()
 		val geometriesByArea = HashMap<String, MutableState<List<GizmoMeshGeometry>>>()
 		val pointerByArea = HashMap<String, MutableState<Offset>>()
+
 		for (areaId in listOf(LEFT_AREA, RIGHT_AREA)) {
 			val geometries = mutableStateOf(uvRigGeometries(session.model.value, frame))
 			val pointer = mutableStateOf(Offset(200f, 150f))
@@ -84,7 +85,9 @@ class UvEditGizmoRequestsTest {
 				)
 			}
 		}
+
 		runCurrent()
+
 		return TwoAreas(session, geometriesByArea, pointerByArea)
 	}
 
@@ -170,6 +173,7 @@ class UvEditGizmoRequestsTest {
 				assertEquals("notice.uv.noEditableGeometry", notice.messageKey)
 				assertEquals(serialBefore + 1, notice.serial, "one notice, not one per area")
 			}
+
 			assertEquals(UV_RIG_QUAD_UVS, uvRigUvsOf(areas.session, UV_RIG_QUAD), "nothing moved")
 			assertNull(areas.session.uvCursor.value, "the cursor stayed")
 			assertEquals(2, areas.session.meshSelection.value.elementsOf(UV_RIG_QUAD).size, "nothing was flooded")

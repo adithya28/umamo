@@ -27,6 +27,7 @@ class OutlinerRowWidthTest {
 	 */
 	private fun longNamedModel(): PuppetModel {
 		val model = outlinerFixtureModel()
+
 		return model.copy(
 			parts = model.parts.map { part -> if (part.id == OutlinerIds.head) part.copy(name = LONG_PART_NAME) else part },
 			drawables = model.drawables.map { drawable -> if (drawable.id == OutlinerIds.loose) drawable.copy(name = LONG_DRAWABLE_NAME) else drawable },

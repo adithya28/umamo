@@ -328,6 +328,7 @@ internal class StubPuppetViewportService : PuppetViewportService {
 	 */
 	override fun pickAllAt(areaId: String, cursorXpx: Float, cursorYpx: Float): List<PickCandidate> {
 		stackRequests.add(areaId to (cursorXpx to cursorYpx))
+
 		return stackByArea[areaId].orEmpty()
 	}
 
@@ -339,6 +340,7 @@ internal class StubPuppetViewportService : PuppetViewportService {
 	 */
 	override fun drawableWorldCentroids(): Map<DrawableId, FloatArray> {
 		centroidSnapshots++
+
 		return centroids.toMap()
 	}
 
@@ -352,6 +354,7 @@ internal class StubPuppetViewportService : PuppetViewportService {
 	 */
 	override suspend fun renderImage(frame: ImageFrame, backdrop: FrameBackdrop, overlays: AreaOverlays): RasterImage? {
 		renderImageRequests.add(backdrop to overlays)
+
 		return null
 	}
 

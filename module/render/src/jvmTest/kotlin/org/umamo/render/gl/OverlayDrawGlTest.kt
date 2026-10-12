@@ -136,6 +136,7 @@ class OverlayDrawGlTest {
 		val store = device.createDeformedPositionStore(3)
 		val buffers = device.createOverlayMeshBuffers(OverlayMeshSpec(twoEdges, triangleIndices, ByteArray(3), ByteArray(2), ByteArray(1)))
 		val target = device.createRenderTarget(RenderTargetSpec(viewportSize, viewportSize, TextureFormat.Rgba8, sampled = true))
+
 		return OverlayRig(device, mesh, deltaTexture, store, buffers, target)
 	}
 
@@ -183,6 +184,7 @@ class OverlayDrawGlTest {
 			draw(pass)
 			pass.end()
 			frame.endFrame()
+
 			return device.readPixels(target)
 		}
 
@@ -198,6 +200,7 @@ class OverlayDrawGlTest {
 			draw(pass)
 			pass.end()
 			frame.endFrame()
+
 			return device.readPixels(target)
 		}
 
@@ -223,6 +226,7 @@ class OverlayDrawGlTest {
 			bind(pass, PipelinePurpose.OverlayEdge)
 			fill(sizePx = 3f, fillIdle = true, idle = red, active = null)
 			pass.drawOverlayEdges(buffers, store, uniforms)
+
 			if (activeEdge != null) {
 				fill(sizePx = 3f, fillIdle = true, idle = red, active = intArrayOf(activeEdge.first, activeEdge.second, -1))
 				pass.drawOverlayEdges(buffers, store, uniforms)
@@ -248,6 +252,7 @@ class OverlayDrawGlTest {
 			bind(pass, PipelinePurpose.OverlayVertexDot)
 			fill(sizePx = 4f, fillIdle = true, idle = idle, active = null, baseOffset = baseOffset)
 			pass.drawOverlayVertexDots(buffers, positions, uniforms)
+
 			if (activeVertex != null) {
 				fill(sizePx = 4f, fillIdle = true, idle = idle, active = intArrayOf(activeVertex, -1, -1), baseOffset = baseOffset)
 				pass.drawOverlayVertexDots(buffers, positions, uniforms)
@@ -320,6 +325,7 @@ class OverlayDrawGlTest {
 	 */
 	private fun RasterImage.at(column: Int, row: Int): IntArray {
 		val offset = (row * viewportSize + column) * 4
+
 		return IntArray(4) { channelIndex -> rgba[offset + channelIndex].toInt() and 0xFF }
 	}
 }

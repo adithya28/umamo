@@ -257,11 +257,13 @@ public class AtlasPackResult(
 	public fun pageOccupancy(pageIndex: Int): Float {
 		val page = pages[pageIndex]
 		var covered = 0.0
+
 		for (placement in placements) {
 			if (placement.pageIndex == pageIndex) {
 				covered += placement.trimWidth.toDouble() * placement.trimHeight.toDouble()
 			}
 		}
+
 		for (kept in fixed) {
 			if (kept.pageIndex == pageIndex) {
 				val affine = kept.tileToPage
@@ -269,6 +271,7 @@ public class AtlasPackResult(
 				covered += kept.trimWidth.toDouble() * kept.trimHeight.toDouble() * areaScale
 			}
 		}
+
 		return (covered / (page.width.toDouble() * page.height.toDouble())).toFloat()
 	}
 }
@@ -351,16 +354,22 @@ public fun packAtlas(
 	val skipped = ArrayList<AtlasPackSkip>()
 	val requests = ArrayList<RectPackRequest>(items.size)
 	val fixedFootprints = ArrayList<FixedFootprint>()
+
 	for ((itemIndex, item) in items.withIndex()) {
 		val analysis = analyzeAlpha(item.width, item.height, item.rgba, options.alphaThreshold)
+
 		if (analysis == null) {
 			skipped.add(AtlasPackSkip(item.key, AtlasPackSkipReason.NoOpaquePixels))
+
 			continue
 		}
+
 		if (analysis.opaquePixelCount < options.minimumOpaquePixels) {
 			skipped.add(AtlasPackSkip(item.key, AtlasPackSkipReason.BelowMinimumCoverage))
+
 			continue
 		}
+
 		val trim = analysis.opaqueBounds
 		val reserveLeft = minOf(trim.left, item.reserve?.left ?: trim.left)
 		val reserveTop = minOf(trim.top, item.reserve?.top ?: trim.top)
@@ -369,6 +378,7 @@ public fun packAtlas(
 		trims[itemIndex] = trim
 		reserves[itemIndex] = LayerBounds(reserveLeft, reserveTop, reserveRight - reserveLeft, reserveBottom - reserveTop)
 		val fixed = item.fixed
+
 		if (fixed != null) {
 			val bounds = affineBounds(fixed.tileToPage, reserveLeft.toFloat(), reserveTop.toFloat(), reserveRight.toFloat(), reserveBottom.toFloat())
 			val artBounds =
@@ -391,8 +401,10 @@ public fun packAtlas(
 					artBottom = ceil(artBounds[3]).toInt().coerceAtLeast(0),
 				),
 			)
+
 			continue
 		}
+
 		requests.add(
 			RectPackRequest(
 				itemIndex = itemIndex,
@@ -411,6 +423,7 @@ public fun packAtlas(
 	// A fixed tile whose ART runs past the largest page can never be kept; every other one seeds each
 	// trial pack, so the side the pack settles on always holds them all.
 	val keptFootprints = ArrayList<FixedFootprint>(fixedFootprints.size)
+
 	for (footprint in fixedFootprints) {
 		if (footprint.artRight > options.maxPageSize || footprint.artBottom > options.maxPageSize) {
 			skipped.add(AtlasPackSkip(items[footprint.itemIndex].key, AtlasPackSkipReason.FixedOutsidePage))
@@ -418,15 +431,18 @@ public fun packAtlas(
 			keptFootprints.add(footprint)
 		}
 	}
+
 	val seeds = keptFootprints.map { footprint -> footprint.toSeed() }
 	val packingSide = choosePackingSide(requests, seeds, options)
 	val layout = packRects(requests, packingSide, options.allowRotation, seeds)
+
 	for (itemIndex in layout.oversizedItemIndices) {
 		skipped.add(AtlasPackSkip(items[itemIndex].key, AtlasPackSkipReason.LargerThanPage))
 	}
 
 	val pageWidths = IntArray(layout.usedWidths.size)
 	val pageHeights = IntArray(layout.usedHeights.size)
+
 	for (pageIndex in layout.usedWidths.indices) {
 		val sizes = finalPageSize(layout.usedWidths[pageIndex], layout.usedHeights[pageIndex], packingSide, options)
 		pageWidths[pageIndex] = sizes.first
@@ -434,6 +450,7 @@ public fun packAtlas(
 	}
 
 	val placementByItemIndex = arrayOfNulls<AtlasPackPlacement>(items.size)
+
 	for (slot in layout.slots) {
 		val item = items[slot.itemIndex]
 		val trim = checkNotNull(trims[slot.itemIndex]) { "packed tile '${item.key}' has no trim" }
@@ -461,12 +478,14 @@ public fun packAtlas(
 				quarterTurns = if (slot.rotated) 1 else 0,
 			)
 	}
+
 	val placements = placementByItemIndex.filterNotNull()
 
 	// The free tiles compose through the packer's blit; the fixed tiles then paint over the same
 	// buffers in input order through the affine painter, exactly as a derivation paints them.
 	val pages = composeAtlasPages(pageWidths, pageHeights, items, placements, options.extrude)
 	val fixedPlacements = ArrayList<AtlasPackFixedPlacement>(keptFootprints.size)
+
 	for (footprint in keptFootprints) {
 		val item = items[footprint.itemIndex]
 		val fixed = checkNotNull(item.fixed) { "fixed tile '${item.key}' lost its placement" }
@@ -477,6 +496,7 @@ public fun packAtlas(
 	}
 
 	val inputOrderByKey = items.withIndex().associate { (itemIndex, item) -> item.key to itemIndex }
+
 	return AtlasPackResult(
 		pages = pages,
 		placements = placements,
@@ -501,12 +521,15 @@ public fun packAtlas(
  */
 public fun SourceArt.atlasPackItems(include: (SourceLayer) -> Boolean = { true }): List<AtlasPackItem> {
 	val usedKeys = HashSet<String>()
+
 	return layers.filter(include).map { layer ->
 		var key = layer.id.raw
+
 		if (!usedKeys.add(key)) {
 			key = "${layer.id.raw}#${layer.order}"
 			usedKeys.add(key)
 		}
+
 		AtlasPackItem(key, layer.raster.width, layer.raster.height, layer.raster.rgba)
 	}
 }
@@ -540,23 +563,30 @@ private fun choosePackingSide(
 	if (!options.shrinkPages || (requests.isEmpty() && seeds.isEmpty())) {
 		return options.maxPageSize
 	}
+
 	val baseline = packRects(requests, options.maxPageSize, options.allowRotation, seeds)
 	val fitting = requests.filter { request -> request.width <= options.maxPageSize && request.height <= options.maxPageSize }
+
 	if (fitting.isEmpty() && seeds.isEmpty()) {
 		return options.maxPageSize
 	}
+
 	val largestRequest = fitting.maxOfOrNull { request -> maxOf(request.width, request.height) } ?: 1
 	val farthestSeed = seeds.maxOfOrNull { seed -> maxOf(seed.x + seed.width, seed.y + seed.height) } ?: 1
 	var side = roundUpToPowerOfTwo(maxOf(largestRequest, farthestSeed, 1))
+
 	while (side < options.maxPageSize) {
 		val trial = packRects(requests, side, options.allowRotation, seeds)
+
 		if (trial.usedWidths.size <= baseline.usedWidths.size &&
 			trial.oversizedItemIndices.size == baseline.oversizedItemIndices.size
 		) {
 			return side
 		}
+
 		side = side shl 1
 	}
+
 	return options.maxPageSize
 }
 
@@ -573,16 +603,20 @@ private fun finalPageSize(usedWidth: Int, usedHeight: Int, packingSide: Int, opt
 	if (!options.shrinkPages) {
 		return packingSide to packingSide
 	}
+
 	var width = usedWidth
 	var height = usedHeight
+
 	if (options.squarePages) {
 		width = maxOf(width, height)
 		height = width
 	}
+
 	if (options.powerOfTwoPages) {
 		width = roundUpToPowerOfTwo(width)
 		height = roundUpToPowerOfTwo(height)
 	}
+
 	return minOf(width, packingSide) to minOf(height, packingSide)
 }
 
@@ -594,8 +628,10 @@ private fun finalPageSize(usedWidth: Int, usedHeight: Int, packingSide: Int, opt
  */
 private fun roundUpToPowerOfTwo(extent: Int): Int {
 	var size = 1
+
 	while (size < extent) {
 		size = size shl 1
 	}
+
 	return size
 }

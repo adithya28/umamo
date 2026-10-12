@@ -104,9 +104,11 @@ internal fun hasExplicitHeapLimit(inputArguments: List<String>): Boolean =
  */
 internal fun jarHeapOptionGoverns(inputArguments: List<String>): Boolean {
 	val lastPercentage = inputArguments.lastOrNull { argument -> argument.startsWith("-XX:MaxRAMPercentage=") }
+
 	if (lastPercentage != JAR_HEAP_OPTION) {
 		return false
 	}
+
 	return inputArguments.none { argument ->
 		argument.startsWith("-Xmx") ||
 			argument.startsWith("-XX:MaxHeapSize=") ||
@@ -134,19 +136,36 @@ internal fun hasDebuggerAgent(inputArguments: List<String>): Boolean =
  */
 internal fun decideJarRelaunch(facts: JarLaunchFacts, programArguments: List<String>): JarRelaunchDecision {
 	val javaCommand = facts.javaCommand
+
 	return when {
-		facts.relaunchedFrom != null -> JarRelaunchDecision.RunInProcess(RunInProcessReason.AlreadyRelaunched)
-		facts.maxHeapBytes >= LOW_HEAP_NOTICE_BELOW_BYTES -> JarRelaunchDecision.RunInProcess(RunInProcessReason.HeapLargeEnough)
-		hasExplicitHeapLimit(facts.inputArguments) -> JarRelaunchDecision.RunInProcess(RunInProcessReason.ExplicitHeapLimit)
-		hasDebuggerAgent(facts.inputArguments) -> JarRelaunchDecision.RunInProcess(RunInProcessReason.DebuggerAttached)
-		javaCommand == null -> JarRelaunchDecision.RunInProcess(RunInProcessReason.NoJavaCommand)
-		else ->
+		facts.relaunchedFrom != null -> {
+			JarRelaunchDecision.RunInProcess(RunInProcessReason.AlreadyRelaunched)
+		}
+
+		facts.maxHeapBytes >= LOW_HEAP_NOTICE_BELOW_BYTES -> {
+			JarRelaunchDecision.RunInProcess(RunInProcessReason.HeapLargeEnough)
+		}
+
+		hasExplicitHeapLimit(facts.inputArguments) -> {
+			JarRelaunchDecision.RunInProcess(RunInProcessReason.ExplicitHeapLimit)
+		}
+
+		hasDebuggerAgent(facts.inputArguments) -> {
+			JarRelaunchDecision.RunInProcess(RunInProcessReason.DebuggerAttached)
+		}
+
+		javaCommand == null -> {
+			JarRelaunchDecision.RunInProcess(RunInProcessReason.NoJavaCommand)
+		}
+
+		else -> {
 			JarRelaunchDecision.Relaunch(
 				listOf(javaCommand) +
 					facts.inputArguments +
 					listOf(JAR_HEAP_OPTION, "-D$RELAUNCHED_PROPERTY=${facts.maxHeapBytes}", "-jar", facts.jarPath) +
 					programArguments,
 			)
+		}
 	}
 }
 
@@ -160,7 +179,9 @@ internal fun gatherJarLaunchFacts(): JarLaunchFacts? {
 	if (System.getProperty(PACKAGED_VERSION_PROPERTY) != null) {
 		return null
 	}
+
 	val jarPath = launchedJarPath(System.getProperty("java.class.path").orEmpty()) ?: return null
+
 	return JarLaunchFacts(
 		jarPath = jarPath,
 		javaCommand = ProcessHandle.current().info().command().orElse(null),
@@ -184,9 +205,11 @@ internal fun gatherJarLaunchFacts(): JarLaunchFacts? {
 internal fun relaunchForHeapIfDue(jarLaunch: JarLaunchFacts?, programArguments: Array<String>): String? {
 	val facts = jarLaunch ?: return null
 	val decision = decideJarRelaunch(facts, programArguments.toList())
+
 	if (decision !is JarRelaunchDecision.Relaunch) {
 		return null
 	}
+
 	val builder = ProcessBuilder(decision.command).inheritIO()
 	builder.environment().keys.removeAll(OPTION_ENVIRONMENT_VARIABLES)
 	val child =
@@ -213,6 +236,7 @@ internal fun relaunchForHeapIfDue(jarLaunch: JarLaunchFacts?, programArguments: 
  */
 internal fun relaunchLogLine(relaunchedFrom: String?): String? {
 	val firstLimitBytes = relaunchedFrom?.toLongOrNull() ?: return null
+
 	return "relaunched from the jar with $JAR_HEAP_OPTION; the first launch's heap could grow to ${firstLimitBytes / BYTES_PER_MEBIBYTE} MiB"
 }
 
@@ -227,8 +251,10 @@ internal fun relaunchLogLine(relaunchedFrom: String?): String? {
 internal fun launchedJarPath(classPath: String, pathSeparator: String = File.pathSeparator): String? {
 	val entries = classPath.split(pathSeparator).filter { entry -> entry.isNotBlank() }
 	val onlyEntry = entries.singleOrNull() ?: return null
+
 	if (!onlyEntry.endsWith(".jar", ignoreCase = true)) {
 		return null
 	}
+
 	return File(onlyEntry).absolutePath
 }

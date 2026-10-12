@@ -38,9 +38,11 @@ fun PuppetModel.withParameterRange(id: ParameterId, min: Float, default: Float, 
 				parameter
 			}
 		}
+
 	if (updated == parameters) {
 		return this
 	}
+
 	return copy(parameters = updated)
 }
 
@@ -72,20 +74,28 @@ fun PuppetModel.withParameterLink(horizontal: ParameterId, vertical: ParameterId
 		if (horizontal == vertical) {
 			return this
 		}
+
 		val knownIds = parameters.map { parameter -> parameter.id }.toSet()
+
 		if (horizontal !in knownIds || vertical !in knownIds) {
 			return this
 		}
+
 		val linkedMembers = parameterLinks.flatMap { link -> listOf(link.horizontal, link.vertical) }.toSet()
+
 		if (horizontal in linkedMembers || vertical in linkedMembers) {
 			return this
 		}
+
 		return copy(parameterLinks = parameterLinks + ParameterLink(horizontal, vertical))
 	}
+
 	val remaining = parameterLinks.filterNot { link -> link.horizontal == horizontal && link.vertical == vertical }
+
 	if (remaining.size == parameterLinks.size) {
 		return this
 	}
+
 	return copy(parameterLinks = remaining)
 }
 
@@ -101,15 +111,18 @@ fun PuppetModel.withParameterLink(horizontal: ParameterId, vertical: ParameterId
  */
 fun EditorSession.setParameterRange(id: ParameterId, min: Float, default: Float, max: Float) {
 	val newModel = model.value.withParameterRange(id, min, default, max)
+
 	if (newModel === model.value) {
 		return
 	}
+
 	// Re-clamp the live value into the resulting (normalized) range so the pose stays valid.
 	val parameter = newModel.parameters.firstOrNull { it.id == id }
 	val newPose =
 		if (parameter != null) {
 			val current = pose.value[id]
 			val clamped = current?.coerceIn(parameter.min, parameter.max)
+
 			if (clamped != null && clamped != current) {
 				pose.value + (id to clamped)
 			} else {
@@ -135,9 +148,11 @@ fun EditorSession.setParameterRange(id: ParameterId, min: Float, default: Float,
  */
 fun EditorSession.setParameterLink(horizontal: ParameterId, vertical: ParameterId, linked: Boolean) {
 	val newModel = model.value.withParameterLink(horizontal, vertical, linked)
+
 	if (newModel === model.value) {
 		return
 	}
+
 	val target = parameterSelection.value
 	val narrowedTarget =
 		if (!linked && target.ids.size > 1) {

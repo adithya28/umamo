@@ -30,10 +30,12 @@ private const val REPLACEMENT_CHARACTER = '�'
  */
 internal fun decodeAscii(bytes: ByteArray, offset: Int, length: Int): String {
 	val characters = CharArray(length)
+
 	for (characterIndex in 0 until length) {
 		val byteValue = bytes[offset + characterIndex].toInt() and 0xFF
 		characters[characterIndex] = if (byteValue <= ASCII_MAX) byteValue.toChar() else REPLACEMENT_CHARACTER
 	}
+
 	return characters.concatToString()
 }
 
@@ -49,10 +51,12 @@ internal fun decodeAscii(bytes: ByteArray, offset: Int, length: Int): String {
  */
 internal fun encodeUtf16Be(text: String): ByteArray {
 	val encoded = ByteArray(text.length * 2)
+
 	for (characterIndex in text.indices) {
 		val codeUnit = text[characterIndex].code
 		encoded[characterIndex * 2] = ((codeUnit ushr 8) and 0xFF).toByte()
 		encoded[characterIndex * 2 + 1] = (codeUnit and 0xFF).toByte()
 	}
+
 	return encoded
 }

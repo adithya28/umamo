@@ -75,6 +75,7 @@ fun FieldRow(
 				}
 				Spacer(modifier = Modifier.width(6.dp))
 			}
+
 			Text(
 				text = label,
 				style = LocalUmamoTypography.current.bodyMedium,

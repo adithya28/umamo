@@ -51,12 +51,15 @@ internal fun TrackRuler(
 		Box(modifier = Modifier.weight(1f).fillMaxSize().clipToBounds()) {
 			Canvas(modifier = Modifier.fillMaxSize()) {
 				val inset = markRadius.toPx()
+
 				for (tick in ticks) {
 					val x = laneX(axis.fractionOf(tick), size.width, inset)
 					drawLine(colors.panelBorder, Offset(x, size.height * 0.5f), Offset(x, size.height), strokeWidth = 1f)
 				}
+
 				playhead?.let { value -> drawPlayhead(value, axis, colors.accent, inset) }
 			}
+
 			// Tick labels ride above the canvas so they are not clipped by the lane below.  Each is centered
 			// on the same inset laneX its tick line is drawn at - positioning by raw fraction instead would
 			// drift the labels up to a mark radius off their lines and push the domain-max label entirely
@@ -108,5 +111,6 @@ private fun Modifier.centeredAtTick(fraction: Float, markRadius: Dp): Modifier =
  */
 fun defaultTickLabel(value: Float): String {
 	val rounded = roundToDecimals(value, 2)
+
 	return if (rounded == rounded.toInt().toFloat()) rounded.toInt().toString() else rounded.toString()
 }

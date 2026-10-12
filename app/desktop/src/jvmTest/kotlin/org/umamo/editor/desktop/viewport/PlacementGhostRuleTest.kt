@@ -70,6 +70,7 @@ class PlacementGhostRuleTest {
 	private fun preview(ghostAtlas: PuppetAtlas?): PlacementPreview {
 		val identity = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f)
 		val crop = PlacementCropQuad("tile", null, floatArrayOf(4f, 0f, 1f, 0f, 4f, 1f), identity)
+
 		return PlacementPreview(
 			OverlayColor(0f, 0f, 0f, 0.5f),
 			listOf(floatArrayOf(4f, 0f, 0f, 0f, 4f, 0f)),

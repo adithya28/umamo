@@ -236,6 +236,7 @@ class OverflowRowPackingTest {
 		val widths = listOf(40, 40, 40, 40)
 		val slots = listOf(collapsible, collapsible, collapsible, collapsible)
 		var previousCollapsed = emptySet<Int>()
+
 		for (availableWidthPx in 300 downTo 0 step 1) {
 			val collapsed = pack(slots = slots, widths = widths, availableWidthPx = availableWidthPx).collapsedSlotIndices.toSet()
 			assertTrue(

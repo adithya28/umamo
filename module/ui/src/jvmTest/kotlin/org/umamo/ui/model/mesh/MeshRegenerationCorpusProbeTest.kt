@@ -135,7 +135,9 @@ class MeshRegenerationCorpusProbeTest {
 						continue
 					}
 
-					is RegenerationInput.Ready -> asked
+					is RegenerationInput.Ready -> {
+						asked
+					}
 				}
 			val raster = rasterOf(cmo3, ingest.imageResourceByTile[tileId])
 

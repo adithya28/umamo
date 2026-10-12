@@ -50,6 +50,7 @@ class SessionLogLockTest {
 	@Test
 	fun aLogAnotherProcessMarksSurvivesPruningUntilThatProcessEnds() {
 		val directory = Files.createTempDirectory("umamo-session-log-lock")
+
 		try {
 			val heldLog = directory.resolve("session-2026-09-24T01-00-00Z-0001.log")
 			Files.writeString(heldLog, "# a running session's log\n")
@@ -58,6 +59,7 @@ class SessionLogLockTest {
 				ProcessBuilder(javaExecutable, "-cp", System.getProperty("java.class.path"), SessionLogLockHolder::class.java.name, heldLog.toString())
 					.redirectErrorStream(true)
 					.start()
+
 			try {
 				assertEquals("held", holder.inputStream.bufferedReader().readLine(), "the second process marks the log")
 				assertTrue(FileChannelSessionLogLocks.isHeldElsewhere(heldLog.toOkioPath()))
@@ -71,10 +73,12 @@ class SessionLogLockTest {
 				assertTrue(Files.exists(heldLog), "pruning leaves the log another running session marks")
 			} finally {
 				holder.outputStream.close()
+
 				if (!holder.waitFor(30, TimeUnit.SECONDS)) {
 					holder.destroyForcibly()
 				}
 			}
+
 			assertFalse(FileChannelSessionLogLocks.isHeldElsewhere(heldLog.toOkioPath()), "the mark ends with the process")
 		} finally {
 			directory.toFile().deleteRecursively()

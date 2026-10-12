@@ -78,10 +78,13 @@ fun EditorSession.commitAtlasRepack(
 ): PuppetModel? {
 	val current = model.value
 	val repacked = current.withAtlasRepack(pages, placementsByTile, composition)
+
 	if (repacked === current) {
 		return null
 	}
+
 	val placedCount = placementsByTile.count { entry -> entry.value != null }
 	mutate(DocumentChange.RepackAtlas(placedCount, pages.size)) { repacked }
+
 	return repacked
 }

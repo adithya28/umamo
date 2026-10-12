@@ -29,12 +29,15 @@ internal object Cmo3FreshFile {
 	 */
 	internal fun assemble(root: Any, pngEntries: List<PngEntry>, obfuscateKey: Int): ByteArray {
 		val entries = ArrayList<CaffEntry>(pngEntries.size + 1)
+
 		for (pngEntry in pngEntries) {
 			// CMO3: PNG entries - tag "", RAW compression, obfuscated (corpus invariant).
 			entries.add(CaffEntry(pngEntry.path, "", pngEntry.pngBytes, CompressOption.RAW, obfuscated = true))
 		}
+
 		// CMO3: the main_xml entry - FAST compression, obfuscated, LAST in the table (corpus invariant).
 		entries.add(CaffEntry("main.xml", CaffArchive.TAG_MAIN_XML, Cmo3Author.writeFreshMainXml(root), CompressOption.FAST, obfuscated = true))
+
 		return CaffCodec.write(CaffArchive(obfuscateKey = obfuscateKey, entries = entries))
 	}
 }

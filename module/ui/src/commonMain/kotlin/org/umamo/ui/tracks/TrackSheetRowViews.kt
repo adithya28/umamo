@@ -187,7 +187,9 @@ private fun TrackRowLabel(
 		} else {
 			Spacer(modifier = Modifier.width(SLOT_WIDTH))
 		}
+
 		Spacer(modifier = Modifier.weight(1f))
+
 		if (decor.icon != null) {
 			Box(modifier = Modifier.size(SLOT_WIDTH), contentAlignment = Alignment.Center) {
 				Canvas(modifier = Modifier.size(SLOT_WIDTH)) {
@@ -196,6 +198,7 @@ private fun TrackRowLabel(
 			}
 			Spacer(modifier = Modifier.width(4.dp))
 		}
+
 		Tooltip(text = if (nameTruncated) line.row.label else "") {
 			Column(horizontalAlignment = Alignment.End) {
 				Text(
@@ -207,6 +210,7 @@ private fun TrackRowLabel(
 					overflow = TextOverflow.Ellipsis,
 					onTextLayout = { result -> nameTruncated = result.hasVisualOverflow },
 				)
+
 				if (line.row.detail != null) {
 					Text(
 						text = line.row.detail,
@@ -220,6 +224,7 @@ private fun TrackRowLabel(
 			}
 		}
 	}
+
 	if (menuOpen) {
 		Menu(items = items, onDismissRequest = { menuOpen = false }, positionProvider = AtPointPositionProvider(menuOffset))
 	}
@@ -261,6 +266,7 @@ private fun ExpandChevron(expanded: Boolean, onClick: () -> Unit) {
 @Composable
 private fun toneBackgroundOf(tone: TrackRowTone): Color {
 	val colors = LocalUmamoColors.current
+
 	return when (tone) {
 		TrackRowTone.Group -> colors.trackRowGroup
 		TrackRowTone.Primary -> colors.trackRowPrimary

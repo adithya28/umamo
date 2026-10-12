@@ -48,6 +48,7 @@ private class CursorPopupPositionProvider(private val pointerInWindow: () -> Off
 		popupContentSize: IntSize,
 	): IntOffset {
 		val pointer = pointerInWindow()
+
 		return IntOffset((pointer.x + 14f).roundToInt(), (pointer.y + 8f).roundToInt())
 	}
 }

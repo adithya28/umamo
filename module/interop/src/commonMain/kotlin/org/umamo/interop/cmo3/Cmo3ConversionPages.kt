@@ -23,14 +23,18 @@ import org.umamo.runtime.model.PuppetModel
  */
 public fun modelPageRenderIndices(puppet: PuppetModel, renderPageByDrawableId: Map<String, Int>): List<Int?> {
 	val renderIndices = MutableList<Int?>(puppet.atlas.pages.size) { null }
+
 	for (drawable in puppet.drawables) {
 		val tile = drawable.atlasTileId?.let(puppet.atlas.tileById::get) ?: continue
 		val pageIndex = tile.placement?.pageIndex ?: continue
+
 		if (pageIndex !in renderIndices.indices || renderIndices[pageIndex] != null) {
 			continue
 		}
+
 		renderIndices[pageIndex] = renderPageByDrawableId[drawable.id.raw] ?: drawable.textureSourceId?.let { sourceId -> renderPageByDrawableId[sourceId.raw] } ?: continue
 	}
+
 	return renderIndices
 }
 
@@ -46,16 +50,20 @@ public fun modelPageRenderIndices(puppet: PuppetModel, renderPageByDrawableId: M
  */
 public fun modelPageIndexByDrawableId(puppet: PuppetModel, renderIndices: List<Int?>, renderPageByDrawableId: Map<String, Int>): Map<String, Int> {
 	val modelPageByRenderPage = HashMap<Int, Int>()
+
 	for ((modelPageIndex, renderIndex) in renderIndices.withIndex()) {
 		if (renderIndex != null) {
 			modelPageByRenderPage.getOrPut(renderIndex) { modelPageIndex }
 		}
 	}
+
 	val modelPageByDrawableId = LinkedHashMap<String, Int>()
+
 	for (drawable in puppet.drawables) {
 		val renderIndex = renderPageByDrawableId[drawable.id.raw] ?: drawable.textureSourceId?.let { sourceId -> renderPageByDrawableId[sourceId.raw] } ?: continue
 		modelPageByRenderPage[renderIndex]?.let { modelPageIndex -> modelPageByDrawableId[drawable.id.raw] = modelPageIndex }
 	}
+
 	return modelPageByDrawableId
 }
 
@@ -91,7 +99,9 @@ public fun <TPage> modelOrderPages(
 	if (puppet.atlas.pages.isEmpty()) {
 		return ModelOrderPages(renderPages, renderPageByDrawableId)
 	}
+
 	val renderIndices = modelPageRenderIndices(puppet, renderPageByDrawableId)
 	val pages = List(puppet.atlas.pages.size) { modelPageIndex -> renderIndices[modelPageIndex]?.let(renderPages::getOrNull) ?: fallbackPage(modelPageIndex) }
+
 	return ModelOrderPages(pages, modelPageIndexByDrawableId(puppet, renderIndices, renderPageByDrawableId))
 }

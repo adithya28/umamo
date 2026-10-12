@@ -75,11 +75,13 @@ class ButtonGroupTest {
 			waitForIdle()
 
 			val bounds = listOf(SHORT, MEDIUM, LONG).map { label -> boundsOf(label) }
+
 			for (index in 1 until bounds.size) {
 				assertTrue(bounds[index].top > bounds[index - 1].top, "segment $index sits below the one before it")
 				assertEquals(bounds[0].left.value, bounds[index].left.value, 0.5f, "segment $index shares the left edge")
 				assertEquals(bounds[0].width.value, bounds[index].width.value, 0.5f, "segment $index shares the width")
 			}
+
 			assertTrue(bounds[0].width.value > ICON_FACE_WIDTH_DP, "the shared width is the longest label's, past a bare glyph face")
 		}
 

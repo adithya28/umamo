@@ -32,6 +32,7 @@ class Cmo3ConversionRoundTripTest {
 			System.getProperty("moc3.samples")?.let(::File)?.takeIf { it.isDirectory }
 				?: run {
 					println("moc3.samples not present; skipping MOC3 conversion round trip")
+
 					return
 				}
 		val mocFiles =
@@ -43,10 +44,12 @@ class Cmo3ConversionRoundTripTest {
 				.toList()
 		assertTrue(mocFiles.isNotEmpty(), "no corpus moc3 with a model3 sidecar under $samplesDirectory")
 		val failures = ArrayList<String>()
+
 		for (mocFile in mocFiles) {
 			runCatching { roundTripOne(mocFile, failures) }
 				.onFailure { failure -> failures.add("${mocFile.name}: threw $failure") }
 		}
+
 		assertTrue(failures.isEmpty(), "MOC3 conversion round trip failed:\n" + failures.joinToString("\n"))
 	}
 
@@ -61,10 +64,13 @@ class Cmo3ConversionRoundTripTest {
 		val mocDocument = Moc3.read(mocFile.readBytes())
 		val manifest = Moc3.readModel3(File(mocFile.parentFile, "${mocFile.nameWithoutExtension}.model3.json").readText())
 		val textureFiles = manifest.fileReferences.textures.map { textureReference -> File(mocFile.parentFile, textureReference) }
+
 		if (textureFiles.any { textureFile -> !textureFile.isFile }) {
 			println("$label: atlas pages not in the corpus; skipping")
+
 			return
 		}
+
 		val pages =
 			textureFiles.map { textureFile ->
 				val pngBytes = textureFile.readBytes()
@@ -89,12 +95,14 @@ class Cmo3ConversionRoundTripTest {
 				nowMillis = 1_700_000_000_000L,
 				obfuscateKey = 0x5EEDBEEF,
 			)
+
 		// Every MOC3-origin conversion MUST warn that it has no source artwork - that is the one
 		// notice describing the whole file rather than an entity in it, so its absence is as much a
 		// defect as a spurious notice would be.
 		if (result.report.notices.none { notice -> notice is ExportNotice.MissingSourceArt }) {
 			failures.add("$label: missing the MissingSourceArt notice")
 		}
+
 		// Documented residues may notice: the world origin (moc stores one; CMO3 derives the canvas
 		// center) and part statics shadowed by their keyform tracks (import re-derives from the
 		// first form, so a disagreeing static cannot be stored independently).
@@ -125,13 +133,16 @@ class Cmo3ConversionRoundTripTest {
 				.content
 		val reparsed = org.umamo.format.cmo3.xml.XmlCodec.parse(writtenMainXml)
 		org.umamo.format.cmo3.Cmo3Author.completePrologue(reparsed)
+
 		if (!org.umamo.format.cmo3.xml.XmlCodec.write(reparsed).contentEquals(writtenMainXml)) {
 			failures.add("$label: written prologue is incomplete (completePrologue on the output is not a no-op)")
 		}
+
 		val reimportedSource =
 			Cmo3.read(written).root as? CModelSource
 				?: run {
 					failures.add("$label: re-read root is not a CModelSource")
+
 					return
 				}
 		checkDrawablesSampleTheAtlasPages(label, reimportedSource, failures)
@@ -140,6 +151,7 @@ class Cmo3ConversionRoundTripTest {
 		// round-trip target wherever twins existed.
 		val reimported = Cmo3Import.fromModelSource(reimportedSource)
 		val residual = org.umamo.interop.diffPuppetModels(reimported, result.puppet)
+
 		if (residual.isEmpty) {
 			return
 		}
@@ -150,6 +162,7 @@ class Cmo3ConversionRoundTripTest {
 		}
 		residual.parameters.forEach { failures.add("$label: parameter residue $it") }
 		residual.parameterGroups.forEach { failures.add("$label: group residue $it") }
+
 		for (entityDiff in residual.parts) {
 			// The statics-shadowed residue class: a static disagreeing with its track's head cell
 			// (noticed above) re-imports as the head value.
@@ -157,21 +170,27 @@ class Cmo3ConversionRoundTripTest {
 				failures.add("$label: part residue $entityDiff")
 			}
 		}
+
 		residual.glues.forEach { failures.add("$label: glue residue $it") }
+
 		for (entityDiff in residual.deformers) {
 			if (entityDiff !is EntityDiff.Changed || entityDiff.fields.any { field -> field.name !in setOf("GEOMETRY", "BLEND_SHAPES") }) {
 				failures.add("$label: deformer residue $entityDiff")
 			}
 		}
+
 		for (entityDiff in residual.drawables) {
 			// GEOMETRY / BLEND_SHAPES: each import takes its base from its own reference cell, so the
 			// re-imported deltas shift by the base difference; the absolute-geometry drift check below
 			// is what guards the semantics (base + delta is the render-visible invariant).
 			if (entityDiff !is EntityDiff.Changed || entityDiff.fields.any { field -> field.name !in setOf("GEOMETRY", "BLEND_SHAPES") }) {
 				failures.add("$label: drawable residue $entityDiff")
+
 				continue
 			}
+
 			val drift = maxGeometryDrift(result.puppet, reimported, entityDiff.id.raw)
+
 			if (drift > geometryDriftTolerance) {
 				failures.add("$label: drawable ${entityDiff.id.raw} geometry drifted by $drift")
 			}
@@ -203,9 +222,11 @@ class Cmo3ConversionRoundTripTest {
 				.elementsOf(textureManager._textureAtlases)
 				.filterIsInstance<org.umamo.format.cmo3.model.gen.CTextureAtlas>()
 				.mapNotNull { atlas -> atlas.cachedAtlasImage as? org.umamo.format.cmo3.model.custom.CImageResource }
+
 		if (pageResources.isEmpty()) {
 			return
 		}
+
 		val pageIdentities = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Any, Boolean>())
 		pageIdentities.addAll(pageResources)
 		// CMO3: CDrawableSourceSet field _sources -> CArtMeshSource field texture -> GTexture2D field
@@ -221,6 +242,7 @@ class Cmo3ConversionRoundTripTest {
 						?.srcImageResource as? org.umamo.format.cmo3.model.custom.CImageResource
 				sampled != null && sampled !in pageIdentities
 			}
+
 		if (strays.isNotEmpty()) {
 			failures.add(
 				"$label: ${strays.size} of ${meshes.size} drawables sample a resource that is not one of the " +
@@ -255,14 +277,17 @@ class Cmo3ConversionRoundTripTest {
 		val reimportedBase = reimportedDrawable.mesh?.localPositions ?: return 0f
 		val reimportedByCoordinate = reimportedGrid.cells.associate { cell -> cell.coordinate.toList() to cell.form.positionDeltas }
 		var maxDifference = 0f
+
 		for (cell in sourceGrid.cells) {
 			val reimportedDeltas = reimportedByCoordinate[cell.coordinate.toList()] ?: return Float.MAX_VALUE
+
 			for (component in cell.form.positionDeltas.indices) {
 				val sourceAbsolute = sourceBase.getOrElse(component) { 0f } + cell.form.positionDeltas[component]
 				val reimportedAbsolute = reimportedBase.getOrElse(component) { 0f } + reimportedDeltas.getOrElse(component) { 0f }
 				maxDifference = maxOf(maxDifference, abs(sourceAbsolute - reimportedAbsolute))
 			}
 		}
+
 		return maxDifference
 	}
 }

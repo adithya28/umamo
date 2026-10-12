@@ -72,6 +72,7 @@ fun Modifier.trackWindowGestures(
 	val latestCallback by rememberUpdatedState(onWindowChange)
 	val latestPanning by rememberUpdatedState(onPanningChange)
 	val labelWidthPx = with(density) { labelColumnWidth.toPx() }
+
 	return this
 		.pointerInput(labelWidthPx) {
 			awaitPointerEventScope {
@@ -80,24 +81,33 @@ fun Modifier.trackWindowGestures(
 					// would see the wheel only after the vertical scroll container had already claimed it, and
 					// Ctrl+wheel would zoom and scroll at once.
 					val event = awaitPointerEvent(PointerEventPass.Initial)
+
 					if (event.type != PointerEventType.Scroll) {
 						continue
 					}
+
 					val change = event.changes.firstOrNull() ?: continue
 					val laneWidth = size.width - labelWidthPx
+
 					if (change.position.x < labelWidthPx || laneWidth <= 0f) {
 						continue
 					}
+
 					val horizontal = change.scrollDelta.x
+
 					if (horizontal != 0f) {
 						latestCallback(latestWindow.pannedBy(horizontal * latestWindow.span * PAN_STEP))
 						change.consume()
+
 						continue
 					}
+
 					val scroll = change.scrollDelta.y
+
 					if (scroll == 0f) {
 						continue
 					}
+
 					when {
 						event.keyboardModifiers.isCtrlPressed -> {
 							val focus = ((change.position.x - labelWidthPx) / laneWidth).coerceIn(0f, 1f)
@@ -112,7 +122,9 @@ fun Modifier.trackWindowGestures(
 						}
 
 						// Anything else is the vertical scroll, which belongs to the scroll container.
-						else -> Unit
+						else -> {
+							Unit
+						}
 					}
 				}
 			}
@@ -126,24 +138,32 @@ fun Modifier.trackWindowGestures(
 					// resolve a down on that pass at all - it waits forever, so calling it here would silently
 					// hang.  contextMenuGesture watches the raw stream for the same reason.
 					val press = awaitPointerEvent(PointerEventPass.Initial)
+
 					if (press.type != PointerEventType.Press || !press.buttons.isTertiaryPressed) {
 						continue
 					}
+
 					val down = press.changes.first()
+
 					if (down.position.x < labelWidthPx) {
 						continue
 					}
+
 					down.consume()
 					latestPanning(true)
 					val laneWidth = size.width - labelWidthPx
 					var lastX = down.position.x
+
 					while (true) {
 						val event = awaitPointerEvent(PointerEventPass.Initial)
 						val change = event.changes.firstOrNull { candidate -> candidate.id == down.id } ?: break
+
 						if (!change.pressed) {
 							change.consume()
+
 							break
 						}
+
 						if (laneWidth > 0f && change.position.x != lastX) {
 							// Dragging right moves the CONTENT right, so the window moves left - the direct
 							// manipulation a hand tool has, not a scrollbar's inverted sense.
@@ -151,8 +171,10 @@ fun Modifier.trackWindowGestures(
 							latestCallback(latestWindow.pannedBy(-moved * latestWindow.span))
 							lastX = change.position.x
 						}
+
 						change.consume()
 					}
+
 					latestPanning(false)
 				}
 			}
@@ -180,9 +202,11 @@ fun TrackWindowScrollbar(
 	modifier: Modifier = Modifier,
 ) {
 	val colors = LocalUmamoColors.current
+
 	if (window.span >= 1f) {
 		return
 	}
+
 	val latestWindow by rememberUpdatedState(window)
 	val latestCallback by rememberUpdatedState(onWindowChange)
 	var trackWidth by remember { mutableStateOf(0) }

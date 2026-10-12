@@ -470,12 +470,14 @@ class EditorSessionTest {
 		fun undoResult(session: EditorSession): Unit? {
 			val before = session.model.value
 			session.undo()
+
 			return if (session.model.value === before) null else Unit
 		}
 
 		fun jumpResult(session: EditorSession, index: Int): Unit? {
 			val before = session.historyView.value.cursor
 			session.jumpTo(index)
+
 			return if (session.historyView.value.cursor == before) null else Unit
 		}
 	}

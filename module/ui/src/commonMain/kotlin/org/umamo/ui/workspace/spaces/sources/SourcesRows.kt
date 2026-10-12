@@ -30,15 +30,18 @@ internal fun flattenSources(nodes: List<SourcesNode>, isOpen: (String) -> Boolea
 
 	fun visit(node: SourcesNode, depth: Int) {
 		rows.add(SourcesRow(node, depth))
+
 		if (node.children.isNotEmpty() && isOpen(node.id)) {
 			for (child in node.children) {
 				visit(child, depth + 1)
 			}
 		}
 	}
+
 	for (node in nodes) {
 		visit(node, 0)
 	}
+
 	return rows
 }
 

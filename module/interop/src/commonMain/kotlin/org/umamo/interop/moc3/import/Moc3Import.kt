@@ -144,6 +144,7 @@ object Moc3Import {
 			} else {
 				withDeformerParts.copy(renderRoot = withDeformerParts.deriveRenderRoot())
 			}
+
 		return if (compactChannels) withRenderRoot.withChannelsCompacted() else withRenderRoot
 	}
 }

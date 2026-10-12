@@ -19,8 +19,10 @@ package org.umamo.format.raster
  */
 public fun RasterImage.unpremultiplyInPlace() {
 	var offset = 0
+
 	while (offset < rgba.size) {
 		val alpha = rgba[offset + 3].toInt() and 0xFF
+
 		if (alpha == 0) {
 			rgba[offset] = 0
 			rgba[offset + 1] = 0
@@ -30,6 +32,7 @@ public fun RasterImage.unpremultiplyInPlace() {
 			rgba[offset + 1] = unpremultiplied(rgba[offset + 1].toInt() and 0xFF, alpha).toByte()
 			rgba[offset + 2] = unpremultiplied(rgba[offset + 2].toInt() and 0xFF, alpha).toByte()
 		}
+
 		offset += 4
 	}
 }
@@ -43,6 +46,7 @@ public fun RasterImage.unpremultiplyInPlace() {
  */
 public fun RasterImage.setOpaqueAlphaInPlace() {
 	var alphaOffset = 3
+
 	while (alphaOffset < rgba.size) {
 		rgba[alphaOffset] = 0xFF.toByte()
 		alphaOffset += 4

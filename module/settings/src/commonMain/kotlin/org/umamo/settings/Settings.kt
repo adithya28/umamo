@@ -48,9 +48,11 @@ class Settings private constructor(
 	 */
 	fun get(key: String): JsonElement? {
 		var current: JsonElement = merged
+
 		for (segment in key.split('.')) {
 			current = (current as? JsonObject)?.get(segment) ?: return null
 		}
+
 		return current
 	}
 
@@ -114,6 +116,7 @@ class Settings private constructor(
 			val userFile = storage.configDirectory / fileName
 			val userText = storage.readText(userFile)
 			val user = userText?.let { parseObjectOrEmpty(it) } ?: JsonObject(emptyMap())
+
 			return Settings(storage, userFile, defaults, user, foundUserFile = userText != null)
 		}
 
@@ -124,6 +127,7 @@ class Settings private constructor(
 		/** Deep-merges [overlay] onto [base]: nested objects merge recursively; any other value is replaced. */
 		private fun deepMerge(base: JsonObject, overlay: JsonObject): JsonObject {
 			val result = base.toMutableMap()
+
 			for ((key, overlayValue) in overlay) {
 				val baseValue = result[key]
 				result[key] =
@@ -133,6 +137,7 @@ class Settings private constructor(
 						overlayValue
 					}
 			}
+
 			return JsonObject(result)
 		}
 
@@ -141,6 +146,7 @@ class Settings private constructor(
 			if (path.isEmpty()) {
 				return root
 			}
+
 			val head = path.first()
 			val child =
 				if (path.size == 1) {
@@ -148,6 +154,7 @@ class Settings private constructor(
 				} else {
 					putAtPath(root[head] as? JsonObject ?: JsonObject(emptyMap()), path.drop(1), value)
 				}
+
 			return JsonObject(root.toMutableMap().apply { put(head, child) })
 		}
 	}

@@ -151,6 +151,7 @@ class GpuGlueValidationTest {
 			} else {
 				emptyList()
 			}
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),
@@ -299,11 +300,13 @@ class GpuGlueValidationTest {
 		var minX = Float.MAX_VALUE
 		var maxX = -Float.MAX_VALUE
 		var coordIndex = 0
+
 		while (coordIndex < world.size) {
 			minX = minOf(minX, world[coordIndex])
 			maxX = maxOf(maxX, world[coordIndex])
 			coordIndex += 2
 		}
+
 		// The rightmost COVERED column is the last one inside the edge, hence the -1 against the exclusive edge.
 		return worldXToColumn(minX) to worldXToColumn(maxX) - 1
 	}
@@ -341,13 +344,16 @@ class GpuGlueValidationTest {
 		GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer)
 		renderer.render(target, viewportSize, viewportSize)
 		val before = scanExtent(readPixels(viewportSize, viewportSize))
+
 		if (edited == null) {
 			return before to before
 		}
+
 		renderer.updateModel(edited)
 		renderer.setPose(emptyMap())
 		renderer.render(target, viewportSize, viewportSize)
 		GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer)
+
 		return before to scanExtent(readPixels(viewportSize, viewportSize))
 	}
 
@@ -362,6 +368,7 @@ class GpuGlueValidationTest {
 		val row = viewportSize / 2
 		val artColumns = (0 until viewportSize).filter { isArt(frame, it, row) }
 		check(artColumns.isNotEmpty()) { "the probe drew nothing at all - mesh B never reached the framebuffer" }
+
 		return artColumns.first() to artColumns.last()
 	}
 
@@ -371,6 +378,7 @@ class GpuGlueValidationTest {
 		val red = frame.get(pixel).toInt() and 0xFF
 		val green = frame.get(pixel + 1).toInt() and 0xFF
 		val blue = frame.get(pixel + 2).toInt() and 0xFF
+
 		return maxOf(red, green, blue) > 24
 	}
 
@@ -378,6 +386,7 @@ class GpuGlueValidationTest {
 	private fun readPixels(width: Int, height: Int): ByteBuffer {
 		val buffer = BufferUtils.createByteBuffer(width * height * 4)
 		GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer)
+
 		return buffer
 	}
 }

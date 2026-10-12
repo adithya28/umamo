@@ -57,27 +57,36 @@ public data class WeightedCell(val linearIndex: Int, val weight: Float)
  */
 public fun bindBracket(keys: FloatArray, value: Float): AxisBracket? {
 	val keyCount = keys.size
+
 	if (keyCount <= 1) {
 		if (keyCount == 0) {
 			return AxisBracket(0, 0f)
 		}
+
 		return if (value > keys[0] - EPS_KEY && value < keys[0] + EPS_KEY) AxisBracket(0, 0f) else null
 	}
+
 	if (value < keys[0] - EPS_KEY || value >= keys[keyCount - 1] + EPS_KEY) {
 		return null
 	}
+
 	if (value < keys[0] + EPS_KEY) {
 		return AxisBracket(0, 0f)
 	}
+
 	var hi = 1
+
 	while (hi < keyCount && keys[hi] + EPS_KEY <= value) {
 		hi++
 	}
+
 	if (value <= keys[hi] - EPS_KEY) {
 		val span = keys[hi] - keys[hi - 1]
 		val fraction = if (span >= EPS_SPAN) (value - keys[hi - 1]) / span else 0f
+
 		return AxisBracket(hi - 1, fraction)
 	}
+
 	return AxisBracket(hi, 0f)
 }
 
@@ -94,11 +103,14 @@ public fun bindBracket(keys: FloatArray, value: Float): AxisBracket? {
 public fun gridCorners(grid: KeyformGrid<*>, paramValue: (ParameterId) -> Float): List<WeightedCell>? {
 	var corners = mutableListOf(WeightedCell(0, 1f))
 	var stride = 1
+
 	for (axis in grid.axes) {
 		val bracket = bindBracket(axis.keys, paramValue(axis.parameterId)) ?: return null
 		val split = bracket.fraction > 0f && corners.size * 2 <= MAX_CORNERS
+
 		if (split) {
 			val next = ArrayList<WeightedCell>(corners.size * 2)
+
 			for (corner in corners) {
 				next.add(
 					WeightedCell(
@@ -113,6 +125,7 @@ public fun gridCorners(grid: KeyformGrid<*>, paramValue: (ParameterId) -> Float)
 					),
 				)
 			}
+
 			corners = next
 		} else {
 			// Snap (on a key, or over the corner budget): every corner takes the lower key, weight kept.
@@ -121,8 +134,10 @@ public fun gridCorners(grid: KeyformGrid<*>, paramValue: (ParameterId) -> Float)
 				corners[cornerIndex] = WeightedCell(corner.linearIndex + bracket.index * stride, corner.weight)
 			}
 		}
+
 		stride *= axis.keys.size
 	}
+
 	return corners
 }
 
@@ -153,18 +168,22 @@ public fun <TForm> referenceCellOf(grid: KeyformGrid<TForm>, defaultOf: (Paramet
 	if (grid.cells.isEmpty()) {
 		return null
 	}
+
 	val coordinate =
 		IntArray(grid.axes.size) { axisIndex ->
 			val axis = grid.axes[axisIndex]
 			val defaultValue = defaultOf(axis.parameterId)
 			var nearestKey = 0
+
 			for (keyIndex in axis.keys.indices) {
 				if (kotlin.math.abs(axis.keys[keyIndex] - defaultValue) < kotlin.math.abs(axis.keys[nearestKey] - defaultValue)) {
 					nearestKey = keyIndex
 				}
 			}
+
 			nearestKey
 		}
+
 	return cellsByLinearIndex(grid)[grid.linearIndexOf(coordinate)] ?: grid.cells.first()
 }
 
@@ -188,9 +207,11 @@ public fun <TForm> keyformBaseOf(
 ): FloatArray {
 	val reference = grid?.let { keyedGrid -> referenceCellOf(keyedGrid, defaultOf) } ?: return canvas
 	val absolute = absoluteOf(reference.form)
+
 	if (absolute.size != canvas.size || absolute.contentEquals(canvas)) {
 		return canvas
 	}
+
 	return absolute.copyOf()
 }
 
@@ -210,12 +231,15 @@ public fun meshGridDefaultDeltas(drawable: Drawable, defaultValue: (ParameterId)
 	val defaultCorners = gridCorners(grid, defaultValue) ?: return null
 	val deltas = FloatArray(grid.cells.firstOrNull()?.form?.positionDeltas?.size ?: 0)
 	val byLinearIndex = cellsByLinearIndex(grid)
+
 	for (corner in defaultCorners) {
 		val form = byLinearIndex[corner.linearIndex]?.form ?: continue
+
 		for (componentIndex in deltas.indices) {
 			deltas[componentIndex] += corner.weight * form.positionDeltas[componentIndex]
 		}
 	}
+
 	return deltas
 }
 
@@ -231,16 +255,20 @@ public fun warpControlPointsAt(grid: KeyformGrid<WarpLatticeForm>?, paramValue: 
 	if (grid == null) {
 		return null
 	}
+
 	val corners = gridCorners(grid, paramValue) ?: return null
 	val byLinearIndex = cellsByLinearIndex(grid)
 	var blended: FloatArray? = null
+
 	for (corner in corners) {
 		val form = byLinearIndex[corner.linearIndex]?.form ?: continue
 		val target = blended ?: FloatArray(form.controlPoints.size).also { blended = it }
+
 		for (componentIndex in target.indices) {
 			target[componentIndex] += corner.weight * form.controlPoints[componentIndex]
 		}
 	}
+
 	return blended
 }
 
@@ -258,6 +286,7 @@ public fun rotationFormAt(grid: KeyformGrid<RotationPivotForm>?, paramValue: (Pa
 	if (grid == null) {
 		return null
 	}
+
 	val corners = gridCorners(grid, paramValue) ?: return null
 	val byLinearIndex = cellsByLinearIndex(grid)
 	var originX = 0f
@@ -265,6 +294,7 @@ public fun rotationFormAt(grid: KeyformGrid<RotationPivotForm>?, paramValue: (Pa
 	var angle = 0f
 	var scale = 0f
 	var resolvedAnyCell = false
+
 	for (corner in corners) {
 		val form = byLinearIndex[corner.linearIndex]?.form ?: continue
 		resolvedAnyCell = true
@@ -273,8 +303,10 @@ public fun rotationFormAt(grid: KeyformGrid<RotationPivotForm>?, paramValue: (Pa
 		angle += corner.weight * form.angle
 		scale += corner.weight * form.scale
 	}
+
 	if (!resolvedAnyCell) {
 		return null
 	}
+
 	return RotationPivotForm(originX, originY, angle, scale)
 }

@@ -30,6 +30,7 @@ internal fun countingGizmoRuns(
 ) {
 	val counter = ComposableRunCounter(packagePrefix, fixtureFunction)
 	Composer.setTracer(counter)
+
 	try {
 		runComposeUiTest { body(counter) }
 	} finally {

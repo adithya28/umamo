@@ -46,13 +46,17 @@ public object MocCodec {
 		val reader = LittleEndianReader(bytes)
 		reader.seek(0x40)
 		val offsets = ArrayList<Int>()
+
 		while (reader.position + 4 <= bytes.size) {
 			val value = reader.readU32()
+
 			if (value == 0L) {
 				break
 			}
+
 			offsets.add(value.toInt())
 		}
+
 		require(offsets.isNotEmpty()) { "moc3 has no sections" }
 
 		val sectionCount = offsets.size
@@ -65,6 +69,7 @@ public object MocCodec {
 				}
 				bytes.copyOfRange(start, end)
 			}
+
 		return MocModel(bytes.copyOfRange(0, HEADER_SIZE), offsets.toIntArray(), sections)
 	}
 
@@ -86,6 +91,7 @@ public object MocCodec {
 		for (offset in model.offsets) writer.writeInt32(offset)
 		writer.zeroPad(firstOffset - writer.position) // pad header+table region up to the data region
 		for (section in model.rawSections) writer.writeBytes(section)
+
 		return writer.toByteArray()
 	}
 }

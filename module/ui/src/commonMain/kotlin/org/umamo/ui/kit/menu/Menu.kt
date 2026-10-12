@@ -170,6 +170,7 @@ private fun MenuPanel(items: List<MenuItem>, dismissRoot: () -> Unit, modifier: 
 					}
 				}
 			}
+
 			// A popup is measured against the window, so its incoming max height IS the window height: cap the
 			// rows to that minus a margin and only then scroll.  A long-but-fitting menu (the blend modes) shows
 			// in full instead of being cut off at an arbitrary constant.
@@ -191,7 +192,7 @@ private fun MenuPanel(items: List<MenuItem>, dismissRoot: () -> Unit, modifier: 
 						Column(modifier = modifier.then(rowColumnWidth).padding(vertical = 2.dp)) {
 							rows.forEachIndexed { index, item ->
 								when (item) {
-									is MenuItem.Action ->
+									is MenuItem.Action -> {
 										MenuActionRow(
 											item = item,
 											reserveIconSlot = reserveIconSlot,
@@ -200,10 +201,17 @@ private fun MenuPanel(items: List<MenuItem>, dismissRoot: () -> Unit, modifier: 
 												dismissRoot()
 											},
 										)
+									}
 
-									is MenuItem.Separator -> MenuSeparatorRow()
-									is MenuItem.Heading -> MenuHeadingRow(item)
-									is MenuItem.Submenu ->
+									is MenuItem.Separator -> {
+										MenuSeparatorRow()
+									}
+
+									is MenuItem.Heading -> {
+										MenuHeadingRow(item)
+									}
+
+									is MenuItem.Submenu -> {
 										MenuSubmenuRow(
 											item = item,
 											reserveIconSlot = reserveIconSlot,
@@ -216,8 +224,11 @@ private fun MenuPanel(items: List<MenuItem>, dismissRoot: () -> Unit, modifier: 
 											},
 											dismissRoot = dismissRoot,
 										)
+									}
 
-									is MenuItem.Search -> Unit
+									is MenuItem.Search -> {
+										Unit
+									}
 								}
 							}
 						}
@@ -312,6 +323,7 @@ private fun MenuActionRow(item: MenuItem.Action, reserveIconSlot: Boolean, onCli
 		} else if (reserveIconSlot) {
 			Spacer(modifier = Modifier.width(MENU_ICON_SIZE + MENU_ICON_LABEL_GAP))
 		}
+
 		// One line, ellipsized, and the row's slack is the label's: a fixed-width menu (one with a search
 		// box) must never wrap a long layer name, and the shortcut stays at the row's end.  A hugging menu
 		// is as wide as its widest row, so nothing changes there.
@@ -323,6 +335,7 @@ private fun MenuActionRow(item: MenuItem.Action, reserveIconSlot: Boolean, onCli
 			overflow = TextOverflow.Ellipsis,
 			modifier = Modifier.weight(1f),
 		)
+
 		if (item.shortcut != null) {
 			Spacer(modifier = Modifier.width(ROW_TRAILING_GAP))
 			Text(text = item.shortcut, style = typography.labelSmall, color = colors.textMuted)
@@ -378,6 +391,7 @@ private fun MenuSubmenuRow(
 	LaunchedEffect(rowHovered, flyoutHovered) {
 		if (!rowHovered && !flyoutHovered) {
 			delay(SUBMENU_CLOSE_GRACE_MS)
+
 			if (!rowHovered && !flyoutHovered) {
 				onRequestClose()
 			}
@@ -418,6 +432,7 @@ private fun MenuSubmenuRow(
 			if (reserveIconSlot) {
 				Spacer(modifier = Modifier.width(MENU_ICON_SIZE + MENU_ICON_LABEL_GAP))
 			}
+
 			Text(
 				text = item.label,
 				style = typography.labelMedium,
@@ -427,6 +442,7 @@ private fun MenuSubmenuRow(
 			Spacer(modifier = Modifier.width(ROW_TRAILING_GAP))
 			Text(text = "▸", style = typography.labelMedium, color = colors.textMuted)
 		}
+
 		if (expanded) {
 			Popup(
 				popupPositionProvider = SubmenuPositionProvider,
@@ -461,6 +477,7 @@ private object SubmenuPositionProvider : PopupPositionProvider {
 				max(0, anchorBounds.left - popupContentSize.width)
 			}
 		val top = anchorBounds.top.coerceIn(0, max(0, windowSize.height - popupContentSize.height))
+
 		return IntOffset(left, top)
 	}
 }

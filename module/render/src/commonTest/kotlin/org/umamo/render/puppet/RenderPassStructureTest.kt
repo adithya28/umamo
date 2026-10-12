@@ -193,6 +193,7 @@ class RenderPassStructureTest {
 		renderer.initGl()
 		renderer.setCamera(ViewportCamera(0f, 0f, 1f))
 		renderer.setPose(emptyMap())
+
 		return renderer
 	}
 
@@ -217,6 +218,7 @@ class RenderPassStructureTest {
 		val target = mainTarget(device)
 		device.clearLog()
 		renderer.render(target, viewportSize, viewportSize)
+
 		return device to target
 	}
 
@@ -247,9 +249,17 @@ class RenderPassStructureTest {
 					"pass $role ${step.spec.loadAction} scissor=${step.spec.scissor}${if (step.spec.drawOrderTarget != null) (if (step.spec.clearDrawOrder) " order=clear" else " order") else ""} [$draws]"
 				}
 
-				is RecordedResolve -> "copy region=${step.region}"
-				is RecordedCapturePass -> "capture ${step.captures.size}"
-				is RecordedBarrier -> "barrier"
+				is RecordedResolve -> {
+					"copy region=${step.region}"
+				}
+
+				is RecordedCapturePass -> {
+					"capture ${step.captures.size}"
+				}
+
+				is RecordedBarrier -> {
+					"barrier"
+				}
 			}
 		}
 
@@ -1464,13 +1474,17 @@ class RenderPassStructureTest {
 			selectMode,
 			ids.map { id ->
 				val vertexFlags = ByteArray(vertexCount)
+
 				if (activeVertex != null) {
 					vertexFlags[activeVertex] = OVERLAY_FLAG_ACTIVE
 				}
+
 				val edgeFlags = ByteArray(quadEdges.size / 2)
+
 				if (activeEdge != null) {
 					edgeFlags[activeEdge] = OVERLAY_FLAG_ACTIVE
 				}
+
 				MeshOverlayMesh(DrawableId(id), vertexCount, quadEdges, vertexFlags, edgeFlags, ByteArray(2), activeVertex, activeEdge, null, wireframeOnly = id in wireframeOnly)
 			},
 			MeshOverlaySizes(3.5f, 1f, 2.5f),
@@ -1545,6 +1559,7 @@ class RenderPassStructureTest {
 		renderer.setMeshOverlay(overlay)
 		device.clearLog()
 		renderer.render(target, viewportSize, viewportSize, overlays = overlays)
+
 		return device.overlayDraws()
 	}
 }

@@ -35,9 +35,12 @@ internal class MeshElementMemory {
 		if (current.drawableIds.isEmpty()) {
 			return
 		}
+
 		rememberedSelectMode = current.selectMode
+
 		for (drawableId in current.drawableIds) {
 			val elements = current.elementsOf(drawableId)
+
 			if (elements.isEmpty()) {
 				rememberedElementsByDrawable.remove(drawableId)
 				rememberedActiveElementByDrawable.remove(drawableId)
@@ -45,6 +48,7 @@ internal class MeshElementMemory {
 				rememberedElementsByDrawable[drawableId] = elements
 			}
 		}
+
 		current.activeElement?.let { active -> rememberedActiveElementByDrawable[active.drawableId] = active.element }
 	}
 
@@ -80,9 +84,11 @@ internal class MeshElementMemory {
 				val fits = MeshSelectionOps.fitsWithinMeshes(probe) { candidateId -> model.meshOf(candidateId) }
 				if (fits) drawableId to stored else null
 			}.toMap()
+
 		if (restored.isEmpty()) {
 			return seeded
 		}
+
 		// The active mesh's remembered active element returns with it (when it is still selected there).
 		val restoredActive =
 			seeded.activeDrawableId?.let { activeId ->
@@ -90,6 +96,7 @@ internal class MeshElementMemory {
 					?.takeIf { element -> restored[activeId]?.contains(element) == true }
 					?.let { element -> ActiveMeshElement(activeId, element) }
 			}
+
 		return seeded.copy(
 			selectMode = rememberedSelectMode ?: seeded.selectMode,
 			elementsByDrawable = restored,

@@ -38,6 +38,7 @@ class AtlasRepackMeshDisjointTest {
 		fun intersectionArea(other: Rect): Float {
 			val width = min(right, other.right) - max(left, other.left)
 			val height = min(bottom, other.bottom) - max(top, other.top)
+
 			return if (width > 0f && height > 0f) width * height else 0f
 		}
 
@@ -51,19 +52,23 @@ class AtlasRepackMeshDisjointTest {
 	private fun meshFootprintsByTile(model: PuppetModel): Map<AtlasTileId, Pair<Int, Rect>> {
 		val tileById = model.atlas.tiles.associateBy { tile -> tile.id }
 		val footprints = HashMap<AtlasTileId, Pair<Int, Rect>>()
+
 		for (drawable in model.drawables) {
 			val tileId = drawable.atlasTileId ?: continue
 			val placement = tileById[tileId]?.placement ?: continue
 			val page = model.atlas.pages.getOrNull(placement.pageIndex) ?: continue
 			val uvs = drawable.mesh?.uvs ?: continue
+
 			if (uvs.size < 2) {
 				continue
 			}
+
 			var minU = Float.MAX_VALUE
 			var maxU = -Float.MAX_VALUE
 			var minV = Float.MAX_VALUE
 			var maxV = -Float.MAX_VALUE
 			var componentIndex = 0
+
 			while (componentIndex + 1 < uvs.size) {
 				minU = min(minU, uvs[componentIndex])
 				maxU = max(maxU, uvs[componentIndex])
@@ -71,27 +76,35 @@ class AtlasRepackMeshDisjointTest {
 				maxV = max(maxV, uvs[componentIndex + 1])
 				componentIndex += 2
 			}
+
 			val bounds = Rect(minU * page.width, minV * page.height, maxU * page.width, maxV * page.height)
 			val existing = footprints[tileId]
 			footprints[tileId] = placement.pageIndex to (existing?.second?.union(bounds) ?: bounds)
 		}
+
 		return footprints
 	}
 
 	@Test
 	fun repackedMeshFootprintsAreDisjointAndOnThePage() {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.sample not present; skipping the repack mesh-disjointness gate")
+
 			return
 		}
+
 		val cmo3 = Cmo3.read(file.readBytes())
 		val root = cmo3.root as? CModelSource ?: error("root is not a CModelSource")
 		val imported = Cmo3Import.fromModelSource(root)
+
 		if (imported.atlas.tiles.isEmpty() || !imported.atlas.storedUvsAddressPages) {
 			println("${file.name} is not repackable; skipping the mesh-disjointness gate")
+
 			return
 		}
+
 		val ingest = cmo3AtlasIngest(root)
 		val decodeRaster = { tileId: AtlasTileId ->
 			ingest.imageResourceByTile[tileId]?.let(cmo3::extractLayerPng)?.let { bytes ->
@@ -111,23 +124,29 @@ class AtlasRepackMeshDisjointTest {
 		)
 		val packedByKey = packResult.placements.associateBy { placement -> placement.key }
 		val placements = HashMap<AtlasTileId, AtlasPlacement?>()
+
 		for (tile in imported.atlas.tiles) {
 			placements[tile.id] = packedByKey[tile.id.raw]?.let { packed -> atlasPlacementFromPack(packed) }
 		}
+
 		val repacked =
 			imported.withAtlasRepack(packResult.pages.map { page -> AtlasPage(page.width, page.height) }, placements)
 
 		val tileNames = imported.atlas.tiles.associateBy({ tile -> tile.id }, { tile -> tile.name })
 		val footprints = meshFootprintsByTile(repacked).entries.toList()
 		val overlaps = ArrayList<String>()
+
 		for (firstIndex in footprints.indices) {
 			for (secondIndex in firstIndex + 1 until footprints.size) {
 				val (firstPage, firstRect) = footprints[firstIndex].value
 				val (secondPage, secondRect) = footprints[secondIndex].value
+
 				if (firstPage != secondPage) {
 					continue
 				}
+
 				val area = firstRect.intersectionArea(secondRect)
+
 				if (area > 0f) {
 					overlaps.add(
 						"'${tileNames[footprints[firstIndex].key]}' x '${tileNames[footprints[secondIndex].key]}'" +
@@ -136,14 +155,18 @@ class AtlasRepackMeshDisjointTest {
 				}
 			}
 		}
+
 		val offPage = ArrayList<String>()
+
 		for ((tileId, footprint) in footprints.map { entry -> entry.key to entry.value }) {
 			val (pageIndex, rect) = footprint
 			val page = repacked.atlas.pages[pageIndex]
+
 			if (rect.left < 0f || rect.top < 0f || rect.right > page.width || rect.bottom > page.height) {
 				offPage.add("'${tileNames[tileId]}' $rect off the ${page.width}x${page.height} page")
 			}
 		}
+
 		println(
 			"[repack-gate] ${footprints.size} mesh footprints on ${packResult.pages.size} page(s), " +
 				"${overlaps.size} overlap(s), ${offPage.size} off-page",

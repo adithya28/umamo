@@ -188,11 +188,15 @@ internal class OffscreenRenderEngine(
 			// ends holding nothing, whatever backend it ran.
 			context.destroy()
 			snapshots.close()
+
 			return
 		}
+
 		UmamoLog.info("[GL] offscreen via ${context.backendName}: ${context.describeContext()}")
+
 		try {
 			renderer.initGl()
+
 			while (running) {
 				readbacks.collect(registry.areas)
 				applyHandoffs()
@@ -200,6 +204,7 @@ internal class OffscreenRenderEngine(
 				// to render.
 				serveSnapshots()
 				val pendingWork = scheduleAreas()
+
 				if (!pendingWork) {
 					Thread.sleep(IDLE_MILLIS)
 				} else if (readbacks.hasPending) {
@@ -240,11 +245,13 @@ internal class OffscreenRenderEngine(
 		// compared by identity: it is published whole, so a new reference IS the change.
 		var artworkApplied = false
 		val layerPlan = inputs.sourceLayerPlan
+
 		if (layerPlan !== lastLayerPlan) {
 			renderer.setSourceLayerPlan(layerPlan)
 			lastLayerPlan = layerPlan
 			artworkApplied = true
 		}
+
 		// Then any decoded pixels that arrived since the last frame.  Drained rather than sampled:
 		// the producer chunks its deliveries so visible art lands first, and skipping a batch would
 		// strand whatever it carried on the atlas until the working set happened to move again.
@@ -253,12 +260,14 @@ internal class OffscreenRenderEngine(
 			renderer.deliverSourceLayerRasters(batch)
 			artworkApplied = true
 		}
+
 		// Bumped HERE, at apply, as the pages are: a bump at publish could land after this hand-off read
 		// the plan and the queue, so an area would stamp itself fresh over a frame of the outgoing art and
 		// never re-render once the new art is applied.
 		if (artworkApplied) {
 			paramsVersion++
 		}
+
 		// Rebuild the pose - and thus the draw list, which setPose filters by the shown set and sorts by
 		// the render order - when the pose, the visibility cascade, OR the render order changes. A
 		// visibility toggle or a layer reorder leaves the params untouched, so without these checks the
@@ -270,18 +279,22 @@ internal class OffscreenRenderEngine(
 		val overrides = liveParams.channelOverrides
 		val modelChanged = orderModel !== lastModel
 		val poseInputsChanged = params !== lastParams || overrides !== lastOverrides || shown !== lastShown
+
 		if (poseInputsChanged || modelChanged) {
 			renderer.setShownDrawables(shown)
 			var modelUpdate: ModelUpdateKind? = null
+
 			if (modelChanged) {
 				// Re-point the renderer at the edited model so the next setPose re-derives the draw order
 				// and (for a deformer reparent) the deform chain.
 				modelUpdate = renderer.updateModel(orderModel)
 				lastModel = orderModel
 			}
+
 			if (poseFollowsHandoff(poseInputsChanged, modelUpdate)) {
 				renderer.setPose(params, overrides)
 			}
+
 			lastParams = params
 			lastOverrides = overrides
 			lastShown = shown
@@ -321,28 +334,37 @@ internal class OffscreenRenderEngine(
 		val tick = RenderTick(paramsVersion, settleScale, interactiveScale, nowNanos)
 		// A UV area that closed, or now shows the puppet, gives its overlay store and buffers back.
 		renderer.retainUvScenes(isLiveUvArea)
+
 		for ((areaId, slot) in registry.areas) {
 			val width = slot.width
 			val height = slot.height
+
 			if (width <= 0 || height <= 0) {
 				continue
 			}
+
 			// Before the in-flight gate: a size that changes during a read-back still restarts the
 			// settle window.
 			observeAreaSize(slot, width, height, nowNanos)
+
 			if (slot.inFlight) {
 				pendingWork = true
+
 				continue // one read-back per area in flight; coalesces a flurry of slider moves
 			}
+
 			// Establish or refit the camera now that the size is known - the render thread owns the
 			// content bounds; the registry restores a remembered camera or fits fresh, and swaps a UV
 			// area's view when the page or layer it shows has changed.
 			val camera = registry.establishCamera(slot, areaId, width, height) { scene, content -> contentBoundsFor(scene, content) }
+
 			// The decision is pure and tested (decideAreaRender); this block only carries it out.
 			// The render versions are read here, per area, so a bump landing mid-pass reaches the areas
 			// judged after it.
 			when (val decision = decideAreaRender(slot, width, height, camera, tick, inputs.puppetRenderBump, inputs.atlasRenderBump)) {
-				AreaRenderDecision.Fresh -> continue
+				AreaRenderDecision.Fresh -> {
+					continue
+				}
 
 				AreaRenderDecision.Deferred -> {
 					// Deliberately NOT pendingWork: with no read-back in flight the loop then sleeps
@@ -356,11 +378,13 @@ internal class OffscreenRenderEngine(
 					if (width != slot.renderedWidth || height != slot.renderedHeight) {
 						slot.resizeRenderNanos = nowNanos
 					}
+
 					issueRender(areaId, slot, width, height, camera, decision.scale)
 					pendingWork = true
 				}
 			}
 		}
+
 		return pendingWork
 	}
 
@@ -424,16 +448,20 @@ internal class OffscreenRenderEngine(
 		// the stamp below would let a switch land in between and mark the frame fresh for content it does
 		// not show.
 		val uvContent = slot.uvContent
+
 		when (slot.scene) {
-			RenderScene.Puppet2D -> renderer.render(drawTarget, renderWidth, renderHeight, overlays = overlays.frame)
+			RenderScene.Puppet2D -> {
+				renderer.render(drawTarget, renderWidth, renderHeight, overlays = overlays.frame)
+			}
+
 			// A UV area draws its flat surface and the overlay its content carries instead; the pose / selection /
 			// shown state pushed above are harmless no-ops for it (no UV draw reads any of them).  The overlay's
 			// positions upload into the area's own store, keyed by the area id.
-			RenderScene.UvScene ->
+			RenderScene.UvScene -> {
 				when (uvContent) {
 					// An atlas page the engine already uploaded, addressed by index.
 					// Its placement preview goes through the ghost rule against the pages applied right now.
-					is UvSceneContent.AtlasPage ->
+					is UvSceneContent.AtlasPage -> {
 						renderer.renderAtlasPage(
 							drawTarget,
 							uvContent.pageIndex,
@@ -444,12 +472,19 @@ internal class OffscreenRenderEngine(
 							placementToDraw(uvContent.placement, appliedAtlasBinding.atlas),
 							overlays.frame,
 						)
+					}
+
 					// Artwork the engine has never uploaded, so the renderer takes the pixels rather than an
 					// index and caches the texture it makes from them.
-					is UvSceneContent.SourceLayer ->
+					is UvSceneContent.SourceLayer -> {
 						renderer.renderUnderlayImage(drawTarget, uvContent.image, renderWidth, renderHeight, areaId, uvContent.overlay, overlays.frame)
-					null -> renderer.renderAtlasPage(drawTarget, null, renderWidth, renderHeight, areaId, null, null, overlays.frame)
+					}
+
+					null -> {
+						renderer.renderAtlasPage(drawTarget, null, renderWidth, renderHeight, areaId, null, null, overlays.frame)
+					}
 				}
+			}
 		}
 
 		surface.resolve()

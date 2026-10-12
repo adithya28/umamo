@@ -60,6 +60,7 @@ class Cmo3UnpackedDrawableProbeTest {
 		// CMO3: CModelSource field textureManager -> CTextureManager field _modelImageGroups ->
 		// CModelImageGroup field _modelImages.
 		val textureManager = root.textureManager as? CTextureManager ?: return emptyMap()
+
 		return Cmo3Import.elementsOf(textureManager._modelImageGroups)
 			.filterIsInstance<CModelImageGroup>()
 			.flatMap { group -> Cmo3Import.elementsOf(group._modelImages).filterIsInstance<CModelImage>() }
@@ -81,6 +82,7 @@ class Cmo3UnpackedDrawableProbeTest {
 	private fun isPaddingScale(affine: CAffine, width: Int, height: Int): Boolean {
 		val expected = Cmo3ImageChainBuilder.paddedFrameAffine(width, height)
 		val tolerance = 4 * Math.ulp(1f)
+
 		return kotlin.math.abs(affine.m00 - expected.m00) <= tolerance &&
 			affine.m01 == 0f &&
 			affine.m02 == 0f &&
@@ -92,10 +94,13 @@ class Cmo3UnpackedDrawableProbeTest {
 	@Test
 	fun surveysDrawablesThatWereNeverPacked() {
 		val files = corpusFiles()
+
 		if (files.isEmpty()) {
 			println("cmo3.probe lists no readable samples; skipping the unpacked-drawable probe")
+
 			return
 		}
+
 		val shapeCounts = sortedMapOf<String, Int>()
 		val examples = mutableListOf<String>()
 		val otherAffines = mutableListOf<String>()
@@ -104,6 +109,7 @@ class Cmo3UnpackedDrawableProbeTest {
 		var uvsOutsideCacheArt = 0
 		var modelImagesWithSeveralDrawables = 0
 		var modelImagesWithSeveralTextures = 0
+
 		for (file in files) {
 			val root = Cmo3.read(file).root as? CModelSource ?: continue
 			val frames = Cmo3TextureFrames(root)
@@ -113,15 +119,19 @@ class Cmo3UnpackedDrawableProbeTest {
 			var fileUnpacked = 0
 			// CMO3: CModelSource field drawableSourceSet -> CDrawableSourceSet field _sources.
 			val meshes = Cmo3Import.elementsOf((root.drawableSourceSet as? CDrawableSourceSet)?._sources).filterIsInstance<CArtMeshSource>()
+
 			for (mesh in meshes) {
 				// CMO3: CArtMeshSource field _extensions -> CTextureInputExtension fields _textureInputs /
 				// currentTextureInputData.
 				val extension = Cmo3Import.elementsOf(mesh._extensions).filterIsInstance<CTextureInputExtension>().firstOrNull()
 				val inputs = Cmo3Import.elementsOf(extension?._textureInputs)
+
 				if (inputs.any { input -> input is CTextureInput_TextureAtlasRegion }) {
 					packedCount++
+
 					continue
 				}
+
 				unpackedCount++
 				fileUnpacked++
 				val modelImageGuid = inputs.filterIsInstance<CTextureInput_ModelImage>().firstOrNull()?.let { input -> Cmo3Import.uuidOf(input._modelImageGuid) }
@@ -165,41 +175,53 @@ class Cmo3UnpackedDrawableProbeTest {
 						"premultiplied=${texture?.isPremultiplied}",
 					).joinToString(" ")
 				shapeCounts[shape] = (shapeCounts[shape] ?: 0) + 1
+
 				if (affineKind == "other") {
 					otherAffines.add(
 						"${file.name} ${(mesh.id as? Id)?.idstr} affine=(${affine?.m00}, ${affine?.m01}, ${affine?.m02}, ${affine?.m10}, ${affine?.m11}, ${affine?.m12}) " +
 							"raster=${raster?.width}x${raster?.height} sampled=${sampled?.width}x${sampled?.height}",
 					)
 				}
+
 				if (examples.size < 12) {
 					examples.add("${file.name} ${(mesh.id as? Id)?.idstr} texture='${texture?.name}' modelImage='${modelImage?.name}' guidNote='${(texture?.guid as? Guid)?.note}'")
 				}
+
 				// CMO3: CArtMeshSource field uvs - stored in the cache frame, whose art spans [0, padding scale].
 				val uvs = mesh.uvs as? FloatArray
+
 				if (uvs != null && affine != null) {
 					val slack = 1e-3f
 					var componentIndex = 0
+
 					while (componentIndex + 1 < uvs.size) {
 						if (uvs[componentIndex] > affine.m00 + slack || uvs[componentIndex + 1] > affine.m11 + slack) {
 							uvsOutsideCacheArt++
+
 							break
 						}
+
 						componentIndex += 2
 					}
 				}
+
 				if (modelImageGuid != null && texture != null) {
 					texturesByModelImage.getOrPut(modelImageGuid) { java.util.Collections.newSetFromMap(IdentityHashMap()) }.add(texture)
 					drawablesByModelImage[modelImageGuid] = (drawablesByModelImage[modelImageGuid] ?: 0) + 1
 				}
 			}
+
 			modelImagesWithSeveralDrawables += drawablesByModelImage.count { (_, count) -> count > 1 }
 			modelImagesWithSeveralTextures += texturesByModelImage.count { (_, textures) -> textures.size > 1 }
 			println("unpacked drawables: ${file.name} -> $fileUnpacked of ${meshes.size}")
 		}
+
 		println("unpacked drawables: $unpackedCount unpacked, $packedCount packed, across ${files.size} files")
+
 		for ((shape, count) in shapeCounts) {
 			println("  $count x $shape")
 		}
+
 		examples.forEach { example -> println("  e.g. $example") }
 		otherAffines.forEach { line -> println("  affine not the raster's padding: $line") }
 		println("  stored uvs past the cache frame's art: $uvsOutsideCacheArt drawables")

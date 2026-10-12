@@ -25,11 +25,14 @@ import org.umamo.runtime.model.PuppetModel
  */
 fun PuppetModel.withPartVisibility(id: PartId, visible: Boolean): PuppetModel {
 	val index = parts.indexOfFirst { part -> part.id == id }
+
 	if (index < 0 || parts[index].isVisible == visible) {
 		return this
 	}
+
 	val updated = parts.toMutableList()
 	updated[index] = updated[index].copy(isVisible = visible)
+
 	return copy(parts = updated)
 }
 
@@ -44,11 +47,14 @@ fun PuppetModel.withPartVisibility(id: PartId, visible: Boolean): PuppetModel {
  */
 fun PuppetModel.withDrawableVisibility(id: DrawableId, visible: Boolean): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].isVisible == visible) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(isVisible = visible)
+
 	return copy(drawables = updated)
 }
 
@@ -62,11 +68,14 @@ fun PuppetModel.withDrawableVisibility(id: DrawableId, visible: Boolean): Puppet
  */
 fun PuppetModel.withPartName(id: PartId, name: String): PuppetModel {
 	val index = parts.indexOfFirst { part -> part.id == id }
+
 	if (index < 0 || parts[index].name == name) {
 		return this
 	}
+
 	val updated = parts.toMutableList()
 	updated[index] = updated[index].copy(name = name)
+
 	return copy(parts = updated)
 }
 
@@ -80,11 +89,14 @@ fun PuppetModel.withPartName(id: PartId, name: String): PuppetModel {
  */
 fun PuppetModel.withDrawableName(id: DrawableId, name: String): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].name == name) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(name = name)
+
 	return copy(drawables = updated)
 }
 
@@ -99,15 +111,18 @@ fun PuppetModel.withDrawableName(id: DrawableId, name: String): PuppetModel {
  */
 fun PuppetModel.withDeformerName(id: DeformerId, name: String): PuppetModel {
 	val index = deformers.indexOfFirst { deformer -> deformer.id == id }
+
 	if (index < 0 || deformers[index].name == name) {
 		return this
 	}
+
 	val updated = deformers.toMutableList()
 	updated[index] =
 		when (val deformer = updated[index]) {
 			is Deformer.Warp -> deformer.copy(name = name)
 			is Deformer.Rotation -> deformer.copy(name = name)
 		}
+
 	return copy(deformers = updated)
 }
 
@@ -121,11 +136,14 @@ fun PuppetModel.withDeformerName(id: DeformerId, name: String): PuppetModel {
  */
 fun PuppetModel.withPartSelectable(id: PartId, selectable: Boolean): PuppetModel {
 	val index = parts.indexOfFirst { part -> part.id == id }
+
 	if (index < 0 || parts[index].isSelectable == selectable) {
 		return this
 	}
+
 	val updated = parts.toMutableList()
 	updated[index] = updated[index].copy(isSelectable = selectable)
+
 	return copy(parts = updated)
 }
 
@@ -139,11 +157,14 @@ fun PuppetModel.withPartSelectable(id: PartId, selectable: Boolean): PuppetModel
  */
 fun PuppetModel.withDrawableSelectable(id: DrawableId, selectable: Boolean): PuppetModel {
 	val index = drawables.indexOfFirst { drawable -> drawable.id == id }
+
 	if (index < 0 || drawables[index].isSelectable == selectable) {
 		return this
 	}
+
 	val updated = drawables.toMutableList()
 	updated[index] = updated[index].copy(isSelectable = selectable)
+
 	return copy(drawables = updated)
 }
 
@@ -157,15 +178,18 @@ fun PuppetModel.withDrawableSelectable(id: DrawableId, selectable: Boolean): Pup
  */
 fun PuppetModel.withDeformerSelectable(id: DeformerId, selectable: Boolean): PuppetModel {
 	val index = deformers.indexOfFirst { deformer -> deformer.id == id }
+
 	if (index < 0 || deformers[index].isSelectable == selectable) {
 		return this
 	}
+
 	val updated = deformers.toMutableList()
 	updated[index] =
 		when (val deformer = updated[index]) {
 			is Deformer.Warp -> deformer.copy(isSelectable = selectable)
 			is Deformer.Rotation -> deformer.copy(isSelectable = selectable)
 		}
+
 	return copy(deformers = updated)
 }
 
@@ -194,6 +218,7 @@ fun PuppetModel.visibilityOf(target: SelectionTarget): Boolean =
  */
 fun PuppetModel.withSelectionVisibility(targets: Set<SelectionTarget>, visible: Boolean): PuppetModel {
 	var next = this
+
 	for (target in targets) {
 		next =
 			when (target) {
@@ -202,6 +227,7 @@ fun PuppetModel.withSelectionVisibility(targets: Set<SelectionTarget>, visible: 
 				is SelectionTarget.Deformer -> next
 			}
 	}
+
 	return next
 }
 
@@ -230,6 +256,7 @@ fun PuppetModel.selectableOf(target: SelectionTarget): Boolean =
  */
 fun PuppetModel.withSelectionSelectable(targets: Set<SelectionTarget>, selectable: Boolean): PuppetModel {
 	var next = this
+
 	for (target in targets) {
 		next =
 			when (target) {
@@ -238,5 +265,6 @@ fun PuppetModel.withSelectionSelectable(targets: Set<SelectionTarget>, selectabl
 				is SelectionTarget.Deformer -> next.withDeformerSelectable(target.id, selectable)
 			}
 	}
+
 	return next
 }

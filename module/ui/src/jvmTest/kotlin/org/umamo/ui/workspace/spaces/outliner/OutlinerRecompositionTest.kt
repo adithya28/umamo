@@ -39,6 +39,7 @@ class OutlinerRecompositionTest {
 	private fun counting(body: ComposeUiTest.(ComposableRunCounter) -> Unit) {
 		val counter = ComposableRunCounter(OUTLINER_PACKAGE_PREFIX)
 		Composer.setTracer(counter)
+
 		try {
 			runComposeUiTest { body(counter) }
 		} finally {

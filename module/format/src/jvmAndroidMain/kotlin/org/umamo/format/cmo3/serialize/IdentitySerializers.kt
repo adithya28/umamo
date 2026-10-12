@@ -16,6 +16,7 @@ internal object GuidSerializer : XmlSerializer {
 		element.setFieldName(name)
 		element.setAttribute("uuid", guid.uuid)
 		element.setAttribute("note", guid.note)
+
 		return element
 	}
 
@@ -37,6 +38,7 @@ internal object IdSerializer : XmlSerializer {
 		val element = Element(id.kind)
 		element.setFieldName(name)
 		element.setAttribute("idstr", id.idstr)
+
 		return element
 	}
 

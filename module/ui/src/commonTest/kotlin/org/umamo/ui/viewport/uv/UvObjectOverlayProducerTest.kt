@@ -97,6 +97,7 @@ class UvObjectOverlayProducerTest {
 		val second = assertNotNull(producer.produce(selecting(UV_RIG_OTHER), sceneOf(model, geometries), UvPlacementScene(null, null), model.atlas, sizes).islands)
 
 		assertNotSame(first, second, "a new selection is a new value")
+
 		for (mesh in second.overlay.meshes) {
 			val before = first.overlay.meshes.first { previous -> previous.drawableId == mesh.drawableId }
 			assertSame(before.edgeEndpoints, mesh.edgeEndpoints, "${mesh.drawableId} keeps its edges")

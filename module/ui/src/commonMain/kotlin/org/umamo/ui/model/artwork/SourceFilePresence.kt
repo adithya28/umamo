@@ -51,14 +51,17 @@ internal class LoggedSourceFilePresence(
 	suspend fun probe(path: String): Boolean? {
 		val answer = answers(path)
 		val known = lastAnswerByPath
+
 		if (path !in known || known[path] != answer) {
 			lastAnswerByPath = known + (path to answer)
+
 			when (answer) {
 				true -> UmamoLog.info("source artwork: found at $path")
 				false -> UmamoLog.warn("source artwork: missing at $path")
 				null -> UmamoLog.info("source artwork: presence unknown at $path (not a file path this platform can probe)")
 			}
 		}
+
 		return answer
 	}
 }

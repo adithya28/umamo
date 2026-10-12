@@ -256,6 +256,7 @@ private fun ShellTabRow(appMenu: List<TopLevelMenu>, workspaces: WorkspaceLayout
 		if (appMenu.isNotEmpty()) {
 			MenuBar(menus = appMenu)
 		}
+
 		Box(
 			modifier =
 				Modifier
@@ -306,6 +307,7 @@ private fun ShellAreaHost(
 		val active = workspaces.layout.activeWorkspace()
 		// The corner-drag controller needs the live root to test sibling-ness on release.
 		dragController.currentRoot = active?.root
+
 		if (active != null) {
 			AreaTree(
 				node = active.root,
@@ -315,6 +317,7 @@ private fun ShellAreaHost(
 				onSplitterDragChange = onSplitterDragChange,
 			)
 		}
+
 		// Visual-only join highlight, painted last so it floats above the tree (and the offscreen viewport).
 		AreaDragOverlay(controller = dragController, modifier = Modifier.fillMaxSize())
 	}

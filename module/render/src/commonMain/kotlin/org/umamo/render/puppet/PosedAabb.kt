@@ -55,33 +55,40 @@ internal fun deformedWorldBounds(
 	blend: MeshBlendState?,
 ): PosedAabb? {
 	val vertexCount = base.size / 2
+
 	if (vertexCount == 0) {
 		return null
 	}
+
 	var minX = Float.POSITIVE_INFINITY
 	var minY = Float.POSITIVE_INFINITY
 	var maxX = Float.NEGATIVE_INFINITY
 	var maxY = Float.NEGATIVE_INFINITY
 	val scratch = FloatArray(2)
+
 	for (vertexIndex in 0 until vertexCount) {
 		val componentX = vertexIndex * 2
 		val componentY = componentX + 1
 		var localX = base[componentX]
 		var localY = base[componentY]
+
 		// The multilinear keyform blend: base + Sigma w_i * delta_i (a missing cell or short delta
 		// array contributes zero, exactly as buildDeltaTexels and blendLocalFromCorners treat it).
 		for (corner in corners) {
 			val deltas = cells[corner.linearIndex]?.form?.positionDeltas ?: continue
+
 			if (componentY < deltas.size) {
 				localX += corner.weight * deltas[componentX]
 				localY += corner.weight * deltas[componentY]
 			}
 		}
+
 		// Blend shapes: additive per-vertex deltas relative to the grid-at-default reference, on top
 		// of the grid blend, before the parent transform - the exact deformMeshWorldFromCorners loop.
 		if (blend != null) {
 			for (contribution in blend.contributions) {
 				val deltas = contribution.form.positionDeltas
+
 				if (componentY < deltas.size) {
 					val referenceX = blend.referenceDeltas?.getOrNull(componentX) ?: 0f
 					val referenceY = blend.referenceDeltas?.getOrNull(componentY) ?: 0f
@@ -90,8 +97,10 @@ internal fun deformedWorldBounds(
 				}
 			}
 		}
+
 		val worldX: Float
 		var worldZ: Float
+
 		if (parentWorld != null) {
 			parentWorld.apply(localX, localY, scratch, 0)
 			worldX = scratch[0]
@@ -100,18 +109,21 @@ internal fun deformedWorldBounds(
 			worldX = localX
 			worldZ = localY
 		}
+
 		worldZ = -worldZ // the renderer's final Y negation
 		minX = min(minX, worldX)
 		minY = min(minY, worldZ)
 		maxX = max(maxX, worldX)
 		maxY = max(maxY, worldZ)
 	}
+
 	// A non-finite extent (a warp-extrapolated vertex divided by a degenerate cell, or corrupt control
 	// points) is NOT a usable bound: publish none, so the renderer keeps the safe full-viewport path
 	// rather than deriving a garbage scissor rect that would clip the whole subtree.
 	if (!minX.isFinite() || !minY.isFinite() || !maxX.isFinite() || !maxY.isFinite()) {
 		return null
 	}
+
 	return PosedAabb(minX, minY, maxX, maxY)
 }
 

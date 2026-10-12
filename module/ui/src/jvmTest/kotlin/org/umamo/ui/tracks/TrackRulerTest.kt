@@ -21,9 +21,11 @@ class TrackRulerTest {
 	fun tickLabelsRenderAtReadableSteps() =
 		runComposeUiTest {
 			mountTrackSheet(TrackSheetHarness(), axis = axis)
+
 			for (label in listOf("-30", "-20", "-10", "0", "10", "20", "30")) {
 				onNodeWithText(label).assertExists("the ruler shows $label")
 			}
+
 			onNodeWithText("30.0").assertDoesNotExist()
 		}
 
@@ -46,6 +48,7 @@ class TrackRulerTest {
 	fun aLabelIsCenteredOnItsTick() =
 		runComposeUiTest {
 			mountTrackSheet(TrackSheetHarness(), axis = axis)
+
 			for ((label, value) in listOf("-20" to -20f, "20" to 20f)) {
 				val bounds = onNodeWithText(label).getUnclippedBoundsInRoot()
 				val center = (bounds.left.value + bounds.right.value) / 2f

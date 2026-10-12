@@ -27,11 +27,13 @@ internal data class MeshTotals(val vertexCount: Int, val triangleCount: Int)
 internal fun meshTotals(puppet: PuppetModel): MeshTotals {
 	var vertexCount = 0
 	var triangleCount = 0
+
 	for (drawable in puppet.drawables) {
 		val mesh = drawable.mesh ?: continue
 		vertexCount += mesh.vertexCount
 		triangleCount += mesh.triangleCount
 	}
+
 	return MeshTotals(vertexCount, triangleCount)
 }
 
@@ -47,25 +49,36 @@ internal fun meshTotals(puppet: PuppetModel): MeshTotals {
 internal fun selectedMeshTotals(puppet: PuppetModel, selection: Selection): MeshTotals {
 	val partById = puppet.parts.associateBy { part -> part.id }
 	val selectedDrawableIds = HashSet<DrawableId>()
+
 	for (target in selection.targets) {
 		when (target) {
-			is SelectionTarget.Drawable -> selectedDrawableIds.add(target.id)
-			is SelectionTarget.Part -> collectPartDrawableIds(target.id, partById, selectedDrawableIds)
+			is SelectionTarget.Drawable -> {
+				selectedDrawableIds.add(target.id)
+			}
+
+			is SelectionTarget.Part -> {
+				collectPartDrawableIds(target.id, partById, selectedDrawableIds)
+			}
+
 			is SelectionTarget.Deformer -> {
 				// Intentionally nothing: deformers influence drawables but do not contain them.
 			}
 		}
 	}
+
 	var vertexCount = 0
 	var triangleCount = 0
+
 	for (drawable in puppet.drawables) {
 		if (drawable.id !in selectedDrawableIds) {
 			continue
 		}
+
 		val mesh = drawable.mesh ?: continue
 		vertexCount += mesh.vertexCount
 		triangleCount += mesh.triangleCount
 	}
+
 	return MeshTotals(vertexCount, triangleCount)
 }
 
@@ -78,6 +91,7 @@ internal fun selectedMeshTotals(puppet: PuppetModel, selection: Selection): Mesh
  */
 private fun collectPartDrawableIds(partId: PartId, partById: Map<PartId, Part>, out: MutableSet<DrawableId>) {
 	val part = partById[partId] ?: return
+
 	for (child in part.children) {
 		when (child) {
 			is OrgChild.Drawable -> out.add(child.id)

@@ -24,20 +24,27 @@ import org.umamo.runtime.model.RenderNode
  */
 internal fun importRenderRoot(context: Moc3ImportContext): RenderGroup? {
 	val mocDocument = context.mocDocument
+
 	if (mocDocument.renderOrderGroups.isEmpty()) {
 		return null
 	}
+
 	val visitedGroups = HashSet<Int>()
 
 	fun childrenOf(groupIndex: Int): List<RenderNode> {
 		val group = mocDocument.renderOrderGroups.getOrNull(groupIndex) ?: return emptyList()
+
 		if (!visitedGroups.add(groupIndex)) {
 			return emptyList()
 		}
+
 		return group.children.mapNotNull { child ->
 			when (child.kind) {
 				// MOC3 §5.6 render-order child kind 0: a drawable leaf.
-				0 -> context.drawableIdsByFileIndex.getOrNull(child.index)?.let(::RenderDrawable)
+				0 -> {
+					context.drawableIdsByFileIndex.getOrNull(child.index)?.let(::RenderDrawable)
+				}
+
 				// Kind 1: a draw-order group part; its members live in the referenced sub-group record.
 				1 -> {
 					val part = mocDocument.parts.getOrNull(child.index) ?: return@mapNotNull null
@@ -51,7 +58,9 @@ internal fun importRenderRoot(context: Moc3ImportContext): RenderGroup? {
 					)
 				}
 
-				else -> null
+				else -> {
+					null
+				}
 			}
 		}
 	}
@@ -66,6 +75,7 @@ internal fun importRenderRoot(context: Moc3ImportContext): RenderGroup? {
 	val placedDrawableIds = placedLeaves.toHashSet()
 	val missingLeaves =
 		context.drawableIdsByFileIndex.filter { drawableId -> drawableId !in placedDrawableIds }.map(::RenderDrawable)
+
 	return if (missingLeaves.isEmpty()) {
 		root
 	} else {

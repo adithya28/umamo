@@ -34,10 +34,13 @@ fun proportionalWeight(falloff: ProportionalFalloff, normalizedDistance: Float, 
 	if (normalizedDistance >= 1f) {
 		return 0f
 	}
+
 	if (normalizedDistance <= 0f) {
 		return 1f
 	}
+
 	val fade = 1f - normalizedDistance
+
 	return when (falloff) {
 		ProportionalFalloff.Smooth -> fade * fade * (3f - 2f * fade)
 		ProportionalFalloff.Sphere -> sqrt(1f - normalizedDistance * normalizedDistance)
@@ -65,6 +68,7 @@ internal fun randomFalloffSample(vertexIndex: Int): Float {
 	hash = hash xor (hash ushr 15)
 	hash *= 0x846ca68b.toInt()
 	hash = hash xor (hash ushr 16)
+
 	return (hash ushr 8) / RANDOM_FALLOFF_SAMPLE_SPAN
 }
 
@@ -110,33 +114,41 @@ fun proportionalInfluences(
 	if (coveredIndices.isEmpty() || radiusWorld <= 0f) {
 		return emptyMap()
 	}
+
 	val radiusSquared = radiusWorld * radiusWorld
 	val influences = LinkedHashMap<Int, ProportionalInfluence>()
 	val vertexCount = positions.size / 2
+
 	for (vertexIndex in 0 until vertexCount) {
 		if (vertexIndex in coveredIndices) {
 			continue
 		}
+
 		val vertexX = positions[vertexIndex * 2]
 		val vertexY = positions[vertexIndex * 2 + 1]
 		var nearestSquared = Float.MAX_VALUE
 		var nearestCovered = -1
+
 		for (coveredIndex in coveredIndices) {
 			val deltaX = positions[coveredIndex * 2] - vertexX
 			val deltaY = positions[coveredIndex * 2 + 1] - vertexY
 			val distanceSquared = deltaX * deltaX + deltaY * deltaY
+
 			if (distanceSquared < nearestSquared) {
 				nearestSquared = distanceSquared
 				nearestCovered = coveredIndex
 			}
 		}
+
 		if (nearestSquared < radiusSquared && nearestCovered >= 0) {
 			val weight = proportionalWeight(falloff, sqrt(nearestSquared) / radiusWorld, vertexIndex)
+
 			if (weight > 0f) {
 				influences[vertexIndex] = ProportionalInfluence(weight, nearestCovered)
 			}
 		}
 	}
+
 	return influences
 }
 
@@ -186,53 +198,67 @@ fun proportionalInfluencesConnected(
 	if (coveredIndices.isEmpty() || radiusWorld <= 0f) {
 		return emptyMap()
 	}
+
 	val vertexCount = positions.size / 2
 	val adjacency = MeshTopology.buildVertexAdjacency(vertexCount, triangleIndices)
 	val distance = FloatArray(vertexCount) { Float.MAX_VALUE }
 	val sourceCovered = IntArray(vertexCount) { -1 }
 	val settled = BooleanArray(vertexCount)
+
 	for (coveredIndex in coveredIndices) {
 		if (coveredIndex in 0 until vertexCount) {
 			distance[coveredIndex] = 0f
 			sourceCovered[coveredIndex] = coveredIndex
 		}
 	}
+
 	while (true) {
 		// The unsettled frontier vertex nearest the covered set; past the radius nothing can gain weight.
 		var frontier = -1
 		var frontierDistance = Float.MAX_VALUE
+
 		for (vertexIndex in 0 until vertexCount) {
 			if (!settled[vertexIndex] && distance[vertexIndex] < frontierDistance) {
 				frontierDistance = distance[vertexIndex]
 				frontier = vertexIndex
 			}
 		}
+
 		if (frontier < 0 || frontierDistance >= radiusWorld) {
 			break
 		}
+
 		settled[frontier] = true
+
 		for (neighbor in adjacency[frontier]) {
 			if (settled[neighbor]) {
 				continue
 			}
+
 			val deltaX = positions[neighbor * 2] - positions[frontier * 2]
 			val deltaY = positions[neighbor * 2 + 1] - positions[frontier * 2 + 1]
 			val candidate = frontierDistance + sqrt(deltaX * deltaX + deltaY * deltaY)
+
 			if (candidate < distance[neighbor]) {
 				distance[neighbor] = candidate
 				sourceCovered[neighbor] = sourceCovered[frontier]
 			}
 		}
 	}
+
 	val influences = LinkedHashMap<Int, ProportionalInfluence>()
+
 	for (vertexIndex in 0 until vertexCount) {
 		if (vertexIndex in coveredIndices || sourceCovered[vertexIndex] < 0 || distance[vertexIndex] >= radiusWorld) {
 			continue
 		}
+
 		val weight = proportionalWeight(falloff, distance[vertexIndex] / radiusWorld, vertexIndex)
+
 		if (weight > 0f) {
 			influences[vertexIndex] = ProportionalInfluence(weight, sourceCovered[vertexIndex])
 		}
 	}
+
 	return influences
 }

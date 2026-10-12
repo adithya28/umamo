@@ -40,10 +40,12 @@ fun WindowResizeHeal(window: JFrame) {
 				if (!window.isShowing) {
 					return@Timer
 				}
+
 				val insets = window.insets
 				val expectedWidth = window.width - insets.left - insets.right
 				val expectedHeight = window.height - insets.top - insets.bottom
 				val rootPane = window.rootPane
+
 				if (expectedWidth > 0 &&
 					expectedHeight > 0 &&
 					(rootPane.width != expectedWidth || rootPane.height != expectedHeight)

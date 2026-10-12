@@ -19,11 +19,13 @@ class BalancedChunksTest {
 	 */
 	private fun assertCoversOnce(chunks: List<IntRange>, itemCount: Int) {
 		var expectedStart = 0
+
 		for (chunk in chunks) {
 			assertEquals(expectedStart, chunk.first, "runs are contiguous and in order")
 			assertTrue(chunk.last >= chunk.first, "no run is empty")
 			expectedStart = chunk.last + 1
 		}
+
 		assertEquals(itemCount, expectedStart, "the runs cover every item")
 	}
 
@@ -57,6 +59,7 @@ class BalancedChunksTest {
 		val totalWeight = items.sum()
 		val chunkWeight = (totalWeight + targetChunks - 1) / targetChunks
 		assertTrue(chunks.size in 2..targetChunks, "planned ${chunks.size} runs")
+
 		for (chunk in chunks.dropLast(1)) {
 			val weight = chunk.sumOf { itemIndex -> items[itemIndex] }
 			assertTrue(weight >= chunkWeight, "a closed run reached the chunk weight")

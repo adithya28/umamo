@@ -59,9 +59,11 @@ internal class SnapshotQueue {
 	fun request(camera: ViewportCamera, width: Int, height: Int, backdrop: FrameBackdrop, overlays: AreaOverlays): Deferred<RasterImage?> {
 		val snapshot = PendingSnapshot(camera, width, height, backdrop, overlays, CompletableDeferred())
 		pendingSnapshots.add(snapshot)
+
 		if (!acceptingSnapshots) {
 			failAll()
 		}
+
 		return snapshot.result
 	}
 
@@ -98,11 +100,14 @@ internal class SnapshotQueue {
 	fun serve(keepGoing: () -> Boolean, capture: (ViewportCamera, Int, Int, FrameBackdrop, AreaOverlays) -> RasterImage?) {
 		while (keepGoing()) {
 			val snapshot = pendingSnapshots.poll() ?: break
+
 			try {
 				val image = capture(snapshot.camera, snapshot.width, snapshot.height, snapshot.backdrop, snapshot.overlays)
+
 				if (image == null) {
 					UmamoLog.info("[GL] image capture (${snapshot.width}x${snapshot.height}) abandoned at shutdown")
 				}
+
 				snapshot.result.complete(image)
 			} catch (failure: Exception) {
 				UmamoLog.error("[GL] image capture (${snapshot.width}x${snapshot.height}) failed", failure)

@@ -61,10 +61,13 @@ internal fun indexAtlasWeb(textureManager: CTextureManager): Cmo3AtlasWebIndex {
 	// addresses the list by.
 	val siteByTileId = HashMap<String, AtlasEntrySite>()
 	val strayEntryAtlasIndices = ArrayList<Int>()
+
 	for ((atlasIndex, member) in Cmo3Import.elementsOf(textureManager._textureAtlases).withIndex()) {
 		val atlas = member as? CTextureAtlas ?: continue
+
 		for (entry in Cmo3Import.elementsOf(atlas.modelImages).filterIsInstance<ModelImageEntry>()) {
 			val uuid = Cmo3Import.uuidOf(entry.modelImageGuid)
+
 			if (uuid == null || siteByTileId.containsKey(uuid)) {
 				strayEntryAtlasIndices.add(atlasIndex)
 			} else {
@@ -72,6 +75,7 @@ internal fun indexAtlasWeb(textureManager: CTextureManager): Cmo3AtlasWebIndex {
 			}
 		}
 	}
+
 	// CMO3: CTextureManager field _modelImageGroups -> CModelImageGroup field _modelImages -> CModelImage
 	// fields guid / _materialLocalToCanvasTransform - where the art sits on the CANVAS.  A repack moves
 	// art on the page and never on the canvas, so this is the fixed point every rewritten transform
@@ -80,6 +84,7 @@ internal fun indexAtlasWeb(textureManager: CTextureManager): Cmo3AtlasWebIndex {
 	// part here, and the composition must reproduce it.
 	val modelImageByTileId = HashMap<String, CModelImage>()
 	val canvasAffineByTileId = HashMap<String, FloatArray>()
+
 	for (group in Cmo3Import.elementsOf(textureManager._modelImageGroups).filterIsInstance<CModelImageGroup>()) {
 		for (modelImage in Cmo3Import.elementsOf(group._modelImages).filterIsInstance<CModelImage>()) {
 			val uuid = Cmo3Import.uuidOf(modelImage.guid) ?: continue
@@ -88,5 +93,6 @@ internal fun indexAtlasWeb(textureManager: CTextureManager): Cmo3AtlasWebIndex {
 			canvasAffineByTileId[uuid] = canvas.toAffineArray()
 		}
 	}
+
 	return Cmo3AtlasWebIndex(siteByTileId, strayEntryAtlasIndices, modelImageByTileId, canvasAffineByTileId)
 }

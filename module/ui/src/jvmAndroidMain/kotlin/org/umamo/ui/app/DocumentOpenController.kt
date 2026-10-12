@@ -55,17 +55,21 @@ internal class DocumentOpenController(
 		// Only a document that came from a file is recordable; a loaded one always did, but the read
 		// is null-safe because the type it arrives as covers the new, unsaved document too.
 		opened.path?.let { path -> services.settings.addRecentFile(path) }
+
 		// What the document says about its artwork files, before anything probes them: the recorded
 		// path is what a reload, the watcher, and the Sources space will all go by.
 		for (source in (opened as? PuppetDocument)?.puppet?.sources.orEmpty()) {
 			val recorded = source.path
+
 			if (recorded == null) {
 				UmamoLog.info("source artwork: '${source.name}' (${source.format}, ${source.layers.size} layer(s)) has no recorded path")
 			} else {
 				UmamoLog.info("source artwork: '${source.name}' (${source.format}, ${source.layers.size} layer(s)) recorded at $recorded")
 			}
 		}
+
 		services.onOpen(opened)
+
 		// A file that opened read-only says so once, up front: Save is greyed for the document's life, and a
 		// rigger who edits it for an hour before finding that out has been misled.
 		if (opened is UmaDocument && opened.isReadOnly) {

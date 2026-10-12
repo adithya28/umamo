@@ -52,6 +52,7 @@ internal fun keyedFieldStateOf(owner: KeyformOwner, channel: FormChannel): Keyed
 	val puppet = LocalPuppet.current ?: return KeyedFieldState.None
 	val session = LocalEditorSession.current ?: return KeyedFieldState.None
 	val pendingEdits by remember(session) { session.pendingChannelEdits }.collectAsState()
+
 	return keyedFieldStateOf(
 		puppet = puppet,
 		target = KeyableTarget(owner, channel),
@@ -75,6 +76,7 @@ internal fun keyedFieldStateOf(owner: KeyformOwner, channel: FormChannel): Keyed
 @Composable
 private fun displayPose(session: EditorSession): Pose {
 	val committedPose by remember(session) { session.pose }.collectAsState()
+
 	return LocalLiveParams.current?.observedValues ?: committedPose
 }
 
@@ -99,6 +101,7 @@ internal fun displayedChannelValue(owner: KeyformOwner, channel: FormChannel, st
 	val session = LocalEditorSession.current ?: return stored
 	val pendingEdits by remember(session) { session.pendingChannelEdits }.collectAsState()
 	val target = KeyableTarget(owner, channel)
+
 	return pendingEdits[target] ?: puppet.channelValueAt(target, displayPose(session)) ?: stored
 }
 
@@ -171,14 +174,17 @@ fun keyedFieldStateOf(
 	pendingEdits: Map<KeyableTarget, ChannelValue>,
 ): KeyedFieldState {
 	val track = puppet.channelGridsOf(target.owner)?.get(target.channel) ?: return KeyedFieldState.None
+
 	if (target in pendingEdits) {
 		return KeyedFieldState.ModifiedUnkeyed
 	}
+
 	// A zero-axis track holds one value everywhere and keys nothing, so there is no key to be sitting on -
 	// but it still shadows the static, so an edit still needs keying.  That is BetweenKeys, not OnKey.
 	if (track.axes.isEmpty()) {
 		return KeyedFieldState.BetweenKeys
 	}
+
 	val onEveryAxis =
 		track.axes.all { axis ->
 			// A direct lookup, not a defaults map over every parameter: this runs per keyable row per
@@ -189,5 +195,6 @@ fun keyedFieldStateOf(
 					?: 0f
 			track.keyIndexAt(axis.parameterId, poseValue) >= 0
 		}
+
 	return if (onEveryAxis) KeyedFieldState.OnKey else KeyedFieldState.BetweenKeys
 }

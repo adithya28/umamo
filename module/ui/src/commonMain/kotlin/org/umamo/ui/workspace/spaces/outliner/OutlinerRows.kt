@@ -32,12 +32,14 @@ internal fun flattenOutliner(root: OutlinerNode, isOpen: (String) -> Boolean): L
 
 	fun visit(node: OutlinerNode, depth: Int) {
 		rows += OutlinerRow(node, depth)
+
 		if (isOpen(node.id)) {
 			node.children.forEach { child -> visit(child, depth + 1) }
 		}
 	}
 
 	visit(root, 0)
+
 	return rows
 }
 
@@ -53,12 +55,15 @@ internal fun pathTo(root: OutlinerNode, target: SelectionTarget): List<String>? 
 	if (root.target == target) {
 		return listOf(root.id)
 	}
+
 	for (child in root.children) {
 		val subPath = pathTo(child, target)
+
 		if (subPath != null) {
 			return listOf(root.id) + subPath
 		}
 	}
+
 	return null
 }
 

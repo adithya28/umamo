@@ -27,6 +27,7 @@ class SnapshotQueueTest {
 
 	private fun settled(result: kotlinx.coroutines.Deferred<RasterImage?>): RasterImage? {
 		assertTrue(result.isCompleted, "the capture must have been answered")
+
 		return runBlocking { result.await() }
 	}
 
@@ -74,6 +75,7 @@ class SnapshotQueueTest {
 			if (width == 1) {
 				throw IllegalStateException("the capture broke")
 			}
+
 			image
 		}
 		assertNull(settled(failing))

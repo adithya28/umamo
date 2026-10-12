@@ -81,6 +81,7 @@ internal fun rememberDocumentWatch(
 	val documentWatch: DocumentWatch? =
 		remember(document, session) {
 			val activeSession = session
+
 			if (document is PuppetDocument && activeSession != null) {
 				val watcher = PollingSourceWatcher(scope, FileSystem.SYSTEM, statContext = Dispatchers.IO)
 				DocumentWatch(
@@ -124,11 +125,18 @@ internal fun rememberDocumentWatch(
 		}
 		watch.coordinator.events.collect { event ->
 			when (event) {
-				is SourceWatchEvent.ReloadDue -> commandRegistry.invoke("document.reloadArtwork", ReloadScope(event.sourceIds))
-				is SourceWatchEvent.ChangedOnDisk ->
+				is SourceWatchEvent.ReloadDue -> {
+					commandRegistry.invoke("document.reloadArtwork", ReloadScope(event.sourceIds))
+				}
+
+				is SourceWatchEvent.ChangedOnDisk -> {
 					activeSession.emitNotice("notice.watch.changed", NoticePlacement.StatusBar, listOf(event.sourceIds.size.toString()))
-				is SourceWatchEvent.StaleAtOpen ->
+				}
+
+				is SourceWatchEvent.StaleAtOpen -> {
 					activeSession.emitNotice("notice.watch.staleAtOpen", NoticePlacement.StatusBar, listOf(event.sourceIds.size.toString()))
+				}
+
 				is SourceWatchEvent.Missing -> {
 					val name = activeSession.model.value.sources.firstOrNull { source -> source.id == event.sourceId }?.name ?: event.sourceId.raw
 					UmamoLog.warn("watch artwork: '$name' is no longer where the document read it")
@@ -137,5 +145,6 @@ internal fun rememberDocumentWatch(
 			}
 		}
 	}
+
 	return documentWatch
 }

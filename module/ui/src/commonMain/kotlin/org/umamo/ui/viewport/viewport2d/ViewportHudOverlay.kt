@@ -48,6 +48,7 @@ fun ViewportHudOverlay(
 	// weight it: Edit-mode G / S / R (mesh operators), never Vertex Slide (single-vertex,
 	// positions-only), a suppressed latch (the duplicate / rip auto-grab), or object-mode transforms.
 	val liveOperator = meshOperator ?: objectOperator
+
 	if (liveOperator != null && liveOperator.areaId == areaId) {
 		val proportionalState = proportionalEdit
 		val liveMeshOperator = meshOperator

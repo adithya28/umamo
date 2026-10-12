@@ -68,6 +68,7 @@ fun TrackSheetMarqueeOverlay(
 	if (!armed) {
 		return
 	}
+
 	val style = selectionOverlayStyle(LocalUmamoColors.current)
 	val crosshairCursor = LocalUmamoCursors.crosshair
 	val latestSelect by rememberUpdatedState(onSelect)
@@ -102,6 +103,7 @@ fun TrackSheetMarqueeOverlay(
 					awaitPointerEventScope {
 						while (true) {
 							val event = awaitPointerEvent(PointerEventPass.Initial)
+
 							if (event.type == PointerEventType.Exit) {
 								hoverPoint = null
 							} else {
@@ -122,12 +124,15 @@ fun TrackSheetMarqueeOverlay(
 				},
 	) {
 		val pointer = band.current ?: hoverPoint
+
 		// Guides only BEFORE the drag: once a band exists it says everything the guides did, and keeping
 		// both draws four lines through a box that is already outlined.
 		if (band.origin == null && pointer != null) {
 			drawCrosshairGuides(pointer, size, style)
 		}
+
 		drawRubberBand(band.origin, band.current, style)
+
 		if (pointer != null) {
 			drawCursor(crosshairCursor, pointer)
 		}

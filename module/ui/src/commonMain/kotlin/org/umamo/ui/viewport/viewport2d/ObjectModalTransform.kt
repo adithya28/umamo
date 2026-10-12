@@ -192,12 +192,14 @@ internal class ObjectModalTransform(
 			val transform = gestureData.transform
 			val modelBefore = session.model.value
 			session.commitObjectPositions(MeshChange.TransformDrawables(transform.drawableIds, transform.operatorKind), committed)
+
 			// A commit that recorded nothing (the drawables landed where they started) has no step of its
 			// own to amend, so it registers nothing.
 			if (parameters != null && session.model.value !== modelBefore) {
 				registerObjectTransformAdjustment(session, areaId, transform, gestureData.geometryById, parameters)
 			}
 		}
+
 		session.clearObjectOperator()
 	}
 

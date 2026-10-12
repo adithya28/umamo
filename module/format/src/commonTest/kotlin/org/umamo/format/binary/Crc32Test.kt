@@ -41,6 +41,7 @@ class Crc32Test {
 	@Test
 	fun slicedUpdateMatchesBitwiseReference() {
 		val bytes = ByteArray(64) { byteIndex -> (byteIndex * 151 + 7).toByte() }
+
 		for (offset in 0 until 8) {
 			for (length in 0..(bytes.size - offset)) {
 				val checksum = Crc32()
@@ -61,6 +62,7 @@ class Crc32Test {
 	 */
 	private fun bitwiseCrc32(bytes: ByteArray, offset: Int, length: Int): Long {
 		var remainder = -1
+
 		for (byteIndex in offset until offset + length) {
 			remainder = remainder xor (bytes[byteIndex].toInt() and 0xFF)
 			repeat(8) {
@@ -72,6 +74,7 @@ class Crc32Test {
 					}
 			}
 		}
+
 		return remainder.inv().toLong() and 0xFFFFFFFFL
 	}
 }

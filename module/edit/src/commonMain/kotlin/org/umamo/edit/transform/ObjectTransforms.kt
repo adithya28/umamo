@@ -17,10 +17,12 @@ import org.umamo.runtime.model.PuppetModel
 fun isPoseNeutral(model: PuppetModel, pose: Pose): Boolean {
 	for (parameter in model.parameters) {
 		val value = pose[parameter.id] ?: continue
+
 		if (value != parameter.default) {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -53,28 +55,36 @@ fun meshBounds(positions: FloatArray): MeshBounds {
 	if (positions.size < 2) {
 		return MeshBounds(0f, 0f, 0f, 0f)
 	}
+
 	var minX = Float.POSITIVE_INFINITY
 	var minY = Float.POSITIVE_INFINITY
 	var maxX = Float.NEGATIVE_INFINITY
 	var maxY = Float.NEGATIVE_INFINITY
 	var slotIndex = 0
+
 	while (slotIndex + 1 < positions.size) {
 		val x = positions[slotIndex]
 		val y = positions[slotIndex + 1]
+
 		if (x < minX) {
 			minX = x
 		}
+
 		if (x > maxX) {
 			maxX = x
 		}
+
 		if (y < minY) {
 			minY = y
 		}
+
 		if (y > maxY) {
 			maxY = y
 		}
+
 		slotIndex += 2
 	}
+
 	return MeshBounds((minX + maxX) / 2f, (minY + maxY) / 2f, maxX - minX, maxY - minY)
 }
 
@@ -98,12 +108,15 @@ fun movedToBoundsCenter(positions: FloatArray, newCenterX: Float, newCenterY: Fl
 	if (positions.size < 2) {
 		return positions
 	}
+
 	val bounds = meshBounds(positions)
 	val deltaX = newCenterX - bounds.centerX
 	val deltaY = newCenterY - bounds.centerY
+
 	if (deltaX == 0f && deltaY == 0f) {
 		return positions
 	}
+
 	return MeshTransforms.translateVertices(positions, allVertexIndices(positions), deltaX, deltaY)
 }
 
@@ -128,12 +141,15 @@ fun resizedAboutBoundsCenter(positions: FloatArray, newWidth: Float, newHeight: 
 	if (positions.size < 2) {
 		return positions
 	}
+
 	val bounds = meshBounds(positions)
 	val factorX = if (bounds.width > 0f) newWidth / bounds.width else 1f
 	val factorY = if (bounds.height > 0f) newHeight / bounds.height else 1f
+
 	if (factorX == 1f && factorY == 1f) {
 		return positions
 	}
+
 	return MeshTransforms.scaleVerticesAxis(
 		positions,
 		allVertexIndices(positions),

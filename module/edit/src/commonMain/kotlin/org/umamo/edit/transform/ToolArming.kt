@@ -32,10 +32,13 @@ fun EditorSession.beginMeshOperator(kind: MeshOperatorKind, areaId: String, supp
 	if (mode.value != EditorMode.Edit) {
 		return
 	}
+
 	val selection = meshSelection.value
+
 	if (selection.drawableIds.isEmpty() || selection.isEmpty) {
 		return
 	}
+
 	latches.latchMeshOperator(kind, areaId, suppressProportional)
 }
 
@@ -57,17 +60,22 @@ fun EditorSession.beginObjectOperator(kind: MeshOperatorKind, areaId: String) {
 	if (mode.value != EditorMode.Object) {
 		return
 	}
+
 	if (eligibleTransformDrawables(selection.value, model.value) == null) {
 		// Nothing transformable at all (empty, or only parts / deformers / mesh-less drawables).
 		emitNotice("notice.transform.onlyDrawables", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	if (!isPoseNeutral(model.value, pose.value)) {
 		// Transforming rest geometry while the displayed pose is deformed would write garbage through
 		// the deformer inverse; refuse and tell the user how to proceed (see the docblock).
 		emitNotice("notice.transform.deformed", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	latches.latchObjectOperator(kind, areaId)
 }
 
@@ -96,13 +104,17 @@ fun EditorSession.beginUvOperator(kind: MeshOperatorKind, areaId: String) {
 	if (kind == MeshOperatorKind.VertexSlide) {
 		return
 	}
+
 	val model = model.value
+
 	when (mode.value) {
 		EditorMode.Object -> {
 			if (!model.atlas.storedUvsAddressPages) {
 				emitNotice("notice.uv.placement.layerAddressed", NoticePlacement.NearCursor)
+
 				return
 			}
+
 			if (model.placementDragTileIds(selection.value).isEmpty()) {
 				// Placed art under the selection that still cannot move is pinned art.
 				val messageKey =
@@ -112,21 +124,26 @@ fun EditorSession.beginUvOperator(kind: MeshOperatorKind, areaId: String) {
 						"notice.uv.placement.pinned"
 					}
 				emitNotice(messageKey, NoticePlacement.NearCursor)
+
 				return
 			}
 		}
 
 		EditorMode.Edit -> {
 			val selection = meshSelection.value
+
 			if (selection.drawableIds.isEmpty() || selection.isEmpty) {
 				return
 			}
+
 			if (editableUvCoverage(selection, model, shownDrawableIds = null).isEmpty()) {
 				emitNotice("notice.uv.noUvs", NoticePlacement.NearCursor)
+
 				return
 			}
 		}
 	}
+
 	latches.latchUvOperator(kind, areaId)
 }
 
@@ -142,6 +159,7 @@ fun EditorSession.beginBoxSelect(areaId: String) {
 	if (mode.value == EditorMode.Edit && meshSelection.value.drawableIds.isEmpty()) {
 		return
 	}
+
 	latches.armBoxSelect(areaId)
 }
 
@@ -156,5 +174,6 @@ fun EditorSession.beginCircleSelect(areaId: String) {
 	if (mode.value == EditorMode.Edit && meshSelection.value.drawableIds.isEmpty()) {
 		return
 	}
+
 	latches.armCircleSelect(areaId)
 }

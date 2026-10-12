@@ -63,6 +63,7 @@ public object MocLowering {
 		merge("runtimeSlots", MocRuntimeSlots.runtimeSlotSections(doc))
 		merge("derivedIndexes", MocDerivedIndexes.derivedIndexSections(doc))
 		merge("countInfo", mapOf(Section.COUNT_INFO.indexIn(doc.version) to countInfoSection(context)))
+
 		return merged
 	}
 }

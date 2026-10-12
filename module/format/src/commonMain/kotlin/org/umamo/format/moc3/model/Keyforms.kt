@@ -53,6 +53,7 @@ public data class KeyformBinding(
 	 */
 	public fun keyIndices(gridIndex: Int): IntArray {
 		var stride = 1
+
 		return IntArray(axes.size) { axisIndex ->
 			val keyIndex = (gridIndex / stride) % axes[axisIndex].keyCount
 			stride *= axes[axisIndex].keyCount

@@ -188,12 +188,14 @@ class UmaPuppetShapeTest {
 					listOf(TestEntry("model/puppet.json", puppetJson.encodeToByteArray()), TestEntry("model/buffers.bin", buffer, deflated = false)),
 				)
 			val failure = assertFailsWith<UmaFormatException> { Uma.read(file) }.failure
+
 			return assertIs<UmaReadFailure.MalformedEntry>(failure).detail
 		}
 		assertTrue(readFailure("""{ "rootChildren": [ {} ] }""").contains("rootChildren[0] must name exactly one"))
 
 		// Six floats of positions and uvs, then the int32 indices 0, 1, and 3 of a three-vertex mesh.
 		val buffer = ByteArray(60)
+
 		for ((intIndex, value) in listOf(0, 1, 3).withIndex()) {
 			for (byteIndex in 0 until 4) {
 				buffer[48 + intIndex * 4 + byteIndex] = (value shr (8 * byteIndex)).toByte()

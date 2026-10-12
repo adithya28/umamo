@@ -59,6 +59,7 @@ internal interface OffscreenGlContext {
  */
 internal fun createOffscreenGlContext(): OffscreenGlContext {
 	configureLwjglNatives()
+
 	return GlfwOffscreenGlContext()
 }
 
@@ -68,9 +69,11 @@ internal fun createOffscreenGlContext(): OffscreenGlContext {
  */
 internal fun configureLwjglNatives() {
 	val osName = System.getProperty("os.name").orEmpty().lowercase()
+
 	if (osName.contains("mac") || osName.contains("darwin")) {
 		// https://javadoc.lwjgl.org/org/lwjgl/glfw/package-summary.html#using-glfw-on-macos-heading
 		Configuration.GLFW_LIBRARY_NAME.set("glfw_async")
+
 		// The app bundle's native libraries are re-signed when it is packaged (ad-hoc today, with the Developer ID
 		// once signing lands), so their bytes never match the reference hashes LWJGL ships, and its check would
 		// only print a false "incompatible Java and native library versions" error.  A jar or a development run

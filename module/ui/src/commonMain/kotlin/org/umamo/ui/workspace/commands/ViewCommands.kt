@@ -36,6 +36,7 @@ internal fun viewCommands(cameras: AreaCameraHub, routing: CommandRouting, viewp
 	 *   add is itself to CommandSpaces.WorkSurfaces, or the palette keeps hiding these commands over it.
 	 */
 	fun hoveredCamera(): CameraController? = routing.hovered()?.areaId?.let { areaId -> cameras.forArea(areaId) }
+
 	return listOf(
 		Command("view.fit", title = Res.string.cmd_view_fit, availability = hasViewport, spaces = CommandSpaces.WorkSurfaces) {
 			hoveredCamera()?.fit()

@@ -67,6 +67,7 @@ internal object UmaTexturesEntry {
 			throw UmaFormatException(UmaReadFailure.MalformedEntry(path, problem))
 		}
 		firstProblem(textures, path, payloadHeader)?.let { failure -> throw UmaFormatException(failure) }
+
 		return textures
 	}
 
@@ -82,6 +83,7 @@ internal object UmaTexturesEntry {
 		val tree = UmaEntryJson.encodeToJsonElement(UmaTextures.serializer(), textures) as JsonObject
 		// UMA §5.9: a reader refuses a repeated tile id, so a save that wrote one could never be reopened.
 		firstIdentityProblem(tree, UmaTextures.serializer().descriptor, identities, "")?.let { problem -> throw UmaWriteException(path, problem) }
+
 		return tree
 	}
 
@@ -134,15 +136,18 @@ internal object UmaTexturesEntry {
 			)
 		val payloads = LinkedHashMap<String, ByteArray?>(written)
 		val named = namedPaths(laidOut)
+
 		for (path in namedPaths(retained)) {
 			// UMA §5.7: a pixel entry the index no longer names leaves the file.
 			if (path !in named) {
 				payloads[path] = null
 			}
 		}
+
 		firstProblem(laidOut, entryPath) { path -> written[path] ?: payloadHeader(path) }?.let { failure ->
 			throw UmaWriteException(entryPath, failure.description)
 		}
+
 		return UmaTexturesLayout(laidOut, payloads)
 	}
 
@@ -169,17 +174,23 @@ internal object UmaTexturesEntry {
 		payloadBytes: (String) -> ByteArray?,
 	): UmaRenderPages? =
 		when (mode) {
-			UmaRenderPagePixels.Derived -> null
+			UmaRenderPagePixels.Derived -> {
+				null
+			}
 
-			UmaRenderPagePixels.Retained -> retained ?: throw UmaWriteException("$entryPath: renderPages", "the file holds no render pages to keep")
+			UmaRenderPagePixels.Retained -> {
+				retained ?: throw UmaWriteException("$entryPath: renderPages", "the file holds no render pages to keep")
+			}
 
 			is UmaRenderPagePixels.Stored -> {
 				val pathByContent = HashMap<Int, MutableList<String>>()
+
 				for ((path, bytes) in written) {
 					if (bytes != null) {
 						pathByContent.getOrPut(bytes.contentHashCode()) { ArrayList() } += path
 					}
 				}
+
 				val retainedPages = retained?.pages.orEmpty()
 				val retainedBytesByPath = HashMap<String, ByteArray?>()
 
@@ -195,6 +206,7 @@ internal object UmaTexturesEntry {
 				 */
 				fun retainedPathOf(bytes: ByteArray, width: Int, height: Int, pageIndex: Int): String? {
 					val candidates = listOfNotNull(retainedPages.getOrNull(pageIndex)) + retainedPages
+
 					return candidates.firstOrNull { page ->
 						page.width == width &&
 							page.height == height &&
@@ -240,16 +252,21 @@ internal object UmaTexturesEntry {
 		written: MutableMap<String, ByteArray?>,
 	): List<UmaTile> {
 		val retainedPathById = HashMap<String, String>()
+
 		for (tile in retained) {
 			val path = tile.path ?: continue
+
 			if (tile.id !in retainedPathById) {
 				retainedPathById[tile.id] = path
 			}
 		}
+
 		var nextNumber = nextNumberFor(TILE_PATH_PREFIX, pathsInUse)
+
 		return updated.map { tile ->
 			// UMA §5.7: a tile's pixels never change, so a tile the file holds keeps its entry untouched.
 			val existing = retainedPathById[tile.id]
+
 			if (existing != null) {
 				tile.copy(path = existing)
 			} else {
@@ -271,15 +288,19 @@ internal object UmaTexturesEntry {
 	 */
 	private fun nextNumberFor(prefix: String, pathsInUse: Set<String>): Int {
 		var highest = -1
+
 		for (path in pathsInUse) {
 			if (!path.startsWith(prefix) || !path.endsWith(PNG_SUFFIX)) {
 				continue
 			}
+
 			val number = path.substring(prefix.length, path.length - PNG_SUFFIX.length).toIntOrNull() ?: continue
+
 			if (number > highest) {
 				highest = number
 			}
 		}
+
 		return highest + 1
 	}
 
@@ -293,10 +314,12 @@ internal object UmaTexturesEntry {
 		if (textures == null) {
 			return emptySet()
 		}
+
 		val paths = LinkedHashSet<String>()
 		textures.tiles?.forEach { tile -> tile.path?.let(paths::add) }
 		textures.renderPages?.pages?.forEach { page -> paths.add(page.path) }
 		textures.thumbnail?.let { thumbnail -> paths.add(thumbnail.path) }
+
 		return paths
 	}
 
@@ -331,9 +354,11 @@ internal object UmaTexturesEntry {
 			val header = payloadHeader(path) ?: return UmaReadFailure.MissingEntry(path)
 			// UMA §5.1: every pixel entry is a PNG exactly the size its record says.
 			val (pngWidth, pngHeight) = pngDimensionsOf(header) ?: return malformed("$where names '$path', which is not a PNG")
+
 			if (pngWidth != width || pngHeight != height) {
 				return malformed("$where is $width x $height but '$path' holds $pngWidth x $pngHeight")
 			}
+
 			return null
 		}
 
@@ -350,16 +375,20 @@ internal object UmaTexturesEntry {
 			}
 		}
 		val pages = textures.pages.orEmpty()
+
 		for ((pageIndex, page) in pages.withIndex()) {
 			if (page.width < 0 || page.height < 0) {
 				return malformed("pages[$pageIndex] has a negative size")
 			}
 		}
+
 		for ((tileIndex, tile) in textures.tiles.orEmpty().withIndex()) {
 			val where = "tiles[$tileIndex]"
+
 			if (tile.width < 0 || tile.height < 0) {
 				return malformed("$where has a negative size")
 			}
+
 			val path = tile.path ?: return malformed("$where has no path")
 			pixelProblem(path, tile.width, tile.height, where)?.let { failure -> return failure }
 			tile.placement?.let { placement ->
@@ -368,10 +397,12 @@ internal object UmaTexturesEntry {
 				}
 			}
 		}
+
 		textures.renderPages?.let { renderPages ->
 			for ((pageIndex, page) in renderPages.pages.withIndex()) {
 				pixelProblem(page.path, page.width, page.height, "renderPages.pages[$pageIndex]")?.let { failure -> return failure }
 			}
+
 			for ((drawableId, pageIndex) in renderPages.drawablePages.orEmpty()) {
 				if (pageIndex !in renderPages.pages.indices) {
 					return malformed("renderPages.drawablePages.$drawableId is $pageIndex, outside the ${renderPages.pages.size} render pages")
@@ -381,6 +412,7 @@ internal object UmaTexturesEntry {
 		textures.thumbnail?.let { thumbnail ->
 			pixelProblem(thumbnail.path, thumbnail.width, thumbnail.height, "thumbnail")?.let { failure -> return failure }
 		}
+
 		return null
 	}
 }

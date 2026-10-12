@@ -42,13 +42,17 @@ private fun EditorSession.parameterChoiceFor(parameterId: ParameterId?): List<Pa
 	if (parameterId != null) {
 		return null
 	}
+
 	val targeted = parameterSelection.value.ids
+
 	if (targeted.size < 2) {
 		return null
 	}
+
 	// Model order, not set order: the prompt has to list the axes the way the panel does, and a Set's
 	// iteration order is an implementation detail the user would experience as the menu reshuffling.
 	val candidates = model.value.parameters.map { parameter -> parameter.id }.filter { id -> id in targeted }
+
 	return if (candidates.size < 2) null else candidates
 }
 
@@ -63,6 +67,7 @@ private fun EditorSession.parameterChoiceFor(parameterId: ParameterId?): List<Pa
 fun EditorSession.resolveParameterChoice(parameterId: ParameterId) {
 	val request = pendingParameterChoice.value ?: return
 	cancelParameterChoice()
+
 	when (request.action) {
 		KeyformAction.Capture -> captureKeyOnTrack(request.track, parameterId, request.aim, request.rowKey)
 		KeyformAction.Remove -> removeKeyOnTrack(request.track, parameterId, request.aim, request.rowKey)
@@ -101,6 +106,7 @@ fun EditorSession.captureKeyOnTrack(
 ) {
 	parameterChoiceFor(parameterId)?.let { candidates ->
 		requestParameterChoice(ParameterChoiceRequest(track, aim, KeyformAction.Capture, candidates, rowKey))
+
 		return
 	}
 	val parameter = keyformParameterFor(parameterId) ?: return
@@ -112,10 +118,13 @@ fun EditorSession.captureKeyOnTrack(
 			is KeyformAim.Pose -> shownPose[parameter.id] ?: parameter.default
 		}
 	val inserted = insertedKeyRef(track, parameter, keyPosition, rowKey)
+
 	if (aim is KeyformAim.Position) {
 		insertingKey(inserted) { insertTrackKeyAt(track, parameter, aim.position) }
+
 		return
 	}
+
 	when (track) {
 		is KeyformTrackRef.Channel -> {
 			val target = track.target
@@ -137,7 +146,9 @@ fun EditorSession.captureKeyOnTrack(
 
 		// Geometry holds no value the user can have typed, so there is nothing to capture - the key goes in
 		// at the pose and holds the shape already there.
-		is KeyformTrackRef.Geometry -> insertingKey(inserted) { insertTrackKeyAt(track, parameter, keyPosition) }
+		is KeyformTrackRef.Geometry -> {
+			insertingKey(inserted) { insertTrackKeyAt(track, parameter, keyPosition) }
+		}
 	}
 }
 
@@ -162,7 +173,9 @@ private fun EditorSession.insertedKeyRef(
 	if (rowKey == null) {
 		return null
 	}
+
 	val keyIndex = model.value.trackKeyIndexAfterInsert(track, parameter, position)
+
 	return if (keyIndex < 0) null else TrackKeyRef(parameter.id, rowKey, keyIndex)
 }
 
@@ -193,6 +206,7 @@ fun EditorSession.removeKeyOnTrack(
 ) {
 	parameterChoiceFor(parameterId)?.let { candidates ->
 		requestParameterChoice(ParameterChoiceRequest(track, aim, KeyformAction.Remove, candidates, rowKey))
+
 		return
 	}
 	val parameter = keyformParameterFor(parameterId) ?: return
@@ -201,9 +215,11 @@ fun EditorSession.removeKeyOnTrack(
 			is KeyformAim.Position -> aim.keyIndex ?: -1
 			is KeyformAim.Pose -> model.value.trackKeyIndexAtPose(track, parameter, shownPose)
 		}
+
 	if (keyIndex < 0) {
 		return
 	}
+
 	// An empty set when the caller has no row to name, which leaves the selection untouched.
 	val removed = rowKey?.let { row -> setOf(TrackKeyRef(parameter.id, row, keyIndex)) }.orEmpty()
 	removingKeys(removed) {
@@ -238,6 +254,7 @@ fun EditorSession.editKeyedChannel(
 	writeStatic: () -> Unit,
 ) {
 	val keyed = model.value.channelGridsOf(target.owner)?.get(target.channel) != null
+
 	if (keyed) {
 		commitPendingChannelEdit(target, value, change)
 	} else {
@@ -286,9 +303,11 @@ fun EditorSession.cancelChannelPreview(target: KeyableTarget) {
 private fun EditorSession.keyformParameterFor(parameterId: ParameterId?): Parameter? {
 	val namedId = parameterId ?: return targetedParameter()
 	val parameter = model.value.parameters.firstOrNull { candidate -> candidate.id == namedId }
+
 	if (parameter == null) {
 		emitNotice("notice.keyform.noParameter", NoticePlacement.NearCursor)
 	}
+
 	return parameter
 }
 
@@ -302,15 +321,20 @@ private fun EditorSession.keyformParameterFor(parameterId: ParameterId?): Parame
  */
 private fun EditorSession.targetedParameter(): Parameter? {
 	val activeId = parameterSelection.value.active
+
 	if (activeId == null) {
 		emitNotice("notice.keyform.noParameter", NoticePlacement.NearCursor)
+
 		return null
 	}
+
 	val parameter = model.value.parameters.firstOrNull { candidate -> candidate.id == activeId }
+
 	if (parameter == null) {
 		// A dangling id (a stale snapshot's target for a parameter since deleted) is as unfixable-by-waiting
 		// as no target at all, so it gets the same notice rather than a silent no-op.
 		emitNotice("notice.keyform.noParameter", NoticePlacement.NearCursor)
 	}
+
 	return parameter
 }

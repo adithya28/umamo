@@ -37,6 +37,7 @@ class UmaCompatibilityTest {
 	 */
 	private fun manifestOf(bytes: ByteArray): JsonObject {
 		val archive = ZipArchive.read(bytes)
+
 		return parseJsonObject(archive.contents(archive.entry(UmaContainer.MANIFEST_PATH)!!)) { detail -> UmaReadFailure.MalformedManifest(detail) }
 	}
 
@@ -48,6 +49,7 @@ class UmaCompatibilityTest {
 	 */
 	private fun rawPayloadsOf(bytes: ByteArray): Map<String, ByteArray> {
 		val archive = ZipArchive.read(bytes)
+
 		return archive.entries.associate { entry -> entry.name to archive.rawPayload(entry) }
 	}
 
@@ -250,10 +252,12 @@ class UmaCompatibilityTest {
 		)
 		val sourcePayloads = rawPayloadsOf(source)
 		val savedPayloads = rawPayloadsOf(saved)
+
 		for (path in listOf("thumbnail.png", "model/buffers.bin", "textures/")) {
 			assertContentEquals(sourcePayloads[path], savedPayloads[path], "'$path' raw bytes")
 			assertEquals(ZipArchive.read(source).entry(path)!!.method, savedArchive.entry(path)!!.method, "'$path' compression")
 		}
+
 		assertContentEquals(deflated, savedArchive.contents(savedArchive.entry("model/buffers.bin")!!), "and still inflates")
 	}
 

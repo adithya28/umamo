@@ -34,6 +34,7 @@ class ExportNoticeDescriptionTest {
 			assertTrue(!line.contains("Mesh9"), line)
 			assertTrue(line.contains("(+3 more)"), line)
 		}
+
 		assertTrue(stripped.startsWith("ReversedMask "), stripped)
 	}
 

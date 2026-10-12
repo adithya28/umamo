@@ -99,6 +99,7 @@ class ExpansionArithmeticTest {
 	private fun expansionOf(value: Long): DoubleArray {
 		val high = value.toDouble()
 		val low = (value - high.toLong()).toDouble()
+
 		return doubleArrayOf(low, high)
 	}
 
@@ -111,11 +112,13 @@ class ExpansionArithmeticTest {
 	 */
 	private fun integerValueOf(expansion: DoubleArray, length: Int): Long {
 		var total = 0L
+
 		for (componentIndex in 0 until length) {
 			val component = expansion[componentIndex]
 			assertEquals(component, component.toLong().toDouble(), "component $component is not an integer")
 			total += component.toLong()
 		}
+
 		return total
 	}
 

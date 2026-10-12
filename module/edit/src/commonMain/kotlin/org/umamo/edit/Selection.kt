@@ -111,6 +111,7 @@ data class ParameterSelection(
 	 */
 	fun prunedTo(surviving: Set<ParameterId>): ParameterSelection {
 		val kept = ids intersect surviving
+
 		return if (kept.size == ids.size) this else ParameterSelection(kept, active?.takeIf { it in kept } ?: kept.lastOrNull())
 	}
 }
@@ -174,21 +175,25 @@ object SelectionOps {
 	 */
 	private fun allSelectableTargets(model: PuppetModel): Set<SelectionTarget> {
 		val targets = LinkedHashSet<SelectionTarget>()
+
 		for (part in model.parts) {
 			if (part.isSelectable) {
 				targets.add(SelectionTarget.Part(part.id))
 			}
 		}
+
 		for (deformer in model.deformers) {
 			if (deformer.isSelectable) {
 				targets.add(SelectionTarget.Deformer(deformer.id))
 			}
 		}
+
 		for (drawable in model.drawables) {
 			if (drawable.isSelectable) {
 				targets.add(SelectionTarget.Drawable(drawable.id))
 			}
 		}
+
 		return targets
 	}
 
@@ -203,6 +208,7 @@ object SelectionOps {
 	fun selectAll(selection: Selection, model: PuppetModel): Selection {
 		val allTargets = allSelectableTargets(model)
 		val active = selection.active?.takeIf { target -> target in allTargets } ?: allTargets.lastOrNull()
+
 		return Selection(allTargets, active)
 	}
 
@@ -217,6 +223,7 @@ object SelectionOps {
 	 */
 	fun invert(selection: Selection, model: PuppetModel): Selection {
 		val inverted = allSelectableTargets(model) - selection.targets
+
 		return Selection(inverted, selection.active?.takeIf { target -> target in inverted })
 	}
 
@@ -235,10 +242,13 @@ object SelectionOps {
 		if (selection.isEmpty) {
 			return selection
 		}
+
 		val expanded = LinkedHashSet<SelectionTarget>()
+
 		for (target in selection.targets) {
 			expanded.addAll(model.subtreeTargets(target))
 		}
+
 		return Selection(expanded, selection.active ?: expanded.lastOrNull())
 	}
 }
@@ -266,8 +276,10 @@ fun PuppetModel.subtreeTargets(target: SelectionTarget): List<SelectionTarget> =
 				if (!visitedPartIds.add(partId)) {
 					return
 				}
+
 				collected += SelectionTarget.Part(partId)
 				val part = partsById[partId] ?: return
+
 				for (childEntry in part.children) {
 					when (childEntry) {
 						is OrgChild.Part -> visitPart(childEntry.id)
@@ -278,7 +290,11 @@ fun PuppetModel.subtreeTargets(target: SelectionTarget): List<SelectionTarget> =
 			visitPart(target.id)
 			collected
 		}
-		is SelectionTarget.Drawable -> listOf(target)
+
+		is SelectionTarget.Drawable -> {
+			listOf(target)
+		}
+
 		is SelectionTarget.Deformer -> {
 			val deformersByParent = deformers.groupBy { deformer -> deformer.parent }
 			val visitedDeformerIds = HashSet<DeformerId>()
@@ -288,7 +304,9 @@ fun PuppetModel.subtreeTargets(target: SelectionTarget): List<SelectionTarget> =
 				if (!visitedDeformerIds.add(deformerId)) {
 					return
 				}
+
 				collected += SelectionTarget.Deformer(deformerId)
+
 				for (childDeformer in deformersByParent[deformerId].orEmpty()) {
 					visitDeformer(childDeformer.id)
 				}
@@ -320,16 +338,21 @@ fun eligibleTransformDrawables(selection: Selection, model: PuppetModel): List<D
 	if (selection.isEmpty) {
 		return null
 	}
+
 	val drawableIds = ArrayList<DrawableId>(selection.size)
+
 	for (target in selection.targets) {
 		// Parts and deformers cannot be transformed yet (see the docblock); skip them, not the gesture.
 		val drawableTarget = target as? SelectionTarget.Drawable ?: continue
 		// A drawable that carries no source geometry has no positions to move; skip it too.
 		val drawable = model.drawables.firstOrNull { it.id == drawableTarget.id }
+
 		if (drawable?.mesh == null) {
 			continue
 		}
+
 		drawableIds.add(drawableTarget.id)
 	}
+
 	return drawableIds.ifEmpty { null }
 }

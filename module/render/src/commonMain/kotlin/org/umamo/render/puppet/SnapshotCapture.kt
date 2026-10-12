@@ -43,13 +43,16 @@ internal fun captureSnapshot(
 	val maximumTile = minOf(tileEdge, device.maxRenderTargetSize() / SNAPSHOT_SUPERSAMPLE).coerceAtLeast(1)
 	val surface = SupersampledSurface(device, SNAPSHOT_SUPERSAMPLE)
 	val stitched = ByteArray(width * height * 4)
+
 	try {
 		for (tileTop in 0 until height step maximumTile) {
 			val tileHeight = minOf(maximumTile, height - tileTop)
+
 			for (tileLeft in 0 until width step maximumTile) {
 				if (!shouldContinue()) {
 					return null
 				}
+
 				val tileWidth = minOf(maximumTile, width - tileLeft)
 				// The tile's center in whole-image pixels, carried back into world units: x runs right
 				// in both, while image rows run down and world z runs up.
@@ -60,6 +63,7 @@ internal fun captureSnapshot(
 				renderTile(drawTarget, tileCamera, tileWidth * SNAPSHOT_SUPERSAMPLE, tileHeight * SNAPSHOT_SUPERSAMPLE)
 				surface.resolve()
 				val tile = device.readPixels(surface.resolveTarget, tileWidth, tileHeight)
+
 				for (tileRow in 0 until tileHeight) {
 					tile.rgba.copyInto(
 						stitched,
@@ -73,5 +77,6 @@ internal fun captureSnapshot(
 	} finally {
 		surface.dispose()
 	}
+
 	return RasterImage(width, height, stitched)
 }

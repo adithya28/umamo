@@ -113,10 +113,13 @@ internal class ModalQueue<T : Any> {
 	 */
 	fun removeHead(showing: T?): T? {
 		val current = arrivals.firstOrNull() ?: return null
+
 		if (showing != null && showing !== current.payload) {
 			return null
 		}
+
 		arrivals.removeAt(0)
+
 		return current.payload
 	}
 }
@@ -243,6 +246,7 @@ internal class ShellOverlayState(
 	 */
 	fun noteEnterStroke(isDown: Boolean) {
 		enterHeld = isDown
+
 		if (!isDown) {
 			enterArmed = true
 		}
@@ -472,6 +476,7 @@ internal class ShellOverlayState(
 	 */
 	private fun <T : Any> showingPayload(queue: ModalQueue<T>, showing: T?): T? {
 		val current = queue.head?.payload ?: return null
+
 		return if (showing == null || showing === current) current else null
 	}
 
@@ -501,9 +506,11 @@ internal class ShellOverlayState(
 	private inline fun <R> changingTopmost(mutation: () -> R): R {
 		val topmostBefore = topmostArrival()
 		val result = mutation()
+
 		if (topmostArrival() !== topmostBefore) {
 			enterArmed = !enterHeld
 		}
+
 		return result
 	}
 }

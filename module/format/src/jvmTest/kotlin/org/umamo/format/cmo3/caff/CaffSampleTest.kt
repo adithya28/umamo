@@ -22,10 +22,13 @@ class CaffSampleTest {
 	@Test
 	fun readsSampleAndRoundTrips() {
 		val file = sample
+
 		if (file == null) {
 			println("cmo3.sample not present; skipping CAFF sample test")
+
 			return
 		}
+
 		val ours = CaffCodec.read(file.readBytes())
 		assertEquals(926, ours.entries.size, "entry count")
 		assertEquals(0xD7FC71B1.toInt(), ours.obfuscateKey, "obfuscate key")
@@ -38,6 +41,7 @@ class CaffSampleTest {
 
 		val imageFileBufs = ours.entries.filter { it.path.startsWith("imageFileBuf") }
 		assertEquals(180, imageFileBufs.size, "imageFileBuf count")
+
 		for (entry in imageFileBufs) {
 			assertTrue(entry.content.startsWith(pngMagic), "${entry.path} is a PNG")
 			assertEquals(CompressOption.RAW, entry.compression)
@@ -46,6 +50,7 @@ class CaffSampleTest {
 		// Round-trip through our own writer + reader.
 		val ours2 = CaffCodec.read(CaffCodec.write(ours))
 		assertEquals(ours.entries.size, ours2.entries.size)
+
 		for (index in ours.entries.indices) {
 			val before = ours.entries[index]
 			val after = ours2.entries[index]

@@ -480,9 +480,11 @@ private fun incircleAdaptive(ax: Double, ay: Double, bx: Double, by: Double, cx:
 
 		if (adxTail != 0.0) {
 			finalLength = buffers.addSecondOrderTailTerms(finalLength, adxTail, adxTailBcLength, buffers.adxTailBc, tailCrossBcLength, buffers.tailCrossBc, tailTailBcLength, buffers.tailTailBc, 2.0 * adx)
+
 			if (bdyTail != 0.0) {
 				finalLength = buffers.addScaledTwice(finalLength, buffers.liftC, adxTail, bdyTail)
 			}
+
 			if (cdyTail != 0.0) {
 				finalLength = buffers.addScaledTwice(finalLength, buffers.liftB, -adxTail, cdyTail)
 			}
@@ -492,6 +494,7 @@ private fun incircleAdaptive(ax: Double, ay: Double, bx: Double, by: Double, cx:
 			finalLength = buffers.addSecondOrderTailTerms(finalLength, adyTail, adyTailBcLength, buffers.adyTailBc, tailCrossBcLength, buffers.tailCrossBc, tailTailBcLength, buffers.tailTailBc, 2.0 * ady)
 		}
 	}
+
 	if (bdxTail != 0.0 || bdyTail != 0.0) {
 		val tailCrossCaLength: Int
 		val tailTailCaLength: Int
@@ -511,9 +514,11 @@ private fun incircleAdaptive(ax: Double, ay: Double, bx: Double, by: Double, cx:
 
 		if (bdxTail != 0.0) {
 			finalLength = buffers.addSecondOrderTailTerms(finalLength, bdxTail, bdxTailCaLength, buffers.bdxTailCa, tailCrossCaLength, buffers.tailCrossCa, tailTailCaLength, buffers.tailTailCa, 2.0 * bdx)
+
 			if (cdyTail != 0.0) {
 				finalLength = buffers.addScaledTwice(finalLength, buffers.liftA, bdxTail, cdyTail)
 			}
+
 			if (adyTail != 0.0) {
 				finalLength = buffers.addScaledTwice(finalLength, buffers.liftC, -bdxTail, adyTail)
 			}
@@ -523,6 +528,7 @@ private fun incircleAdaptive(ax: Double, ay: Double, bx: Double, by: Double, cx:
 			finalLength = buffers.addSecondOrderTailTerms(finalLength, bdyTail, bdyTailCaLength, buffers.bdyTailCa, tailCrossCaLength, buffers.tailCrossCa, tailTailCaLength, buffers.tailTailCa, 2.0 * bdy)
 		}
 	}
+
 	if (cdxTail != 0.0 || cdyTail != 0.0) {
 		val tailCrossAbLength: Int
 		val tailTailAbLength: Int
@@ -542,9 +548,11 @@ private fun incircleAdaptive(ax: Double, ay: Double, bx: Double, by: Double, cx:
 
 		if (cdxTail != 0.0) {
 			finalLength = buffers.addSecondOrderTailTerms(finalLength, cdxTail, cdxTailAbLength, buffers.cdxTailAb, tailCrossAbLength, buffers.tailCrossAb, tailTailAbLength, buffers.tailTailAb, 2.0 * cdx)
+
 			if (adyTail != 0.0) {
 				finalLength = buffers.addScaledTwice(finalLength, buffers.liftB, cdxTail, adyTail)
 			}
+
 			if (bdyTail != 0.0) {
 				finalLength = buffers.addScaledTwice(finalLength, buffers.liftA, -cdxTail, bdyTail)
 			}

@@ -51,30 +51,37 @@ internal fun keysWithin(
 	collapsedParameters: Set<ParameterId>,
 ): Set<TrackKeyRef> {
 	val enclosed = mutableSetOf<TrackKeyRef>()
+
 	for ((parameter, projection) in projections) {
 		if (parameter.id in collapsedParameters) {
 			continue
 		}
+
 		val (domainStart, domainEnd) = parameterDomain(parameter)
 		val axis = window.axisOver(TrackAxis(domainStart, domainEnd))
+
 		for (line in flattenTrackRows(projection.rows, expandedKeys)) {
 			// Only rows with a track ref: a group header names an owner and a blend-shape row is not a
 			// keyform grid, so neither has keys a selection could act on.
 			val row = line.row
 			val bounds = laneBounds[row.key] ?: continue
+
 			if (!projection.tracksByRowKey.containsKey(row.key) || !bounds.overlapsVertically(region)) {
 				continue
 			}
+
 			for (mark in row.marks) {
 				// The same mapping the marks were drawn with, from the same function - re-deriving the end
 				// inset here is how a marquee drifts by exactly one mark width.
 				val drawnX = bounds.left + laneMarkOffsetX(axis, mark.position, bounds.width, markRadiusPx)
+
 				if (drawnX in region.left..region.right) {
 					enclosed.add(TrackKeyRef(parameter.id, row.key, mark.keyIndex))
 				}
 			}
 		}
 	}
+
 	return enclosed
 }
 

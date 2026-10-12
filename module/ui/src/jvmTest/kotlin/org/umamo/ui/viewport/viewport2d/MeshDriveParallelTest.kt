@@ -37,6 +37,7 @@ class MeshDriveParallelTest {
 			List(meshCount) { meshIndex ->
 				val side = meshIndex % 5 + 2
 				val positions = FloatArray(side * side * 2)
+
 				for (rowIndex in 0 until side) {
 					for (columnIndex in 0 until side) {
 						val vertexIndex = rowIndex * side + columnIndex
@@ -44,13 +45,16 @@ class MeshDriveParallelTest {
 						positions[vertexIndex * 2 + 1] = rowIndex * 4f
 					}
 				}
+
 				val indices = ArrayList<Int>()
+
 				for (rowIndex in 0 until side - 1) {
 					for (columnIndex in 0 until side - 1) {
 						val corner = rowIndex * side + columnIndex
 						indices.addAll(listOf(corner, corner + 1, corner + side + 1, corner, corner + side + 1, corner + side))
 					}
 				}
+
 				Drawable(
 					id = DrawableId("mesh$meshIndex"),
 					name = "mesh$meshIndex",
@@ -61,6 +65,7 @@ class MeshDriveParallelTest {
 					geometryGrid = null,
 				)
 			}
+
 		return PuppetModel(
 			parameters = emptyList(),
 			parts = emptyList(),
@@ -84,15 +89,18 @@ class MeshDriveParallelTest {
 		val jobs = meshDriveJobs(gestureData.transform, gestureData.geometryById, wholeMeshes = true)
 		assertEquals(48, jobs.size, "every mesh moves")
 		val parameters = TransformGestureParameters(3.5f, -2.25f, 1.3f, 0.7f, 0.9f)
+
 		for (operator in listOf(MeshOperatorKind.Grab, MeshOperatorKind.Scale, MeshOperatorKind.Rotate)) {
 			val request = MeshDriveRequest(operator, parameters, jobs, null, session.model.value)
 			val sequential = computeMeshDrive(request)
 			val parallel = runBlocking { withContext(Dispatchers.Default) { computeMeshDriveParallel(request, minChunkWeight = 1) } }
 			assertEquals(sequential.preview.keys.toList(), parallel.preview.keys.toList(), "$operator: capture order")
+
 			for ((drawableId, rest) in sequential.preview) {
 				assertContentEquals(rest.positions, parallel.preview.getValue(drawableId).positions, "$operator: $drawableId")
 				assertContentEquals(rest.localPositions, parallel.preview.getValue(drawableId).localPositions, "$operator: $drawableId base")
 			}
+
 			for ((drawableIndex, drawable) in sequential.folded.drawables.withIndex()) {
 				val parallelDrawable = parallel.folded.drawables[drawableIndex]
 				assertEquals(drawable.id, parallelDrawable.id)

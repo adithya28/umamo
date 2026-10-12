@@ -81,6 +81,7 @@ data class UmamoTypography(
 fun umamoTypographyWith(family: FontFamily): UmamoTypography {
 	fun style(sizeSp: Int, lineSp: Int, weight: FontWeight = FontWeight.Normal): TextStyle =
 		TextStyle(fontFamily = family, fontSize = sizeSp.sp, lineHeight = lineSp.sp, fontWeight = weight)
+
 	return UmamoTypography(
 		displayLarge = style(57, 64),
 		displayMedium = style(45, 52),

@@ -110,6 +110,7 @@ class CommandRoutingTest {
 		val drawable = SelectionTarget.Drawable(DrawableId("a"))
 		session.setSelection(Selection(setOf(drawable), drawable))
 		session.setMode(mode)
+
 		return session
 	}
 
@@ -151,6 +152,7 @@ class CommandRoutingTest {
 
 			assertEquals(areaId, routing.areaOf(kind), "${kind.name} names its own area")
 			assertEquals(areaId, routing.hoveredAreaIdAnyKind(), "${kind.name} is reported kind-agnostically")
+
 			for (other in SpaceKind.entries.filter { candidate -> candidate != kind }) {
 				assertNull(routing.areaOf(other), "a hovered ${kind.name} must not answer as ${other.name}")
 			}

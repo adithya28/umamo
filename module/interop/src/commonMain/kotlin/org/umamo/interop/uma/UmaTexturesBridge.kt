@@ -36,6 +36,7 @@ object UmaTexturesBridge {
 		val atlas = model.atlas
 		val composition = atlas.composition
 		val default = AtlasComposition.Default
+
 		return UmaTextures(
 			storedUvsAddressPages = atlas.storedUvsAddressPages.takeIf { addressesPages -> !addressesPages },
 			composition =
@@ -66,6 +67,7 @@ object UmaTexturesBridge {
 		 * @return Float The value.
 		 */
 		fun finite(value: Float, key: String): Float = finiteInline(value, UmaEntryKind.Textures.defaultPath, "$path.$key")
+
 		return UmaTile(
 			id = tile.id.raw,
 			name = tile.name,
@@ -98,6 +100,7 @@ object UmaTexturesBridge {
 		if (textures == null) {
 			return PuppetAtlas.Empty
 		}
+
 		val tiles =
 			textures.tiles.orEmpty().map { record ->
 				AtlasTile(
@@ -115,6 +118,7 @@ object UmaTexturesBridge {
 				)
 			}
 		val default = AtlasComposition.Default
+
 		return PuppetAtlas(
 			pages = textures.pages.orEmpty().map { page -> AtlasPage(page.width, page.height) },
 			tiles = tiles,

@@ -46,6 +46,7 @@ internal class WorkspaceLayoutFiles(
 	 */
 	internal fun allWorkspacesText(): String? {
 		commitPendingLayout()
+
 		return exportLayoutText(settings)
 	}
 
@@ -56,6 +57,7 @@ internal class WorkspaceLayoutFiles(
 	 */
 	internal fun activeWorkspaceToExport(): Workspace? {
 		commitPendingLayout()
+
 		return settings.get(INTERFACE_LAYOUT_KEY)?.let { element -> decodeLayout(element) }?.activeWorkspace()
 	}
 
@@ -92,10 +94,12 @@ internal class WorkspaceLayoutFiles(
 			filePicker.openFile(listOf("json"))?.let { picked ->
 				val text = picked.readString()
 				val importedLayout = decodeLayoutText(text)
+
 				if (importedLayout != null) {
 					commandRegistry.invoke("workspace.applyLayout", importedLayout)
 				} else {
 					val importedWorkspace = decodeWorkspaceText(text)
+
 					if (importedWorkspace != null) {
 						commandRegistry.invoke("workspace.appendWorkspace", importedWorkspace)
 					} else {

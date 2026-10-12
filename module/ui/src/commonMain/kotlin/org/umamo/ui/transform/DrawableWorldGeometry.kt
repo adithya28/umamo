@@ -65,18 +65,24 @@ internal class DrawableWorldGeometry(
 	fun worldToRest(transformedWorld: FloatArray, indices: Set<Int> = allIndices): MeshRestPositions {
 		val transformedLocal = mapping.worldToLocalLinearized(transformedWorld, displayed, world, indices)
 		val newLocal = movementOnto(local, transformedLocal, displayed)
+
 		if (local === canvas) {
 			return MeshRestPositions.shared(newLocal)
 		}
+
 		val newCanvas = canvas.copyOf()
+
 		for (vertexIndex in indices) {
 			val xIndex = vertexIndex * 2
+
 			if (xIndex + 1 >= newCanvas.size || xIndex + 1 >= transformedWorld.size || xIndex + 1 >= world.size) {
 				continue
 			}
+
 			newCanvas[xIndex] = canvas[xIndex] + (transformedWorld[xIndex] - world[xIndex])
 			newCanvas[xIndex + 1] = canvas[xIndex + 1] - (transformedWorld[xIndex + 1] - world[xIndex + 1])
 		}
+
 		return MeshRestPositions(newCanvas, newLocal)
 	}
 
@@ -90,6 +96,7 @@ internal class DrawableWorldGeometry(
 	fun frozenCopy(): DrawableWorldGeometry {
 		val canvasCopy = canvas.copyOf()
 		val localCopy = if (local === canvas) canvasCopy else local.copyOf()
+
 		return DrawableWorldGeometry(drawableId, mapping, canvasCopy, localCopy, displayed.copyOf(), world.copyOf())
 	}
 }
@@ -126,6 +133,7 @@ internal fun captureDrawableWorld(model: PuppetModel, pose: Pose, drawableId: Dr
  */
 internal fun captureDrawableWorlds(model: PuppetModel, pose: Pose, drawableIds: Iterable<DrawableId>): List<DrawableWorldGeometry> {
 	val resolver = DrawableSpaceResolver(model, pose)
+
 	return drawableIds.mapNotNull { drawableId -> captureThrough(resolver, drawableId) }
 }
 
@@ -141,6 +149,7 @@ private fun captureThrough(resolver: DrawableSpaceResolver, drawableId: Drawable
 	val mesh = resolver.drawable(drawableId)?.mesh ?: return null
 	val mapping = resolver.mapping(drawableId) ?: return null
 	val displayed = resolver.localPosed(drawableId) ?: mesh.localPositions
+
 	return DrawableWorldGeometry(drawableId, mapping, mesh.positions, mesh.localPositions, displayed, mapping.localToWorld(displayed))
 }
 

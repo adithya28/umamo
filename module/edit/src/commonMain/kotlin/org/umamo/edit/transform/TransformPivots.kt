@@ -51,6 +51,7 @@ object TransformPivots {
 	): List<TransformPivotGroup> {
 		val vertexCount = positions.size / 2
 		val adjacency = MeshTopology.buildVertexAdjacency(vertexCount, triangleIndices)
+
 		return MeshTopology.selectionIslands(adjacency, coveredIndices).map { island ->
 			val pivot = MeshTransforms.medianPivot(positions, island)
 			TransformPivotGroup(island, pivot.first, pivot.second)
@@ -77,11 +78,14 @@ object TransformPivots {
 		if (groups.isEmpty()) {
 			return emptyList()
 		}
+
 		val partitions = List(groups.size) { LinkedHashMap<Int, Float>() }
+
 		for ((vertexIndex, influence) in influences) {
 			val ownerIndex = groups.indexOfFirst { group -> influence.nearestCoveredIndex in group.vertexIndices }
 			partitions[if (ownerIndex >= 0) ownerIndex else 0][vertexIndex] = influence.weight
 		}
+
 		return partitions
 	}
 }

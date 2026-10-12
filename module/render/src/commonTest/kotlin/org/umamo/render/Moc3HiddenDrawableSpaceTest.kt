@@ -89,6 +89,7 @@ class Moc3HiddenDrawableSpaceTest {
 						),
 					),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(toggle, "Toggle", min = 0f, max = 1f, default = 0f)),
 			parts = emptyList(),

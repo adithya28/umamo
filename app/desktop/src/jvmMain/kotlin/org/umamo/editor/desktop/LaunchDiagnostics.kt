@@ -68,14 +68,17 @@ internal fun logDirectoryOf(storage: AppStorage): Path = storage.dataDirectory /
  */
 internal fun openLogFolder(storage: AppStorage): String? {
 	val folder = logDirectoryOf(storage).toFile()
+
 	return try {
 		folder.mkdirs()
+
 		if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
 			Desktop.getDesktop().open(folder)
 		} else {
 			check(System.getProperty("os.name").orEmpty().startsWith("Linux")) { "this desktop cannot open a folder" }
 			check(runFolderOpener(listOf("xdg-open", folder.absolutePath), XDG_OPEN_TIMEOUT_SECONDS)) { "xdg-open did not open it" }
 		}
+
 		null
 	} catch (failure: Exception) {
 		UmamoLog.warn("could not open the log folder ${folder.absolutePath}: ${failure.message}")
@@ -101,10 +104,13 @@ internal fun runFolderOpener(command: List<String>, timeoutSeconds: Long): Boole
 			.redirectOutput(ProcessBuilder.Redirect.DISCARD)
 			.start()
 	opener.outputStream.close()
+
 	if (!opener.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
 		opener.destroy()
+
 		return false
 	}
+
 	return opener.exitValue() == 0
 }
 
@@ -123,6 +129,7 @@ internal fun installUncaughtExceptionLogging(): Thread.UncaughtExceptionHandler?
 		} catch (_: Throwable) {
 			// Logging must never stand between a failure and the handler that reports it.
 		}
+
 		if (previous != null) {
 			previous.uncaughtException(thread, throwable)
 		} else {
@@ -131,6 +138,7 @@ internal fun installUncaughtExceptionLogging(): Thread.UncaughtExceptionHandler?
 			throwable.printStackTrace()
 		}
 	}
+
 	return previous
 }
 

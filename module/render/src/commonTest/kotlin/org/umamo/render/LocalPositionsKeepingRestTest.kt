@@ -86,6 +86,7 @@ class LocalPositionsKeepingRestTest {
 	 */
 	private fun assertInTheLattice(local: FloatArray) {
 		val expected = floatArrayOf(0.1f, 0.1f, 0.3f, 0.1f, 0.3f, 0.3f)
+
 		for (componentIndex in expected.indices) {
 			assertTrue(abs(expected[componentIndex] - local[componentIndex]) <= 1e-5f, "component $componentIndex is ${local[componentIndex]}, not ${expected[componentIndex]}")
 		}

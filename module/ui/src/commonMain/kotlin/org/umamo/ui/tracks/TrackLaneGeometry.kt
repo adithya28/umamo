@@ -15,6 +15,7 @@ import kotlin.math.abs
  */
 internal fun laneX(fraction: Float, laneWidth: Float, markRadius: Float): Float {
 	val usable = laneWidth - markRadius * 2f
+
 	return if (usable <= 0f) laneWidth * 0.5f else markRadius + fraction * usable
 }
 
@@ -29,6 +30,7 @@ internal fun laneX(fraction: Float, laneWidth: Float, markRadius: Float): Float 
  */
 internal fun domainAt(x: Float, axis: TrackAxis, laneWidth: Int, markRadius: Float): Float {
 	val usable = laneWidth - markRadius * 2f
+
 	return if (usable <= 0f) axis.valueAt(0.5f) else axis.valueAt((x - markRadius) / usable)
 }
 
@@ -60,5 +62,6 @@ fun laneMarkOffsetX(axis: TrackAxis, domainValue: Float, laneWidth: Float, markR
  */
 internal fun pickTolerance(axis: TrackAxis, laneWidth: Int, markRadius: Float): Float {
 	val usable = laneWidth - markRadius * 2f
+
 	return if (usable <= 0f) 0f else abs(axis.span) * (markRadius * 1.5f / usable)
 }

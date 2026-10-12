@@ -20,6 +20,7 @@ internal object CAffineSerializer : XmlSerializer {
 		element.setAttribute("m10", affine.m10.toString())
 		element.setAttribute("m11", affine.m11.toString())
 		element.setAttribute("m12", affine.m12.toString())
+
 		return element
 	}
 

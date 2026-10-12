@@ -123,9 +123,11 @@ public class MocModel internal constructor(
 	public val canvasInfo: CanvasInfo? by lazy {
 		// The file stores f32[6]; the sixth is a trailing zero the model does not carry.
 		val values = sections.floatArray(Section.CANVAS)
+
 		if (values.size < 5) {
 			return@lazy null
 		}
+
 		CanvasInfo(
 			pixelsPerUnit = values[0],
 			originX = values[1],
@@ -149,6 +151,7 @@ public class MocModel internal constructor(
 	 */
 	private fun ints(section: Section, elementCount: Int): IntArray {
 		val decoded = sections.intArray(section)
+
 		return if (decoded.size == elementCount) decoded else decoded.copyOf(elementCount)
 	}
 
@@ -161,6 +164,7 @@ public class MocModel internal constructor(
 	 */
 	private fun floats(section: Section, elementCount: Int): FloatArray {
 		val decoded = sections.floatArray(section)
+
 		return if (decoded.size == elementCount) decoded else decoded.copyOf(elementCount)
 	}
 
@@ -173,6 +177,7 @@ public class MocModel internal constructor(
 	 */
 	private fun idStrings(section: Section, elementCount: Int): List<String> {
 		val decoded = sections.idArray(section)
+
 		return if (decoded.size == elementCount) decoded else List(elementCount) { decoded.getOrElse(it) { "" } }
 	}
 
@@ -186,6 +191,7 @@ public class MocModel internal constructor(
 		val repeats = ints(Section.PARAM_REPEAT, parameterCount)
 		// Absent before moc 4, so a null types array means "every parameter is normal".
 		val types = if (sections.isPresent(Section.PARAM_TYPE)) ints(Section.PARAM_TYPE, parameterCount) else null
+
 		return List(parameterCount) { parameterIndex ->
 			MocParameter(
 				ids[parameterIndex],
@@ -203,6 +209,7 @@ public class MocModel internal constructor(
 		val partCount = partCount
 		val ids = idStrings(Section.PART_ID, partCount)
 		val parents = ints(Section.PART_PARENT, partCount)
+
 		return List(partCount) { partIndex -> MocPart(ids[partIndex], parents[partIndex]) }
 	}
 
@@ -217,6 +224,7 @@ public class MocModel internal constructor(
 		val parents = ints(Section.ARTMESH_PARENT_PART, drawableCount)
 		// One byte per drawable, not an i32; byteArray already pads to the drawable count.
 		val flagsRaw = sections.byteArray(Section.ARTMESH_CONSTANT_FLAGS)
+
 		return List(drawableCount) { drawableIndex ->
 			MocDrawable(
 				id = ids[drawableIndex],

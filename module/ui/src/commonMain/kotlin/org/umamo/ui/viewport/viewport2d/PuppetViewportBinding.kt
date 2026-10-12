@@ -146,9 +146,11 @@ private class SourceArtworkGaps {
 	 */
 	fun report(session: EditorSession) {
 		val total = plan.unresolvedDrawableCount + plan.drawableIdsUsing(undecodable).size
+
 		if (total <= reportedCount) {
 			return
 		}
+
 		reportedCount = total
 		// A partly-recoverable document displays from a mix, which must not read as a clean switch.  The
 		// count goes to the log because the notice carries no arguments; the message's job is only to stop
@@ -172,10 +174,13 @@ private class SourceArtworkGaps {
 		if (reportedUnavailable) {
 			return
 		}
+
 		val wanted = plan.layerByteCostByKey.keys - undecodable
+
 		if (wanted.isNotEmpty()) {
 			return
 		}
+
 		reportedUnavailable = true
 		UmamoLog.warn("source-artwork display: requested, but no artwork is displayable; the puppet stays on the atlas")
 		session.emitNotice("notice.display.sourceArtworkUnavailable", NoticePlacement.NearCursor)
@@ -239,11 +244,17 @@ fun rememberPuppetViewportHost(
 	LaunchedEffect(service, session) {
 		combine(session.selection, session.mode, session.previewSelection) { selection, mode, previewSelection ->
 			when {
-				mode == EditorMode.Edit -> emptySet<DrawableId>() to null
+				mode == EditorMode.Edit -> {
+					emptySet<DrawableId>() to null
+				}
+
 				// An in-flight object circle stroke paints a transient preview; while it is live the tint shows
 				// exactly what the stroke has painted (previewSelection) with no active drawable yet, so drawables
 				// light up plain under the brush before the stroke commits.
-				previewSelection != null -> previewSelection to null
+				previewSelection != null -> {
+					previewSelection to null
+				}
+
 				// Otherwise the committed object selection's drawables tint as usual, with its active
 				// (last-selected) drawable tinted apart. A Part/Deformer active target yields null, so every
 				// selected drawable tints plain - correct, since only drawables are tinted.
@@ -315,12 +326,15 @@ fun rememberPuppetViewportHost(
 					delivered.clear()
 					artworkGaps.reset(LayerDrawPlan.EMPTY)
 					service.setSourceLayerPlan(LayerDrawPlan.EMPTY)
+
 					if (fromSourceLayers) {
 						// Requested with nothing to show: the toggle is set and nothing on screen moves.
 						artworkGaps.reportUnavailableIfUnengaged(session)
 					}
+
 					return@collectLatest
 				}
+
 				val model = session.model.value
 				val plan = withContext(Dispatchers.Default) { buildLayerDrawPlan(model) }
 				artworkGaps.reset(plan)
@@ -329,12 +343,14 @@ fun rememberPuppetViewportHost(
 
 				delivered.retainAll(plan.layerByteCostByKey.keys)
 				val outstanding = plan.layerByteCostByKey.keys.filterNot { layerKey -> layerKey in delivered }
+
 				for (chunk in outstanding.chunked(SOURCE_LAYER_FILL_CHUNK)) {
 					val decoded = HashMap<String, DecodedImage>()
 					val undecodable = HashSet<String>()
 					withContext(Dispatchers.Default) {
 						for (layerKey in chunk) {
 							val image = artRasters.decodeRaster(AtlasTileId(layerKey))
+
 							if (image == null) {
 								undecodable.add(layerKey)
 							} else {
@@ -344,10 +360,12 @@ fun rememberPuppetViewportHost(
 					}
 					delivered.addAll(chunk)
 					service.deliverSourceLayerRasters(LayerRasterBatch(decoded, undecodable))
+
 					if (artworkGaps.addUndecodable(undecodable)) {
 						artworkGaps.report(session)
 					}
 				}
+
 				// The fill is complete, so the displayable set is final: a mapping whose every layer
 				// proved undecodable (or that mapped nothing) has left the renderer unengaged for good.
 				artworkGaps.reportUnavailableIfUnengaged(session)
@@ -442,6 +460,7 @@ fun rememberPuppetViewportHost(
 	LaunchedEffect(service, meshOverlayPalette) {
 		service.setMeshOverlayPalette(meshOverlayPalette)
 	}
+
 	return remember(service, session) {
 		val host =
 			object : ViewportHost {
@@ -667,9 +686,11 @@ private suspend fun PointerInputScope.viewportNavigation(
 ) {
 	awaitPointerEventScope {
 		var panAnchor: Offset? = null
+
 		while (true) {
 			val event = awaitPointerEvent()
 			val change = event.changes.firstOrNull() ?: continue
+
 			// THIS AREA'S modal operator (G / S / R), armed Box / Circle select tool, or armed Zoom Region
 			// - or an in-flight un-armed box drag (area-less: pointer capture pins its events to the
 			// dragging overlay) - owns the pointer: the overlay above consumes the event, but this
@@ -686,6 +707,7 @@ private suspend fun PointerInputScope.viewportNavigation(
 			) {
 				continue
 			}
+
 			when (event.type) {
 				PointerEventType.Scroll -> {
 					val shiftHeld = event.keyboardModifiers.isShiftPressed
@@ -700,6 +722,7 @@ private suspend fun PointerInputScope.viewportNavigation(
 						} else {
 							0f
 						}
+
 					if (scrollSteps != 0f) {
 						// One step per notch (wheel up = negative = zoom in); Shift selects the coarse step.
 						service.zoomAtCursor(
@@ -718,19 +741,24 @@ private suspend fun PointerInputScope.viewportNavigation(
 						if (panAnchor == null) {
 							setPanning(true)
 						}
+
 						val anchor = panAnchor
+
 						if (anchor != null) {
 							val delta = change.position - anchor
+
 							if (delta != Offset.Zero) {
 								service.pan(areaId, delta.x, delta.y)
 							}
 						}
+
 						panAnchor = change.position
 						change.consume()
 					} else {
 						if (panAnchor != null) {
 							setPanning(false)
 						}
+
 						panAnchor = null
 					}
 				}

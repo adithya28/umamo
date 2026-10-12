@@ -69,6 +69,7 @@ class WireframeLiveEngineTest {
 		val textures = PuppetTextures(listOf(solidBlueImage()), mapOf(probeId.raw to 0), false)
 		val service = OffscreenPuppetService(model, textures, LiveParams(emptyMap()))
 		service.start()
+
 		try {
 			val leftFrames = service.register("left")
 			val rightFrames = service.register("right")
@@ -76,10 +77,13 @@ class WireframeLiveEngineTest {
 			service.resize("left", 100, 100)
 			service.resize("right", 100, 100)
 			service.setMeshOverlayPalette(MeshOverlayPalette.Classic.copy(edgeIdle = OverlayColor(1f, 0f, 1f, 1f)))
+
 			if (!awaitFrame(leftFrames) { sample -> isArtBlue(sample) }) {
 				println("[wireframe-live] no GL frame arrived; skipping (context unavailable, or the art never rendered)")
+
 				return
 			}
+
 			assertTrue(awaitFrame(rightFrames) { sample -> isArtBlue(sample) }, "both areas show the plain art before any wireframe")
 
 			service.setMeshOverlay(quadWireframe())
@@ -106,6 +110,7 @@ class WireframeLiveEngineTest {
 		val textures = PuppetTextures(listOf(solidBlueImage()), mapOf(probeId.raw to 0), false)
 		val service = OffscreenPuppetService(model, textures, LiveParams(emptyMap()))
 		service.start()
+
 		try {
 			val leftFrames = service.register("left")
 			val rightFrames = service.register("right")
@@ -113,8 +118,10 @@ class WireframeLiveEngineTest {
 			service.resize("left", 100, 100)
 			service.resize("right", 100, 100)
 			service.setMeshOverlayPalette(MeshOverlayPalette.Classic.copy(edgeIdle = OverlayColor(1f, 0f, 1f, 1f)))
+
 			if (!awaitFrame(leftFrames) { sample -> isArtBlue(sample) }) {
 				println("[wireframe-live] no GL frame arrived; skipping (context unavailable, or the art never rendered)")
+
 				return
 			}
 
@@ -139,6 +146,7 @@ class WireframeLiveEngineTest {
 		val textures = PuppetTextures(listOf(solidBlueImage()), mapOf(probeId.raw to 0), false)
 		val service = OffscreenPuppetService(model, textures, LiveParams(emptyMap()))
 		service.start()
+
 		try {
 			val leftFrames = service.register("left")
 			val rightFrames = service.register("right")
@@ -146,8 +154,10 @@ class WireframeLiveEngineTest {
 			service.resize("left", 100, 100)
 			service.resize("right", 100, 100)
 			service.setSelectionHighlightColor(1f, 0f, 0f)
+
 			if (!awaitFrame(leftFrames) { sample -> isArtBlue(sample) }) {
 				println("[wireframe-live] no GL frame arrived; skipping (context unavailable, or the art never rendered)")
+
 				return
 			}
 
@@ -175,6 +185,7 @@ class WireframeLiveEngineTest {
 		val textures = PuppetTextures(listOf(solidBlueImage()), mapOf(probeId.raw to 0, frontId.raw to 0), false)
 		val service = OffscreenPuppetService(model, textures, LiveParams(emptyMap()))
 		service.start()
+
 		try {
 			val leftFrames = service.register("left")
 			val rightFrames = service.register("right")
@@ -182,8 +193,10 @@ class WireframeLiveEngineTest {
 			service.resize("left", 100, 100)
 			service.resize("right", 100, 100)
 			service.setMeshOverlayPalette(MeshOverlayPalette.Classic.copy(edgeIdle = OverlayColor(1f, 0f, 1f, 1f)))
+
 			if (!awaitFrame(leftFrames) { sample -> isArtBlue(sample) }) {
 				println("[wireframe-live] no GL frame arrived; skipping (context unavailable, or the art never rendered)")
+
 				return
 			}
 
@@ -271,13 +284,17 @@ class WireframeLiveEngineTest {
 	 */
 	private fun awaitFrame(frames: StateFlow<RenderedFrame?>, accept: (Color) -> Boolean): Boolean {
 		val start = System.currentTimeMillis()
+
 		while (System.currentTimeMillis() - start < 5_000) {
 			val frame = frames.value
+
 			if (frame != null && accept(centerOf(frame.bitmap.toPixelMap()))) {
 				return true
 			}
+
 			Thread.sleep(20)
 		}
+
 		return false
 	}
 
@@ -297,10 +314,12 @@ class WireframeLiveEngineTest {
 	private fun solidBlueImage(): DecodedImage {
 		val size = 16
 		val rgba = ByteArray(size * size * 4)
+
 		for (pixel in rgba.indices step 4) {
 			rgba[pixel + 2] = 0xFF.toByte()
 			rgba[pixel + 3] = 0xFF.toByte()
 		}
+
 		return DecodedImage(rgba, size, size)
 	}
 
@@ -325,6 +344,7 @@ class WireframeLiveEngineTest {
 						listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(frontPositions.size)))),
 					),
 			)
+
 		return back.copy(drawables = back.drawables + front, rootChildren = listOf(OrgChild.Drawable(frontId), OrgChild.Drawable(probeId)))
 	}
 
@@ -348,6 +368,7 @@ class WireframeLiveEngineTest {
 						listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(quadPositions.size)))),
 					),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),

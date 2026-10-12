@@ -26,6 +26,7 @@ fun Settings.savedWindowState(): WindowState {
 			"fullscreen" -> WindowPlacement.Fullscreen
 			else -> WindowPlacement.Floating
 		}
+
 	return WindowState(placement = placement, size = DpSize(width, height), position = position)
 }
 
@@ -47,10 +48,12 @@ fun Settings.saveWindowState(state: WindowState) {
 			WindowPlacement.Floating -> "floating"
 		},
 	)
+
 	if (state.placement == WindowPlacement.Floating) {
 		setDouble("interface.window.width", state.size.width.value.toDouble())
 		setDouble("interface.window.height", state.size.height.value.toDouble())
 		val position = state.position
+
 		if (position is WindowPosition.Absolute) {
 			setDouble("interface.window.x", position.x.value.toDouble())
 			setDouble("interface.window.y", position.y.value.toDouble())

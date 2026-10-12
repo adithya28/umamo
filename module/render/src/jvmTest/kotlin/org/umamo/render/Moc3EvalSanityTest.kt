@@ -19,10 +19,13 @@ class Moc3EvalSanityTest {
 	@Test
 	fun corpusModelsEvaluateWithinCanvasBounds() {
 		val corpusRoot = sample?.parentFile?.parentFile?.takeIf { it.isDirectory }
+
 		if (corpusRoot == null) {
 			println("moc3.sample not present; skipping eval sanity test")
+
 			return
 		}
+
 		val mocFiles =
 			corpusRoot.listFiles { candidate -> candidate.isDirectory }.orEmpty()
 				.flatMap { modelDirectory -> modelDirectory.listFiles { candidate -> candidate.isFile && candidate.extension == "moc3" }.orEmpty().toList() }
@@ -33,13 +36,17 @@ class Moc3EvalSanityTest {
 			val mocDocument =
 				runCatching { Moc3.read(mocFile.readBytes()) }.getOrElse {
 					println("${mocFile.name}: not decodable, skipping")
+
 					continue
 				}
 			val model = Moc3Import.fromMocDocument(mocDocument, null)
+
 			if (model.canvasWidth <= 0f || model.canvasHeight <= 0f) {
 				println("${mocFile.name}: no canvas, skipping bounds check")
+
 				continue
 			}
+
 			// A moc may legitimately carry no art at all: the offscreen enum-extraction fixtures are parts
 			// and parameters only, with offscreen flagged on a couple of parts, and the official Cubism
 			// Core reads drawables=0 for them too.  The guard is on the MODEL rather than on the eval
@@ -47,8 +54,10 @@ class Moc3EvalSanityTest {
 			// to nothing is a regression, not a fixture.
 			if (model.drawables.isEmpty()) {
 				println("${mocFile.name}: no drawables, skipping bounds check")
+
 				continue
 			}
+
 			val geometry = CpuDeformationEvaluator().evaluate(model, emptyMap())
 			assertTrue(geometry.worldPositions.isNotEmpty(), "${mocFile.name}: nothing evaluated at the default pose")
 
@@ -57,6 +66,7 @@ class Moc3EvalSanityTest {
 			// overhang, far below a ppu-scale (1000x+) unit-seam explosion.
 			val margin = 4f * maxOf(model.canvasWidth, model.canvasHeight)
 			var checkedValues = 0
+
 			for ((drawableId, positions) in geometry.worldPositions) {
 				for (value in positions) {
 					assertTrue(value.isFinite(), "${mocFile.name}: non-finite world coordinate on ${drawableId.raw}")
@@ -68,6 +78,7 @@ class Moc3EvalSanityTest {
 					checkedValues++
 				}
 			}
+
 			println("${mocFile.name}: ${geometry.worldPositions.size} drawables, $checkedValues coordinates within ±$margin")
 		}
 	}

@@ -53,5 +53,6 @@ fun mergeParameters(target: MergeTarget): List<OperatorParameter> =
  */
 fun mergeTargetOf(parameters: List<OperatorParameter>, fallback: MergeTarget): MergeTarget {
 	val key = parameters.choiceValue(MergeParameterKeys.TARGET, fallback.parameterKey)
+
 	return MergeTarget.entries.firstOrNull { candidate -> candidate.parameterKey == key } ?: fallback
 }

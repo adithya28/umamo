@@ -96,9 +96,11 @@ public fun cmo3AtlasPages(
 				resolvedPageIndexByResource[resource] = resolved
 				resolved
 			}
+
 		if (pageIndex != null) {
 			atlasIndexByDrawableId[drawableId] = pageIndex
 		}
 	}
+
 	return AtlasPageSet(pageBytes, atlasIndexByDrawableId, premultiplied)
 }

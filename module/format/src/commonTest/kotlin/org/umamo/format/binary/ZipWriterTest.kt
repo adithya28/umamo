@@ -56,6 +56,7 @@ class ZipWriterTest {
 			writer.addStored("mimetype", mimetype)
 			writer.addDeflated("model/puppet.json", ByteArray(5000) { byteIndex -> (byteIndex % 7).toByte() })
 			writer.addStored("textures/", ByteArray(0))
+
 			return writer.finish()
 		}
 		assertContentEquals(write(TEST_DOS_DATE_TIME), write(TEST_DOS_DATE_TIME), "identical inputs, identical bytes")
@@ -119,9 +120,11 @@ class ZipWriterTest {
 			)
 		val source = ZipArchive.read(original)
 		val copier = ZipWriter(TEST_DOS_DATE_TIME)
+
 		for (entry in source.entries) {
 			copier.addRaw(entry, source.rawPayload(entry))
 		}
+
 		assertContentEquals(original, copier.finish(), "a raw copy is byte-identical")
 	}
 
@@ -142,16 +145,20 @@ class ZipWriterTest {
 	@Test
 	fun rawCopyKeepsWhatDecryptionChecks() {
 		val bytes = archiveOf(Triple("secret", ByteArray(300) { byteIndex -> (byteIndex % 7).toByte() }, true), Triple("plain", ByteArray(40) { 5 }, false))
+
 		for (entryIndex in 0..1) {
 			val header = centralHeaderOffset(bytes, entryIndex)
 			val extraFlags = if (entryIndex == 0) ZipRecords.FLAG_ENCRYPTED or ZipRecords.FLAG_DATA_DESCRIPTOR else ZipRecords.FLAG_DATA_DESCRIPTOR
 			writeU16Le(bytes, header + 8, readU16Le(bytes, header + 8) or extraFlags)
 		}
+
 		val source = ZipArchive.read(bytes)
 		val copier = ZipWriter(ZipRecords.DOS_EPOCH_DATE_TIME)
+
 		for (entry in source.entries) {
 			copier.addRaw(entry, source.rawPayload(entry))
 		}
+
 		val copied = copier.finish()
 		val archive = ZipArchive.read(copied)
 		val secret = archive.entry("secret")!!

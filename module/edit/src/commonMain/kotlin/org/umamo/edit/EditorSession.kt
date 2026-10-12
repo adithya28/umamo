@@ -348,12 +348,15 @@ class EditorSession private constructor(
 	): AdjustableOperation? {
 		val base = lastBaseSnapshot ?: return null
 		val change = history.currentChange ?: return null
+
 		if (mutableModel.value !== committedModel) {
 			return null
 		}
+
 		lastBaseSnapshot = null
 		val record = AdjustableOperation(change, areaId, parameters, base, rerun, identity = Any())
 		mutableAdjustableOperation.value = record
+
 		return record
 	}
 
@@ -408,15 +411,19 @@ class EditorSession private constructor(
 	 */
 	fun amendLastCommit(operation: AdjustableOperation, model: PuppetModel): Boolean {
 		val current = mutableAdjustableOperation.value
+
 		if (current == null || current.identity !== operation.identity) {
 			return false
 		}
+
 		if (!history.amendTop(snapshot(model = model), operation.change)) {
 			return false
 		}
+
 		mutableModel.value = model
 		refreshFlags()
 		mutableChanges.tryEmit(operation.change)
+
 		return true
 	}
 
@@ -447,6 +454,7 @@ class EditorSession private constructor(
 		if (model === mutableModel.value && pose == mutablePose.value) {
 			return
 		}
+
 		commitStep(change, model = model, pose = pose)
 	}
 
@@ -509,6 +517,7 @@ class EditorSession private constructor(
 		if (posePinned) {
 			return
 		}
+
 		commit(change, mutableModel.value, pose)
 	}
 
@@ -557,8 +566,10 @@ class EditorSession private constructor(
 			// scrub previews through clearPendingChannelEdits and then ends where it began - and returning
 			// outright left the re-typed value out of the viewport and the field untinted.
 			setPendingChannelEdit(target, value)
+
 			return
 		}
+
 		commitStep(change, pendingChannelEdits = mutablePendingChannelEdits.value + (target to value))
 	}
 
@@ -612,6 +623,7 @@ class EditorSession private constructor(
 			} else {
 				live + (target to recorded)
 			}
+
 		if (restored != live) {
 			mutablePendingChannelEdits.value = restored
 		}
@@ -629,6 +641,7 @@ class EditorSession private constructor(
 		if (selection == mutableSelection.value) {
 			return
 		}
+
 		(selection.active as? SelectionTarget.Drawable)?.let { activeDrawable ->
 			elementMemory.lastActiveDrawableId = activeDrawable.id
 		}
@@ -649,6 +662,7 @@ class EditorSession private constructor(
 		if (parameterSelection == mutableParameterSelection.value) {
 			return
 		}
+
 		commitStep(EditorStateChange.ParameterSelectionChanged, parameterSelection = parameterSelection)
 	}
 
@@ -673,6 +687,7 @@ class EditorSession private constructor(
 		if (mode == mutableMode.value) {
 			return
 		}
+
 		val newMeshSelection =
 			when (mode) {
 				EditorMode.Edit -> {
@@ -684,12 +699,14 @@ class EditorSession private constructor(
 					val editSeed = editSeedOf(model, mutableSelection.value, elementMemory.lastActiveDrawableId) ?: return
 					val seedDrawableIds = editSeed.drawableIds
 					val seedActiveId = editSeed.activeId
+
 					if (!editSeed.activeSelected) {
 						// Seeded from the remembered drawable or the topmost fallback: remember it so the next
 						// entry is stable. The object selection is left untouched - a soft seed, not a
 						// re-selection, matching the remembered-drawable behavior.
 						elementMemory.lastActiveDrawableId = seedActiveId
 					}
+
 					// Clear the transient tool state on entry too: the select tool is shared with Object mode, so
 					// an object tool armed before the switch must not leak in and drive the Edit overlay.
 					latches.clearTransient(clearViewportGesture = true)
@@ -697,6 +714,7 @@ class EditorSession private constructor(
 					// the rest start empty (a different mesh set no longer forgets the others' memory).
 					elementMemory.restore(MeshSelection.editing(seedDrawableIds, seedActiveId), model)
 				}
+
 				EditorMode.Object -> {
 					// Stash each mesh's element selection so re-entering Edit mode restores it per mesh.
 					elementMemory.stash(mutableMeshSelection.value)
@@ -719,6 +737,7 @@ class EditorSession private constructor(
 		if (meshSelection == mutableMeshSelection.value) {
 			return
 		}
+
 		commitStep(EditorStateChange.MeshSelectionChanged, meshSelection = meshSelection)
 	}
 
@@ -744,8 +763,10 @@ class EditorSession private constructor(
 			// Published rather than merely dropped: this step records nothing new, which is not the same as
 			// the live flow already holding it (a restore or an abandoned stage can leave it elsewhere).
 			mutableKeySelection.value = keySelection
+
 			return
 		}
+
 		commitStep(EditorStateChange.KeySelectionChanged, keySelection = keySelection)
 	}
 
@@ -792,14 +813,17 @@ class EditorSession private constructor(
 	 */
 	fun selectKeysAtPose(keySelection: Set<TrackKeyRef>, landedPose: Pose) {
 		val pose = if (posePinned) mutablePose.value else landedPose
+
 		// Against history rather than the live flow, for the reason [setKeySelection] spells out: a staged
 		// selection has already moved the flow, and a click that lands on the selection a stage left there
 		// must still record it.
 		if (keySelection == history.current.keySelection && pose == history.current.pose) {
 			mutableKeySelection.value = keySelection
 			mutablePose.value = pose
+
 			return
 		}
+
 		commitStep(EditorStateChange.KeySelectionChanged, pose = pose, keySelection = keySelection)
 	}
 
@@ -842,6 +866,7 @@ class EditorSession private constructor(
 		if (latches.viewportGestureActive.value) {
 			return
 		}
+
 		restore(history.undo() ?: return)
 	}
 
@@ -853,6 +878,7 @@ class EditorSession private constructor(
 		if (latches.viewportGestureActive.value) {
 			return
 		}
+
 		restore(history.redo() ?: return)
 	}
 
@@ -867,6 +893,7 @@ class EditorSession private constructor(
 		if (latches.viewportGestureActive.value) {
 			return
 		}
+
 		restore(history.jumpTo(index) ?: return)
 	}
 

@@ -95,6 +95,7 @@ class Moc3ExportOptionsTest {
 		val underVisibleChild = drawable("UnderVisibleChild")
 		val shown = drawable("Shown")
 		val ownFlagHidden = drawable("OwnFlagHidden", isVisible = false)
+
 		return puppetOf(
 			parts =
 				listOf(

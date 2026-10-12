@@ -35,6 +35,7 @@ private fun List<OrgChild>.withChildInsertedBefore(child: OrgChild, before: OrgC
 	val result = toMutableList()
 	val insertAt = before?.let { result.indexOf(it) }?.takeIf { it >= 0 } ?: result.size
 	result.add(insertAt, child)
+
 	return result
 }
 
@@ -55,17 +56,20 @@ fun PuppetModel.withOrgChildMoved(child: OrgChild, newParentId: PartId?, before:
 	if (!containsOrgChild(child)) {
 		return this
 	}
+
 	// The subtree set contains the part itself, so this rejects self-parenting and any deeper cycle at once.
 	// The Properties picker filters its candidates against the same query, so an illegal target is not
 	// offered there rather than being silently refused here.
 	if (child is OrgChild.Part && newParentId != null && newParentId in partSelfAndDescendants(child.id)) {
 		return this
 	}
+
 	// Detach from wherever it currently sits (the root level and / or some part's children).
 	val detachedRoot = rootChildren.filter { it != child }
 	val detachedParts = parts.map { part -> if (child in part.children) part.copy(children = part.children - child) else part }
 	val newRoot: List<OrgChild>
 	val newParts: List<Part>
+
 	if (newParentId == null) {
 		newRoot = detachedRoot.withChildInsertedBefore(child, before)
 		newParts = detachedParts
@@ -76,9 +80,11 @@ fun PuppetModel.withOrgChildMoved(child: OrgChild, newParentId: PartId?, before:
 				if (part.id == newParentId) part.copy(children = part.children.withChildInsertedBefore(child, before)) else part
 			}
 	}
+
 	if (newRoot == rootChildren && newParts == parts) {
 		return this
 	}
+
 	return copy(rootChildren = newRoot, parts = newParts).withDerivedRenderRoot()
 }
 
@@ -120,16 +126,19 @@ private fun Deformer.withParent(newParent: DeformerId?): Deformer =
  */
 fun PuppetModel.withDeformerMoved(id: DeformerId, newParentId: DeformerId?, beforeId: DeformerId?): PuppetModel {
 	val deformer = deformers.firstOrNull { it.id == id } ?: return this
+
 	// The subtree set contains id itself, so this rejects self-parenting and any deeper cycle at once.  The
 	// Properties picker filters its candidates against the same query, so an illegal target is not offered
 	// there rather than being silently refused here.
 	if (newParentId != null && newParentId in deformerSelfAndDescendants(id)) {
 		return this
 	}
+
 	val moved = deformer.withParent(newParentId)
 	val without = deformers.filter { it.id != id }.toMutableList()
 	val insertAt = beforeId?.let { target -> without.indexOfFirst { it.id == target } }?.takeIf { it >= 0 } ?: without.size
 	without.add(insertAt, moved)
+
 	return copy(deformers = without)
 }
 

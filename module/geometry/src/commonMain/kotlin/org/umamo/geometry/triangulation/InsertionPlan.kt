@@ -64,6 +64,7 @@ private fun aliasDuplicates(points: DoubleArray, pointCount: Int, canonicalIndex
 
 	byCoordinates.sortWith { left, right ->
 		val byX = (points[2 * left] + 0.0).compareTo(points[2 * right] + 0.0)
+
 		if (byX != 0) {
 			byX
 		} else {
@@ -177,10 +178,12 @@ private fun hilbertIndex(gridX: Int, gridY: Int): Long {
 				cellX = HILBERT_GRID_SIZE - 1 - cellX
 				cellY = HILBERT_GRID_SIZE - 1 - cellY
 			}
+
 			val swapped = cellX
 			cellX = cellY
 			cellY = swapped
 		}
+
 		half /= 2
 	}
 

@@ -95,6 +95,7 @@ internal class ModalGestureState<TCapture, TPreview> {
 		gestureStart = null
 		lastParameters = null
 		cursorWrap.reset()
+
 		return wasActive
 	}
 }

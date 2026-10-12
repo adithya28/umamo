@@ -226,9 +226,11 @@ class UvOverlayRenderTest {
 		// A 16-pixel tile whose opaque art is its middle 8 pixels; the crop is that trim.
 		val tile = DecodedImage(ByteArray(16 * 16 * 4), 16, 16)
 		val trim = halvesImage(8)
+
 		for (rowIndex in 0 until 8) {
 			trim.rgba.copyInto(tile.rgba, ((rowIndex + 4) * 16 + 4) * 4, rowIndex * 8 * 4, (rowIndex + 1) * 8 * 4)
 		}
+
 		// Twice its size, so the bilinear sampling runs across the trim's edges.
 		val placement =
 			PlacementPreview(
@@ -273,6 +275,7 @@ class UvOverlayRenderTest {
 			islands.mapIndexed { islandIndex, island ->
 				MeshOverlayMesh(DrawableId("island$islandIndex"), 4, quadEdges, ByteArray(0), ByteArray(0), ByteArray(0), null, null, null, island.second)
 			}
+
 		return DirectMeshOverlay(
 			MeshOverlay(MeshOverlayKind.Islands, MeshOverlaySelectMode.Vertex, meshes, sizes),
 			meshes.withIndex().associate { (islandIndex, mesh) -> mesh.drawableId to islands[islandIndex].first },
@@ -288,6 +291,7 @@ class UvOverlayRenderTest {
 	 */
 	private fun halvesImage(side: Int): DecodedImage {
 		val rgba = ByteArray(side * side * 4)
+
 		for (rowIndex in 0 until side) {
 			for (columnIndex in 0 until side) {
 				val pixel = (rowIndex * side + columnIndex) * 4
@@ -296,6 +300,7 @@ class UvOverlayRenderTest {
 				rgba[pixel + 3] = 255.toByte()
 			}
 		}
+
 		return DecodedImage(rgba, side, side)
 	}
 
@@ -342,6 +347,7 @@ class UvOverlayRenderTest {
 	): DirectMeshOverlay {
 		val id = DrawableId("quad")
 		val mesh = MeshOverlayMesh(id, 4, quadEdges, vertexFlags, ByteArray(quadEdges.size / 2), faceFlags, activeVertex, null, null)
+
 		return DirectMeshOverlay(MeshOverlay(MeshOverlayKind.Edit, MeshOverlaySelectMode.Vertex, listOf(mesh), sizes), mapOf(id to positions), mapOf(id to quadIndices))
 	}
 
@@ -363,6 +369,7 @@ class UvOverlayRenderTest {
 	 */
 	private fun RasterImage.at(column: Int, row: Int): List<Int> {
 		val offset = (row * viewportSize + column) * 4
+
 		return (0 until 4).map { channelIndex -> rgba[offset + channelIndex].toInt() and 0xFF }
 	}
 
@@ -375,6 +382,7 @@ class UvOverlayRenderTest {
 	 */
 	private fun blend(under: List<Int>, color: OverlayColor): List<Int> {
 		val keep = 1f - color.alpha
+
 		return listOf(
 			(color.red * color.alpha * 255f + under[0] * keep).roundToInt(),
 			(color.green * color.alpha * 255f + under[1] * keep).roundToInt(),
@@ -405,6 +413,7 @@ class UvOverlayRenderTest {
 	 */
 	private fun quadrantPage(size: Int): DecodedImage {
 		val rgba = ByteArray(size * size * 4)
+
 		for (rowIndex in 0 until size) {
 			for (columnIndex in 0 until size) {
 				val top = rowIndex < size / 2
@@ -423,6 +432,7 @@ class UvOverlayRenderTest {
 				rgba[pixel + 3] = 255.toByte()
 			}
 		}
+
 		return DecodedImage(rgba, size, size)
 	}
 
@@ -460,6 +470,7 @@ class UvOverlayRenderTest {
 		 */
 		fun render(overlay: DirectMeshOverlay?, placement: PlacementPreview? = null): RasterImage {
 			renderer.renderAtlasPage(target, 0, viewportSize, viewportSize, "uv", overlay, placement)
+
 			return device.readPixels(target)
 		}
 	}

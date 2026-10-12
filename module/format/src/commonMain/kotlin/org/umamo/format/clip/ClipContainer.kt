@@ -37,14 +37,17 @@ object ClipContainer {
 	fun isClip(candidateBytes: ByteArray): Boolean {
 		// CLIP: CSFCHUNK container magic @ +0x00.
 		val magic = MAGIC.encodeToByteArray()
+
 		if (candidateBytes.size < magic.size) {
 			return false
 		}
+
 		for (magicIndex in magic.indices) {
 			if (candidateBytes[magicIndex] != magic[magicIndex]) {
 				return false
 			}
 		}
+
 		return true
 	}
 
@@ -77,8 +80,10 @@ object ClipContainer {
 				require(payloadEnd <= bytes.size) {
 					"CHNKSQLi payload runs past EOF (need $payloadEnd, have ${bytes.size})"
 				}
+
 				return bytes.copyOfRange(payloadStart, payloadEnd)
 			}
+
 			if (chunkId == CHUNK_FOOTER) {
 				break
 			}
@@ -99,9 +104,11 @@ object ClipContainer {
 	private fun readUInt64(bytes: ByteArray, at: Int): Long {
 		require(at + 8 <= bytes.size) { "truncated u64 @ +$at" }
 		var value = 0L
+
 		for (byteIndex in 0 until 8) {
 			value = (value shl 8) or (bytes[at + byteIndex].toLong() and 0xFF)
 		}
+
 		return value
 	}
 
@@ -115,6 +122,7 @@ object ClipContainer {
 	 */
 	private fun readAscii(bytes: ByteArray, at: Int, length: Int): String {
 		require(at + length <= bytes.size) { "truncated ascii @ +$at" }
+
 		return decodeAscii(bytes, at, length)
 	}
 
@@ -128,6 +136,7 @@ object ClipContainer {
 	 */
 	private fun requireFits(value: Long, label: String): Int {
 		require(value in 0..Int.MAX_VALUE) { "$label out of addressable range: $value" }
+
 		return value.toInt()
 	}
 }

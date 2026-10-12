@@ -58,11 +58,14 @@ class SourceLayerLiveEngineTest {
 		val textures = PuppetTextures(listOf(solidImage(red = 0x00, blue = 0xFF)), mapOf(probeId.raw to 0), false)
 		val service = OffscreenPuppetService(model, textures, LiveParams(emptyMap()))
 		service.start()
+
 		try {
 			val frames = service.register("area")
 			service.resize("area", 100, 100)
+
 			if (!awaitFrame(frames) { _, sample -> isBlue(sample) }) {
 				println("[artwork-live] no GL frame arrived; skipping (context unavailable, or the atlas never rendered)")
+
 				return
 			}
 
@@ -109,13 +112,17 @@ class SourceLayerLiveEngineTest {
 	 */
 	private fun awaitFrame(frames: StateFlow<RenderedFrame?>, accept: (RenderedFrame, Color) -> Boolean): Boolean {
 		val start = System.currentTimeMillis()
+
 		while (System.currentTimeMillis() - start < 5_000) {
 			val frame = frames.value
+
 			if (frame != null && accept(frame, sampleOf(frame.bitmap.toPixelMap()))) {
 				return true
 			}
+
 			Thread.sleep(20)
 		}
+
 		return false
 	}
 
@@ -136,11 +143,13 @@ class SourceLayerLiveEngineTest {
 	 */
 	private fun solidImage(red: Int, blue: Int): DecodedImage {
 		val rgba = ByteArray(imageSize * imageSize * 4)
+
 		for (pixel in rgba.indices step 4) {
 			rgba[pixel] = red.toByte()
 			rgba[pixel + 2] = blue.toByte()
 			rgba[pixel + 3] = 0xFF.toByte()
 		}
+
 		return DecodedImage(rgba, imageSize, imageSize)
 	}
 
@@ -164,6 +173,7 @@ class SourceLayerLiveEngineTest {
 						listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(quadPositions.size)))),
 					),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),

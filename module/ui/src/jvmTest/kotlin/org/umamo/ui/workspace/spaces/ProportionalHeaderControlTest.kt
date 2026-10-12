@@ -76,9 +76,11 @@ class ProportionalHeaderControlTest {
 			clickDescribed(PANEL)
 
 			assertTrue(popupShows(CONNECTED_ONLY) && popupShows(PROPORTIONAL_SIZE), "Connected Only and the size row")
+
 			for (label in CURVE_LABELS) {
 				assertTrue(popupShows(label), "the $label curve")
 			}
+
 			curveRow(SMOOTH).assertIsSelected()
 			curveRow(SHARP).assertIsNotSelected()
 		}
@@ -172,9 +174,11 @@ class ProportionalHeaderControlTest {
 	 */
 	private fun ComposeUiTest.mountHeader(kind: SpaceKind, session: EditorSession, scope: AreaScope = AreaScope(HEADER_TEST_AREA_ID)) {
 		val commands = CommandRegistry()
+
 		for (command in proportionalCommands(session, SessionAvailability(session))) {
 			commands.register(command)
 		}
+
 		setAreaHeader(kind = kind, headerWidth = 1200.dp, puppet = mutableStateOf(session.model.value), scope = scope, session = session, commands = commands)
 	}
 

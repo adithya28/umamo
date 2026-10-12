@@ -63,9 +63,11 @@ data class TrackAxis(
 	 */
 	fun ticks(minimumTickCount: Int = 4): List<Float> {
 		val extent = abs(span)
+
 		if (extent == 0f || minimumTickCount <= 0) {
 			return listOf(start)
 		}
+
 		val roughStep = extent / minimumTickCount
 		val magnitude = 10f.pow(floor(log10(roughStep.toDouble())).toFloat())
 		val step =
@@ -74,9 +76,11 @@ data class TrackAxis(
 				roughStep / magnitude >= 2f -> 2f * magnitude
 				else -> magnitude
 			}
+
 		if (step <= 0f) {
 			return listOf(start)
 		}
+
 		val lower = minOf(start, end)
 		val upper = maxOf(start, end)
 		val firstTick = floor(lower / step) * step
@@ -84,13 +88,16 @@ data class TrackAxis(
 		var tick = firstTick
 		// Bounded independently of the arithmetic so a pathological step can never spin here.
 		var guard = 0
+
 		while (tick <= upper + step * 0.5f && guard < 1024) {
 			if (tick >= lower - step * 0.5f) {
 				values.add(tick)
 			}
+
 			tick += step
 			guard++
 		}
+
 		return values
 	}
 }
@@ -139,6 +146,7 @@ data class TrackWindow(
 		// Hold the anchor at the same fraction of the visible width, then push the result back inside the
 		// domain - zooming out near an end walks the window inward rather than off the edge.
 		val newStart = (anchor - (anchor - start) * (newSpan / span)).coerceIn(0f, 1f - newSpan)
+
 		return TrackWindow(newStart, newStart + newSpan)
 	}
 
@@ -150,6 +158,7 @@ data class TrackWindow(
 	 */
 	fun pannedBy(fraction: Float): TrackWindow {
 		val newStart = (start + fraction).coerceIn(0f, 1f - span)
+
 		return TrackWindow(newStart, newStart + span)
 	}
 
@@ -297,15 +306,18 @@ fun flattenTrackRows(rows: List<TrackRow>, expandedKeys: Set<String>): List<Trac
 		val expandable = row.children.isNotEmpty()
 		val expanded = expandable && row.key in expandedKeys
 		lines.add(TrackRowLine(row, depth, expandable, expanded))
+
 		if (expanded) {
 			for (child in row.children) {
 				visit(child, depth + 1)
 			}
 		}
 	}
+
 	for (row in rows) {
 		visit(row, 0)
 	}
+
 	return lines
 }
 
@@ -329,9 +341,11 @@ fun summarizedMarks(row: TrackRow): List<TrackKeyMark> {
 				byPosition.getOrPut(mark.position) { mark }
 			}
 		}
+
 		current.children.forEach(::visit)
 	}
 	visit(row)
+
 	// Renumbered to its position in the SUMMARY.  The winner's own ordinal is meaningless across the group
 	// (two channels keyed at one value can hold different ordinals), whereas a summary ordinal is a stable
 	// name the owner can map back to the whole set of keys it stands for.
@@ -353,12 +367,15 @@ fun summarizedMarks(row: TrackRow): List<TrackKeyMark> {
 fun nearestMark(marks: List<TrackKeyMark>, domainValue: Float, tolerance: Float): TrackKeyMark? {
 	var best: TrackKeyMark? = null
 	var bestDistance = tolerance
+
 	for (mark in marks) {
 		val distance = abs(mark.position - domainValue)
+
 		if (distance <= bestDistance) {
 			bestDistance = distance
 			best = mark
 		}
 	}
+
 	return best
 }

@@ -46,9 +46,11 @@ fun ViewportPickOverlay(areaId: String, service: PuppetViewportService, modifier
 	val picker = LocalRelationPick.current
 	val request = picker.request
 	val puppet = LocalPuppet.current
+
 	if (request == null || puppet == null) {
 		return
 	}
+
 	// Whether a click HERE can bind anything.  A deformer-only pick cannot - the hit test is drawable-only -
 	// but the overlay still mounts, because the alternative is worse: with no overlay the click falls through
 	// to the object gizmo, changes the selection, and swaps the arming field out from under the live pick.
@@ -66,7 +68,9 @@ fun ViewportPickOverlay(areaId: String, service: PuppetViewportService, modifier
 		if (!resolvableHere) {
 			return null
 		}
+
 		val hit = service.pickAt(areaId, x, y) ?: return null
+
 		return if (PickKind.Drawable in request.accepts) {
 			SelectionTarget.Drawable(hit)
 		} else {
@@ -84,25 +88,37 @@ fun ViewportPickOverlay(areaId: String, service: PuppetViewportService, modifier
 						while (true) {
 							val event = awaitPointerEvent()
 							val change = event.changes.firstOrNull() ?: continue
+
 							// Name what is under the pointer so the shell's badge can show it before the click.
 							// The hit test runs per move, which is affordable because this overlay only exists
 							// while a pick is armed - a deliberate, short-lived interaction.
 							when (event.type) {
-								PointerEventType.Move, PointerEventType.Enter -> picker.hover(targetAt(change.position.x, change.position.y))
-								PointerEventType.Exit -> picker.hover(null)
+								PointerEventType.Move, PointerEventType.Enter -> {
+									picker.hover(targetAt(change.position.x, change.position.y))
+								}
+
+								PointerEventType.Exit -> {
+									picker.hover(null)
+								}
+
 								else -> {}
 							}
+
 							if (event.type != PointerEventType.Press) {
 								continue
 							}
+
 							if (event.buttons.isSecondaryPressed) {
 								picker.cancel()
 								change.consume()
+
 								continue
 							}
+
 							if (!event.buttons.isPrimaryPressed) {
 								continue
 							}
+
 							// Consume every primary press, hit or miss - and also when nothing here is resolvable at
 							// all: the gizmo beneath must never see it, or a missed (or unresolvable) pick would
 							// change the selection.  A miss leaves the pick armed to try again.

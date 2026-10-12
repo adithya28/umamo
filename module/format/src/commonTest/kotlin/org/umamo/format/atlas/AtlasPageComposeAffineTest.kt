@@ -114,18 +114,21 @@ class AtlasPageComposeAffineTest {
 		val solid = opaquePackItem("s", 5, 5)
 		val composed = composeOne(AtlasTilePlacement("s", 0, trim, floatArrayOf(2f, 0f, 2f, 0f, 2f, 2f)), extrude = 0, items = listOf(solid))
 		val coverageByPixel = mapOf(3 to 0.25f, 4 to 0.75f, 5 to 1f, 6 to 1f, 7 to 1f, 8 to 1f, 9 to 0.75f, 10 to 0.25f)
+
 		for (y in 0 until pageSide) {
 			for (x in 0 until pageSide) {
 				val expected = 255f * (coverageByPixel[x] ?: 0f) * (coverageByPixel[y] ?: 0f)
 				assertTrue(abs(alphaAt(composed, x, y) - expected) <= 1f, "alpha at ($x, $y) is ${alphaAt(composed, x, y)}, not $expected")
 			}
 		}
+
 		// A corner pixel sees one texel inside the trim: that texel's color, at the coverage it has.
 		assertEquals(itemPixel(solid, 1, 1) and 0xFF.inv(), pagePixel(composed, 4, 4) and 0xFF.inv(), "the scaled corner carries the trim's corner texel color")
 		// Between texels the samples blend: at twice the size no page center lands on the translucent
 		// center texel's own center, so it and its neighbors come out as mixtures rather than snapping
 		// to the nearest texel.
 		val blended = composeOne(AtlasTilePlacement("a", 0, trim, floatArrayOf(2f, 0f, 2f, 0f, 2f, 2f)), extrude = 0)
+
 		for ((x, y) in listOf(6 to 6, 5 to 5, 7 to 7)) {
 			val alpha = alphaAt(blended, x, y)
 			assertTrue(alpha in 5..254, "($x, $y) straddles the opaque and translucent texels and blends them, was $alpha")
@@ -153,12 +156,14 @@ class AtlasPageComposeAffineTest {
 		val extruded = composeOne(AtlasTilePlacement("r", 0, fullTrim, rotated), extrude = 2, items = listOf(opaque))
 
 		assertEquals(255, alphaAt(bare, 8, 8), "the center is inside the turned square")
+
 		// The band adds color, never coverage: every pixel's alpha is the same with and without it.
 		for (y in 0 until pageSide) {
 			for (x in 0 until pageSide) {
 				assertEquals(alphaAt(bare, x, y), alphaAt(extruded, x, y), "the band changes no coverage at ($x, $y)")
 			}
 		}
+
 		// The diamond's tips reach 2.12 px from the center, so these four pixels sit past its coverage on
 		// each side and inside the two-pixel band: untouched without it, the edge's color at zero alpha with it.
 		for ((x, y) in listOf(8 to 5, 8 to 10, 5 to 8, 10 to 8)) {
@@ -166,6 +171,7 @@ class AtlasPageComposeAffineTest {
 			assertEquals(0, alphaAt(extruded, x, y), "($x, $y) is transparent inside the band")
 			assertTrue(pagePixel(extruded, x, y) != 0, "($x, $y) carries the edge's color inside the band")
 		}
+
 		assertEquals(0, pagePixel(extruded, 8, 2), "three pixels past the tip is beyond the band")
 	}
 
@@ -200,15 +206,18 @@ class AtlasPageComposeAffineTest {
 		// The sparse tile's rectangle covers the solid tile entirely; only its (0, 0) texel is opaque and
 		// lands at (3, 3), outside the solid tile.
 		val exact = composeAtlasPagesAffine(pageWidths, pageHeights, listOf(solid, sparse), listOf(AtlasTilePlacement("s", 0, LayerBounds(0, 0, 3, 3), solidAt), AtlasTilePlacement("b", 0, fullTrim, translation(3f, 3f))), extrude = 0).single()
+
 		for (y in 4 until 7) {
 			for (x in 4 until 7) {
 				assertEquals(itemPixel(solid, x - 4, y - 4), pagePixel(exact, x, y), "the solid tile survives the transparent margin at ($x, $y) (exact path)")
 			}
 		}
+
 		assertEquals(itemPixel(sparse, 0, 0), pagePixel(exact, 3, 3), "the sparse tile's opaque texel lands")
 
 		// The same through the resampling path (a fractional translation).
 		val resampled = composeAtlasPagesAffine(pageWidths, pageHeights, listOf(solid, sparse), listOf(AtlasTilePlacement("s", 0, LayerBounds(0, 0, 3, 3), solidAt), AtlasTilePlacement("b", 0, fullTrim, translation(3.5f, 3.5f))), extrude = 0).single()
+
 		for (y in 4 until 7) {
 			for (x in 4 until 7) {
 				assertEquals(255, alphaAt(resampled, x, y), "the solid tile stays opaque under the resampled margin at ($x, $y)")
@@ -227,6 +236,7 @@ class AtlasPageComposeAffineTest {
 				),
 				extrude = 0,
 			).single()
+
 		for (y in 4 until 7) {
 			for (x in 4 until 7) {
 				assertEquals(itemPixel(solid, x - 4, y - 4), pagePixel(turned, x, y), "the solid tile survives under the turned margin at ($x, $y)")

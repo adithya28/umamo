@@ -137,6 +137,7 @@ internal class UvEditModalTransform(
 		// Offer each shown mesh with covered vertices to the shared capture builder, its frozen display-space
 		// coordinates as the source positions (no deformer mapping in UV space).
 		val sources = ArrayList<ModalCaptureSource>()
+
 		for (geometry in geometries) {
 			val elements = selection.elementsOf(geometry.drawableId)
 
@@ -170,6 +171,7 @@ internal class UvEditModalTransform(
 			// Nothing movable on the shown surface (the selection's covered meshes live elsewhere or carry
 			// no editable UVs): drop the operator.
 			session.clearUvOperator()
+
 			return
 		}
 
@@ -247,6 +249,7 @@ internal class UvEditModalTransform(
 				}
 			}
 		}
+
 		session.clearUvOperator()
 	}
 

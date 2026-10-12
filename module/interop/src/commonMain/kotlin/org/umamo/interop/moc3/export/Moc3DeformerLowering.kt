@@ -36,10 +36,12 @@ internal fun lowerDeformers(
 	noticeSink: Moc3ExportNotices,
 ): List<MocDeformer> {
 	val plan = context.plan
+
 	return plan.deformers.map { deformer ->
 		val parentPartIndex = plan.partIndex(deformer.partId)
 		val parentDeformerIndex = plan.deformerIndex(deformer.parent)
 		val space = context.spaceOfParent(deformer.parent)
+
 		when (deformer) {
 			is Deformer.Warp -> {
 				val keyforms =
@@ -57,6 +59,7 @@ internal fun lowerDeformers(
 						requireGeometry = true,
 					)
 				noticeSink.reportDemotions(ExportEntityCategory.Deformer, deformer.id.raw, keyforms)
+
 				if (keyforms == null) {
 					noticeSink.unsupported(
 						ExportEntityCategory.Deformer,
@@ -64,6 +67,7 @@ internal fun lowerDeformers(
 						ExportNoticeReason.WarpDeformerHasNoLattice,
 					)
 				}
+
 				val bundle = keyforms?.bundle
 				// A MOC3 addresses an object's forms as `gridSize` rows from its own keyform base, and
 				// the static binding 0 still declares ONE row - so an object that writes zero rows puts
@@ -104,6 +108,7 @@ internal fun lowerDeformers(
 						},
 				)
 			}
+
 			is Deformer.Rotation -> {
 				val keyforms =
 					lowerObjectKeyforms(
@@ -121,6 +126,7 @@ internal fun lowerDeformers(
 						requireGeometry = true,
 					)
 				noticeSink.reportDemotions(ExportEntityCategory.Deformer, deformer.id.raw, keyforms)
+
 				if (keyforms == null) {
 					noticeSink.unsupported(
 						ExportEntityCategory.Deformer,
@@ -128,6 +134,7 @@ internal fun lowerDeformers(
 						ExportNoticeReason.RotationDeformerHasNoPivot,
 					)
 				}
+
 				val bundle = keyforms?.bundle
 				// One form minimum, for the same base-collision reason as the warp branch above.  A
 				// pivot-less rotation has a well-defined fallback the warp does not: the identity

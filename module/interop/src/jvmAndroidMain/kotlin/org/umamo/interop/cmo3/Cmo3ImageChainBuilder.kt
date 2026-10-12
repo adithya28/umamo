@@ -224,6 +224,7 @@ internal object Cmo3ImageChainBuilder {
 		fun next(): String {
 			val suffix = nextSuffix
 			nextSuffix += 1
+
 			return if (suffix < 0) "$stem.png" else "${stem}_$suffix.png"
 		}
 
@@ -242,6 +243,7 @@ internal object Cmo3ImageChainBuilder {
 					} else {
 						checkNotNull(firstPath.removePrefix("${stem}_").removeSuffix(".png").toIntOrNull()) { "'$firstPath' is not in the $stem sequence" }
 					}
+
 				return FreshPathSequence(stem, firstSuffix)
 			}
 		}
@@ -273,6 +275,7 @@ internal object Cmo3ImageChainBuilder {
 			var result = patchRect.contentHashCode()
 			result = 31 * result + uvs.contentHashCode()
 			result = 31 * result + indices.contentHashCode()
+
 			return result
 		}
 	}
@@ -409,9 +412,11 @@ internal object Cmo3ImageChainBuilder {
 						value("LayerToCanvas変換", OUTPUT_TRANSFORM),
 						value("LayerToCanvas変換", SELECTOR_OUTPUT_TRANSFORM),
 					)
+
 				for (idStr in KEY_ID_STRS) {
 					valueId(idStr)
 				}
+
 				return FilterCommons(
 					idByIdStr,
 					values.associateBy { value -> (value.id as Id).idstr },
@@ -461,6 +466,7 @@ internal object Cmo3ImageChainBuilder {
 					noteId(id)
 					valueByIdStr.putIfAbsent(id.idstr, value)
 				}
+
 				// CMO3: ModelImageFilterSet field filterMap -> FilterInstance fields filterName /
 				// filterDefGuid / inputConnectors / outputConnectors, the connectors keyed by value id.
 				for (instance in (filterSet.filterMap as? Map<*, *>)?.values.orEmpty().filterIsInstance<FilterInstance>()) {
@@ -468,10 +474,12 @@ internal object Cmo3ImageChainBuilder {
 						"CLayerSelector" -> selectorDefGuid = instance.filterDefGuid as? Guid
 						"CLayerFilter" -> layerFilterDefGuid = instance.filterDefGuid as? Guid
 					}
+
 					for ((key, connector) in (instance.inputConnectors as? Map<*, *>).orEmpty()) {
 						noteId(key)
 						noteId((connector as? EnvValueConnector)?.envValueId)
 					}
+
 					for ((key, connector) in (instance.outputConnectors as? Map<*, *>).orEmpty()) {
 						noteId(key)
 						val output = connector as? FilterOutputValueConnector ?: continue
@@ -479,6 +487,7 @@ internal object Cmo3ImageChainBuilder {
 						noteValue(output.valueDef)
 					}
 				}
+
 				// CMO3: ModelImageFilterSet fields _externalInputs / _externalOutputs -> EnvConnection
 				// fields _envValueDef / filterValueDef.
 				for (external in listOf(filterSet._externalInputs, filterSet._externalOutputs)) {
@@ -489,11 +498,14 @@ internal object Cmo3ImageChainBuilder {
 						noteValue(envConnection.filterValueDef)
 					}
 				}
+
 				val selector = selectorDefGuid ?: return null
 				val layerFilter = layerFilterDefGuid ?: return null
+
 				if (KEY_ID_STRS.any { idStr -> idStr !in idByIdStr } || VALUE_ID_STRS.any { idStr -> idStr !in valueByIdStr }) {
 					return null
 				}
+
 				return FilterCommons(idByIdStr, valueByIdStr, selector, layerFilter)
 			}
 		}
@@ -581,6 +593,7 @@ internal object Cmo3ImageChainBuilder {
 					},
 				)
 			}
+
 		return filterSet
 	}
 
@@ -663,6 +676,7 @@ internal object Cmo3ImageChainBuilder {
 				magFilter = MagFilter.LINEAR
 				owner = texture
 			}
+
 		return texture
 	}
 
@@ -683,6 +697,7 @@ internal object Cmo3ImageChainBuilder {
 		// CMO3: GTexture2D field transformImageResource01toLogical01 - the raster's padding scale, which is
 		// what puts an unpacked drawable's stored coordinates in the cache frame (Cmo3TextureFrames).
 		texture.transformImageResource01toLogical01 = paddedFrameAffine(resource.width, resource.height)
+
 		return texture
 	}
 
@@ -759,11 +774,13 @@ internal object Cmo3ImageChainBuilder {
 		if (uvs.size < 2) {
 			return null
 		}
+
 		var minU = Float.POSITIVE_INFINITY
 		var minV = Float.POSITIVE_INFINITY
 		var maxU = Float.NEGATIVE_INFINITY
 		var maxV = Float.NEGATIVE_INFINITY
 		var componentIndex = 0
+
 		while (componentIndex + 1 < uvs.size) {
 			minU = minOf(minU, uvs[componentIndex])
 			maxU = maxOf(maxU, uvs[componentIndex])
@@ -771,13 +788,16 @@ internal object Cmo3ImageChainBuilder {
 			maxV = maxOf(maxV, uvs[componentIndex + 1])
 			componentIndex += 2
 		}
+
 		if (!minU.isFinite() || !minV.isFinite() || !maxU.isFinite() || !maxV.isFinite()) {
 			return null
 		}
+
 		val x0 = kotlin.math.floor(minU * pageWidth).toInt().coerceIn(0, pageWidth - 1)
 		val y0 = kotlin.math.floor(minV * pageHeight).toInt().coerceIn(0, pageHeight - 1)
 		val x1 = kotlin.math.ceil(maxU * pageWidth).toInt().coerceIn(x0 + 1, pageWidth)
 		val y1 = kotlin.math.ceil(maxV * pageHeight).toInt().coerceIn(y0 + 1, pageHeight)
+
 		return intArrayOf(x0, y0, x1, y1)
 	}
 
@@ -796,11 +816,14 @@ internal object Cmo3ImageChainBuilder {
 	 */
 	private fun solvePageFitFor(pageFit: CAffine, canvasX: Float, canvasY: Float): FloatArray? {
 		val determinant = pageFit.m00.toDouble() * pageFit.m11 - pageFit.m01.toDouble() * pageFit.m10
+
 		if (determinant == 0.0) {
 			return null
 		}
+
 		val deltaX = canvasX.toDouble() - pageFit.m02
 		val deltaY = canvasY.toDouble() - pageFit.m12
+
 		return floatArrayOf(
 			((pageFit.m11 * deltaX - pageFit.m01 * deltaY) / determinant).toFloat(),
 			((pageFit.m00 * deltaY - pageFit.m10 * deltaX) / determinant).toFloat(),
@@ -843,6 +866,7 @@ internal object Cmo3ImageChainBuilder {
 				y = scaleY
 			}
 		transform.eulerAngle = rotationDegrees
+
 		return transform
 	}
 
@@ -962,17 +986,21 @@ internal object Cmo3ImageChainBuilder {
 		if (indices.size < 3) {
 			return null
 		}
+
 		val vertexCount = uvs.size / 2
 		val covered = BooleanArray(cropWidth * cropHeight)
 		var triangleStart = 0
+
 		while (triangleStart + 2 < indices.size) {
 			val indexA = indices[triangleStart]
 			val indexB = indices[triangleStart + 1]
 			val indexC = indices[triangleStart + 2]
 			triangleStart += 3
+
 			if (indexA !in 0 until vertexCount || indexB !in 0 until vertexCount || indexC !in 0 until vertexCount) {
 				continue
 			}
+
 			val cornerAx = uvs[2 * indexA].toDouble() * pageWidth - patchX0
 			val cornerAy = uvs[2 * indexA + 1].toDouble() * pageHeight - patchY0
 			val cornerBx = uvs[2 * indexB].toDouble() * pageWidth - patchX0
@@ -980,9 +1008,11 @@ internal object Cmo3ImageChainBuilder {
 			val cornerCx = uvs[2 * indexC].toDouble() * pageWidth - patchX0
 			val cornerCy = uvs[2 * indexC + 1].toDouble() * pageHeight - patchY0
 			val doubledArea = (cornerBx - cornerAx) * (cornerCy - cornerAy) - (cornerCx - cornerAx) * (cornerBy - cornerAy)
+
 			if (!doubledArea.isFinite() || doubledArea == 0.0) {
 				continue
 			}
+
 			// Normalize the winding so "inside" is uniformly a non-negative edge value.
 			val winding = if (doubledArea > 0.0) 1.0 else -1.0
 			// One extra pixel each way: the conservative test below reaches half a pixel past the
@@ -991,14 +1021,19 @@ internal object Cmo3ImageChainBuilder {
 			val lastColumn = kotlin.math.ceil(maxOf(cornerAx, cornerBx, cornerCx)).toInt().coerceIn(0, cropWidth - 1) + 1
 			val firstRow = kotlin.math.floor(minOf(cornerAy, cornerBy, cornerCy)).toInt().coerceIn(0, cropHeight - 1) - 1
 			val lastRow = kotlin.math.ceil(maxOf(cornerAy, cornerBy, cornerCy)).toInt().coerceIn(0, cropHeight - 1) + 1
+
 			for (rowIndex in maxOf(0, firstRow)..minOf(cropHeight - 1, lastRow)) {
 				val pointY = rowIndex + 0.5
+
 				for (columnIndex in maxOf(0, firstColumn)..minOf(cropWidth - 1, lastColumn)) {
 					val flatIndex = rowIndex * cropWidth + columnIndex
+
 					if (covered[flatIndex]) {
 						continue
 					}
+
 					val pointX = columnIndex + 0.5
+
 					if (overlapsEdge(cornerAx, cornerAy, cornerBx, cornerBy, pointX, pointY, winding) &&
 						overlapsEdge(cornerBx, cornerBy, cornerCx, cornerCy, pointX, pointY, winding) &&
 						overlapsEdge(cornerCx, cornerCy, cornerAx, cornerAy, pointX, pointY, winding)
@@ -1008,6 +1043,7 @@ internal object Cmo3ImageChainBuilder {
 				}
 			}
 		}
+
 		return dilate(covered, cropWidth, cropHeight, COVERAGE_BLEED_MARGIN)
 	}
 
@@ -1039,6 +1075,7 @@ internal object Cmo3ImageChainBuilder {
 		val edgeX = toX - fromX
 		val edgeY = toY - fromY
 		val edgeValue = winding * (edgeX * (pointY - fromY) - edgeY * (pointX - fromX))
+
 		return edgeValue + 0.5 * (kotlin.math.abs(edgeX) + kotlin.math.abs(edgeY)) >= 0.0
 	}
 
@@ -1055,47 +1092,60 @@ internal object Cmo3ImageChainBuilder {
 		if (margin <= 0) {
 			return covered
 		}
+
 		val grownAcross = BooleanArray(covered.size)
+
 		for (rowIndex in 0 until height) {
 			val rowStart = rowIndex * width
 			var windowCount = 0
+
 			for (columnIndex in 0..minOf(margin, width - 1)) {
 				if (covered[rowStart + columnIndex]) {
 					windowCount += 1
 				}
 			}
+
 			for (columnIndex in 0 until width) {
 				grownAcross[rowStart + columnIndex] = windowCount > 0
 				val leavingColumn = columnIndex - margin
 				val enteringColumn = columnIndex + margin + 1
+
 				if (leavingColumn >= 0 && covered[rowStart + leavingColumn]) {
 					windowCount -= 1
 				}
+
 				if (enteringColumn < width && covered[rowStart + enteringColumn]) {
 					windowCount += 1
 				}
 			}
 		}
+
 		val grown = BooleanArray(covered.size)
+
 		for (columnIndex in 0 until width) {
 			var windowCount = 0
+
 			for (rowIndex in 0..minOf(margin, height - 1)) {
 				if (grownAcross[rowIndex * width + columnIndex]) {
 					windowCount += 1
 				}
 			}
+
 			for (rowIndex in 0 until height) {
 				grown[rowIndex * width + columnIndex] = windowCount > 0
 				val leavingRow = rowIndex - margin
 				val enteringRow = rowIndex + margin + 1
+
 				if (leavingRow >= 0 && grownAcross[leavingRow * width + columnIndex]) {
 					windowCount -= 1
 				}
+
 				if (enteringRow < height && grownAcross[enteringRow * width + columnIndex]) {
 					windowCount += 1
 				}
 			}
 		}
+
 		return grown
 	}
 
@@ -1119,21 +1169,26 @@ internal object Cmo3ImageChainBuilder {
 		coverage: BooleanArray?,
 	): RasterImage {
 		val cropRgba = ByteArray(cropWidth * cropHeight * 4)
+
 		for (rowIndex in 0 until cropHeight) {
 			val sourceOffset = ((y0 + rowIndex) * decodedPage.width + x0) * 4
 			val targetOffset = rowIndex * cropWidth * 4
 			decodedPage.rgba.copyInto(cropRgba, targetOffset, sourceOffset, sourceOffset + cropWidth * 4)
+
 			if (coverage == null) {
 				continue
 			}
+
 			for (columnIndex in 0 until cropWidth) {
 				if (coverage[rowIndex * cropWidth + columnIndex]) {
 					continue
 				}
+
 				val pixelOffset = targetOffset + columnIndex * 4
 				cropRgba.fill(0, pixelOffset, pixelOffset + 4)
 			}
 		}
+
 		return RasterImage(cropWidth, cropHeight, cropRgba)
 	}
 
@@ -1193,6 +1248,7 @@ internal object Cmo3ImageChainBuilder {
 		val textures = ArrayList<GTexture2D>(pages.size)
 		var cropGroup: CropGroup? = null
 		var cropDrawableCount = 0
+
 		for ((pageIndex, page) in pages.withIndex()) {
 			val pagePath = names.nextImageFileBufPath()
 			pngEntries.add(Cmo3FreshFile.PngEntry(pagePath, page.pngBytes))
@@ -1202,6 +1258,7 @@ internal object Cmo3ImageChainBuilder {
 			atlases.add(atlas)
 			textures.add(texture)
 			val regions = regionsByPage.getOrNull(pageIndex).orEmpty()
+
 			if (regions.isNotEmpty()) {
 				val group =
 					cropGroup ?: run {
@@ -1219,11 +1276,14 @@ internal object Cmo3ImageChainBuilder {
 				cropDrawableCount += regions.size
 				rawImages.add(cropWeb(page, pageIndex, regions, atlas, texture, group, names, pngEntries, bindingByDrawableId, nowMillis))
 			}
+
 			pageFallbackBindings.add(Cmo3DrawableTextureBinding(texture, atlas.guid as Guid, null, CAffine()))
 			textureAtlases.add(atlas)
 		}
+
 		cropGroup?.let { group -> modelImageGroups.add(group.group) }
 		val rasterTextures = ArrayList<GTexture2D>()
+
 		for (image in sourceImages) {
 			val written = Cmo3SourceLayerWeb.write(image, atlases, textures, names, pngEntries, nowMillis)
 			rawImages.add(written.wrapper)
@@ -1231,6 +1291,7 @@ internal object Cmo3ImageChainBuilder {
 			bindingByDrawableId.putAll(written.bindingByDrawableId)
 			rasterTextures.addAll(written.rasterTextures)
 		}
+
 		// CMO3: CTextureManager field isTextureInputModelImageMode - the document's own display mode.
 		// The synthesized web carries BOTH inputs per packed drawable (a model image and an atlas region),
 		// and an unpacked one's model image is current in either mode, so either mode is representable;
@@ -1238,6 +1299,7 @@ internal object Cmo3ImageChainBuilder {
 		// by that lowering, so it reads the model directly rather than hardcoding a mode the document may
 		// not be in.
 		textureManager.isTextureInputModelImageMode = fromSourceLayers
+
 		return BuiltImageChain(pngEntries, bindingByDrawableId, pageFallbackBindings, cropDrawableCount, rasterTextures)
 	}
 
@@ -1419,16 +1481,21 @@ internal object Cmo3ImageChainBuilder {
 		fun iconEntry(png: ByteArray, size: Int): CImageIcon {
 			val path = names.nextIconPath()
 			pngEntries.add(Cmo3FreshFile.PngEntry(path, png))
+
 			return Cmo3Icons.iconReferencing(size, path)
 		}
+
 		for (region in regions) {
 			val pageFit = fitAtlasPageToCanvasTransform(region.uvs, region.positions, page.width, page.height)
 			val patch = patchRectOf(region.uvs, page.width, page.height)
+
 			if (patch == null) {
 				bindingByDrawableId[region.drawableIdStr] =
 					Cmo3DrawableTextureBinding(texture, atlas.guid as Guid, null, pageFit)
+
 				continue
 			}
+
 			val patchX0 = patch[0]
 			val patchY0 = patch[1]
 			val cropWidth = patch[2] - patch[0]
@@ -1550,7 +1617,9 @@ internal object Cmo3ImageChainBuilder {
 					icon16 = iconEntry(patchWeb.icon16Png, 16),
 				)
 		}
+
 		group.linkedRawImageGuids.add(layeredImage.guid)
+
 		return wrapper
 	}
 

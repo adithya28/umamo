@@ -139,6 +139,7 @@ fun DropdownChip(
 		// split face has no room for); the plain face is one clickable.  Each face owns its own interaction
 		// state and colors, so the one not shown costs nothing.
 		val toggle = iconToggle?.takeIf { icon != null && style != DropdownChipStyle.Field }
+
 		if (toggle != null && icon != null) {
 			SplitChipFace(
 				expanded = expanded,
@@ -167,6 +168,7 @@ fun DropdownChip(
 				valueIconTint = valueIconTint,
 			)
 		}
+
 		if (expanded) {
 			dropdown()
 		}
@@ -271,6 +273,7 @@ private fun PlainChipFace(
 					drawIcon(icon, glyphColor)
 				}
 			}
+
 			if (label != null) {
 				// A Field weights its label so it fills the chip (ellipsizing when long) and pushes the
 				// chevron to the trailing edge; a Header keeps the label content-width, which the Row's own
@@ -290,9 +293,11 @@ private fun PlainChipFace(
 					modifier = labelModifier,
 				)
 			}
+
 			if (valueIcon != null) {
 				ChipValueGlyph(valueIcon, valueIconTint, chipContentColor, glyphSize, enabled = enabled, expanded = expanded)
 			}
+
 			val chevron =
 				when {
 					expanded -> LocalUmamoIcons.chevronDown
@@ -438,9 +443,11 @@ private fun SplitChipFace(
 						modifier = Modifier.padding(horizontal = 4.dp),
 					)
 				}
+
 				if (valueIcon != null) {
 					ChipValueGlyph(valueIcon, valueIconTint, expandContentColor, glyphSize, enabled = enabled, expanded = expanded)
 				}
+
 				val chevron =
 					when {
 						expanded -> LocalUmamoIcons.chevronDown

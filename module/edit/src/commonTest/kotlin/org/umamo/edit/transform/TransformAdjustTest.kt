@@ -81,6 +81,7 @@ class TransformAdjustTest {
 			assertEquals(2f, back.factorX, "$space round-trips x")
 			assertEquals(0.5f, back.factorY, "$space round-trips y")
 		}
+
 		assertTrue(transformParameters(MeshOperatorKind.VertexSlide, gesture, TransformRowSpace.World, proportional = null).isEmpty(), "a slide has rows of its own")
 		assertEquals(0.25f, slideParameters(0.25f).float(TransformParameterKeys.SLIDE_FACTOR))
 	}

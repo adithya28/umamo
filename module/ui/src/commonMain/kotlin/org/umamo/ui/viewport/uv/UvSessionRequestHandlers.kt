@@ -76,6 +76,7 @@ internal fun handleUvSnapRequest(
 	var coveredSumX = 0f
 	var coveredSumY = 0f
 	var coveredCount = 0
+
 	for ((geometry, covered) in coveredByMesh) {
 		for (vertexIndex in covered) {
 			coveredSumX += geometry.positions[vertexIndex * 2]
@@ -85,13 +86,16 @@ internal fun handleUvSnapRequest(
 	}
 
 	when (kind) {
-		UvSnapKind.CursorToPixels, UvSnapKind.CursorToGrid -> snapUvCursor(session, frame, kind, gridStep)
+		UvSnapKind.CursorToPixels, UvSnapKind.CursorToGrid -> {
+			snapUvCursor(session, frame, kind, gridStep)
+		}
 
 		UvSnapKind.CursorToSelected -> {
 			// Nothing selected on the shown surface: no median to move the cursor to (a silent no-op).
 			if (coveredCount == 0) {
 				return
 			}
+
 			val (cursorU, cursorV) = frame.storedUvAt(coveredSumX / coveredCount, coveredSumY / coveredCount)
 			session.setUvCursor(cursorU, cursorV)
 		}
@@ -104,43 +108,51 @@ internal fun handleUvSnapRequest(
 			if (coveredCount == 0) {
 				return
 			}
+
 			val medianX = coveredSumX / coveredCount
 			val medianY = coveredSumY / coveredCount
 			val model = session.model.value
 			val newUvsByDrawable = LinkedHashMap<DrawableId, FloatArray>(coveredByMesh.size)
 			val movedIndicesByDrawable = LinkedHashMap<DrawableId, List<Int>>(coveredByMesh.size)
+
 			for ((geometry, covered) in coveredByMesh) {
 				val display = geometry.positions
 				val transformedDisplay =
 					when (kind) {
 						// Every covered vertex lands ON the cursor (Blender's pile-up semantics).
-						UvSnapKind.SelectionToCursor ->
+						UvSnapKind.SelectionToCursor -> {
 							MeshTransforms.collapseVertices(display, covered, cursorDisplayX, cursorDisplayY)
+						}
 
 						// A rigid translate: the covered median lands on the cursor, offsets kept.
-						UvSnapKind.SelectionToCursorOffset ->
+						UvSnapKind.SelectionToCursorOffset -> {
 							MeshTransforms.translateVertices(display, covered, cursorDisplayX - medianX, cursorDisplayY - medianY)
+						}
 
 						// Each covered vertex rounds to its own nearest minor grid line (scale / subdivisions).
-						UvSnapKind.SelectionToGrid ->
+						UvSnapKind.SelectionToGrid -> {
 							display.copyOf().also { positions ->
 								for (vertexIndex in covered) {
 									positions[vertexIndex * 2] = snapToGrid(positions[vertexIndex * 2], 0f, gridStep)
 									positions[vertexIndex * 2 + 1] = snapToGrid(positions[vertexIndex * 2 + 1], 0f, gridStep)
 								}
 							}
+						}
 
 						// Each covered vertex rounds to its nearest pixel corner (an integer texel boundary).
-						UvSnapKind.SelectionToPixels ->
+						UvSnapKind.SelectionToPixels -> {
 							display.copyOf().also { positions ->
 								for (vertexIndex in covered) {
 									positions[vertexIndex * 2] = positions[vertexIndex * 2].roundToInt().toFloat()
 									positions[vertexIndex * 2 + 1] = positions[vertexIndex * 2 + 1].roundToInt().toFloat()
 								}
 							}
+						}
 
 						// The cursor moves were handled above; nothing else reaches here.
-						UvSnapKind.CursorToPixels, UvSnapKind.CursorToSelected, UvSnapKind.CursorToGrid -> display
+						UvSnapKind.CursorToPixels, UvSnapKind.CursorToSelected, UvSnapKind.CursorToGrid -> {
+							display
+						}
 					}
 				// Only the covered vertices are written; untouched ones keep their exact stored values
 				// (see storedUvsWithMoved).
@@ -148,6 +160,7 @@ internal fun handleUvSnapRequest(
 				newUvsByDrawable[geometry.drawableId] = storedUvsWithMoved(currentUvs, covered, transformedDisplay, frame)
 				movedIndicesByDrawable[geometry.drawableId] = covered.toList()
 			}
+
 			if (newUvsByDrawable.isNotEmpty()) {
 				session.commitMeshUvs(MeshChange.TransformUvs(movedIndicesByDrawable, MeshOperatorKind.Grab), newUvsByDrawable)
 			}
@@ -172,7 +185,9 @@ internal fun snapUvCursor(session: EditorSession, frame: UvEditFrame, kind: UvSn
 	val (snappedX, snappedY) =
 		when (kind) {
 			UvSnapKind.CursorToPixels -> cursorDisplayX.roundToInt().toFloat() to cursorDisplayY.roundToInt().toFloat()
+
 			UvSnapKind.CursorToGrid -> snapToGrid(cursorDisplayX, 0f, gridStep) to snapToGrid(cursorDisplayY, 0f, gridStep)
+
 			UvSnapKind.CursorToSelected,
 			UvSnapKind.SelectionToPixels,
 			UvSnapKind.SelectionToCursor,
@@ -229,6 +244,7 @@ internal suspend fun handleUvObjectSnapRequest(
 	when (kind) {
 		UvSnapKind.CursorToPixels, UvSnapKind.CursorToGrid -> {
 			snapUvCursor(session, frame, kind, grid.snapStep)
+
 			return
 		}
 
@@ -237,69 +253,104 @@ internal suspend fun handleUvObjectSnapRequest(
 		UvSnapKind.SelectionToCursor,
 		UvSnapKind.SelectionToCursorOffset,
 		UvSnapKind.SelectionToGrid,
-		-> Unit
+		-> {
+			Unit
+		}
 	}
+
 	if (surface == null) {
 		session.emitNotice("notice.uv.placement.pageViewOnly", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	val model = session.model.value
+
 	if (!model.atlas.storedUvsAddressPages) {
 		session.emitNotice("notice.uv.placement.layerAddressed", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	val selection = session.selection.value
 	// Cursor to Selected only reads, so pinned art counts; a move takes the tiles a drag would move.
 	val selectedTileIds = model.placementSelectedTileIds(selection)
 	val subjectTileIds = if (kind == UvSnapKind.CursorToSelected) selectedTileIds else model.placementDragTileIds(selection)
+
 	if (subjectTileIds.isEmpty()) {
 		// The drag's answers: no placed art under the selection, or placed art that is all pinned.
 		session.emitNotice(if (selectedTileIds.isEmpty()) "notice.uv.placement.noPlacedArt" else "notice.uv.placement.pinned", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	val shownDrawableIds = geometries.mapTo(HashSet()) { geometry -> geometry.drawableId }
 	val shownTileIds = model.drawables.mapNotNullTo(HashSet()) { drawable -> drawable.atlasTileId?.takeIf { drawable.id in shownDrawableIds } }
 	val candidateTileIds = subjectTileIds.filter { tileId -> tileId in shownTileIds }
 	val origins = if (candidateTileIds.isEmpty()) emptyMap() else withContext(computeDispatcher) { placementFootprintCenters(model, surface, candidateTileIds) }
+
 	if (origins == null) {
 		session.emitNotice("notice.uv.placement.notDerivable", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	if (origins.isEmpty()) {
 		session.emitNotice("notice.uv.placement.notOnPage", NoticePlacement.NearCursor)
+
 		return
 	}
+
 	if (session.model.value !== model) {
 		return
 	}
 
 	val meanX = origins.values.sumOf { origin -> origin.first.toDouble() }.toFloat() / origins.size
 	val meanY = origins.values.sumOf { origin -> origin.second.toDouble() }.toFloat() / origins.size
+
 	if (kind == UvSnapKind.CursorToSelected) {
 		val (cursorU, cursorV) = frame.storedUvAt(meanX, meanY)
 		session.setUvCursor(cursorU, cursorV)
+
 		return
 	}
+
 	val cursor = session.uvCursor.value ?: UvCursor(0f, 0f)
 	val (cursorDisplayX, cursorDisplayY) = frame.displayAt(cursor.u, cursor.v)
 	val gridStep = grid.snapStep
 	val changed = LinkedHashMap<AtlasTileId, AtlasPlacement?>()
+
 	for ((tileId, origin) in origins) {
 		val placement = model.atlas.tileById[tileId]?.placement ?: continue
 		val (originX, originY) = origin
 		val moved =
 			when (kind) {
-				UvSnapKind.SelectionToCursor -> placement.translatedInDisplay(cursorDisplayX - originX, cursorDisplayY - originY)
-				UvSnapKind.SelectionToCursorOffset -> placement.translatedInDisplay(cursorDisplayX - meanX, cursorDisplayY - meanY)
-				UvSnapKind.SelectionToGrid ->
+				UvSnapKind.SelectionToCursor -> {
+					placement.translatedInDisplay(cursorDisplayX - originX, cursorDisplayY - originY)
+				}
+
+				UvSnapKind.SelectionToCursorOffset -> {
+					placement.translatedInDisplay(cursorDisplayX - meanX, cursorDisplayY - meanY)
+				}
+
+				UvSnapKind.SelectionToGrid -> {
 					placement.translatedInDisplay(snapToGrid(originX, 0f, gridStep) - originX, snapToGrid(originY, 0f, gridStep) - originY)
-				UvSnapKind.SelectionToPixels -> placement.copy(positionX = round(placement.positionX), positionY = round(placement.positionY))
-				UvSnapKind.CursorToPixels, UvSnapKind.CursorToGrid, UvSnapKind.CursorToSelected -> placement
+				}
+
+				UvSnapKind.SelectionToPixels -> {
+					placement.copy(positionX = round(placement.positionX), positionY = round(placement.positionY))
+				}
+
+				UvSnapKind.CursorToPixels, UvSnapKind.CursorToGrid, UvSnapKind.CursorToSelected -> {
+					placement
+				}
 			}
+
 		if (moved != placement) {
 			changed[tileId] = moved
 		}
 	}
+
 	if (changed.isNotEmpty()) {
 		session.setAtlasPlacements(changed, MeshOperatorKind.Grab)
 	}

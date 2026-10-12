@@ -80,6 +80,7 @@ class BoxGestureFlowTest {
 				if (pressSelectsAnswer) {
 					asked += "selected"
 				}
+
 				return pressSelectsAnswer
 			}
 
@@ -113,6 +114,7 @@ class BoxGestureFlowTest {
 										val event = awaitPointerEvent()
 										val change = event.changes.firstOrNull() ?: continue
 										flow.handleEvent(event, change, armed, Unit)
+
 										if (change.isConsumed) {
 											consumed += event.type.toString()
 										} else {

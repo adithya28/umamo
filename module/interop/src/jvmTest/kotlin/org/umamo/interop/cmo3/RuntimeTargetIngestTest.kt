@@ -27,6 +27,7 @@ class RuntimeTargetIngestTest {
 	private fun importByName(fileName: String): PuppetModel? {
 		val file = probeFilesByName[fileName] ?: return null
 		val root = Cmo3.read(file).root as? CModelSource ?: error("$fileName root is not a CModelSource")
+
 		return Cmo3Import.fromModelSource(root)
 	}
 
@@ -35,6 +36,7 @@ class RuntimeTargetIngestTest {
 		val puppet =
 			importByName("EricaTamamo.cmo3") ?: run {
 				println("cmo3.probe has no EricaTamamo.cmo3; skipping runtime-target ingest test")
+
 				return
 			}
 		// CMO3: CModelSource field targetVersionNo - EricaTamamo was authored targeting SDK 4.0.
@@ -46,6 +48,7 @@ class RuntimeTargetIngestTest {
 		val puppet =
 			importByName("ModelWithoutOffscreenSDKNA.cmo3") ?: run {
 				println("cmo3.probe has no ModelWithoutOffscreenSDKNA.cmo3; skipping sentinel ingest test")
+
 				return
 			}
 		// CMO3: CModelSource field targetVersionNo - the SDK(N/A)/Latest selection restricts nothing.
@@ -61,6 +64,7 @@ class RuntimeTargetIngestTest {
 		val puppet =
 			importByName("ModelWithOffscreenSDK3.3.cmo3") ?: run {
 				println("cmo3.probe has no ModelWithOffscreenSDK3.3.cmo3; skipping strip-diff corpus test")
+
 				return
 			}
 		assertEquals(RuntimeTarget.Cubism33, puppet.runtimeTarget)

@@ -33,15 +33,20 @@ import org.umamo.storage.UmamoLog
 internal fun EditorSession.setDrawableParentDeformerKeepingRest(id: DrawableId, parentDeformerId: DeformerId?) {
 	val before = model.value
 	val drawable = before.drawables.firstOrNull { candidate -> candidate.id == id }
+
 	if (drawable == null || drawable.parentDeformerId == parentDeformerId || drawable.mesh == null || !drawable.hasUnkeyedGeometry) {
 		setDrawableParentDeformer(id, parentDeformerId, localPositions = null)
+
 		return
 	}
+
 	val local = localPositionsKeepingRest(before, before.withDrawableParentDeformer(id, parentDeformerId, localPositions = null), listOf(id))[id]
+
 	if (local == null) {
 		UmamoLog.warn("rebound ${id.raw} without keeping its place: the deformer chain cannot map it")
 		emitNotice("notice.reparent.placeNotKept", arguments = listOf(drawable.name))
 	}
+
 	setDrawableParentDeformer(id, parentDeformerId, local)
 }
 
@@ -56,8 +61,10 @@ internal fun EditorSession.setDrawableParentDeformerKeepingRest(id: DrawableId, 
 internal fun EditorSession.deleteTargetKeepingRest(target: SelectionTarget, cascade: Boolean) {
 	if (target !is SelectionTarget.Deformer) {
 		deleteTarget(target, cascade) { emptyMap() }
+
 		return
 	}
+
 	val before = model.value
 	val rehomed =
 		before.drawables
@@ -69,6 +76,7 @@ internal fun EditorSession.deleteTargetKeepingRest(target: SelectionTarget, casc
 		unconverted = rehomed.filter { drawableId -> drawableId !in locals }
 		locals
 	}
+
 	if (unconverted.isNotEmpty()) {
 		UmamoLog.warn("deleted ${target.id.raw}; ${unconverted.size} drawable(s) re-homed without keeping their place: " + unconverted.joinToString { drawableId -> drawableId.raw })
 		emitNotice("notice.reparent.placesNotKept", arguments = listOf(unconverted.size.toString()))

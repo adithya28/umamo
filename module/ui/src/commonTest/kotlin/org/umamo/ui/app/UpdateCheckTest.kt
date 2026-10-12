@@ -47,6 +47,7 @@ class UpdateCheckTest {
 			headers: Map<String, String>,
 		): TransportResponse {
 			requests.add(url to headers)
+
 			return response ?: throw IllegalStateException("connect timed out")
 		}
 	}
@@ -78,6 +79,7 @@ class UpdateCheckTest {
 		val fileSystem = FakeFileSystem()
 		val configDirectory = "/config".toPath()
 		fileSystem.createDirectories(configDirectory)
+
 		return Settings.load(OkioAppStorage(fileSystem, configDirectory, "/data".toPath()), "{}")
 	}
 

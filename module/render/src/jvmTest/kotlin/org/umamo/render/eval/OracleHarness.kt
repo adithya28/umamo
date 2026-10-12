@@ -84,10 +84,12 @@ internal fun runOracleDump(dumpModel: File, coreLib: File, moc3: File, pose: Map
 	// Adds mul=/scr= to each D line. Always on: the extra columns cost nothing to parse and the
 	// alternative is two dump invocations for tests that want geometry AND color.
 	command.add("--channels")
+
 	for ((parameterId, value) in pose) {
 		command.add("--param")
 		command.add("$parameterId=$value")
 	}
+
 	val process = ProcessBuilder(command).redirectErrorStream(true).start()
 	val output = process.inputStream.bufferedReader().readText()
 	val exit = process.waitFor()
@@ -117,11 +119,14 @@ internal fun runOracleDump(dumpModel: File, coreLib: File, moc3: File, pose: Map
 	val drawableIds = ArrayList<String>()
 	// T <index> id=<partId> parent=<index>
 	val partRegex = Regex("""T \d+ id=(\S+)""")
+
 	for (line in output.lineSequence()) {
 		if (line.startsWith("T ")) {
 			partRegex.find(line)?.let { partIds.add(it.groupValues[1]) }
+
 			continue
 		}
+
 		if (line.startsWith("O ")) {
 			val match = offscreenRegex.find(line) ?: continue
 			offscreens.add(
@@ -135,11 +140,14 @@ internal fun runOracleDump(dumpModel: File, coreLib: File, moc3: File, pose: Map
 					screenRgba = match.groupValues[7].split(',').map { it.toFloat() },
 				),
 			)
+
 			continue
 		}
+
 		if (!line.startsWith("D ")) {
 			continue
 		}
+
 		val id = idRegex.find(line)?.groupValues?.get(1) ?: continue
 		// Recorded before the geometry parse: the id list is the file's INDEX ordering, so a line this
 		// parser gives up on would silently shift every later index.
@@ -163,6 +171,7 @@ internal fun runOracleDump(dumpModel: File, coreLib: File, moc3: File, pose: Map
 		val renderOrder = renderOrderRegex.find(line)?.groupValues?.get(1)?.toIntOrNull() ?: 0
 		entries[id] = OracleEntry(vtx, vposH, vuvH, opacity, multiplyRgba, screenRgba, drawOrder, renderOrder)
 	}
+
 	return OracleDump(
 		pixelsPerUnit = canvas.groupValues[5].toFloat(),
 		originX = canvas.groupValues[3].toFloat(),
@@ -178,17 +187,20 @@ internal fun runOracleDump(dumpModel: File, coreLib: File, moc3: File, pose: Map
 internal fun oracleTransformedHash(world: FloatArray, offsetX: Float, offsetY: Float, scale: Float): Double {
 	var hash = 0.0
 	var index = 0
+
 	while (index < world.size) {
 		hash = hash * 1.0000001 + (world[index] - offsetX) / scale
 		hash = hash * 1.0000001 + (world[index + 1] - offsetY) / scale
 		index += 2
 	}
+
 	return hash
 }
 
 /** Relative/absolute closeness at the oracle's 1e-5 tolerance (mirrors DeformationOracleTest). */
 internal fun oracleCloseEnough(a: Double, b: Double): Boolean {
 	val scale = maxOf(1.0, abs(a), abs(b))
+
 	return abs(a - b) <= 1e-5 * scale
 }
 
@@ -205,6 +217,7 @@ internal fun oracleCloseEnough(a: Double, b: Double): Boolean {
 internal fun requireOracleInput(property: String): File {
 	val file = System.getProperty(property)?.let(::File)?.takeIf { it.exists() }
 	Assume.assumeTrue("[oracle] absent -D$property", file != null)
+
 	return file!!
 }
 

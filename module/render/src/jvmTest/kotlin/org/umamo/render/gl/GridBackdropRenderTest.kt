@@ -57,6 +57,7 @@ class GridBackdropRenderTest {
 				mesh = DrawableMesh.withLocalEqualToCanvas(positions, FloatArray(positions.size), intArrayOf(0, 1, 2, 1, 3, 2)),
 				geometryGrid = KeyformGrid(listOf(KeyformAxis(paramA, floatArrayOf(0f))), listOf(KeyformCell(intArrayOf(0), MeshDeltaForm(FloatArray(positions.size))))),
 			)
+
 		return PuppetModel(
 			parameters = listOf(Parameter(paramA, "A", -1f, 1f, 0f)),
 			parts = emptyList(),
@@ -233,6 +234,7 @@ class GridBackdropRenderTest {
 	 */
 	private fun RasterImage.at(column: Int, row: Int): List<Int> {
 		val offset = (row * viewportSize + column) * 4
+
 		return (0 until 4).map { channelIndex -> rgba[offset + channelIndex].toInt() and 0xFF }
 	}
 
@@ -242,14 +244,17 @@ class GridBackdropRenderTest {
 			if (probe < 0 || probe >= viewportSize) {
 				continue
 			}
+
 			val pixel = (row * viewportSize + probe) * 4
 			val red = frame.get(pixel).toInt() and 0xFF
 			val green = frame.get(pixel + 1).toInt() and 0xFF
 			val blue = frame.get(pixel + 2).toInt() and 0xFF
+
 			if (red > green + 60 && red > blue + 60) {
 				return true
 			}
 		}
+
 		return false
 	}
 
@@ -257,6 +262,7 @@ class GridBackdropRenderTest {
 	private fun readPixels(width: Int, height: Int): ByteBuffer {
 		val buffer = BufferUtils.createByteBuffer(width * height * 4)
 		GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer)
+
 		return buffer
 	}
 }

@@ -50,25 +50,33 @@ class PartBlendShapeOracleTest {
 		for (mocFile in samples) {
 			val mocDocument = runCatching { Moc3.read(mocFile.readBytes()) }.getOrNull() ?: continue
 			val partRecords = mocDocument.blendShapes.filter { it.target == BlendShapeTarget.PART }
+
 			if (partRecords.isEmpty()) {
 				continue
 			}
+
 			// Pose each record at every non-neutral key carrying an actual delta: a zero row would move
 			// nothing and prove nothing.
 			val poses = LinkedHashSet<Map<String, Float>>()
+
 			for (record in partRecords) {
 				val parameterId = mocDocument.parameters.getOrNull(record.parameterIndex)?.id ?: continue
+
 				for (keyIndex in record.keyforms.indices) {
 					val delta = (record.keyforms[keyIndex] as? BlendShapeKeyform.Part)?.drawOrderDelta ?: continue
+
 					if (keyIndex == record.neutralKeyIndex || delta == 0f) {
 						continue
 					}
+
 					record.keyPositions.getOrNull(keyIndex)?.let { poses.add(mapOf(parameterId to it)) }
 				}
 			}
+
 			if (poses.isEmpty()) {
 				continue
 			}
+
 			posedModels++
 			val puppet = org.umamo.render.restMeshesToCanvasSpace(Moc3Import.fromMocDocument(mocDocument, null))
 			println("[oracle] ${mocFile.name}: ${poses.size} part-blend poses over ${partRecords.size} records")
@@ -92,6 +100,7 @@ class PartBlendShapeOracleTest {
 						.map { entry -> entry.key }
 				val oursEvaluated = ours.filter { id -> id in theirs.toSet() }
 				comparedPoses++
+
 				if (oursEvaluated != theirs) {
 					val firstDivergence = oursEvaluated.zip(theirs).indexOfFirst { (a, b) -> a != b }
 					mismatches.add(
