@@ -15,14 +15,36 @@ plugins {
 
 // Apply ktlint to every subproject so tab-based style (see .editorconfig) is enforced
 // uniformly. ktlint reads .editorconfig, so no rule config is needed here.
+//
+// Beside the standard rules, every ktlint task also runs Umamo's own rule set (gradle/ktlint-rules, the
+// `umamo` rules), resolved through the included build so a rule edit rebuilds before the next check.
+// The engine version is pinned to the one that rule set compiles against.
+// Read once here: inside `subprojects {}` the `libs` accessor resolves against each subproject, which has
+// no catalog extension of its own.
+val ktlintEngineVersion = libs.versions.ktlintEngine
+
+ktlint {
+	version.set(ktlintEngineVersion)
+}
+
+dependencies {
+	ktlintRuleset("org.umamo:ktlint-rules")
+}
+
 subprojects {
 	apply(plugin = "org.jlleitschuh.gradle.ktlint")
 	// Compose Multiplatform generates Kotlin under build/generated (JetBrains space-indent style); lint
 	// our own sources, not generated output (e.g. the resources `Res` collectors).
 	configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+		version.set(ktlintEngineVersion)
+
 		filter {
 			exclude { element -> element.file.path.contains("/generated/") }
 		}
+	}
+
+	dependencies {
+		"ktlintRuleset"("org.umamo:ktlint-rules")
 	}
 
 	// Name every test as it runs, and print failures in full.
@@ -165,8 +187,14 @@ val checkCommonSourcePurity =
 
 // Wire into `check` so the guard runs with the normal verification lifecycle rather than needing to be
 // remembered. Gradle runs the task once however many subprojects depend on it.
+//
+// The ktlint rule set's own tests ride the same lifecycle: an included build's tests never run under the
+// root's `build` on their own, and a rule that silently stopped matching would pass every ktlintCheck.
+val ktlintRuleTests = gradle.includedBuild("ktlint-rules").task(":test")
+
 subprojects {
 	tasks.matching { task -> task.name == "check" }.configureEach {
 		dependsOn(checkCommonSourcePurity)
+		dependsOn(ktlintRuleTests)
 	}
 }

@@ -18,6 +18,11 @@ pluginManagement {
 	}
 }
 
+// Umamo's own ktlint rule set, included as a REGULAR build (not under pluginManagement) because it is a
+// jar the ktlint engine loads, not a plugin: only a regular inclusion substitutes the
+// `org.umamo:ktlint-rules` coordinate every module's ktlintRuleset names (see the root build.gradle.kts).
+includeBuild("gradle/ktlint-rules")
+
 // `dependencyResolutionManagement` centralises repositories for ALL modules, so no
 // module declares its own — keeps the dependency supply chain auditable in one place.
 dependencyResolutionManagement {

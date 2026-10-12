@@ -315,6 +315,7 @@ The official Cubism Core/SDK/Editor are **external dependencies of the harness o
 - Model format versions and deformer kinds as **sealed classes/enums**; match exhaustively so the compiler enforces coverage.  No accidental nullability.
 - Prefer `expect`/`actual` over `if (platform)` for desktop/Android splits.
 - Braces are MANDATORY on EVERY `if`, `else if`, and `else` — including single-statement bodies. The body always goes on its own line inside `{ }`.  The brace-less one-liner form is NOT allowed under any circumstances.
+- **Blank lines around control flow:** a blank line goes before and after every statement-level `if`, `when`, `for`, `while`, `do`-`while`, and `try` block, and before every `return`, `throw`, `break`, and `continue`, in lambda bodies too — except where the statement opens its block (a block never starts or ends on a blank line).  Comment lines above a statement belong to it, so the blank line goes above them.  A value `if`/`when` (`val side = if (…) … else …`) and a jump inside an expression (`?: return`) are part of their statement, not blocks.  Enforced by the `umamo:blank-line-around-control-flow` ktlint rule (Umamo's own rule set, the `gradle/ktlint-rules` included build); `ktlintFormat` inserts whatever is missing.
 
 ### Comments & documentation
 
