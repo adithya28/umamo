@@ -51,7 +51,7 @@ class FirstRunSettingsTest {
 		val (fileSystem, storage) = storageWith()
 		val settings = Settings.load(storage, defaultJson)
 
-		seedFirstRunSettings(settings, systemTags = listOf("fr-FR"))
+		seedFirstRunSettings(settings, systemTags = listOf("de-DE"))
 
 		assertEquals("en", settings.getString(LOCALE_SETTINGS_KEY))
 		assertTrue(fileSystem.exists(configDir / "settings.json"), "written even when it matches the default")

@@ -11,24 +11,29 @@ class UiLanguageMatchTest {
 	fun aRegionTagMatchesItsLanguageCatalog() {
 		assertEquals("ja", matchUiLanguage(listOf("ja-JP"), shipped))
 		assertEquals("ko", matchUiLanguage(listOf("ko-KR"), shipped))
+		assertEquals("fr", matchUiLanguage(listOf("fr-FR"), shipped))
+		// Every French region shares the one catalog.
+		assertEquals("fr", matchUiLanguage(listOf("fr-CA"), shipped))
 	}
 
 	@Test
 	fun theJvmUnderscoreSpellingAndCaseDoNotMatter() {
 		assertEquals("ja", matchUiLanguage(listOf("ja_JP"), shipped))
 		assertEquals("ko", matchUiLanguage(listOf("KO"), shipped))
+		assertEquals("fr", matchUiLanguage(listOf("FR_be"), shipped))
 	}
 
 	@Test
 	fun theFirstPreferredLanguageWithACatalogWins() {
-		// French has no catalog, so the next preference is taken rather than falling back to English.
-		assertEquals("ko", matchUiLanguage(listOf("fr-FR", "ko-KR", "ja-JP"), shipped))
+		// German has no catalog, so the next preference is taken rather than falling back to English.
+		assertEquals("ko", matchUiLanguage(listOf("de-DE", "ko-KR", "ja-JP"), shipped))
+		assertEquals("fr", matchUiLanguage(listOf("de-CH", "fr-CH", "ja-JP"), shipped))
 	}
 
 	@Test
 	fun noCatalogFallsBackToEnglish() {
 		assertEquals("en", matchUiLanguage(listOf("zh-TW"), shipped))
-		assertEquals("en", matchUiLanguage(listOf("fr-FR", "de"), shipped))
+		assertEquals("en", matchUiLanguage(listOf("de-DE", "es"), shipped))
 	}
 
 	@Test

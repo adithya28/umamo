@@ -10,9 +10,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import org.umamo.settings.Settings
 
 /**
- * The active UI language tag (BCP-47, e.g. "en" / "ja" / "ko" / "fr") for the composition, driven by the
- * localization.locale setting rather than the OS locale. Descendants that need the raw tag read
- * `LocalAppLocale.current`; most code just calls stringResource() and lets the catalogs resolve.
+ * The active UI language tag (BCP-47) for the composition, driven by the localization.locale setting rather
+ * than the OS locale. Descendants that need the raw tag read `LocalAppLocale.current`; most code just calls
+ * stringResource() and lets the catalogs resolve.
  */
 val LocalAppLocale = staticCompositionLocalOf { "en" }
 
@@ -26,9 +26,8 @@ const val FALLBACK_LOCALE_TAG: String = "en"
  * The UI languages Umamo ships, in display order: one entry per composeResources/values-<tag>/ catalog, keyed
  * by the BCP-47 tag written to localization.locale (which applyAppLocale feeds to the resource environment).
  *
- * The values are endonyms ("English" / "日本語" / "한국어"), shown verbatim whatever the active UI language: a
- * language's own name is identity, not chrome to translate, and it is what a rigger who cannot read the
- * current language looks for.
+ * The values are endonyms shown verbatim whatever the active UI language: a language's own name is identity,
+ * not chrome to translate, and it is what a rigger who cannot read the current language looks for.
  */
 val UI_LANGUAGE_ENDONYMS: Map<String, String> = linkedMapOf("en" to "English", "ja" to "日本語", "ko" to "한국어", "fr" to "Français")
 
