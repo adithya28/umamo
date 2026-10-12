@@ -58,8 +58,8 @@ internal data class GenerateMeshNotice(val messageKey: String, val arguments: Li
 
 /**
  * The notice an outcome reports: a refused pack first, then the skips a rigger can do something about
- * (pinned art with no room, a mesh over the budget), then any skip, then meshes built coarser than the
- * rows asked for, then the plain count.
+ * (pinned art with no room, a mesh over the budget), then drawables glue holds throughout, then any
+ * skip, then meshes built coarser than the rows asked for, then the plain count.
  *
  * @param GenerateMeshOutcome outcome The outcome.
  * @return GenerateMeshNotice The notice.
@@ -74,10 +74,12 @@ internal fun generateMeshNoticeOf(outcome: GenerateMeshOutcome): GenerateMeshNot
 	val coarsenedCount = generated?.coarsenedIds?.size ?: 0
 	val pinnedCount = outcome.skips.values.count { reason -> reason == GenerateMeshSkipReason.PinnedWithoutRoom }
 	val overBudgetCount = outcome.skips.values.count { reason -> reason == GenerateMeshSkipReason.OverBudget }
+	val gluedCount = outcome.skips.values.count { reason -> reason == GenerateMeshSkipReason.GluedThroughout }
 
 	return when {
 		pinnedCount > 0 -> GenerateMeshNotice("notice.mesh.pinnedWithoutRoom", listOf(generatedCount.toString(), pinnedCount.toString()))
 		overBudgetCount > 0 -> GenerateMeshNotice("notice.mesh.overBudget", listOf(generatedCount.toString(), overBudgetCount.toString()))
+		gluedCount > 0 -> GenerateMeshNotice("notice.mesh.gluedThroughout", listOf(generatedCount.toString(), gluedCount.toString()))
 		generatedCount == 0 -> GenerateMeshNotice("notice.mesh.noneGenerated")
 		outcome.skips.isNotEmpty() -> GenerateMeshNotice("notice.mesh.generatedWithSkips", listOf(generatedCount.toString(), outcome.skips.size.toString()))
 		coarsenedCount > 0 -> GenerateMeshNotice("notice.mesh.generatedCoarser", listOf(generatedCount.toString(), coarsenedCount.toString()))

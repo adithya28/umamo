@@ -1,5 +1,7 @@
 package org.umamo.format.art
 
+import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.sqrt
 
@@ -17,8 +19,8 @@ public const val DEFAULT_MAXIMUM_GRID_SIDE: Int = 2048
  * the exact checks ([segmentClears], [containsOpaquePixelCenter], [isOpaquePixel]) never see the
  * grid's coarseness.
  *
- * Coordinates are raster px, y down.  The grid covers the opaque pixels and any seeds with a padding
- * of whole cells on every side, aligned to multiples of [cellSize] - so it may reach past the raster
+ * Coordinates are raster px, y down.  The grid covers the opaque pixels and any seeds (points or
+ * triangles) with a padding of whole cells on every side, aligned to multiples of [cellSize] - so it may reach past the raster
  * into negative coordinates, where everything is transparent.
  *
  * A plain class: it holds arrays.
@@ -182,6 +184,7 @@ public class AlphaField internal constructor(
  * @param Int         paddingCells    Transparent cells kept around the art on every side (at least 1).
  * @param DoubleArray seeds           Seed points, x0, y0, ..., raster px; finite.
  * @param Int         maximumGridSide The most cells allowed along either side of the grid.
+ * @param DoubleArray seedTriangles   Seed triangles, six coordinates each (x0, y0, x1, y1, x2, y2), raster px; finite.
  * @return AlphaField? The field, or null when no raster pixel meets the threshold.
  */
 public fun LayerRaster.alphaField(
@@ -190,7 +193,8 @@ public fun LayerRaster.alphaField(
 	paddingCells: Int,
 	seeds: DoubleArray = DoubleArray(0),
 	maximumGridSide: Int = DEFAULT_MAXIMUM_GRID_SIDE,
-): AlphaField? = alphaChannel().alphaField(alphaThreshold, cellSize, paddingCells, seeds, maximumGridSide)
+	seedTriangles: DoubleArray = DoubleArray(0),
+): AlphaField? = alphaChannel().alphaField(alphaThreshold, cellSize, paddingCells, seeds, maximumGridSide, seedTriangles)
 
 /**
  * Builds this alpha channel's signed distance field for meshing.
@@ -199,13 +203,17 @@ public fun LayerRaster.alphaField(
  * [paddingCells] cells on each side.  [cellSize] is a minimum: when the padded grid would exceed
  * [maximumGridSide] cells along either side, the cell grows until it fits (read the field's
  * [AlphaField.cellSize]).  Seeds are points that must count as opaque (a mesh's pinned vertices):
- * the pixel under each is marked opaque in both the mask and the grid.
+ * the pixel under each is marked opaque in both the mask and the grid.  Seed triangles are areas that
+ * must count as opaque (the old surface around those vertices, so one lying off the art stays joined
+ * to it): every pixel whose center a triangle holds and every pixel its edges cross is marked, so even
+ * a sliver too thin to hold a center joins its corners.  Neither alone makes a field.
  *
  * @param Int         alphaThreshold  The minimum alpha byte counted as opaque (1..255).
  * @param Int         cellSize        The smallest working cell side, pixels (at least 1).
  * @param Int         paddingCells    Transparent cells kept around the art on every side (at least 1); contours stay closed for levels up to (paddingCells - 1) * cellSize.
  * @param DoubleArray seeds           Seed points, x0, y0, ..., raster px; finite.
  * @param Int         maximumGridSide The most cells allowed along either side of the grid.
+ * @param DoubleArray seedTriangles   Seed triangles, six coordinates each (x0, y0, x1, y1, x2, y2), raster px; finite.
  * @return AlphaField? The field, or null when no raster pixel meets the threshold (seeds alone do not make a field).
  */
 public fun AlphaChannel.alphaField(
@@ -214,6 +222,7 @@ public fun AlphaChannel.alphaField(
 	paddingCells: Int,
 	seeds: DoubleArray = DoubleArray(0),
 	maximumGridSide: Int = DEFAULT_MAXIMUM_GRID_SIDE,
+	seedTriangles: DoubleArray = DoubleArray(0),
 ): AlphaField? {
 	require(alphaThreshold in 1..255) { "alphaThreshold must be in 1..255: $alphaThreshold" }
 	require(cellSize >= 1) { "cellSize must be at least 1: $cellSize" }
@@ -225,8 +234,14 @@ public fun AlphaChannel.alphaField(
 		require(seeds[component].isFinite()) { "seed component $component is not finite: ${seeds[component]}" }
 	}
 
+	require(seedTriangles.size % 6 == 0) { "seed triangles must hold six coordinates each, but has ${seedTriangles.size} components" }
+
+	for (component in seedTriangles.indices) {
+		require(seedTriangles[component].isFinite()) { "seed triangle component $component is not finite: ${seedTriangles[component]}" }
+	}
+
 	val opaqueExtent = opaquePixelExtent(this, alphaThreshold) ?: return null
-	val seedPixels = IntArray(seeds.size) { component -> floor(seeds[component]).toInt() }
+	val seedPixels = IntArray(seeds.size) { component -> floor(seeds[component]).toInt() } + seedTrianglePixels(seedTriangles)
 	var minimumColumn = opaqueExtent[0]
 	var minimumRow = opaqueExtent[1]
 	var maximumColumn = opaqueExtent[2]
@@ -273,6 +288,79 @@ public fun AlphaChannel.alphaField(
 	val values = signedField(opaqueCells, columns, rows, effectiveCellSize)
 
 	return AlphaField(effectiveCellSize, gridLeft, gridTop, columns, rows, opaqueExtent[4], mask, values)
+}
+
+/**
+ * The pixels seed triangles mark: each pixel whose center a triangle holds (edges included, either
+ * winding), and each pixel its three edges cross, walked in steps of at most a quarter pixel so no
+ * crossed pixel is stepped over.  Pixels may repeat.
+ *
+ * @param DoubleArray triangles The triangles, six coordinates each, raster px.
+ * @return IntArray The pixels, column0, row0, column1, row1, ...
+ */
+private fun seedTrianglePixels(triangles: DoubleArray): IntArray {
+	var pixels = IntArray(64)
+	var count = 0
+
+	fun add(column: Int, row: Int) {
+		if (count + 2 > pixels.size) {
+			pixels = pixels.copyOf(pixels.size * 2)
+		}
+
+		pixels[count] = column
+		pixels[count + 1] = row
+		count += 2
+	}
+
+	for (triangle in 0 until triangles.size / 6) {
+		val offset = 6 * triangle
+		val firstX = triangles[offset]
+		val firstY = triangles[offset + 1]
+		val secondX = triangles[offset + 2]
+		val secondY = triangles[offset + 3]
+		val thirdX = triangles[offset + 4]
+		val thirdY = triangles[offset + 5]
+
+		for (edge in 0 until 3) {
+			val startX = triangles[offset + 2 * edge]
+			val startY = triangles[offset + 2 * edge + 1]
+			val endX = triangles[offset + 2 * ((edge + 1) % 3)]
+			val endY = triangles[offset + 2 * ((edge + 1) % 3) + 1]
+			val steps = maxOf(1, ceil(4.0 * maxOf(abs(endX - startX), abs(endY - startY))).toInt())
+
+			for (step in 0..steps) {
+				val fraction = step.toDouble() / steps
+				add(floor(startX + fraction * (endX - startX)).toInt(), floor(startY + fraction * (endY - startY)).toInt())
+			}
+		}
+
+		val area = (secondX - firstX) * (thirdY - firstY) - (thirdX - firstX) * (secondY - firstY)
+
+		if (area == 0.0) {
+			continue
+		}
+
+		val minimumColumn = floor(minOf(firstX, secondX, thirdX)).toInt()
+		val maximumColumn = floor(maxOf(firstX, secondX, thirdX)).toInt()
+		val minimumRow = floor(minOf(firstY, secondY, thirdY)).toInt()
+		val maximumRow = floor(maxOf(firstY, secondY, thirdY)).toInt()
+
+		for (row in minimumRow..maximumRow) {
+			for (column in minimumColumn..maximumColumn) {
+				val centerX = column + 0.5
+				val centerY = row + 0.5
+				val first = ((secondX - firstX) * (centerY - firstY) - (secondY - firstY) * (centerX - firstX)) * area
+				val second = ((thirdX - secondX) * (centerY - secondY) - (thirdY - secondY) * (centerX - secondX)) * area
+				val third = ((firstX - thirdX) * (centerY - thirdY) - (firstY - thirdY) * (centerX - thirdX)) * area
+
+				if (first >= 0.0 && second >= 0.0 && third >= 0.0) {
+					add(column, row)
+				}
+			}
+		}
+	}
+
+	return pixels.copyOf(count)
 }
 
 /**

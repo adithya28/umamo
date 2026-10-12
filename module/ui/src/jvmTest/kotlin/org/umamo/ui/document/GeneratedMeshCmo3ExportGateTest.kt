@@ -59,7 +59,7 @@ import kotlin.test.assertTrue
  * drawable of the corpus sample with a mesh and art regenerated at Standard in one step.
  *
  * It gates what must hold - nothing refused by the atlas, every skip one the rigger can act on, every
- * glue pair kept, every opaque art pixel under the new meshes, every new vertex showing its art at rest
+ * glue pair kept, every opaque art pixel under the new meshes, no piece of a new mesh covering no art, every new vertex showing its art at rest
  * where the old mesh drew it, no tile left in place sampling a neighbour's paint it did not sample
  * before, one undo restoring the rig, and an export that reads back with the same meshes and reopens as
  * a byte-identical no-op - and prints what it measures: the counts, how far art between the new vertices
@@ -100,7 +100,7 @@ class GeneratedMeshCmo3ExportGateTest {
 					generateMeshOutcome(base, plan, options.settings, decode, document.textures.premultipliedAlpha)
 				}
 			val generated = assertIs<GenerateMeshOutcome.Generated>(outcome, "the atlas refused nothing")
-			val allowedSkips = setOf(GenerateMeshSkipReason.OverBudget, GenerateMeshSkipReason.NothingOpaque, GenerateMeshSkipReason.DegenerateOldMesh)
+			val allowedSkips = setOf(GenerateMeshSkipReason.OverBudget, GenerateMeshSkipReason.NothingOpaque, GenerateMeshSkipReason.DegenerateOldMesh, GenerateMeshSkipReason.GluedThroughout)
 			assertTrue(generated.skips.values.all { reason -> reason in allowedSkips }, "only skips a rigger can act on: ${generated.skips}")
 
 			val host = GenerateMeshHost(session, document.artRasters, sessionAtlasPages, document.textures.premultipliedAlpha, this) { _ -> }
@@ -138,6 +138,18 @@ class GeneratedMeshCmo3ExportGateTest {
 
 			assertTrue(percentile(vertexErrors, 0.99) <= 0.05, "the new vertices land where the old mesh drew their art (p99 ${percentile(vertexErrors, 0.99)} px)")
 			println("[generate-mesh]   split-piece seam: ${seamOverlapPixels(base, after, decode, effectiveThreshold)} art pixel(s) now under two pieces' meshes that were under at most one")
+			val artlessBefore = generated.generatedIds.associateWith { drawableId -> artlessPieces(base, base, drawableId, decode, effectiveThreshold) }
+			val artlessAfter = generated.generatedIds.associateWith { drawableId -> artlessPieces(base, after, drawableId, decode, effectiveThreshold) }
+			val nameById = base.drawables.associate { drawable -> drawable.id to drawable.name }
+			println("[generate-mesh]   pieces covering no art: ${artlessAfter.values.sum()} over ${artlessAfter.count { (_, count) -> count > 0 }} drawable(s) (the old meshes had ${artlessBefore.values.sum()})")
+
+			for ((drawableId, count) in artlessAfter.entries.filter { (_, count) -> count > 0 }.sortedByDescending { (_, count) -> count }.take(8)) {
+				println("[generate-mesh]     '${nameById[drawableId]}' (${drawableId.raw}): $count, old ${artlessBefore[drawableId]}")
+			}
+
+			// A glued vertex off the art is joined to it by the old triangles around it, and one no triangle
+			// used is carried rather than meshed around, so no piece of a new mesh is there for glue alone.
+			assertEquals(0, artlessAfter.values.sum(), "every piece of every new mesh covers art")
 
 			// The export: written for the shape gate and the official editor, read back, and reopened.
 			withTimeout(120_000) {
@@ -444,6 +456,75 @@ class GeneratedMeshCmo3ExportGateTest {
 		}
 
 		return hits
+	}
+
+	/**
+	 * How many connected pieces of a drawable's mesh (triangles sharing a vertex) cover no opaque pixel of
+	 * its art - within its region on a shared tile - measured on [model]'s mesh against [base]'s region.
+	 *
+	 * @param PuppetModel base       The rig before, whose old mesh gives a shared tile's region.
+	 * @param PuppetModel model      The rig whose mesh is measured.
+	 * @param DrawableId  drawableId The drawable.
+	 * @param Function    decode     Decodes a tile's art.
+	 * @param Int         threshold  The alpha that counts as art.
+	 * @return Int The pieces that cover no art.
+	 */
+	private fun artlessPieces(base: PuppetModel, model: PuppetModel, drawableId: DrawableId, decode: (AtlasTileId) -> DecodedImage?, threshold: Int): Int {
+		val drawable = model.drawables.first { candidate -> candidate.id == drawableId }
+		val tileId = drawable.atlasTileId!!
+		val raster = decode(tileId) ?: return 0
+		val shared = (base.drawableIdsByAtlasTile()[tileId]?.count { sharer -> base.drawables.first { candidate -> candidate.id == sharer }.mesh != null } ?: 0) > 1
+		val region = if (shared) TileMeshMask.of(drawableMeshTrianglesOf(base, drawableId)) else null
+		val mesh = drawable.mesh!!
+		val parent = IntArray(mesh.vertexCount) { vertex -> vertex }
+
+		fun rootOf(vertex: Int): Int {
+			var current = vertex
+
+			while (parent[current] != current) {
+				parent[current] = parent[parent[current]]
+				current = parent[current]
+			}
+
+			return current
+		}
+
+		for (corner in mesh.indices.indices step 3) {
+			val first = rootOf(mesh.indices[corner])
+			parent[rootOf(mesh.indices[corner + 1])] = first
+			parent[rootOf(mesh.indices[corner + 2])] = first
+		}
+
+		val triangles = drawableMeshTrianglesOf(model, drawableId)
+		val coversArt = HashMap<Int, Boolean>()
+
+		for ((triangleIndex, triangle) in triangles.withIndex()) {
+			val piece = rootOf(mesh.indices[3 * triangleIndex])
+
+			if (coversArt[piece] == true) {
+				continue
+			}
+
+			coversArt[piece] = coversArt[piece] ?: false
+			val minimumX = maxOf(0, floor(minOf(triangle[0], triangle[2], triangle[4]) - 0.5f).toInt())
+			val maximumX = minOf(raster.width - 1, ceil(maxOf(triangle[0], triangle[2], triangle[4]) - 0.5f).toInt())
+			val minimumY = maxOf(0, floor(minOf(triangle[1], triangle[3], triangle[5]) - 0.5f).toInt())
+			val maximumY = minOf(raster.height - 1, ceil(maxOf(triangle[1], triangle[3], triangle[5]) - 0.5f).toInt())
+
+			scan@ for (row in minimumY..maximumY) {
+				for (column in minimumX..maximumX) {
+					val opaque = (raster.rgba[(row * raster.width + column) * 4 + 3].toInt() and 0xFF) >= threshold
+
+					if (opaque && (region?.isCovered(column, row) ?: true) && triangleContains(triangle, column + 0.5, row + 0.5)) {
+						coversArt[piece] = true
+
+						break@scan
+					}
+				}
+			}
+		}
+
+		return coversArt.count { (_, covers) -> !covers }
 	}
 
 	/**
