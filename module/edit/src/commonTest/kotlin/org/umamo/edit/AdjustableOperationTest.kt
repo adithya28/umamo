@@ -127,6 +127,23 @@ class AdjustableOperationTest {
 	}
 
 	@Test
+	fun anAdjustmentNamesTheSettingItSetEvenAtItsOldValue() {
+		val session = EditorSession(model("seed"))
+		val seen = ArrayList<String?>()
+		session.mutate(PartChange.Rename(partId, "w1")) { current -> current.renamed("w1") }
+		val record = assertNotNull(session.registerAdjustableOperation(session.model.value, null, parameters(1)) { rerunWith -> seen.add(rerunWith.adjustedKey) })
+		assertNull(record.adjustedKey, "a fresh record names no setting")
+
+		session.adjustLastOperation(parameters(1), adjustedKey = widthKey)
+
+		val live = assertNotNull(session.adjustableOperation.value)
+		assertEquals(widthKey, live.adjustedKey, "setting the value it already had still names it")
+		assertEquals(widthKey, assertNotNull(session.reviseAdjustableParameters(live, parameters(5))).adjustedKey, "a revision keeps the named setting")
+		session.adjustLastOperation(parameters(2))
+		assertEquals(listOf(widthKey, null), seen, "both adjustments reran; an adjustment that names nothing names nothing")
+	}
+
+	@Test
 	fun aRevisionRewritesTheRowsWithoutARerunAndKeepsTheRecordLive() {
 		val session = EditorSession(model("seed"))
 		var reruns = 0

@@ -12,6 +12,7 @@ import org.umamo.edit.NoticePlacement
 import org.umamo.edit.choiceValue
 import org.umamo.edit.eligibleTransformDrawables
 import org.umamo.edit.mesh.commitGeneratedMeshes
+import org.umamo.edit.mesh.commitUnchangedGeneration
 import org.umamo.interop.art.mesh.ArtMeshNotice
 import org.umamo.interop.art.mesh.ArtMeshPreset
 import org.umamo.render.SourceArtRasters
@@ -57,9 +58,19 @@ internal class GenerateMeshHost(
 internal data class GenerateMeshNotice(val messageKey: String, val arguments: List<String> = emptyList())
 
 /**
+ * The skips a row of the operation strip can undo: the Alpha Threshold for art too faint, Minimum
+ * Outline Points or the threshold for art that fits no budget, the Outer Margin for pinned art with no
+ * room, the spacings for a mesh the mesher withheld.  A run that generates nothing but one of these still
+ * opens the strip.
+ */
+private val ROW_ADJUSTABLE_SKIPS: Set<GenerateMeshSkipReason> =
+	setOf(GenerateMeshSkipReason.NothingOpaque, GenerateMeshSkipReason.OverBudget, GenerateMeshSkipReason.PinnedWithoutRoom, GenerateMeshSkipReason.Withheld)
+
+/**
  * The notice an outcome reports: a refused pack first, then the skips a rigger can do something about
- * (pinned art with no room, a mesh over the budget), then drawables glue holds throughout, then any
- * skip, then meshes built coarser than the rows asked for, then the plain count.
+ * (pinned art with no room, a mesh over every budget), then drawables glue holds throughout, then any
+ * skip, then meshes that needed a raised budget or their holes filled, then meshes built coarser than
+ * the rows asked for, then the plain count.
  *
  * @param GenerateMeshOutcome outcome The outcome.
  * @return GenerateMeshNotice The notice.
@@ -72,6 +83,7 @@ internal fun generateMeshNoticeOf(outcome: GenerateMeshOutcome): GenerateMeshNot
 	val generated = outcome as? GenerateMeshOutcome.Generated
 	val generatedCount = generated?.generatedIds?.size ?: 0
 	val coarsenedCount = generated?.coarsenedIds?.size ?: 0
+	val refitCount = generated?.refitIds?.size ?: 0
 	val pinnedCount = outcome.skips.values.count { reason -> reason == GenerateMeshSkipReason.PinnedWithoutRoom }
 	val overBudgetCount = outcome.skips.values.count { reason -> reason == GenerateMeshSkipReason.OverBudget }
 	val gluedCount = outcome.skips.values.count { reason -> reason == GenerateMeshSkipReason.GluedThroughout }
@@ -82,6 +94,7 @@ internal fun generateMeshNoticeOf(outcome: GenerateMeshOutcome): GenerateMeshNot
 		gluedCount > 0 -> GenerateMeshNotice("notice.mesh.gluedThroughout", listOf(generatedCount.toString(), gluedCount.toString()))
 		generatedCount == 0 -> GenerateMeshNotice("notice.mesh.noneGenerated")
 		outcome.skips.isNotEmpty() -> GenerateMeshNotice("notice.mesh.generatedWithSkips", listOf(generatedCount.toString(), outcome.skips.size.toString()))
+		refitCount > 0 -> GenerateMeshNotice("notice.mesh.generatedRefit", listOf(generatedCount.toString(), refitCount.toString()))
 		coarsenedCount > 0 -> GenerateMeshNotice("notice.mesh.generatedCoarser", listOf(generatedCount.toString(), coarsenedCount.toString()))
 		else -> GenerateMeshNotice("notice.mesh.generated", listOf(generatedCount.toString()))
 	}
@@ -132,6 +145,13 @@ internal suspend fun runGenerateMesh(host: GenerateMeshHost, targets: List<Drawa
 	if (outcome !is GenerateMeshOutcome.Generated) {
 		emitNotice(session, generateMeshNoticeOf(outcome))
 
+		// When a row could change the outcome, an unchanged step opens the strip on it, so the rigger is
+		// never left with no way to reach the rows; an adjustment that generates lands over the step.
+		if (outcome is GenerateMeshOutcome.NothingGenerated && outcome.skips.values.any { reason -> reason in ROW_ADJUSTABLE_SKIPS } && session.commitUnchangedGeneration(modelAtStart, plan.drawableIds)) {
+			host.rememberOptions(landedOptions)
+			registerGenerateMesh(host, modelAtStart, areaId, plan, landedOptions, minimumAlphaThreshold)
+		}
+
 		return false
 	}
 
@@ -151,8 +171,9 @@ internal suspend fun runGenerateMesh(host: GenerateMeshHost, targets: List<Drawa
 }
 
 /**
- * Registers a landed run on the operation settings strip.  Choosing another preset re-seeds the density
- * rows before the rerun reads them; a newer adjustment cancels the rerun still in flight.
+ * Registers a landed run on the operation settings strip.  Choosing a preset - another one, or the one
+ * already shown, to undo edits to its rows - re-seeds the density rows before the rerun reads them; a
+ * newer adjustment cancels the rerun still in flight.
  *
  * @param GenerateMeshHost      host                  The host.
  * @param PuppetModel           committed             The model the run committed.
@@ -176,7 +197,7 @@ private fun registerGenerateMesh(
 		var current = record
 		val rowPreset = ArtMeshPreset.fromKey(record.parameters.choiceValue(MeshGenerationParameterKeys.PRESET, seededPreset.key))
 
-		if (rowPreset != seededPreset) {
+		if (rowPreset != seededPreset || record.adjustedKey == MeshGenerationParameterKeys.PRESET) {
 			seededPreset = rowPreset
 			current = session.reviseAdjustableParameters(record, reseededMeshGenerationParameters(record.parameters, rowPreset, minimumAlphaThreshold)) ?: return@registerAdjustableOperation
 		}
@@ -299,6 +320,10 @@ private fun logOutcome(base: PuppetModel, outcome: GenerateMeshOutcome) {
 				}
 			}
 
+			for ((drawableId, fit) in outcome.fitsByDrawable) {
+				UmamoLog.info("generate mesh: '${nameById[drawableId] ?: drawableId.raw}': ${wordingOf(fit)}, as the rows could not fit it")
+			}
+
 			UmamoLog.info(
 				"generate mesh: ${outcome.generatedIds.size} mesh(es) generated, ${outcome.skips.size} skipped, ${outcome.packedTileIds.size} tile(s) packed to a new spot",
 			)
@@ -308,6 +333,19 @@ private fun logOutcome(base: PuppetModel, outcome: GenerateMeshOutcome) {
 			UmamoLog.warn("generate mesh: nothing generated; ${outcome.skips.size} skipped")
 		}
 	}
+}
+
+/**
+ * The log's words for how a mesh the rows could not fit was made to fit.
+ *
+ * @param MeshFit fit The fit.
+ * @return String The words.
+ */
+private fun wordingOf(fit: MeshFit): String {
+	val budget = fit.budget?.let { raised -> "meshed under a vertex budget of $raised" }
+	val holes = if (fit.holesFilled) "with its holes filled" else null
+
+	return listOfNotNull(budget, holes).joinToString(" and ").ifEmpty { "meshed as the rows asked" }
 }
 
 /**
@@ -343,7 +381,7 @@ private fun tenths(value: Double): Double = round(value * 10.0) / 10.0
  * @param GenerateMeshNotice notice  The notice.
  */
 private fun emitNotice(session: EditorSession, notice: GenerateMeshNotice) {
-	session.emitNotice(notice.messageKey, NoticePlacement.StatusBar, notice.arguments)
+	session.emitNotice(notice.messageKey, NoticePlacement.StatusBarAndNearCursor, notice.arguments)
 }
 
 /**

@@ -107,10 +107,12 @@ sqldelightNativeDriver = { module = "app.cash.sqldelight:native-driver", version
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 
 # ktlint's rule API, for Umamo's own rule set in gradle/ktlint-rules: the core (Rule, the AST helpers), the
-# CLI's rule set provider contract, and the engine its tests drive the rule through.
+# CLI's rule set provider contract, and, for its tests, the engine they drive the rules through and the
+# standard rules a test runs beside them.
 ktlintRuleEngineCore = { module = "com.pinterest.ktlint:ktlint-rule-engine-core", version.ref = "ktlintEngine" }
 ktlintCliRulesetCore = { module = "com.pinterest.ktlint:ktlint-cli-ruleset-core", version.ref = "ktlintEngine" }
 ktlintRuleEngine = { module = "com.pinterest.ktlint:ktlint-rule-engine", version.ref = "ktlintEngine" }
+ktlintRulesetStandard = { module = "com.pinterest.ktlint:ktlint-ruleset-standard", version.ref = "ktlintEngine" }
 slf4jNop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
 
 [plugins]

@@ -14,6 +14,7 @@ import org.umamo.edit.OperatorParameter
 import org.umamo.edit.SelectionOps
 import org.umamo.edit.SelectionTarget
 import org.umamo.edit.floatValue
+import org.umamo.edit.intValue
 import org.umamo.edit.structure.rename
 import org.umamo.edit.withParameter
 import org.umamo.interop.art.mesh.ArtMeshPreset
@@ -33,6 +34,7 @@ import org.umamo.runtime.model.PuppetModel
 import org.umamo.runtime.model.applyUvAffine
 import org.umamo.runtime.model.invertUvAffine
 import org.umamo.runtime.model.storedToArtAffineForTile
+import org.umamo.ui.model.repack.MAX_IMPORT_PAGE_SIZE
 import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -149,16 +151,59 @@ class GenerateMeshFlowTest {
 		}
 
 	@Test
-	fun nothingGeneratedRecordsNothing() =
+	fun aRunARowCouldRescueOpensTheStripOnAnUnchangedStep() =
+		runBlocking {
+			// Art fainter than the threshold: nothing is generated, but lowering the Alpha Threshold would.
+			val model = model(listOf(quad(drawableA, tileA, 10f, 10f, 54f, 54f)), unplacedAtlas(listOf(tileA)))
+			val session = EditorSession(model)
+			val stepsBefore = session.historyView.value.steps.size
+
+			assertFalse(runGenerateMesh(host(session, rasters(tileA to disc(alpha = 10)), this), listOf(drawableA), standard, null))
+
+			assertSame(model, session.model.value, "nothing changed")
+			assertEquals("notice.mesh.noneGenerated", session.notice.value?.messageKey)
+			assertEquals(stepsBefore + 1, session.historyView.value.steps.size, "an unchanged step carries the strip")
+			assertEquals("change.mesh.generateFromArt", session.historyView.value.steps.last().labelKey)
+			val record = assertNotNull(session.adjustableOperation.value, "the strip opens")
+
+			session.adjustLastOperation(record.parameters.withParameter(MeshGenerationParameterKeys.ALPHA_THRESHOLD, (record.parameters.first { row -> row.key == MeshGenerationParameterKeys.ALPHA_THRESHOLD } as OperatorParameter.IntParameter).copy(value = 8)), adjustedKey = MeshGenerationParameterKeys.ALPHA_THRESHOLD)
+			joinChildren()
+
+			assertTrue(vertexCountOf(session.model.value, drawableA) > 4, "the lowered threshold meshes the art")
+			assertEquals(stepsBefore + 1, session.historyView.value.steps.size, "the adjustment landed over the unchanged step")
+			session.undo()
+			assertSame(model, session.model.value, "one undo restores the rig")
+		}
+
+	@Test
+	fun nothingGeneratedForAReasonNoRowChangesRecordsNothing() =
 		runBlocking {
 			val model = model(listOf(quad(drawableA, tileA, 10f, 10f, 54f, 54f)), unplacedAtlas(listOf(tileA)))
 			val session = EditorSession(model)
 
-			assertFalse(runGenerateMesh(host(session, rasters(tileA to transparent()), this), listOf(drawableA), standard, null))
+			// No art at all for the tile: no row can bring it.
+			assertFalse(runGenerateMesh(host(session, rasters(), this), listOf(drawableA), standard, null))
 
 			assertSame(model, session.model.value)
 			assertNull(session.adjustableOperation.value)
 			assertEquals("notice.mesh.noneGenerated", session.notice.value?.messageKey)
+		}
+
+	@Test
+	fun artTheBudgetCannotFitIsMeshedUnderARaisedOne() =
+		runBlocking {
+			// Sixteen specks, each its own outline ring of at least six vertices: far over a budget of 32.
+			val specks = raster(64, 64) { column, row -> column % 16 in 6..7 && row % 16 in 6..7 }
+			val model = model(listOf(quad(drawableA, tileA, 10f, 10f, 54f, 54f)), unplacedAtlas(listOf(tileA)))
+			val tight = standard.copy(settings = standard.settings.copy(vertexBudget = 32))
+			val session = EditorSession(model)
+
+			assertTrue(runGenerateMesh(host(session, rasters(tileA to specks), this), listOf(drawableA), tight, null))
+
+			assertTrue(vertexCountOf(session.model.value, drawableA) > 32, "meshed under a budget above the row's")
+			assertEquals("notice.mesh.generatedRefit", session.notice.value?.messageKey)
+			assertEquals(listOf("1", "1"), session.notice.value?.arguments)
+			assertEquals(32, assertNotNull(session.adjustableOperation.value).parameters.intValue(MeshGenerationParameterKeys.VERTEX_BUDGET, 0), "the row keeps what the rigger asked for")
 		}
 
 	@Test
@@ -208,6 +253,39 @@ class GenerateMeshFlowTest {
 				assertEquals(mesh.positions[2 * vertex] - ORIGIN_X, artUvs[2 * vertex] * 64f, 1e-2f, "vertex $vertex x")
 				assertEquals(mesh.positions[2 * vertex + 1] - ORIGIN_Y, artUvs[2 * vertex + 1] * 64f, 1e-2f, "vertex $vertex y")
 			}
+		}
+
+	@Test
+	fun aGrownTilePacksAroundTilesItIsNotMoving() =
+		runBlocking {
+			// Beside A and B: a used tile with nothing opaque, placed (a collision image), and a used tile
+			// wider than any page that the import left unplaced (a canvas-sized background).  Neither moves,
+			// so neither may refuse the pack that moves A.
+			val clearTile = AtlasTileId("clear")
+			val wideTile = AtlasTileId("wide")
+			val base = placedModel(listOf(drawableA to 2f), aPlacement = placement(40f, 40f), bPlacement = placement(83f, 40f))
+			val clearPlacement = placement(160f, 160f)
+			val atlas =
+				base.atlas.copy(
+					tiles =
+						base.atlas.tiles +
+							AtlasTile(clearTile, "Collision", 16, 16, placement = clearPlacement) +
+							AtlasTile(wideTile, "Background", MAX_IMPORT_PAGE_SIZE + 8, 1),
+				)
+			val model = base.copy(atlas = atlas, drawables = base.drawables + quad(DrawableId("clear"), clearTile, 0f, 0f, 16f, 16f) + quad(DrawableId("wide"), wideTile, 0f, 0f, 64f, 1f))
+			val session = EditorSession(model)
+			val art = rasters(tileA to disc(), tileB to disc(), clearTile to raster(16, 16) { _, _ -> false }, wideTile to raster(MAX_IMPORT_PAGE_SIZE + 8, 1) { _, _ -> true })
+
+			assertTrue(runGenerateMesh(host(session, art, this), listOf(drawableA), standard, null), "the pack landed: ${session.notice.value}")
+
+			val after = session.model.value
+			assertNotEquals(model.atlas.tileById.getValue(tileA).placement, after.atlas.tileById.getValue(tileA).placement, "tile A moved")
+			assertEquals(model.atlas.tileById.getValue(tileB).placement, after.atlas.tileById.getValue(tileB).placement, "tile B held still")
+			assertEquals(clearPlacement, after.atlas.tileById.getValue(clearTile).placement, "the transparent tile kept its spot")
+			assertNull(after.atlas.tileById.getValue(wideTile).placement, "the unplaced tile stayed out of the pack")
+			val movedA = assertNotNull(after.atlas.tileById.getValue(tileA).placement)
+			val separated = movedA.positionX + 64f <= clearPlacement.positionX || clearPlacement.positionX + 16f <= movedA.positionX || movedA.positionY + 64f <= clearPlacement.positionY || clearPlacement.positionY + 16f <= movedA.positionY
+			assertTrue(separated || movedA.pageIndex != clearPlacement.pageIndex, "A did not land on the transparent tile's spot")
 		}
 
 	@Test
@@ -261,6 +339,30 @@ class GenerateMeshFlowTest {
 			assertEquals(ArtMeshPreset.Coarse.settings.outlineSpacing.toFloat(), rows.floatValue(MeshGenerationParameterKeys.OUTLINE_SPACING, 0f))
 			val expected = freshRun(model, MeshGenerationOptions.of(ArtMeshPreset.Coarse))
 			assertContentEquals(meshOf(expected, drawableA).positions, meshOf(session.model.value, drawableA).positions)
+		}
+
+	@Test
+	fun choosingThePresetAlreadyShownAppliesItAgain() =
+		runBlocking {
+			val model = model(listOf(quad(drawableA, tileA, 10f, 10f, 54f, 54f)), unplacedAtlas(listOf(tileA)))
+			val session = EditorSession(model)
+			runGenerateMesh(host(session, rasters(tileA to disc()), this), listOf(drawableA), standard, null)
+			val record = assertNotNull(session.adjustableOperation.value)
+			session.adjustLastOperation(record.parameters.withFloat(MeshGenerationParameterKeys.OUTLINE_SPACING, 12f), adjustedKey = MeshGenerationParameterKeys.OUTLINE_SPACING)
+			joinChildren()
+			val edited = assertNotNull(session.adjustableOperation.value)
+			assertEquals(12f, edited.parameters.floatValue(MeshGenerationParameterKeys.OUTLINE_SPACING, 0f))
+			val presetRow = edited.parameters.first { row -> row.key == MeshGenerationParameterKeys.PRESET } as OperatorParameter.ChoiceParameter
+			assertEquals(ArtMeshPreset.Standard.key, presetRow.value, "the edited row leaves the preset shown")
+
+			// The strip hands the same choice back, naming the row.
+			session.adjustLastOperation(edited.parameters.withParameter(MeshGenerationParameterKeys.PRESET, presetRow.copy(value = ArtMeshPreset.Standard.key)), adjustedKey = MeshGenerationParameterKeys.PRESET)
+			joinChildren()
+
+			val rows = assertNotNull(session.adjustableOperation.value).parameters
+			assertEquals(ArtMeshPreset.Standard.settings.outlineSpacing.toFloat(), rows.floatValue(MeshGenerationParameterKeys.OUTLINE_SPACING, 0f), "the preset's spacing is back")
+			val expected = freshRun(model, standard)
+			assertContentEquals(meshOf(expected, drawableA).positions, meshOf(session.model.value, drawableA).positions, "and the mesh is a fresh Standard run's")
 		}
 
 	@Test
@@ -456,12 +558,13 @@ class GenerateMeshFlowTest {
 	}
 
 	/**
-	 * A 64 px raster holding an opaque disc of radius 20 in its middle (its trim runs 12..52).
+	 * A 64 px raster holding a disc of radius 20 in its middle (its trim runs 12..52).
 	 *
+	 * @param Int alpha The disc's alpha; opaque by default.
 	 * @return DecodedImage The art.
 	 */
-	private fun disc(): DecodedImage =
-		raster(64, 64) { column, row ->
+	private fun disc(alpha: Int = 255): DecodedImage =
+		raster(64, 64, alpha) { column, row ->
 			val offsetX = column + 0.5 - 32.0
 			val offsetY = row + 0.5 - 32.0
 			offsetX * offsetX + offsetY * offsetY <= 400.0
@@ -482,20 +585,21 @@ class GenerateMeshFlowTest {
 	private fun transparent(): DecodedImage = raster(64, 64) { _, _ -> false }
 
 	/**
-	 * A raster opaque where a predicate says so.
+	 * A raster painted where a predicate says so.
 	 *
 	 * @param Int                   width  The width.
 	 * @param Int                   height The height.
+	 * @param Int                   alpha  The alpha of the pixels the predicate marks.
 	 * @param (Int, Int) -> Boolean opaque Whether a pixel is opaque.
 	 * @return DecodedImage The raster.
 	 */
-	private fun raster(width: Int, height: Int, opaque: (Int, Int) -> Boolean): DecodedImage {
+	private fun raster(width: Int, height: Int, alpha: Int = 255, opaque: (Int, Int) -> Boolean): DecodedImage {
 		val rgba = ByteArray(width * height * 4)
 
 		for (row in 0 until height) {
 			for (column in 0 until width) {
 				if (opaque(column, row)) {
-					rgba[(row * width + column) * 4 + 3] = 0xFF.toByte()
+					rgba[(row * width + column) * 4 + 3] = alpha.toByte()
 				}
 			}
 		}

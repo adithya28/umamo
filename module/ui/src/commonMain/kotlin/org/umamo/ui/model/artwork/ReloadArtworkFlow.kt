@@ -453,9 +453,7 @@ suspend fun runReloadArtwork(host: AtlasRepackHost, request: ReloadArtworkReques
 			return ReloadArtworkResult.Refused
 		}
 
-		is ReloadOutcome.Reloaded -> {
-			Unit
-		}
+		is ReloadOutcome.Reloaded -> {}
 	}
 
 	if (session.model.value !== modelAtStart) {
@@ -521,9 +519,7 @@ internal suspend fun adjustReloadArtwork(host: AtlasRepackHost, record: Adjustab
 			return
 		}
 
-		is ReloadOutcome.Reloaded -> {
-			Unit
-		}
+		is ReloadOutcome.Reloaded -> {}
 	}
 
 	host.artRasters.addDecoded(outcome.decodedByTile)
@@ -719,9 +715,7 @@ private inline fun landRelink(
 			return false
 		}
 
-		is ReloadOutcome.Reloaded -> {
-			Unit
-		}
+		is ReloadOutcome.Reloaded -> {}
 	}
 
 	if (session.model.value !== modelAtStart) {
@@ -775,9 +769,7 @@ internal suspend fun adjustRelinkArtwork(host: AtlasRepackHost, record: Adjustab
 			return
 		}
 
-		is ReloadOutcome.Reloaded -> {
-			Unit
-		}
+		is ReloadOutcome.Reloaded -> {}
 	}
 
 	host.artRasters.addDecoded(outcome.decodedByTile)

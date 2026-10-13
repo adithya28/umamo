@@ -7,6 +7,7 @@ package org.umamo.edit
 enum class NoticePlacement {
 	StatusBar,
 	NearCursor,
+	StatusBarAndNearCursor,
 }
 
 /**

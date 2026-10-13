@@ -289,9 +289,7 @@ fun PuppetModel.withAtlasRepack(
 
 	for (tile in atlas.tiles) {
 		when (val outcome = tileRemap(atlas, newAtlas, tile.id)) {
-			TileRemapOutcome.Unchanged -> {
-				Unit
-			}
+			TileRemapOutcome.Unchanged -> {}
 
 			TileRemapOutcome.Inexpressible -> {
 				require(tile.id !in boundTileIds) {

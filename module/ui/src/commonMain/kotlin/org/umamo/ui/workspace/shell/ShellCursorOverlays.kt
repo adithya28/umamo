@@ -54,9 +54,6 @@ private val SHELL_POINTER_GAP = 14.dp
  * Initial-pass ancestor, so this keeps tracking even while an open pie swallows input.  The reported
  * positions anchor the shell-level cursor overlays (the pie menu and near-cursor notices).
  *
- * ポインタ位置の観測。Initial パスで消費せずに監視するため、どのオーバーレイがジェスチャを
- * 所有していても最新位置が得られる。シェル直上のカーソル追従オーバーレイのアンカーになる。
- *
  * @param Function onPointer Receives each event's latest position in shell-root pixels.
  */
 internal suspend fun PointerInputScope.observeWindowPointer(onPointer: (Offset) -> Unit) {
@@ -96,9 +93,6 @@ internal fun ShellCursorOverlayStack(pointerPosition: () -> Offset?) {
  * [PieMenuOverlay] clamps the center to the window so the ring never clips (Blender's
  * constrain-to-screen); entries dispatch through the command registry, and opening / closing go
  * through the session so the shell's key ladder routes Escape and the 1..N digits unchanged.
- *
- * シェル直上のパイメニューホスト。エリアツリーの上に一つだけ描画されるため、ビューポート境界を
- * はみ出せて、複数ビューポートでの重複表示も構造的に起きない。中心はウィンドウ内にクランプされる。
  *
  * @param Offset? pointerPosition The last pointer position in shell-root pixels, or null before any
  *   pointer event (a keyboard-opened pie then centers in the window).
@@ -148,7 +142,7 @@ internal fun ShellNearCursorNotice(pointerPosition: Offset?, modifier: Modifier 
 	val notice by session.notice.collectAsState()
 	val current = notice ?: return
 
-	if (current.placement != NoticePlacement.NearCursor) {
+	if (current.placement != NoticePlacement.NearCursor && current.placement != NoticePlacement.StatusBarAndNearCursor) {
 		return
 	}
 
@@ -246,8 +240,6 @@ private fun Modifier.nearPointer(anchor: Offset, gap: Dp): Modifier =
  * The resolving surfaces publish what is under the pointer ([org.umamo.ui.workspace.RelationPickController.hover]); this only
  * names it, so the badge reads identically whether the pointer is over the viewport or an outliner row.
  * Installs no pointer input, so it never steals a gesture from the surfaces below.
- *
- * シェル直上のリレーション選択重畳。武装中はポインタ位置にスポイトカーソルと取得対象名のバッジを描く。
  *
  * @param Offset? pointerPosition The last pointer position in shell-root pixels, or null before any event.
  * @param Modifier modifier The layout modifier (the shell passes a window fill).

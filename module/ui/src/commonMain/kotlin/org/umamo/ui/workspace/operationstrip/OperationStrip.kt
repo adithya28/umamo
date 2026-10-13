@@ -174,7 +174,7 @@ internal fun OperationStrip(
 				for (parameter in record.parameters) {
 					key(parameter.key) {
 						OperationParameterRow(parameter) { updated ->
-							session.adjustLastOperation(record.parameters.withParameter(parameter.key, updated))
+							session.adjustLastOperation(record.parameters.withParameter(parameter.key, updated), adjustedKey = parameter.key)
 						}
 					}
 				}

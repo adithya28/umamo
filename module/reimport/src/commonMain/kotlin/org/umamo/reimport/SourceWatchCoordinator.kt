@@ -186,9 +186,7 @@ class SourceWatchCoordinator(
 	fun reloadFinished(sourceIds: Set<ArtSourceId>, result: WatchedReloadResult) {
 		when (result) {
 			// The model's new hashes arrive through track(); nothing to do until then.
-			WatchedReloadResult.Applied -> {
-				Unit
-			}
+			WatchedReloadResult.Applied -> {}
 
 			WatchedReloadResult.NothingChanged, WatchedReloadResult.Abandoned -> {
 				for (sourceId in sourceIds) {

@@ -458,11 +458,4 @@ class BlankLineAroundControlFlowRuleTest {
 
 		assertEquals(expected, format(code, script = true))
 	}
-
-	@Test
-	fun runsUnderTheUmamoRuleSet() {
-		val providers = UmamoRuleSetProvider().getRuleProviders()
-
-		assertEquals(listOf("umamo:blank-line-around-control-flow"), providers.map { provider -> provider.createNewRuleInstance().ruleId.value })
-	}
 }

@@ -279,9 +279,11 @@ internal sealed interface PackAroundOutcome {
  * existing art sits on compose exactly as they did.  Shared by Add Artwork, Reload, relink, Match
  * Automatically, and Replace Artwork, which differ only in how the new tiles came to be.
  *
- * A refusal over the document's OWN art refuses the whole pack: the lowering would pack that tile
- * out, and the document's art must not move for tiles being added.  A refusal over a NEW tile is a
- * note - it stays unplaced and the source-layer display still draws it.
+ * A refusal over the document's own PLACED art refuses the whole pack: the lowering would pack that
+ * tile out, and the document's art must not move for tiles being added.  A refusal over a NEW tile, or
+ * over a tile of the document's that has no placement (art an earlier pack left unplaced, a background
+ * larger than any page), is a note - it stays unplaced and the source-layer display still draws it; one
+ * that now fits is placed.
  *
  * @param PuppetModel      model              The model carrying the new, unplaced tiles.
  * @param Set              newTileIds         Which tiles are the new ones.
@@ -315,12 +317,14 @@ internal fun packNewTilesAround(
 		packed = PackedAtlas(packed.input, packAtlas(packed.input.itemsFor(keepPinned = true, fixPlaced = true), packOptions))
 	}
 
-	val newTileNames = model.atlas.tiles.filter { tile -> tile.id in newTileIds }.mapTo(HashSet()) { tile -> tile.name }
+	// The new tiles and every tile that has no placement yet may end the pack unplaced; the placed art may not.
+	val mayStayUnplaced = model.atlas.tiles.filter { tile -> tile.id in newTileIds || tile.placement == null }.mapTo(HashSet()) { tile -> tile.id }
+	val unplacedNames = model.atlas.tiles.filter { tile -> tile.id in mayStayUnplaced }.mapTo(HashSet()) { tile -> tile.name }
 	val refusals = repackRefusals(model, packed.result.skipped, packed.input.undecodableTileIds)
 	val skippedKeys = packed.result.skipped.mapTo(HashSet()) { skip -> skip.key }
 	val existingRefusals =
 		refusals.filter { refusal ->
-			model.atlas.tiles.any { tile -> tile.name == refusal.tileName && tile.id !in newTileIds && (tile.id.raw in skippedKeys || tile.id in packed.input.undecodableTileIds) }
+			model.atlas.tiles.any { tile -> tile.name == refusal.tileName && tile.id !in mayStayUnplaced && (tile.id.raw in skippedKeys || tile.id in packed.input.undecodableTileIds) }
 		}
 
 	if (existingRefusals.isNotEmpty()) {
@@ -330,7 +334,7 @@ internal fun packNewTilesAround(
 	val allNotices = ArrayList(notices)
 
 	for (refusal in refusals) {
-		if (refusal.tileName !in newTileNames) {
+		if (refusal.tileName !in unplacedNames) {
 			continue
 		}
 
@@ -388,9 +392,7 @@ suspend fun runAddArtwork(host: AtlasRepackHost, request: AddArtworkRequest, are
 			return false
 		}
 
-		is AddArtworkOutcome.Added -> {
-			Unit
-		}
+		is AddArtworkOutcome.Added -> {}
 	}
 
 	if (session.model.value !== modelAtStart) {
@@ -443,9 +445,7 @@ internal suspend fun adjustAddArtwork(host: AtlasRepackHost, record: AdjustableO
 			return
 		}
 
-		is AddArtworkOutcome.Added -> {
-			Unit
-		}
+		is AddArtworkOutcome.Added -> {}
 	}
 
 	host.sessionAtlasPages?.prewarm(outcome.model.atlas, outcome.textures)

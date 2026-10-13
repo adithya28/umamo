@@ -362,13 +362,15 @@ class EditorSession private constructor(
 
 	/**
 	 * Adjusts the live adjustable operation: publishes [parameters] as its settings and runs it again.
-	 * A no-op while no operation is adjustable.
+	 * A no-op while no operation is adjustable.  The rerun runs even when the settings did not change, and
+	 * reads [adjustedKey] off the record it is given to learn which one was set.
 	 *
-	 * @param List parameters The new settings, in the record's order.
+	 * @param List    parameters  The new settings, in the record's order.
+	 * @param String? adjustedKey The key of the setting the rigger set (even to the value it had), or null.
 	 */
-	fun adjustLastOperation(parameters: List<OperatorParameter>) {
+	fun adjustLastOperation(parameters: List<OperatorParameter>, adjustedKey: String? = null) {
 		val current = mutableAdjustableOperation.value ?: return
-		val updated = current.withParameters(parameters)
+		val updated = current.withParameters(parameters, adjustedKey)
 		mutableAdjustableOperation.value = updated
 		updated.rerun(updated)
 	}

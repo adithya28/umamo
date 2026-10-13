@@ -226,9 +226,7 @@ private fun MenuPanel(items: List<MenuItem>, dismissRoot: () -> Unit, modifier: 
 										)
 									}
 
-									is MenuItem.Search -> {
-										Unit
-									}
+									is MenuItem.Search -> {}
 								}
 							}
 						}

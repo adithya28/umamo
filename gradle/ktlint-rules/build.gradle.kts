@@ -34,6 +34,7 @@ dependencies {
 	testImplementation(kotlin("test"))
 	testImplementation(libs.ktlintRuleEngine)
 	testImplementation(libs.ktlintCliRulesetCore)
+	testImplementation(libs.ktlintRulesetStandard)
 	testRuntimeOnly(libs.slf4jNop)
 }
 

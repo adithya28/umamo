@@ -185,6 +185,9 @@ fun List<OperatorParameter>.choiceValue(key: String, fallback: String): String =
  *   it needs one.
  * @property Any            identity     Shared by every value of one registration, so a stale value can be
  *   told from a cleared record.
+ * @property String?        adjustedKey  The key of the setting the latest adjustment set - even to the value
+ *   it already had, which is how a rerun tells "choose this preset again" from no change - or null before
+ *   any adjustment or when the adjustment did not say.
  */
 class AdjustableOperation internal constructor(
 	val change: Change,
@@ -193,13 +196,15 @@ class AdjustableOperation internal constructor(
 	val baseSnapshot: EditorSnapshot,
 	val rerun: (AdjustableOperation) -> Unit,
 	internal val identity: Any,
+	val adjustedKey: String? = null,
 ) {
 	/**
 	 * This record with new settings, keeping everything else including the identity.
 	 *
-	 * @param List parameters The new settings.
+	 * @param List    parameters  The new settings.
+	 * @param String? adjustedKey The setting the adjustment set, or null; by default the one this record names.
 	 * @return AdjustableOperation The updated record.
 	 */
-	fun withParameters(parameters: List<OperatorParameter>): AdjustableOperation =
-		AdjustableOperation(change, areaId, parameters, baseSnapshot, rerun, identity)
+	fun withParameters(parameters: List<OperatorParameter>, adjustedKey: String? = this.adjustedKey): AdjustableOperation =
+		AdjustableOperation(change, areaId, parameters, baseSnapshot, rerun, identity, adjustedKey)
 }

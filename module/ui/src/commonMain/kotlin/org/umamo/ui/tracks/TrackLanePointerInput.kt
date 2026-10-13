@@ -93,9 +93,7 @@ internal suspend fun PointerInputScope.trackLaneHoverLoop(
 					callbacks.value.onLaneHover?.invoke(row, TrackLaneHit(row, value, mark))
 				}
 
-				else -> {
-					Unit
-				}
+				else -> {}
 			}
 		}
 	}
