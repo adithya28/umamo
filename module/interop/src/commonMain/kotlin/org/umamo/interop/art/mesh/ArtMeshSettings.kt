@@ -6,6 +6,9 @@ public const val DEFAULT_ART_MESH_ALPHA_THRESHOLD: Int = 16
 /** The art mesher's default vertex cap per mesh: what every renderer target can hold. */
 public const val DEFAULT_ART_MESH_VERTEX_BUDGET: Int = 1024
 
+/** The largest minimum angle the art mesher refines toward: past about 33 degrees refinement floods a mesh with vertices. */
+public const val MAXIMUM_ART_MESH_MINIMUM_ANGLE: Double = 33.0
+
 /**
  * How the art mesher spaces and places its vertices.  Every distance is in art pixels (the layer
  * raster's own pixels), the same for every document.
@@ -15,7 +18,9 @@ public const val DEFAULT_ART_MESH_VERTEX_BUDGET: Int = 1024
  * allows.  A second, inner ring runs [innerMargin] inside the art's edge (none when zero), and a
  * hexagonal lattice fills the rest.  With [fillHoles] the mesh covers the art's silhouette instead:
  * holes in the art (a lace pattern, a spider web) are meshed over rather than cut out, so the part
- * deforms as one sheet, and the inner ring and lattice run across them.
+ * deforms as one sheet, and the inner ring and lattice run across them.  With a [minimumAngle] the
+ * triangulation is then refined until every triangle's smallest angle reaches it, within the vertex
+ * budget; angles the art's own shape fixes (a hair tip's) are left as they are.
  *
  * @property Int     alphaThreshold       The minimum alpha byte counted as art (1..255).
  * @property Double  outlineSpacing       The target distance between outline vertices.
@@ -26,6 +31,7 @@ public const val DEFAULT_ART_MESH_VERTEX_BUDGET: Int = 1024
  * @property Int     minimumOutlinePoints The fewest vertices one outline ring may have (at least 3).
  * @property Int     vertexBudget         The most vertices one mesh may have.
  * @property Boolean fillHoles            Whether to mesh over the art's holes instead of cutting them out.
+ * @property Double  minimumAngle         The smallest angle, in degrees, refinement brings every triangle up to; 0 for none.
  */
 public data class ArtMeshSettings(
 	val alphaThreshold: Int,
@@ -37,6 +43,7 @@ public data class ArtMeshSettings(
 	val minimumOutlinePoints: Int,
 	val vertexBudget: Int = DEFAULT_ART_MESH_VERTEX_BUDGET,
 	val fillHoles: Boolean = false,
+	val minimumAngle: Double = 0.0,
 ) {
 	init {
 		require(alphaThreshold in 1..255) { "alphaThreshold must be in 1..255: $alphaThreshold" }
@@ -48,5 +55,6 @@ public data class ArtMeshSettings(
 		require(minimumMargin >= 0.5 && minimumMargin.isFinite()) { "minimumMargin must be at least 0.5 and finite: $minimumMargin" }
 		require(minimumOutlinePoints >= 3) { "minimumOutlinePoints must be at least 3: $minimumOutlinePoints" }
 		require(vertexBudget >= minimumOutlinePoints) { "vertexBudget must hold at least one outline ring: $vertexBudget" }
+		require(minimumAngle in 0.0..MAXIMUM_ART_MESH_MINIMUM_ANGLE) { "minimumAngle must be in 0..$MAXIMUM_ART_MESH_MINIMUM_ANGLE degrees: $minimumAngle" }
 	}
 }

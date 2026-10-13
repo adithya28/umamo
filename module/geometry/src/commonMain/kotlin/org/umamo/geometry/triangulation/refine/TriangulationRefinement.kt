@@ -61,7 +61,7 @@ public class RefinementOptions(
  * @property Int     refusedBoundarySplitCount Split points the boundary split check refused.
  * @property Int     underTargetTriangleCount  Inside triangles left with an angle below the target.
  * @property Int     unfixableTriangleCount    Of those, the ones refinement gave up on: an angle between two constraints, a triangle across two segments' matching shells, or a floor.  Every one of them when neither stop below fired.
- * @property Boolean stoppedByCap              Whether it stopped at [RefinementOptions.maximumAddedPoints] with work left.
+ * @property Boolean stoppedByCap              Whether it stopped at [RefinementOptions.maximumAddedPoints] with work left - or, with no room to add any vertex, left triangles below the target.
  * @property Boolean stoppedByBackstop         Whether it stopped at its operation backstop, which only a defect reaches.
  */
 public data class RefinementStatistics(
@@ -159,7 +159,7 @@ internal fun refineTriangulation(
 	if (store == null) {
 		val empty = Triangulation(IntArray(0), built.canonicalIndex, IntArray(0), built.rejectedConstraints, true)
 
-		return RefinedTriangulation(points.copyOf(), inputPointCount, empty, unrefinedStatistics(0))
+		return RefinedTriangulation(points.copyOf(), inputPointCount, empty, unrefinedStatistics(0, false))
 	}
 
 	if (boundaries.isEmpty()) {
@@ -169,12 +169,13 @@ internal fun refineTriangulation(
 	val classification = classifyRegions(store)
 	store.adoptRegions(classification.inside)
 	val boundaryRejected = built.rejectedConstraints.any { rejection -> rejection.kind == ConstraintKind.Boundary }
-	val refines = classification.consistent && !boundaryRejected && options.minimumAngleDegrees > 0.0 && options.maximumAddedPoints > 0
+	val refines = classification.consistent && !boundaryRejected && options.minimumAngleDegrees > 0.0
 	val statistics =
-		if (refines) {
+		if (refines && options.maximumAddedPoints > 0) {
 			QualityRefiner(store, inputPointCount, options, steinerPoints, afterEachStep).run()
 		} else {
-			unrefinedStatistics(countUnderTarget(store, options.minimumAngleDegrees))
+			val underTargetCount = countUnderTarget(store, options.minimumAngleDegrees)
+			unrefinedStatistics(underTargetCount, refines && underTargetCount > 0)
 		}
 	val canonical = IntArray(store.pointCount) { vertex -> if (vertex < inputPointCount) built.canonicalIndex[vertex] else vertex }
 	val triangulation = Triangulation(store.realTriangles(store.regions), canonical, store.constrainedEdgePairs(), built.rejectedConstraints, classification.consistent)
@@ -234,7 +235,8 @@ private fun countUnderTarget(store: HalfEdgeTriangulation, targetDegrees: Double
 /**
  * The statistics of a triangulation refinement left alone.
  *
- * @param Int underTargetCount The inside triangles below the target.
+ * @param Int     underTargetCount The inside triangles below the target.
+ * @param Boolean stoppedByCap     Whether a zero cap is what left them.
  * @return RefinementStatistics Nothing added.
  */
-private fun unrefinedStatistics(underTargetCount: Int): RefinementStatistics = RefinementStatistics(0, 0, 0, 0, 0, 0, underTargetCount, 0, false, false)
+private fun unrefinedStatistics(underTargetCount: Int, stoppedByCap: Boolean): RefinementStatistics = RefinementStatistics(0, 0, 0, 0, 0, 0, underTargetCount, 0, stoppedByCap, false)

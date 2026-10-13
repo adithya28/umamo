@@ -58,6 +58,14 @@ public sealed interface ArtMeshNotice {
 	public data class OutlineDensified(val chordCount: Int) : ArtMeshNotice
 
 	/**
+	 * Refinement reached the vertex budget before every triangle reached the minimum angle; the mesh is
+	 * valid, only some triangles stay narrower than asked.
+	 *
+	 * @property Int underTargetTriangleCount The triangles left below the minimum angle.
+	 */
+	public data class RefinementBudgetReached(val underTargetTriangleCount: Int) : ArtMeshNotice
+
+	/**
 	 * The mesh failed a final structural check and was withheld rather than risk uncovered art; the
 	 * outline could not be repaired.
 	 *

@@ -9,12 +9,14 @@ import org.umamo.edit.floatValue
 import org.umamo.edit.intValue
 import org.umamo.interop.art.mesh.ArtMeshPreset
 import org.umamo.interop.art.mesh.ArtMeshSettings
+import org.umamo.interop.art.mesh.MAXIMUM_ART_MESH_MINIMUM_ANGLE
 
 /*
  * The settings of Generate Mesh from Art as the operation strip shows them: a Preset row, one row per
  * mesher setting, and Fill Holes.  Every row is clamped into what the mesher accepts, so no value typed
  * into the strip can make the settings refuse.  A preset fills in the density rows (spacings, margins,
- * minimum outline points) and leaves the threshold, the budget, and Fill Holes as they were.
+ * minimum outline points, minimum angle) and leaves the threshold, the budget, and Fill Holes as they
+ * were.
  *
  * The values a run used are remembered for the rest of the app session (never saved), and a first run
  * starts from the preset the settings name.
@@ -30,6 +32,7 @@ internal object MeshGenerationParameterKeys {
 	const val INNER_MARGIN = "meshGenerate.innerMargin"
 	const val MINIMUM_MARGIN = "meshGenerate.minimumMargin"
 	const val MINIMUM_OUTLINE_POINTS = "meshGenerate.minimumOutlinePoints"
+	const val MINIMUM_ANGLE = "meshGenerate.minimumAngle"
 	const val VERTEX_BUDGET = "meshGenerate.vertexBudget"
 	const val FILL_HOLES = "meshGenerate.fillHoles"
 
@@ -96,6 +99,7 @@ internal fun clampedMeshSettings(settings: ArtMeshSettings, minimumAlphaThreshol
 		settings.minimumOutlinePoints,
 		settings.vertexBudget,
 		settings.fillHoles,
+		settings.minimumAngle,
 		minimumAlphaThreshold,
 	)
 
@@ -113,6 +117,7 @@ internal fun clampedMeshSettings(settings: ArtMeshSettings, minimumAlphaThreshol
  * @param Int     minimumOutlinePoints  The minimum outline points.
  * @param Int     vertexBudget          The vertex budget.
  * @param Boolean fillHoles             Whether holes are filled.
+ * @param Double  minimumAngle          The minimum angle, degrees.
  * @param Int     minimumAlphaThreshold The atlas's alpha threshold, the threshold's floor.
  * @return ArtMeshSettings The settings.
  */
@@ -126,6 +131,7 @@ private fun clampedMeshSettingsOf(
 	minimumOutlinePoints: Int,
 	vertexBudget: Int,
 	fillHoles: Boolean,
+	minimumAngle: Double,
 	minimumAlphaThreshold: Int,
 ): ArtMeshSettings {
 	val minimumPoints = minimumOutlinePoints.coerceIn(3, MAXIMUM_OUTLINE_POINTS)
@@ -140,6 +146,7 @@ private fun clampedMeshSettingsOf(
 		minimumOutlinePoints = minimumPoints,
 		vertexBudget = vertexBudget.coerceIn(maxOf(SMALLEST_VERTEX_BUDGET, minimumPoints), MAXIMUM_VERTEX_BUDGET),
 		fillHoles = fillHoles,
+		minimumAngle = finiteOr(minimumAngle, 0.0).coerceIn(0.0, MAXIMUM_ART_MESH_MINIMUM_ANGLE),
 	)
 }
 
@@ -176,6 +183,15 @@ internal fun meshGenerationParameters(options: MeshGenerationOptions, minimumAlp
 		pixelsRow(MeshGenerationParameterKeys.INNER_MARGIN, settings.innerMargin, 0f, MAXIMUM_INNER_MARGIN),
 		pixelsRow(MeshGenerationParameterKeys.MINIMUM_MARGIN, settings.minimumMargin, SMALLEST_MINIMUM_MARGIN, MAXIMUM_OUTER_MARGIN, step = 0.5f),
 		OperatorParameter.IntParameter(MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS, MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS, settings.minimumOutlinePoints, 3, MAXIMUM_OUTLINE_POINTS),
+		OperatorParameter.FloatParameter(
+			MeshGenerationParameterKeys.MINIMUM_ANGLE,
+			MeshGenerationParameterKeys.MINIMUM_ANGLE,
+			settings.minimumAngle.toFloat(),
+			0f,
+			MAXIMUM_ART_MESH_MINIMUM_ANGLE.toFloat(),
+			1f,
+			ParameterUnit.Degrees,
+		),
 		OperatorParameter.IntParameter(MeshGenerationParameterKeys.VERTEX_BUDGET, MeshGenerationParameterKeys.VERTEX_BUDGET, settings.vertexBudget, SMALLEST_VERTEX_BUDGET, MAXIMUM_VERTEX_BUDGET, step = 16),
 		OperatorParameter.BooleanParameter(MeshGenerationParameterKeys.FILL_HOLES, MeshGenerationParameterKeys.FILL_HOLES, settings.fillHoles),
 	)
@@ -215,6 +231,7 @@ internal fun meshGenerationOptionsOf(parameters: List<OperatorParameter>, fallba
 			minimumOutlinePoints = parameters.intValue(MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS, base.minimumOutlinePoints),
 			vertexBudget = parameters.intValue(MeshGenerationParameterKeys.VERTEX_BUDGET, base.vertexBudget),
 			fillHoles = parameters.booleanValue(MeshGenerationParameterKeys.FILL_HOLES, base.fillHoles),
+			minimumAngle = parameters.floatValue(MeshGenerationParameterKeys.MINIMUM_ANGLE, base.minimumAngle.toFloat()).toDouble(),
 			minimumAlphaThreshold = minimumAlphaThreshold,
 		)
 	val preset = ArtMeshPreset.fromKey(parameters.choiceValue(MeshGenerationParameterKeys.PRESET, fallback.preset.key))

@@ -1,7 +1,9 @@
 package org.umamo.interop.art.mesh
 
 import org.umamo.format.art.LayerRaster
+import org.umamo.format.art.alphaField
 import org.umamo.geometry.mesh.PlanarTriangleMesh
+import org.umamo.geometry.mesh.measureQuality
 import kotlin.math.abs
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -17,7 +19,8 @@ import kotlin.test.assertTrue
  * The art mesher on synthetic shapes, every mesh checked by the independent oracle in
  * ArtMeshTestSupport (orientation, manifold edges, used and distinct vertices, exact pins, every art
  * pixel covered, every boundary edge clear of the art by the minimum margin, and with holes filled
- * one disc per outline ring).
+ * one disc per outline ring).  The presets refine toward their minimum angle, so every test below
+ * that meshes at a preset checks refinement's meshes too.
  */
 class ArtMesherTest {
 	private val standard = ArtMeshPreset.Standard.settings
@@ -274,11 +277,77 @@ class ArtMesherTest {
 	}
 
 	@Test
+	fun refinementLiftsATaperedTipAndLeavesOnlyAnglesItCannotHelp() {
+		val raster = taperedTip()
+		val unrefinedSettings = standard.copy(minimumAngle = 0.0)
+		val unrefined = assertValidArtMesh(raster, unrefinedSettings, generateArtMesh(raster, unrefinedSettings))
+		val result = generateArtMesh(raster, standard)
+		val refined = assertValidArtMesh(raster, standard, result)
+		val statistics = result.statistics!!
+		val target = standard.minimumAngle
+
+		assertTrue(statistics.steinerVertexCount > 0, "refinement added vertices")
+		assertEquals(refined.vertexCount, unrefined.vertexCount + statistics.steinerVertexCount, "refinement only adds, after the same placed points")
+		assertEquals(statistics.underTargetCount, refined.measureQuality(1.0).countBelow(target), "the reported count matches the mesh")
+		assertEquals(statistics.underTargetCount, statistics.unfixableCount, "what stays below the target is what refinement cannot help")
+		assertTrue(unrefined.measureQuality(1.0).countBelow(target) > statistics.underTargetCount, "fewer triangles below the target than without refinement")
+		assertTrue(result.notices.none { notice -> notice is ArtMeshNotice.RefinementBudgetReached })
+	}
+
+	@Test
+	fun aZeroMinimumAngleAddsNothing() {
+		val settings = standard.copy(minimumAngle = 0.0)
+		val raster = noisyBlob()
+		val result = generateArtMesh(raster, settings)
+		assertValidArtMesh(raster, settings, result)
+		val statistics = result.statistics!!
+
+		assertEquals(0, statistics.steinerVertexCount)
+		assertEquals(0, statistics.boundarySplitCount)
+		assertEquals(0, statistics.underTargetCount)
+	}
+
+	@Test
+	fun refinementStaysWithinTheBudgetAndSaysWhenItRanOut() {
+		val raster = noisyBlob()
+		val unrefined = generateArtMesh(raster, standard.copy(minimumAngle = 0.0)).mesh!!
+
+		for (room in listOf(0, 3)) {
+			val tight = standard.copy(minimumAngle = MAXIMUM_ART_MESH_MINIMUM_ANGLE, vertexBudget = unrefined.vertexCount + room)
+			val result = generateArtMesh(raster, tight)
+			val mesh = assertValidArtMesh(raster, tight, result)
+
+			assertTrue(mesh.vertexCount <= tight.vertexBudget)
+			assertTrue(result.statistics!!.steinerVertexCount <= room)
+			assertTrue(result.notices.any { notice -> notice is ArtMeshNotice.RefinementBudgetReached }, "with $room spare: ${result.notices}")
+		}
+	}
+
+	@Test
+	fun anOutlineSplitKeepsTheMarginAndCutsOffNoArt() {
+		// One art pixel square at columns 49..50, rows 49..50.
+		val raster = rasterOf(100, 100) { column, row -> column in 49..50 && row in 49..50 }
+		val field = raster.alphaField(alphaThreshold = 1, cellSize = 1, paddingCells = 4)!!
+		val check = boundarySplitCheckOf(field, minimumMargin = 2.0)
+
+		// A chord 4 px above the art.
+		assertTrue(check.accepts(30.0, 45.0, 70.0, 45.0, 50.0, 44.9, false), "bulging away from the art")
+		assertFalse(check.accepts(30.0, 45.0, 70.0, 45.0, 50.0, 47.5, false), "new chords within the margin")
+
+		// A wide sliver around the art whose chords pass far beside it.
+		val wideCheck = boundarySplitCheckOf(field, minimumMargin = 0.5)
+		assertFalse(wideCheck.accepts(30.0, 30.0, 70.0, 30.0, 50.0, 80.0, true), "cutting the art out of the domain")
+		assertTrue(wideCheck.accepts(30.0, 30.0, 70.0, 30.0, 50.0, 80.0, false), "the same split on the outside cuts nothing off")
+	}
+
+	@Test
 	fun malformedSettingsAndPinsAreRejected() {
 		assertFailsWith<IllegalArgumentException> { standard.copy(minimumMargin = 0.4) }
 		assertFailsWith<IllegalArgumentException> { standard.copy(alphaThreshold = 0) }
 		assertFailsWith<IllegalArgumentException> { standard.copy(minimumOutlinePoints = 2) }
 		assertFailsWith<IllegalArgumentException> { standard.copy(outlineSpacing = 0.0) }
+		assertFailsWith<IllegalArgumentException> { standard.copy(minimumAngle = -1.0) }
+		assertFailsWith<IllegalArgumentException> { standard.copy(minimumAngle = MAXIMUM_ART_MESH_MINIMUM_ANGLE + 1.0) }
 		assertFailsWith<IllegalArgumentException> { generateArtMesh(noisyBlob(), standard, doubleArrayOf(1.0)) }
 		assertFailsWith<IllegalArgumentException> { generateArtMesh(noisyBlob(), standard, doubleArrayOf(Double.NaN, 1.0)) }
 	}
@@ -298,6 +367,17 @@ class ArtMesherTest {
 
 		return sqrt(deltaX * deltaX + deltaY * deltaY)
 	}
+
+	/**
+	 * A parabolic taper narrowing to a point, like a hair tip.
+	 *
+	 * @return LayerRaster The raster.
+	 */
+	private fun taperedTip(): LayerRaster =
+		rasterOf(300, 80) { column, row ->
+			val offset = row - 40
+			row in 10 until 70 && offset * offset * 300 <= (300 - column) * 900
+		}
 
 	/**
 	 * A blob with ragged edges, a hole, and a few specks.

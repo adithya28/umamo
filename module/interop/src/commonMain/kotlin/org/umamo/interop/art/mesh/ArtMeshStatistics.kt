@@ -14,6 +14,10 @@ package org.umamo.interop.art.mesh
  * @property Int    innerVertexCount    The inner rings' vertices.
  * @property Int    latticeVertexCount  The interior lattice's vertices.
  * @property Int    pinCount            The pins given.
+ * @property Int    steinerVertexCount  Vertices refinement added toward the minimum angle: the mesh's last vertices.
+ * @property Int    boundarySplitCount  Of those, the ones that split an outline chord.
+ * @property Int    underTargetCount    Triangles left below the minimum angle (0 when there is none).
+ * @property Int    unfixableCount      Of those, the ones refinement could not help: an angle the outline itself makes, or one past a floor.
  */
 public data class ArtMeshStatistics(
 	val cellSize: Int,
@@ -27,4 +31,8 @@ public data class ArtMeshStatistics(
 	val innerVertexCount: Int,
 	val latticeVertexCount: Int,
 	val pinCount: Int,
+	val steinerVertexCount: Int,
+	val boundarySplitCount: Int,
+	val underTargetCount: Int,
+	val unfixableCount: Int,
 )
