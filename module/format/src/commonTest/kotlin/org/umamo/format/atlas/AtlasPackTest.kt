@@ -166,13 +166,33 @@ class AtlasPackTest {
 	}
 
 	@Test
-	fun aFixedTileWithNothingOpaqueIsSkippedLikeAnyOther() {
-		val empty = AtlasPackItem("empty", 3, 3, ByteArray(3 * 3 * 4), fixed = AtlasPackFixed(0, floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f)))
+	fun aFixedTileWithNothingOpaqueIsKeptAndHoldsItsSpot() {
+		// A transparent tile held at (10, 10): kept where it is, painting nothing, its whole raster (no
+		// reserve given) still keeping the free tiles off the spot its drawables sample.
+		val empty = AtlasPackItem("empty", 8, 8, ByteArray(8 * 8 * 4), fixed = AtlasPackFixed(0, floatArrayOf(1f, 0f, 10f, 0f, 1f, 10f)))
+		val items = listOf(empty) + (0 until 5).map { tileIndex -> opaquePackItem("free$tileIndex", 6, 6) }
 
-		val result = packAtlas(listOf(empty, opaquePackItem("free", 4, 4)), AtlasPackOptions(maxPageSize = 32))
+		val result = packAtlas(items, AtlasPackOptions(maxPageSize = 32, gutter = 2, extrude = 1))
 
-		assertEquals(listOf(AtlasPackSkip("empty", AtlasPackSkipReason.NoOpaquePixels)), result.skipped)
-		assertTrue(result.fixed.isEmpty())
+		assertTrue(result.skipped.isEmpty(), "nothing is left out: ${result.skipped}")
+		val kept = result.fixed.single()
+		assertEquals("empty", kept.key)
+		assertEquals(listOf(0, 0, 0, 0), listOf(kept.trimLeft, kept.trimTop, kept.trimWidth, kept.trimHeight), "it painted nothing")
+		assertEquals(5, result.placements.size)
+		assertFreeTilesClearOf(result, 0, floatArrayOf(10f, 10f, 18f, 18f), gutter = 2)
+	}
+
+	@Test
+	fun aFixedTileWithNothingOpaqueHoldsItsReserve() {
+		// A transparent 4 px tile whose meshes reach 6 px past it on the right: the reach, not the raster,
+		// is the spot to hold.
+		val empty = AtlasPackItem("empty", 4, 4, ByteArray(4 * 4 * 4), reserve = AtlasPackReserve(0, 0, 10, 4), fixed = AtlasPackFixed(0, floatArrayOf(1f, 0f, 4f, 0f, 1f, 4f)))
+		val items = listOf(empty) + (0 until 4).map { tileIndex -> opaquePackItem("free$tileIndex", 5, 5) }
+
+		val result = packAtlas(items, AtlasPackOptions(maxPageSize = 32, gutter = 1, extrude = 1))
+
+		assertEquals("empty", result.fixed.single().key)
+		assertFreeTilesClearOf(result, 0, floatArrayOf(4f, 4f, 14f, 8f), gutter = 1)
 	}
 
 	@Test

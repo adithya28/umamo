@@ -205,7 +205,8 @@ public data class AtlasPackSkip(
 
 /**
  * One fixed tile the pack kept where it was: the page it stayed on, the trim it painted there, and
- * the affine it painted through.
+ * the affine it painted through.  A tile with nothing opaque is kept too, with an empty trim: it
+ * painted nothing, and its reserve held its spot.
  *
  * A plain class: [tileToPage] is an array.
  *
@@ -322,7 +323,8 @@ private class FixedFootprint(
  * used extent like any other).  A fixed tile whose art does not fit inside [AtlasPackOptions.maxPageSize]
  * is reported as [AtlasPackSkipReason.FixedOutsidePage] rather than moved - the caller decided to
  * keep it, so the packer never second-guesses where; reserve and gutter that spill past the edge are
- * clamped to it, not refused.
+ * clamped to it, not refused.  A fixed tile with nothing opaque is kept as well: it paints nothing, and
+ * its reserve (or, with none, its whole raster) seeds its page all the same.
  *
  * @param List             items   The tiles to pack; keys must be unique.
  * @param AtlasPackOptions options The packing policy.
@@ -357,6 +359,36 @@ public fun packAtlas(
 
 	for ((itemIndex, item) in items.withIndex()) {
 		val analysis = analyzeAlpha(item.width, item.height, item.rgba, options.alphaThreshold)
+		val heldFixed = item.fixed
+
+		// A fixed tile stays where it is whatever its art holds.  With nothing opaque it paints nothing,
+		// but its reserve (its meshes' reach), or with none its whole raster, still keeps every other tile
+		// off the spot its drawables sample.
+		if (heldFixed != null && (analysis == null || analysis.opaquePixelCount < options.minimumOpaquePixels)) {
+			val reach = item.reserve
+			val bounds =
+				affineBounds(
+					heldFixed.tileToPage,
+					(reach?.left ?: 0).toFloat(),
+					(reach?.top ?: 0).toFloat(),
+					(reach?.right ?: item.width).toFloat(),
+					(reach?.bottom ?: item.height).toFloat(),
+				)
+			fixedFootprints.add(
+				FixedFootprint(
+					itemIndex = itemIndex,
+					pageIndex = heldFixed.pageIndex,
+					left = floor(bounds[0] - options.gutter).toInt().coerceAtLeast(0),
+					top = floor(bounds[1] - options.gutter).toInt().coerceAtLeast(0),
+					right = ceil(bounds[2] + options.gutter).toInt().coerceIn(0, options.maxPageSize),
+					bottom = ceil(bounds[3] + options.gutter).toInt().coerceIn(0, options.maxPageSize),
+					artRight = 0,
+					artBottom = 0,
+				),
+			)
+
+			continue
+		}
 
 		if (analysis == null) {
 			skipped.add(AtlasPackSkip(item.key, AtlasPackSkipReason.NoOpaquePixels))
@@ -489,7 +521,15 @@ public fun packAtlas(
 	for (footprint in keptFootprints) {
 		val item = items[footprint.itemIndex]
 		val fixed = checkNotNull(item.fixed) { "fixed tile '${item.key}' lost its placement" }
-		val trim = checkNotNull(trims[footprint.itemIndex]) { "fixed tile '${item.key}' has no trim" }
+		val trim = trims[footprint.itemIndex]
+
+		// A fixed tile with nothing opaque has no trim and paints nothing; it is still kept.
+		if (trim == null) {
+			fixedPlacements.add(AtlasPackFixedPlacement(item.key, footprint.pageIndex, 0, 0, 0, 0, fixed.tileToPage))
+
+			continue
+		}
+
 		val page = pages[footprint.pageIndex]
 		paintTilePlacement(page.rgba, page.width, page.height, item, trim, fixed.tileToPage, options.extrude)
 		fixedPlacements.add(AtlasPackFixedPlacement(item.key, footprint.pageIndex, trim.left, trim.top, trim.width, trim.height, fixed.tileToPage))

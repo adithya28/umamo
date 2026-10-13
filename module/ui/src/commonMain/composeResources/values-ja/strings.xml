@@ -576,8 +576,9 @@
 	<string name="notice_mesh_generated">アートから %1$d 個のメッシュを生成しました。</string>
 	<string name="notice_mesh_generated_with_skips">アートから %1$d 個のメッシュを生成し、%2$d 個をスキップしました（ログを参照）。</string>
 	<string name="notice_mesh_generated_coarser">アートから %1$d 個のメッシュを生成しました。頂点数の上限に収めるため、%2$d 個は指定より粗く生成しました（ログを参照）。</string>
+	<string name="notice_mesh_generated_refit">アートから %1$d 個のメッシュを生成しました。%2$d 個は収めるために頂点数の上限を上げるか、穴を埋める必要がありました（ログを参照）。</string>
 	<string name="notice_mesh_pinned_without_room">%1$d 個のメッシュを生成しました。固定されたアートに広がる余地がないため %2$d 個をスキップしました。固定を解除するか、外側の余白を小さくしてください。</string>
-	<string name="notice_mesh_over_budget">%1$d 個のメッシュを生成しました。頂点数の上限を超えるため %2$d 個をスキップしました。頂点数の上限を上げるか、穴を埋めるをオンにしてください。</string>
+	<string name="notice_mesh_over_budget">%1$d 個のメッシュを生成しました。穴を埋めても 4096 頂点を超えるため %2$d 個をスキップしました。アルファしきい値を上げるか、輪郭の最小点数を下げてください。</string>
 	<string name="notice_mesh_glued_throughout">%1$d 個のメッシュを生成しました。頂点の大半がグルーで固定されているため %2$d 個をスキップしました。再生成するとグルー先への追従が変わってしまいます。</string>
 	<string name="notice_mesh_none_generated">メッシュは生成されませんでした（ログを参照）。</string>
 	<string name="notice_mesh_pack_refused">アトラスに大きくなったメッシュの余地がないため、何も生成しませんでした。</string>
@@ -943,7 +944,7 @@
 	<string name="mesh_options_inner_margin_description">内側の輪をアートの縁からどれだけ内側に置くか（アートのピクセル単位）。0 で内側の輪なし。</string>
 	<string name="mesh_options_minimum_margin_description">輪郭がアートのピクセルに近づける最小距離（アートのピクセル単位）。</string>
 	<string name="mesh_options_minimum_outline_points_description">アートの断片がどれだけ小さくても、1 つの輪郭が持つ最少の頂点数。</string>
-	<string name="mesh_options_vertex_budget_description">1 つのメッシュの最大頂点数。超えると間隔を広げ、それでも収まらないメッシュはスキップします。</string>
+	<string name="mesh_options_vertex_budget_description">1 つのメッシュの頂点数の目安。収まらないアートは上限を 4096 まで上げて、それでも収まらなければ穴を埋めて生成し直します。</string>
 	<string name="mesh_options_fill_holes_description">アートの穴（レース、クモの巣など）を切り抜かず、1 枚のシートとしてメッシュで覆います。</string>
 	<!-- ブレンドモード（Cubism のカラーブレンド一覧）。 -->
 	<string name="blend_mode_normal">通常</string>

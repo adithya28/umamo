@@ -208,6 +208,25 @@ fun EditorSession.commitGeneratedMeshes(base: PuppetModel, generated: PuppetMode
 	return true
 }
 
+/**
+ * Records a Generate Mesh from Art step that changes nothing, as ONE undo step, so the operation that
+ * generated nothing can still be adjusted: the strip opens on this step, and a rerun that generates lands
+ * over it through [amendLastCommit].  Lands only while [base] is still the session's model.
+ *
+ * @param PuppetModel      base        The model the generation started from.
+ * @param List<DrawableId> drawableIds Every drawable the operation targets.
+ * @return Boolean True when the step was recorded; false when the model moved.
+ */
+fun EditorSession.commitUnchangedGeneration(base: PuppetModel, drawableIds: List<DrawableId>): Boolean {
+	if (model.value !== base) {
+		return false
+	}
+
+	commitStep(MeshChange.GenerateFromArt(drawableIds), model = base)
+
+	return true
+}
+
 /** A drawable's old mesh made ready for a transfer, or why it cannot be. */
 private sealed interface SourcePreparation {
 	/**

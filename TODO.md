@@ -324,3 +324,26 @@ broken: an unexposed channel simply cannot be edited, rather than being editable
 `GlueChange`, following the standard three-file property-op pattern — that alone would let the sheet's
 context menu and `I` write the static. The expensive half is selectability, and is worth deferring until
 there is a second reason to want it.
+
+## A notice dialog for art the atlas could not place (requested 2026-10-13)
+
+**What.** When a pack leaves art unplaced, or refuses an operation, the rigger hears about it only through
+a status-bar notice and log lines.  Alexia wants a notice dialog that lists each failure with options to
+fix it - an allowed exception to her no-dialogs rule.  The places that report a pack failure today:
+1. Add Artwork, Reload, Match Automatically, and Replace Artwork (`packNewTilesAround`,
+	`module/ui/.../model/artwork/AddArtworkFlow.kt`): new art, or art the document has not placed yet, that
+	does not fit stays unplaced with a `SourceArtImportNotice.LayerLargerThanPage` / `LayerNotPacked` note
+	(since 2026-10-13 such art is retried by every artwork pack and placed once it fits); placed art the pack
+	would lose refuses the whole operation (`PackAroundOutcome.Refused`).
+2. Generate Mesh from Art (`packGrownTilesAround`, `module/ui/.../model/mesh/GenerateMeshPipeline.kt`): a
+	grown tile that cannot fit refuses the run (`GenerateMeshOutcome.PackRefused`, `notice.mesh.packRefused`).
+3. Repack Atlas (`repackRefusals`, `module/ui/.../model/repack/AtlasRepackFlow.kt`).
+
+**The case that prompted it.** LimeBirb's `Layer1`, a 9000 x 8500 canvas-sized background, is larger than
+the 8192 px page cap (`MAX_IMPORT_PAGE_SIZE`), so every import leaves it unplaced, and nothing tells the
+rigger what they could do about it.
+
+**Options the dialog could offer (a starting point, not a decision).** Scale the layer's art down on its
+tile; allow a larger page for this document (weighed against what the target runtimes load); leave it
+unplaced on purpose so the dialog stops asking; for a refused generation, lower the Outer Margin or unpin
+the tile.  Each is its own design question.

@@ -18,6 +18,7 @@ import org.umamo.format.atlas.AtlasPackReserve
 import org.umamo.format.atlas.AtlasPackSkipReason
 import org.umamo.format.atlas.packAtlas
 import org.umamo.interop.art.mesh.ArtMeshNotice
+import org.umamo.interop.art.mesh.ArtMeshResult
 import org.umamo.interop.art.mesh.ArtMeshSettings
 import org.umamo.interop.art.mesh.generateArtMesh
 import org.umamo.render.DecodedImage
@@ -40,10 +41,9 @@ import org.umamo.runtime.model.drawableIdsByAtlasTile
 import org.umamo.storage.UmamoLog
 import org.umamo.ui.model.repack.AtlasRepackRefusal
 import org.umamo.ui.model.repack.MAX_IMPORT_PAGE_SIZE
-import org.umamo.ui.model.repack.PackedAtlas
+import org.umamo.ui.model.repack.buildRepackPackInput
 import org.umamo.ui.model.repack.logPack
 import org.umamo.ui.model.repack.lowerPack
-import org.umamo.ui.model.repack.packAtlasOf
 import org.umamo.ui.model.repack.repackPageSizeOf
 import org.umamo.ui.model.repack.repackRefusals
 import org.umamo.ui.viewport.gizmo.mapInBalancedChunks
@@ -96,7 +96,7 @@ internal enum class GenerateMeshSkipReason {
 	/** Nothing in the drawable's art reaches the alpha threshold. */
 	NothingOpaque,
 
-	/** The mesh needs more vertices than the budget allows. */
+	/** The mesh needs more vertices than the largest budget allows, even with holes filled. */
 	OverBudget,
 
 	/** The mesher withheld a mesh that failed its own structural check. */
@@ -170,6 +170,7 @@ internal sealed interface GenerateMeshOutcome {
 	 * @property Map<DrawableId, GenerateMeshSkipReason> skips             Why the others did not.
 	 * @property Set<AtlasTileId>                        packedTileIds     The tiles packed to a new spot.
 	 * @property Map<DrawableId, List<ArtMeshNotice>>    noticesByDrawable What the mesher adjusted for a generated drawable, for those it adjusted anything.
+	 * @property Map<DrawableId, MeshFit>                 fitsByDrawable    How a generated drawable was made to fit when the rows could not fit it, for those that needed it.
 	 */
 	class Generated(
 		val model: PuppetModel,
@@ -178,7 +179,12 @@ internal sealed interface GenerateMeshOutcome {
 		override val skips: Map<DrawableId, GenerateMeshSkipReason>,
 		val packedTileIds: Set<AtlasTileId>,
 		val noticesByDrawable: Map<DrawableId, List<ArtMeshNotice>>,
+		val fitsByDrawable: Map<DrawableId, MeshFit> = emptyMap(),
 	) : GenerateMeshOutcome {
+		/** The generated drawables meshed under a raised budget or with holes filled, the rows not fitting them. */
+		val refitIds: List<DrawableId>
+			get() = fitsByDrawable.keys.toList()
+
 		/** The generated drawables whose mesh is coarser than the settings asked for (a spacing or the working grid widened). */
 		val coarsenedIds: List<DrawableId>
 			get() = noticesByDrawable.filterValues { notices -> notices.any { notice -> notice is ArtMeshNotice.SpacingCoarsened || notice is ArtMeshNotice.WorkingGridCoarsened } }.keys.toList()
@@ -334,6 +340,7 @@ internal suspend fun generateMeshOutcome(
 		}.flatten()
 	val edits = LinkedHashMap<DrawableId, MeshTopologyEdit>()
 	val noticesByDrawable = LinkedHashMap<DrawableId, List<ArtMeshNotice>>()
+	val fitsByDrawable = LinkedHashMap<DrawableId, MeshFit>()
 
 	for (result in results) {
 		val edit = result.edit
@@ -344,6 +351,8 @@ internal suspend fun generateMeshOutcome(
 			if (result.notices.isNotEmpty()) {
 				noticesByDrawable[result.drawableId] = result.notices
 			}
+
+			result.fit?.let { fit -> fitsByDrawable[result.drawableId] = fit }
 		} else {
 			skips[result.drawableId] = result.skip ?: GenerateMeshSkipReason.MesherRefused
 		}
@@ -361,7 +370,7 @@ internal suspend fun generateMeshOutcome(
 		return GenerateMeshOutcome.NothingGenerated(skips)
 	}
 
-	return withAtlasRoom(base, edited, edits, noticesByDrawable, skips, decode, premultipliedAlpha)
+	return withAtlasRoom(base, edited, edits, noticesByDrawable, fitsByDrawable, skips, decode, premultipliedAlpha)
 }
 
 /**
@@ -394,7 +403,7 @@ private fun meshingWeightOf(group: List<RegenerationInput.Ready>): Int {
  * @property GenerateMeshSkipReason? skip       Why there is no edit, or null.
  * @property List<ArtMeshNotice>     notices    What the mesher adjusted on the way to the edit; empty without one.
  */
-private class MeshingResult(val drawableId: DrawableId, val edit: MeshTopologyEdit?, val skip: GenerateMeshSkipReason?, val notices: List<ArtMeshNotice>)
+private class MeshingResult(val drawableId: DrawableId, val edit: MeshTopologyEdit?, val skip: GenerateMeshSkipReason?, val notices: List<ArtMeshNotice>, val fit: MeshFit? = null)
 
 /**
  * Meshes one drawable's art and carries its rig onto the result.  A guard tripping inside the mesher
@@ -423,11 +432,12 @@ private fun meshOne(
 	val alpha = tileAlphaChannel(decoded, plan.coverageByDrawable[input.drawableId])
 
 	try {
-		val result = generateArtMesh(alpha, settings, input.pinPoints, input.pinSurroundings)
+		val fitted = fitArtMesh(alpha, settings, input.pinPoints, input.pinSurroundings)
+		val result = fitted.result
 		val mesh = result.mesh ?: return MeshingResult(input.drawableId, null, skipReasonOf(result.notices), emptyList())
 
 		return when (val regeneration = base.meshRegeneration(input, mesh)) {
-			is MeshRegeneration.Built -> MeshingResult(input.drawableId, regeneration.edit, null, result.notices)
+			is MeshRegeneration.Built -> MeshingResult(input.drawableId, regeneration.edit, null, result.notices, fitted.fit)
 			is MeshRegeneration.Refused -> MeshingResult(input.drawableId, null, skipReasonOf(regeneration.refusal), emptyList())
 		}
 	} catch (failure: RuntimeException) {
@@ -445,6 +455,65 @@ private fun meshOne(
 
 		return MeshingResult(input.drawableId, null, GenerateMeshSkipReason.MesherFailed, emptyList())
 	}
+}
+
+/**
+ * How one generated drawable's mesh was made to fit when the rows' settings could not fit it.
+ *
+ * @property Int?    budget      The vertex budget it was meshed under, or null when the rows' budget held.
+ * @property Boolean holesFilled Whether its holes were filled, the rows leaving Fill Holes off.
+ */
+internal data class MeshFit(val budget: Int?, val holesFilled: Boolean)
+
+/**
+ * The mesher's answer for one drawable's art and how it was made to fit.  A plain class: it holds the result.
+ *
+ * @property ArtMeshResult result The mesh, or why there is none.
+ * @property MeshFit?      fit    How the mesh was made to fit, or null when the rows' settings fit it.
+ */
+internal class FittedArtMesh(val result: ArtMeshResult, val fit: MeshFit?)
+
+/**
+ * Meshes art under the rows' settings and, while the mesher finds it over the vertex budget, again: first
+ * under a raised budget (doubled, or straight to the count the mesher reported, up to [budgetCap]), then
+ * with holes filled from the rows' budget up.  Art the rows cannot fit is meshed however it fits rather
+ * than skipped - lace and webs whose every hole is a ring of its own, layers of many specks - and a
+ * refusal for any other reason stands at once.
+ *
+ * @param AlphaChannel    alpha           The drawable's alpha.
+ * @param ArtMeshSettings settings        The rows' settings.
+ * @param DoubleArray     pins            The pins.
+ * @param DoubleArray     pinSurroundings The pins' old triangles.
+ * @param Int             budgetCap       The highest budget to raise to.
+ * @return FittedArtMesh The last answer and how it was fitted.
+ */
+internal fun fitArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins: DoubleArray, pinSurroundings: DoubleArray, budgetCap: Int = MAXIMUM_VERTEX_BUDGET): FittedArtMesh {
+	val holeStages = if (settings.fillHoles) listOf(true) else listOf(false, true)
+	var last: FittedArtMesh? = null
+
+	for (fillHoles in holeStages) {
+		var budget = settings.vertexBudget
+
+		while (true) {
+			val result = generateArtMesh(alpha, settings.copy(vertexBudget = budget, fillHoles = fillHoles), pins, pinSurroundings)
+			val holesFilled = fillHoles && !settings.fillHoles
+			val fit = if (budget != settings.vertexBudget || holesFilled) MeshFit(budget.takeIf { raised -> raised != settings.vertexBudget }, holesFilled) else null
+			last = FittedArtMesh(result, fit)
+			val overBudget = result.notices.firstNotNullOfOrNull { notice -> notice as? ArtMeshNotice.OverBudget }
+
+			if (result.mesh != null || overBudget == null) {
+				return last
+			}
+
+			if (budget >= budgetCap) {
+				break
+			}
+
+			budget = minOf(budgetCap, maxOf(2 * budget, overBudget.vertexCount))
+		}
+	}
+
+	return last!!
 }
 
 /**
@@ -501,6 +570,7 @@ private class CoveredAlphaChannel(private val tile: AlphaChannel, private val co
  * @param PuppetModel                             edited             The base with every new mesh applied.
  * @param Map<DrawableId, MeshTopologyEdit>       edits              The new meshes.
  * @param Map<DrawableId, List<ArtMeshNotice>>    noticesByDrawable  What the mesher adjusted per new mesh.
+ * @param Map<DrawableId, MeshFit>                 fitsByDrawable     How a new mesh was made to fit, per mesh that needed it.
  * @param MutableMap<DrawableId, GenerateMeshSkipReason> skips       The skips so far; pinned drawables are added.
  * @param Function                                decode             Decodes any tile's art, each once.
  * @param Boolean                                 premultipliedAlpha The document's texture-convention flag.
@@ -511,13 +581,14 @@ private fun withAtlasRoom(
 	edited: PuppetModel,
 	edits: Map<DrawableId, MeshTopologyEdit>,
 	noticesByDrawable: Map<DrawableId, List<ArtMeshNotice>>,
+	fitsByDrawable: Map<DrawableId, MeshFit>,
 	skips: MutableMap<DrawableId, GenerateMeshSkipReason>,
 	decode: (AtlasTileId) -> DecodedImage?,
 	premultipliedAlpha: Boolean,
 ): GenerateMeshOutcome {
 	// Stored coordinates that address the art directly do not depend on any placement.
 	if (!base.atlas.storedUvsAddressPages) {
-		return GenerateMeshOutcome.Generated(edited, null, edits.keys.toList(), skips, emptySet(), noticesByDrawable)
+		return GenerateMeshOutcome.Generated(edited, null, edits.keys.toList(), skips, emptySet(), noticesByDrawable, fitsByDrawable)
 	}
 
 	val tileIdByDrawable = base.drawables.associate { drawable -> drawable.id to drawable.atlasTileId }
@@ -551,6 +622,7 @@ private fun withAtlasRoom(
 	var model = edited
 	var keptEdits: Map<DrawableId, MeshTopologyEdit> = edits
 	var keptNotices = noticesByDrawable
+	var keptFits = fitsByDrawable
 
 	if (pinnedAllowance.isNotEmpty()) {
 		val dropped = HashSet<DrawableId>()
@@ -573,6 +645,7 @@ private fun withAtlasRoom(
 
 		keptEdits = edits.filterKeys { drawableId -> drawableId !in dropped }
 		keptNotices = noticesByDrawable.filterKeys { drawableId -> drawableId !in dropped }
+		keptFits = fitsByDrawable.filterKeys { drawableId -> drawableId !in dropped }
 
 		if (keptEdits.isEmpty()) {
 			return GenerateMeshOutcome.NothingGenerated(skips)
@@ -582,12 +655,12 @@ private fun withAtlasRoom(
 	}
 
 	if (grownTileIds.isEmpty()) {
-		return GenerateMeshOutcome.Generated(model, null, keptEdits.keys.toList(), skips, emptySet(), keptNotices)
+		return GenerateMeshOutcome.Generated(model, null, keptEdits.keys.toList(), skips, emptySet(), keptNotices, keptFits)
 	}
 
 	return when (val packed = packGrownTilesAround(model, grownTileIds, decode, premultipliedAlpha)) {
 		is GrownPackOutcome.Refused -> GenerateMeshOutcome.PackRefused(packed.refusals, skips)
-		is GrownPackOutcome.Packed -> GenerateMeshOutcome.Generated(packed.model, packed.textures, keptEdits.keys.toList(), skips, grownTileIds, keptNotices)
+		is GrownPackOutcome.Packed -> GenerateMeshOutcome.Generated(packed.model, packed.textures, keptEdits.keys.toList(), skips, grownTileIds, keptNotices, keptFits)
 	}
 }
 
@@ -716,10 +789,13 @@ internal sealed interface GrownPackOutcome {
 
 /**
  * Packs the tiles whose meshes grew past their room into new spots around every other placed tile, which
- * holds still (pinned or not), at the document's page size and once more at [MAX_IMPORT_PAGE_SIZE] when
- * one does not fit; the result re-derives every coordinate through [withAtlasRepack] under the document's
- * composition.  Any tile the pack cannot carry refuses the whole pack - a used tile left without a
- * placement would leave its drawables without a page.
+ * holds still (pinned or not, painted or fully transparent), at the document's page size and once more
+ * at [MAX_IMPORT_PAGE_SIZE] when one does not fit; the result re-derives every coordinate through
+ * [withAtlasRepack] under the document's composition.  Only the grown tiles move: a tile with no
+ * placement that is not growing (art the import left unpacked, a canvas-sized background larger than any
+ * page) stays out of the pack as it is.  A grown tile the pack cannot carry refuses the whole pack, and so
+ * does a held tile the new pages would lose - a used tile left without a placement would leave its
+ * drawables without a page.
  *
  * @param PuppetModel      model              The model with the new meshes.
  * @param Set<AtlasTileId> grownTileIds       The tiles that need a new spot.
@@ -743,22 +819,27 @@ internal fun packGrownTilesAround(
 			extrude = composition.extrude,
 			alphaThreshold = composition.alphaThreshold,
 		)
-	var packed = packAtlasOf(model, decode, packOptions, keepPinned = true, fixPlaced = true, freeKeys = freeKeys)
+	val input = buildRepackPackInput(model, decode)
+	val items = input.itemsFor(keepPinned = true, fixPlaced = true, freeKeys = freeKeys).filter { item -> item.key in freeKeys || item.fixed != null }
+	var result = packAtlas(items, packOptions)
 
-	if (packOptions.maxPageSize < MAX_IMPORT_PAGE_SIZE && packed.result.skipped.any { skip -> skip.reason == AtlasPackSkipReason.LargerThanPage }) {
+	if (packOptions.maxPageSize < MAX_IMPORT_PAGE_SIZE && result.skipped.any { skip -> skip.reason == AtlasPackSkipReason.LargerThanPage }) {
 		packOptions = packOptions.copy(maxPageSize = MAX_IMPORT_PAGE_SIZE)
-		packed = PackedAtlas(packed.input, packAtlas(packed.input.itemsFor(keepPinned = true, fixPlaced = true, freeKeys = freeKeys), packOptions))
+		result = packAtlas(items, packOptions)
 	}
 
-	val refusals = repackRefusals(model, packed.result.skipped, packed.input.undecodableTileIds)
+	// Only what went into the pack can refuse it: a tile left out keeps what it had.
+	val packedKeys = items.mapTo(HashSet()) { item -> item.key }
+	val undecodableInPack = input.undecodableTileIds.filterTo(HashSet()) { tileId -> tileId.raw in freeKeys || model.atlas.tileById[tileId]?.placement != null }
+	val refusals = repackRefusals(model, result.skipped.filter { skip -> skip.key in packedKeys }, undecodableInPack)
 
 	if (refusals.isNotEmpty()) {
 		return GrownPackOutcome.Refused(refusals)
 	}
 
-	val lowered = lowerPack(model.atlas, packed.result)
+	val lowered = lowerPack(model.atlas, result)
 	val repacked = model.withAtlasRepack(lowered.pages, lowered.placementsByTile, composition)
-	logPack(packed.result, lowered, packOptions)
+	logPack(result, lowered, packOptions)
 
-	return GrownPackOutcome.Packed(repacked, generatedPuppetTextures(packed.result.pages, repacked, premultipliedAlpha))
+	return GrownPackOutcome.Packed(repacked, generatedPuppetTextures(result.pages, repacked, premultipliedAlpha))
 }

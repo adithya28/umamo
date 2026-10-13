@@ -29,6 +29,7 @@ fun noticeText(messageKey: String, arguments: List<String> = emptyList()): Strin
 		"notice.mesh.generated" -> stringResource(Res.string.notice_mesh_generated, *countArguments(arguments, 1))
 		"notice.mesh.generatedWithSkips" -> stringResource(Res.string.notice_mesh_generated_with_skips, *countArguments(arguments, 2))
 		"notice.mesh.generatedCoarser" -> stringResource(Res.string.notice_mesh_generated_coarser, *countArguments(arguments, 2))
+		"notice.mesh.generatedRefit" -> stringResource(Res.string.notice_mesh_generated_refit, *countArguments(arguments, 2))
 		"notice.mesh.pinnedWithoutRoom" -> stringResource(Res.string.notice_mesh_pinned_without_room, *countArguments(arguments, 2))
 		"notice.mesh.overBudget" -> stringResource(Res.string.notice_mesh_over_budget, *countArguments(arguments, 2))
 		"notice.mesh.gluedThroughout" -> stringResource(Res.string.notice_mesh_glued_throughout, *countArguments(arguments, 2))
