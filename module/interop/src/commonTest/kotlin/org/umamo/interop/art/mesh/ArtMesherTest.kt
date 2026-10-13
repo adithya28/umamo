@@ -4,7 +4,10 @@ import org.umamo.format.art.LayerRaster
 import org.umamo.format.art.alphaField
 import org.umamo.geometry.mesh.PlanarTriangleMesh
 import org.umamo.geometry.mesh.measureQuality
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.floor
 import kotlin.math.sqrt
 import kotlin.random.Random
 import kotlin.test.Test
@@ -232,6 +235,66 @@ class ArtMesherTest {
 	}
 
 	@Test
+	fun theBudgetThinsTheInteriorBeforeTheOutline() {
+		val raster = largeDisc()
+		val placed = placedCountOf(generateArtMesh(raster, standard.copy(minimumAngle = 0.0, vertexBudget = 4096)))
+		val outline = placed.first
+		val budget = outline + (placed.second - outline) / 2
+		val settings = standard.copy(vertexBudget = budget)
+		val result = generateArtMesh(raster, settings)
+		assertValidArtMesh(raster, settings, result)
+		val statistics = result.statistics!!
+
+		assertEquals(standard.outlineSpacing, statistics.outlineSpacing, "the outline keeps the spacing asked for")
+		assertTrue(statistics.interiorSpacing!! > standard.interiorSpacing, "the interior thinned")
+		assertTrue(result.notices.contains(ArtMeshNotice.SpacingCoarsened(statistics.outlineSpacing, statistics.interiorSpacing)), "${result.notices}")
+		assertTrue(placedCountOf(result).second <= budget - reserveOf(budget), "a coarsened mesh leaves refinement its share")
+	}
+
+	@Test
+	fun theOutlineWidensOnlyOnceTheInteriorIsGone() {
+		val raster = largeDisc()
+		val outline = placedCountOf(generateArtMesh(raster, standard.copy(minimumAngle = 0.0, vertexBudget = 4096))).first
+		val settings = standard.copy(vertexBudget = outline - 4)
+		val result = generateArtMesh(raster, settings)
+		assertValidArtMesh(raster, settings, result)
+		val statistics = result.statistics!!
+
+		assertNull(statistics.interiorSpacing, "the interior was left to refinement")
+		assertEquals(0, statistics.innerVertexCount + statistics.latticeVertexCount)
+		assertTrue(statistics.outlineSpacing > standard.outlineSpacing, "then the outline widened")
+		assertTrue(result.notices.contains(ArtMeshNotice.SpacingCoarsened(statistics.outlineSpacing, null)), "${result.notices}")
+	}
+
+	@Test
+	fun theReserveGivesWayRatherThanLoseAMesh() {
+		// A star of forty spikes: however wide the outline spacing, its corners stay keypoints.
+		val raster = spikyStar()
+		val leanest = placedCountOf(generateArtMesh(raster, standard.copy(minimumAngle = 0.0, outlineSpacing = 512.0, vertexBudget = 4096))).first
+		val settings = standard.copy(vertexBudget = leanest + 2)
+		val result = generateArtMesh(raster, settings)
+		assertValidArtMesh(raster, settings, result)
+
+		assertNull(result.statistics!!.interiorSpacing, "the interior gave way first")
+		assertTrue(placedCountOf(result).second > settings.vertexBudget - reserveOf(settings.vertexBudget), "the outline alone overran the reserve, so the reserve gave way")
+	}
+
+	@Test
+	fun aMeshThatFitsIsNeverCoarsenedToMakeRoom() {
+		val raster = largeDisc()
+		val placed = placedCountOf(generateArtMesh(raster, standard.copy(minimumAngle = 0.0, vertexBudget = 4096))).second
+		val settings = standard.copy(vertexBudget = placed)
+		val result = generateArtMesh(raster, settings)
+		assertValidArtMesh(raster, settings, result)
+		val statistics = result.statistics!!
+
+		assertEquals(standard.outlineSpacing, statistics.outlineSpacing)
+		assertEquals(standard.interiorSpacing, statistics.interiorSpacing)
+		assertTrue(result.notices.none { notice -> notice is ArtMeshNotice.SpacingCoarsened }, "${result.notices}")
+		assertEquals(0, statistics.steinerVertexCount, "no room was made for refinement")
+	}
+
+	@Test
 	fun moreSpecksThanTheBudgetCanRingAreOverBudget() {
 		val raster = rasterOf(200, 200) { column, row -> column % 20 == 10 && row % 20 == 10 }
 		val tight = standard.copy(vertexBudget = 100)
@@ -367,6 +430,50 @@ class ArtMesherTest {
 
 		return sqrt(deltaX * deltaX + deltaY * deltaY)
 	}
+
+	/**
+	 * A disc of radius 150: an outline of about thirty points around an interior of a few hundred.
+	 *
+	 * @return LayerRaster The raster.
+	 */
+	private fun largeDisc(): LayerRaster = rasterOf(320, 320) { column, row -> inDisc(column, row, 160.0, 160.0, 150.0) }
+
+	/**
+	 * A star of forty sharp spikes between radii 100 and 150.
+	 *
+	 * @return LayerRaster The raster.
+	 */
+	private fun spikyStar(): LayerRaster =
+		rasterOf(320, 320) { column, row ->
+			val deltaX = column + 0.5 - 160.0
+			val deltaY = row + 0.5 - 160.0
+			val turns = atan2(deltaY, deltaX) / (2.0 * PI) * 40.0
+			val phase = turns - floor(turns)
+			val radius = 100.0 + 50.0 * (1.0 - 2.0 * abs(phase - 0.5))
+			deltaX * deltaX + deltaY * deltaY <= radius * radius
+		}
+
+	/**
+	 * How many points a result placed before refinement: the outline's and the pins' first, then all
+	 * of them.
+	 *
+	 * @param ArtMeshResult result The result.
+	 * @return Pair<Int, Int> The outline-and-pins count and the total.
+	 */
+	private fun placedCountOf(result: ArtMeshResult): Pair<Int, Int> {
+		val statistics = result.statistics!!
+		val outline = statistics.outlineVertexCount + statistics.pinCount
+
+		return outline to outline + statistics.innerVertexCount + statistics.latticeVertexCount
+	}
+
+	/**
+	 * The share of a budget a coarsened mesh keeps back for refinement: thirty percent, rounded up.
+	 *
+	 * @param Int budget The vertex budget.
+	 * @return Int The reserve.
+	 */
+	private fun reserveOf(budget: Int): Int = (budget * 30 + 99) / 100
 
 	/**
 	 * A parabolic taper narrowing to a point, like a hair tip.

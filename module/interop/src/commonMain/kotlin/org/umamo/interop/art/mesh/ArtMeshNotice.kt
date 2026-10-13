@@ -18,12 +18,14 @@ public sealed interface ArtMeshNotice {
 	public data class WorkingGridCoarsened(val requestedCellSize: Int, val cellSize: Int) : ArtMeshNotice
 
 	/**
-	 * The mesh would have exceeded the vertex budget, so both spacings were widened.
+	 * The mesh would have exceeded the vertex budget, so it was coarsened: the interior thinned first,
+	 * and only once the outline and pins filled the budget themselves was the interior left to
+	 * refinement and the outline widened.
 	 *
-	 * @property Double outlineSpacing  The outline spacing used, pixels.
-	 * @property Double interiorSpacing The interior spacing used, pixels.
+	 * @property Double  outlineSpacing  The outline spacing used, pixels.
+	 * @property Double? interiorSpacing The interior spacing used, pixels, or null when the interior was left to refinement.
 	 */
-	public data class SpacingCoarsened(val outlineSpacing: Double, val interiorSpacing: Double) : ArtMeshNotice
+	public data class SpacingCoarsened(val outlineSpacing: Double, val interiorSpacing: Double?) : ArtMeshNotice
 
 	/**
 	 * No mesh within the vertex budget exists at these settings - typically a layer of many separate
