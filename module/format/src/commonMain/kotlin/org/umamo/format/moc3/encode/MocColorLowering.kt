@@ -154,9 +154,7 @@ internal fun colorSections(context: MocLoweringContext): Map<Int, ByteArray> {
 						}
 
 						// A part owns no color rows at all, so it contributes no reference either.
-						is BlendShapeKeyform.Part -> {
-							Unit
-						}
+						is BlendShapeKeyform.Part -> {}
 					}
 				}
 			}

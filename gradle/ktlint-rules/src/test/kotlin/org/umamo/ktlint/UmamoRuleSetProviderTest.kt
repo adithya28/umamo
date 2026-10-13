@@ -1,0 +1,20 @@
+package org.umamo.ktlint
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+
+/**
+ * Pins the rules the `umamo` rule set hands the engine, so a rule written but never registered fails here
+ * instead of silently never running.
+ */
+class UmamoRuleSetProviderTest {
+	@Test
+	fun registersEveryUmamoRule() {
+		val providers = UmamoRuleSetProvider().getRuleProviders()
+
+		assertEquals(
+			listOf("umamo:blank-line-around-control-flow", "umamo:no-unit-only-block"),
+			providers.map { provider -> provider.createNewRuleInstance().ruleId.value },
+		)
+	}
+}

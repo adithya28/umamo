@@ -456,9 +456,7 @@ internal object ClipRaster {
 					}
 				}
 
-				tag.contentEquals(END_TAG) -> {
-					Unit
-				}
+				tag.contentEquals(END_TAG) -> {}
 
 				tag.contentEquals(STATUS_TAG) -> {
 					position += 28

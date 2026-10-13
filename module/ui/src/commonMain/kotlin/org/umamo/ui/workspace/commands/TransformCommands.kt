@@ -98,8 +98,6 @@ private fun beginTransform(session: EditorSession?, kind: MeshOperatorKind, rout
 		}
 
 		// The pointer has never touched a viewport and is not over a UV editor: nowhere to run it.
-		null -> {
-			Unit
-		}
+		null -> {}
 	}
 }

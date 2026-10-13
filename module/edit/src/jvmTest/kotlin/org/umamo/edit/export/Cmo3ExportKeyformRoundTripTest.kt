@@ -318,8 +318,8 @@ class Cmo3ExportKeyformRoundTripTest {
 				)
 			}
 		assertLosslessWithinGeometryUlp(result, editedId!!, "key delete")
-		val formsBefore = result.formsBefore.getValue(editedId!!.raw)
-		val formsAfter = result.formsAfter.getValue(editedId!!.raw)
+		val formsBefore = result.formsBefore.getValue(editedId.raw)
+		val formsAfter = result.formsAfter.getValue(editedId.raw)
 		assertTrue(removedCells > 0, "key delete: the removed key held cells")
 		assertEquals(formsBefore.size - removedCells, formsAfter.size, "key delete: only the removed key's forms are gone")
 

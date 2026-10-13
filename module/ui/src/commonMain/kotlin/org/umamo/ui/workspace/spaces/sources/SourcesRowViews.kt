@@ -320,9 +320,7 @@ private fun SourcesRowBody(
 				SourcesActionsChip(contentDescription = labels.fileActions) { sourceFileMenuItems(kind.sourceId, labels, commands) }
 			}
 
-			is SourcesNodeKind.Drawable, SourcesNodeKind.UnboundGroup -> {
-				Unit
-			}
+			is SourcesNodeKind.Drawable, SourcesNodeKind.UnboundGroup -> {}
 		}
 	}
 }

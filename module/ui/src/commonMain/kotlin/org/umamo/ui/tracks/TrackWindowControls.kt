@@ -122,9 +122,7 @@ fun Modifier.trackWindowGestures(
 						}
 
 						// Anything else is the vertical scroll, which belongs to the scroll container.
-						else -> {
-							Unit
-						}
+						else -> {}
 					}
 				}
 			}

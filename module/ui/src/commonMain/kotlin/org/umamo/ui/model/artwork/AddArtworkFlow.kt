@@ -392,9 +392,7 @@ suspend fun runAddArtwork(host: AtlasRepackHost, request: AddArtworkRequest, are
 			return false
 		}
 
-		is AddArtworkOutcome.Added -> {
-			Unit
-		}
+		is AddArtworkOutcome.Added -> {}
 	}
 
 	if (session.model.value !== modelAtStart) {
@@ -447,9 +445,7 @@ internal suspend fun adjustAddArtwork(host: AtlasRepackHost, record: AdjustableO
 			return
 		}
 
-		is AddArtworkOutcome.Added -> {
-			Unit
-		}
+		is AddArtworkOutcome.Added -> {}
 	}
 
 	host.sessionAtlasPages?.prewarm(outcome.model.atlas, outcome.textures)

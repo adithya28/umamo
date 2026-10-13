@@ -211,9 +211,7 @@ object Cmo3Export {
 					structural.deleteParameter(entityDiff.id)
 				}
 
-				is EntityDiff.Changed -> {
-					Unit
-				}
+				is EntityDiff.Changed -> {}
 			}
 		}
 
@@ -229,9 +227,7 @@ object Cmo3Export {
 					structural.deleteParameterGroup(entityDiff.id)
 				}
 
-				is EntityDiff.Changed -> {
-					Unit
-				}
+				is EntityDiff.Changed -> {}
 			}
 		}
 
@@ -249,9 +245,7 @@ object Cmo3Export {
 					structural.deletePart(entityDiff.id.raw)
 				}
 
-				is EntityDiff.Changed -> {
-					Unit
-				}
+				is EntityDiff.Changed -> {}
 			}
 		}
 
@@ -269,9 +263,7 @@ object Cmo3Export {
 					structural.deleteDeformer(entityDiff.id.raw)
 				}
 
-				is EntityDiff.Changed -> {
-					Unit
-				}
+				is EntityDiff.Changed -> {}
 			}
 		}
 
@@ -291,9 +283,7 @@ object Cmo3Export {
 					structural.deleteDrawable(entityDiff.id)
 				}
 
-				is EntityDiff.Changed -> {
-					Unit
-				}
+				is EntityDiff.Changed -> {}
 			}
 		}
 
@@ -314,9 +304,7 @@ object Cmo3Export {
 					structural.deleteGlue(glueDiff.meshA, glueDiff.meshB, glueDiff.ordinal)
 				}
 
-				is GlueDiff.Changed -> {
-					Unit
-				}
+				is GlueDiff.Changed -> {}
 			}
 		}
 

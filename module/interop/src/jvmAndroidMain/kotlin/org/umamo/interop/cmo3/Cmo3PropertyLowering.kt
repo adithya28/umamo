@@ -124,14 +124,10 @@ internal class Cmo3PropertyLowering(
 		for (diff in diffs) {
 			when (diff) {
 				// Structural synthesis already failed and reported why; see the class docblock.
-				is EntityDiff.Created -> {
-					Unit
-				}
+				is EntityDiff.Created -> {}
 
 				// Deletions are consumed by the structural pass and stripped from the forwarded diff.
-				is EntityDiff.Deleted -> {
-					Unit
-				}
+				is EntityDiff.Deleted -> {}
 
 				is EntityDiff.Changed -> {
 					val source = index.parameterByIdStr[diff.id.raw]
@@ -175,14 +171,10 @@ internal class Cmo3PropertyLowering(
 		for (diff in diffs) {
 			when (diff) {
 				// Structural synthesis already failed and reported why; see the class docblock.
-				is EntityDiff.Created -> {
-					Unit
-				}
+				is EntityDiff.Created -> {}
 
 				// Deletions are consumed by the structural pass and stripped from the forwarded diff.
-				is EntityDiff.Deleted -> {
-					Unit
-				}
+				is EntityDiff.Deleted -> {}
 
 				is EntityDiff.Changed -> {
 					val group = index.groupByIdStr[diff.id.raw]
@@ -222,14 +214,10 @@ internal class Cmo3PropertyLowering(
 		for (diff in diffs) {
 			when (diff) {
 				// Structural synthesis already failed and reported why; see the class docblock.
-				is EntityDiff.Created -> {
-					Unit
-				}
+				is EntityDiff.Created -> {}
 
 				// Deletions are consumed by the structural pass and stripped from the forwarded diff.
-				is EntityDiff.Deleted -> {
-					Unit
-				}
+				is EntityDiff.Deleted -> {}
 
 				is EntityDiff.Changed -> {
 					val source = index.partByIdStr[diff.id.raw]
@@ -299,14 +287,10 @@ internal class Cmo3PropertyLowering(
 		for (diff in diffs) {
 			when (diff) {
 				// Structural synthesis already failed and reported why; see the class docblock.
-				is EntityDiff.Created -> {
-					Unit
-				}
+				is EntityDiff.Created -> {}
 
 				// Deletions are consumed by the structural pass and stripped from the forwarded diff.
-				is EntityDiff.Deleted -> {
-					Unit
-				}
+				is EntityDiff.Deleted -> {}
 
 				is EntityDiff.Changed -> {
 					val source = index.deformerByIdStr[diff.id.raw]
@@ -393,9 +377,7 @@ internal class Cmo3PropertyLowering(
 							DeformerField.CHANNELS,
 							DeformerField.STATICS,
 							DeformerField.BLEND_SHAPES,
-							-> {
-								Unit
-							}
+							-> {}
 						}
 					}
 
@@ -442,14 +424,10 @@ internal class Cmo3PropertyLowering(
 		for (diff in diffs) {
 			when (diff) {
 				// Structural synthesis already failed and reported why; see the class docblock.
-				is EntityDiff.Created -> {
-					Unit
-				}
+				is EntityDiff.Created -> {}
 
 				// Deletions are consumed by the structural pass and stripped from the forwarded diff.
-				is EntityDiff.Deleted -> {
-					Unit
-				}
+				is EntityDiff.Deleted -> {}
 
 				is EntityDiff.Changed -> {
 					val source = index.drawableByIdStr[diff.id.raw]
@@ -567,9 +545,7 @@ internal class Cmo3PropertyLowering(
 							DrawableField.CHANNELS,
 							DrawableField.STATICS,
 							DrawableField.BLEND_SHAPES,
-							-> {
-								Unit
-							}
+							-> {}
 						}
 					}
 
@@ -695,14 +671,10 @@ internal class Cmo3PropertyLowering(
 
 			when (diff) {
 				// Structural synthesis already failed and reported why; see the class docblock.
-				is GlueDiff.Created -> {
-					Unit
-				}
+				is GlueDiff.Created -> {}
 
 				// Deletions are consumed by the structural pass and stripped from the forwarded diff.
-				is GlueDiff.Deleted -> {
-					Unit
-				}
+				is GlueDiff.Deleted -> {}
 
 				is GlueDiff.Changed -> {
 					val pairKey = diff.meshA.raw to diff.meshB.raw
@@ -911,9 +883,7 @@ internal class Cmo3PropertyLowering(
 					}
 				}
 
-				DocumentField.PARAMETER_ORDER, DocumentField.PARAMETER_LINKS -> {
-					Unit
-				}
+				DocumentField.PARAMETER_ORDER, DocumentField.PARAMETER_LINKS -> {}
 
 				DocumentField.PARAMETER_TREE -> {
 					val rootGroup = index.rootParameterGroup

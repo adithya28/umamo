@@ -253,9 +253,7 @@ internal suspend fun handleUvObjectSnapRequest(
 		UvSnapKind.SelectionToCursor,
 		UvSnapKind.SelectionToCursorOffset,
 		UvSnapKind.SelectionToGrid,
-		-> {
-			Unit
-		}
+		-> {}
 	}
 
 	if (surface == null) {

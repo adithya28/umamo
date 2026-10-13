@@ -228,9 +228,7 @@ private fun collectPaintLayers(
 			}
 
 			// adjustment/generator/clone/shape/file layers and masks carry no plain raster - skip.
-			else -> {
-				Unit
-			}
+			else -> {}
 		}
 	}
 }

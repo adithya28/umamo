@@ -1,5 +1,6 @@
 package org.umamo.edit
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -13,6 +14,7 @@ import kotlin.test.assertEquals
  * reaches the bus by delegation, so these pin the wiring the overlay collectors depend on.  Each test
  * subscribes before it requests: a SharedFlow with no replay drops a tryEmit nobody is collecting.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class SessionRequestsTest {
 	@Test
 	fun aSnapRequestCarriesItsKindAndArea() =

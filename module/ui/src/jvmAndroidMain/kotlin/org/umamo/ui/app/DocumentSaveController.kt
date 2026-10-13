@@ -150,9 +150,7 @@ internal class DocumentSaveController(
 									activeSession.emitNotice("notice.document.moc3Loss", NoticePlacement.StatusBar)
 								}
 
-								else -> {
-									Unit
-								}
+								else -> {}
 							}
 						}
 

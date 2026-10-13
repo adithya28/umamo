@@ -699,9 +699,7 @@ private inline fun landMatch(
 			return false
 		}
 
-		is MatchOutcome.Applied -> {
-			Unit
-		}
+		is MatchOutcome.Applied -> {}
 	}
 
 	if (session.model.value !== modelAtStart) {
