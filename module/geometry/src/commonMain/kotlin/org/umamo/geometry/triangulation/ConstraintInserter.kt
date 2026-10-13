@@ -110,7 +110,8 @@ internal class ConstraintInserter(
 	 * @return Int The vertex reached, or [REJECTED] when a crossed edge is already a constraint.
 	 */
 	private fun walkToNextVertex(from: Int, to: Int, crossed: ArrayList<Long>?): Int {
-		var crossing = exitEdgeFrom(from, to)
+		var crossing = triangulation.exitEdgeFrom(from, to)
+		check(crossing != HalfEdgeTriangulation.NO_EXIT) { "the segment $from -> $to leaves through no triangle around $from" }
 
 		if (crossing < 0) {
 			// The segment leaves along an existing edge: -(neighbor + 1) encodes the neighbor reached.
@@ -144,46 +145,6 @@ internal class ConstraintInserter(
 			// lies on the other side of it.
 			crossing = if (side < 0.0) triangulation.previous(across) else triangulation.next(across)
 		}
-	}
-
-	/**
-	 * Finds how a segment leaves a vertex: along an edge to a neighbor (the target, or a neighbor
-	 * lying on the segment), or through the interior of one triangle around the vertex.
-	 *
-	 * @param Int from The vertex.
-	 * @param Int to   The segment's far end.
-	 * @return Int The first crossed half-edge (origin right of the segment), or -(neighbor + 1) when the segment runs along an edge to that neighbor.
-	 */
-	private fun exitEdgeFrom(from: Int, to: Int): Int {
-		val ghost = triangulation.ghostVertex
-		val first = triangulation.vertexHalfEdge[from]
-		var spoke = first
-
-		do {
-			val neighbor = triangulation.destination(spoke)
-
-			if (neighbor == to) {
-				return -(to + 1)
-			}
-
-			if (neighbor != ghost) {
-				val neighborSide = triangulation.orient(from, to, neighbor)
-
-				if (neighborSide == 0.0 && pointsForward(from, to, neighbor)) {
-					return -(neighbor + 1)
-				}
-
-				val apex = triangulation.origin[triangulation.previous(spoke)]
-
-				if (apex != ghost && neighborSide < 0.0 && triangulation.orient(from, to, apex) > 0.0) {
-					return triangulation.next(spoke)
-				}
-			}
-
-			spoke = triangulation.twin[triangulation.previous(spoke)]
-		} while (spoke != first)
-
-		error("the segment $from -> $to leaves through no triangle around $from")
 	}
 
 	/**
@@ -404,27 +365,6 @@ internal class ConstraintInserter(
 		val farApex = triangulation.origin[triangulation.previous(opposed)]
 
 		return triangulation.inCircle(start, end, apex, farApex) > 0.0
-	}
-
-	/**
-	 * Whether a vertex collinear with a segment lies ahead of its start, toward its end.  Exact: the
-	 * sign of a floating-point difference is always correct.
-	 *
-	 * @param Int from      The segment's start.
-	 * @param Int to        The segment's end.
-	 * @param Int collinear A vertex on the segment's line.
-	 * @return Boolean True when the vertex lies on the end's side of the start.
-	 */
-	private fun pointsForward(from: Int, to: Int, collinear: Int): Boolean {
-		val alongX = triangulation.pointX(to) - triangulation.pointX(from)
-
-		if (alongX != 0.0) {
-			return (triangulation.pointX(collinear) - triangulation.pointX(from) > 0.0) == (alongX > 0.0)
-		}
-
-		val alongY = triangulation.pointY(to) - triangulation.pointY(from)
-
-		return (triangulation.pointY(collinear) - triangulation.pointY(from) > 0.0) == (alongY > 0.0)
 	}
 
 	private companion object {

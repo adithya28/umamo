@@ -1,8 +1,8 @@
 package org.umamo.geometry
 
 /**
- * A growable Int stack for the module's explicit work lists: the triangulator's and the polyline
- * simplifier's.
+ * A growable Int stack for the module's explicit work lists: the triangulator's, the refiner's, and
+ * the polyline simplifier's.
  *
  * Every such loop is iterative: a recursive legalization or range split would gamble on Kotlin/Native
  * stack depth, and java.util.ArrayDeque is unavailable in commonMain.
@@ -38,6 +38,14 @@ internal class IntStack {
 
 		return storage[size]
 	}
+
+	/**
+	 * Reads a value by position, bottom first, without removing it.
+	 *
+	 * @param Int position A position below [size].
+	 * @return Int The value there.
+	 */
+	operator fun get(position: Int): Int = storage[position]
 
 	/**
 	 * Whether any values remain.

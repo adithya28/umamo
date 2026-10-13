@@ -26,7 +26,8 @@ public class Triangulation(
 /**
  * The constrained Delaunay triangulation of a point set, optionally clipped to boundary rings.
  *
- * Every distinct point becomes a vertex; no vertex is ever added.  Exact duplicates (zero and
+ * Every distinct point becomes a vertex; no vertex is ever added (refinement, which does add them, is
+ * the separate [org.umamo.geometry.triangulation.refine.triangulateAndRefine]).  Exact duplicates (zero and
  * negative zero alike) collapse onto their lowest index, reported through
  * [Triangulation.canonicalIndex], and constraints are read through that aliasing.  Cocircular points
  * are tie-broken deterministically: the result is a function of the input alone, and a hull vertex
@@ -53,24 +54,10 @@ public class Triangulation(
  * @return Triangulation The triangles, the aliasing, the constraints as inserted, and what was rejected.
  */
 public fun triangulate(points: DoubleArray, boundaries: List<IntArray> = emptyList(), segments: List<IntArray> = emptyList()): Triangulation {
-	val plan = planInsertion(points)
-	val pointCount = points.size / 2
-	requireIndicesInRange(boundaries, pointCount, ConstraintKind.Boundary)
-	requireIndicesInRange(segments, pointCount, ConstraintKind.Segment)
-	val canonical = plan.canonicalIndex
-	val rejected = ArrayList<RejectedConstraint>()
-	val triangulation = buildDelaunay(points, plan)
-
-	if (triangulation == null) {
-		reportUntriangulated(boundaries, ConstraintKind.Boundary, canonical, rejected)
-		reportUntriangulated(segments, ConstraintKind.Segment, canonical, rejected)
-
-		return Triangulation(IntArray(0), canonical, IntArray(0), rejected, true)
-	}
-
-	val inserter = ConstraintInserter(triangulation)
-	insertPolylines(boundaries, ConstraintKind.Boundary, canonical, inserter, rejected)
-	insertPolylines(segments, ConstraintKind.Segment, canonical, inserter, rejected)
+	val built = buildConstrained(points, boundaries, segments)
+	val canonical = built.canonicalIndex
+	val rejected = built.rejectedConstraints
+	val triangulation = built.store ?: return Triangulation(IntArray(0), canonical, IntArray(0), rejected, true)
 
 	if (boundaries.isEmpty()) {
 		return Triangulation(triangulation.realTriangles(), canonical, triangulation.constrainedEdgePairs(), rejected, true)
@@ -79,6 +66,50 @@ public fun triangulate(points: DoubleArray, boundaries: List<IntArray> = emptyLi
 	val classification = classifyRegions(triangulation)
 
 	return Triangulation(triangulation.realTriangles(classification.inside), canonical, triangulation.constrainedEdgePairs(), rejected, classification.consistent)
+}
+
+/**
+ * A constrained Delaunay triangulation before classification.
+ *
+ * @property HalfEdgeTriangulation?   store               The store, or null when the points span no triangle.
+ * @property IntArray                 canonicalIndex      For each input point, the lowest index with the same coordinates.
+ * @property List<RejectedConstraint> rejectedConstraints The constraint edges that could not be honored, boundaries first.
+ */
+internal class ConstrainedBuild(val store: HalfEdgeTriangulation?, val canonicalIndex: IntArray, val rejectedConstraints: List<RejectedConstraint>)
+
+/**
+ * Validates the input, triangulates the points, and inserts the boundary rings and then the segment
+ * polylines - every step [triangulate] and the refining entry point share.
+ *
+ * @param DoubleArray    points         The points, x0, y0, x1, y1, ...
+ * @param List<IntArray> boundaries     Closed rings of point indices.
+ * @param List<IntArray> segments       Open polylines of point indices.
+ * @param Int            vertexCapacity The vertex slots to reserve, at least the point count; the store then works on a copy with room for the rest.
+ * @return ConstrainedBuild The store (or null), the aliasing, and what was rejected.
+ */
+internal fun buildConstrained(points: DoubleArray, boundaries: List<IntArray>, segments: List<IntArray>, vertexCapacity: Int = points.size / 2): ConstrainedBuild {
+	val plan = planInsertion(points)
+	val pointCount = points.size / 2
+	require(vertexCapacity >= pointCount) { "the vertex capacity $vertexCapacity is below the point count $pointCount" }
+	requireIndicesInRange(boundaries, pointCount, ConstraintKind.Boundary)
+	requireIndicesInRange(segments, pointCount, ConstraintKind.Segment)
+	val canonical = plan.canonicalIndex
+	val rejected = ArrayList<RejectedConstraint>()
+	val coordinates = if (vertexCapacity > pointCount) points.copyOf(2 * vertexCapacity) else points
+	val triangulation = buildDelaunay(coordinates, plan, vertexCapacity)
+
+	if (triangulation == null) {
+		reportUntriangulated(boundaries, ConstraintKind.Boundary, canonical, rejected)
+		reportUntriangulated(segments, ConstraintKind.Segment, canonical, rejected)
+
+		return ConstrainedBuild(null, canonical, rejected)
+	}
+
+	val inserter = ConstraintInserter(triangulation)
+	insertPolylines(boundaries, ConstraintKind.Boundary, canonical, inserter, rejected)
+	insertPolylines(segments, ConstraintKind.Segment, canonical, inserter, rejected)
+
+	return ConstrainedBuild(triangulation, canonical, rejected)
 }
 
 /**

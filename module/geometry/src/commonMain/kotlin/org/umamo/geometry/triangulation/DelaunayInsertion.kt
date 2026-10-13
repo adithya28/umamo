@@ -16,19 +16,25 @@ import org.umamo.geometry.IntStack
 /**
  * Builds the Delaunay triangulation of a plan's points.
  *
- * @param DoubleArray                         points             The points, x0, y0, x1, y1, ...
+ * @param DoubleArray                         points             The points, x0, y0, x1, y1, ...: the plan's points first, then room for any vertex appended later.
  * @param InsertionPlan                       plan               The aliasing and insertion order.
+ * @param Int                                 vertexCapacity     The vertex slots to reserve: the plan's points plus any to be appended.
  * @param ((HalfEdgeTriangulation) -> Unit)? afterEachInsertion Called after the first triangle and after every insertion (tests validate here).
  * @return HalfEdgeTriangulation? The triangulation, or null when fewer than three points are distinct or every point is collinear.
  */
-internal fun buildDelaunay(points: DoubleArray, plan: InsertionPlan, afterEachInsertion: ((HalfEdgeTriangulation) -> Unit)? = null): HalfEdgeTriangulation? {
+internal fun buildDelaunay(
+	points: DoubleArray,
+	plan: InsertionPlan,
+	vertexCapacity: Int = plan.canonicalIndex.size,
+	afterEachInsertion: ((HalfEdgeTriangulation) -> Unit)? = null,
+): HalfEdgeTriangulation? {
 	val order = plan.order
 
 	if (order.size < 3) {
 		return null
 	}
 
-	val triangulation = HalfEdgeTriangulation(points, points.size / 2)
+	val triangulation = HalfEdgeTriangulation(points, plan.canonicalIndex.size, vertexCapacity)
 	val firstVertex = order[0]
 	val secondVertex = order[1]
 
@@ -91,16 +97,41 @@ internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation
 	 */
 	fun insert(vertex: Int) {
 		locate(vertex)
+		insertLocated(vertex, locatedKind == LOCATED_ON_EDGE, locatedAt)
+	}
+
+	/**
+	 * Inserts one vertex where the caller already found it, and restores the Delaunay property around
+	 * it.  Constrained edges never flip, so a vertex inserted inside a constrained region stays in it.
+	 *
+	 * @param Int     vertex The vertex, not yet inserted.
+	 * @param Boolean onEdge Whether it lies on an edge's open segment (a constrained edge stays constrained on both halves) rather than strictly inside a triangle (a ghost triangle stands for the region beyond its hull edge).
+	 * @param Int     at     The half-edge it lies on, or the triangle it lies in.
+	 */
+	fun insertLocated(vertex: Int, onEdge: Boolean, at: Int) {
 		pending.clear()
 
-		if (locatedKind == LOCATED_ON_EDGE) {
-			triangulation.splitEdge(locatedAt, vertex, pending)
+		if (onEdge) {
+			triangulation.splitEdge(at, vertex, pending)
 		} else {
-			triangulation.splitTriangle(locatedAt, vertex, pending)
+			triangulation.splitTriangle(at, vertex, pending)
 		}
 
 		legalize()
 		walkStart = triangulation.vertexHalfEdge[vertex] / 3
+	}
+
+	/**
+	 * Restores the Delaunay property outward from one edge, as if the third corner of its triangle had
+	 * just been inserted: the edge flips when the far corner lies inside that triangle's circumcircle,
+	 * and so on across every edge each flip exposes.
+	 *
+	 * @param Int halfEdge A half-edge whose triangle's third corner plays the inserted vertex.
+	 */
+	fun legalizeFrom(halfEdge: Int) {
+		pending.clear()
+		pending.push(halfEdge)
+		legalize()
 	}
 
 	/**
