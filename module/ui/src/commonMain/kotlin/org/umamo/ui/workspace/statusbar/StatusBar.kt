@@ -109,7 +109,7 @@ private fun StatusNotice() {
 	val notice by session.notice.collectAsState()
 	val current = notice ?: return
 
-	if (current.placement != NoticePlacement.StatusBar) {
+	if (current.placement != NoticePlacement.StatusBar && current.placement != NoticePlacement.StatusBarAndNearCursor) {
 		return
 	}
 

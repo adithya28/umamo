@@ -381,7 +381,7 @@ private fun tenths(value: Double): Double = round(value * 10.0) / 10.0
  * @param GenerateMeshNotice notice  The notice.
  */
 private fun emitNotice(session: EditorSession, notice: GenerateMeshNotice) {
-	session.emitNotice(notice.messageKey, NoticePlacement.StatusBar, notice.arguments)
+	session.emitNotice(notice.messageKey, NoticePlacement.StatusBarAndNearCursor, notice.arguments)
 }
 
 /**
