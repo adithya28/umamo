@@ -65,3 +65,84 @@ internal class AtPointPositionProvider(private val localOffset: IntOffset) : Pop
 		return IntOffset(x, y)
 	}
 }
+
+/**
+ * Positions a popup beside a cursor point [cursorOffset] inside its anchor, clear of the pointer on each
+ * axis: after the cursor (right and below in left-to-right layouts) where the card fits, mirrored to before
+ * it (left or above) on an axis where it would cross the window's [windowMargin].  The card moves wholly to
+ * the other side of the cursor, so it never sits over the pointer's hotspot - a card there would take the
+ * click meant for the control beneath it.  An axis where the card fits on neither side is clamped into the
+ * window instead; the other axis still keeps the card clear of the hotspot.
+ *
+ * The two sides take different gaps because the pointer's arrow hangs right and down from its hotspot:
+ * [gapAfter] has to clear the arrow itself, while [gapBefore] faces bare space, so the same gap there
+ * would read as a much wider one.
+ *
+ * @property IntOffset cursorOffset The cursor point relative to the anchor's top-left, in pixels.
+ * @property Int       gapAfter     The gap between the cursor and a card right of or below it, in pixels.
+ * @property Int       gapBefore    The gap between the cursor and a card left of or above it, in pixels.
+ * @property Int       windowMargin The band along the window's edges the card stays out of, in pixels.
+ */
+internal class CursorClearPositionProvider(
+	private val cursorOffset: IntOffset,
+	private val gapAfter: Int,
+	private val gapBefore: Int,
+	private val windowMargin: Int,
+) : PopupPositionProvider {
+	/**
+	 * Computes the card's top-left in window coordinates, choosing a side of the cursor per axis.
+	 *
+	 * @param IntRect         anchorBounds     The anchor's bounds in the window; the cursor is relative to its top-left.
+	 * @param IntSize         windowSize       The host window size.
+	 * @param LayoutDirection layoutDirection  Which horizontal side the card prefers (the trailing one).
+	 * @param IntSize         popupContentSize The measured card size.
+	 * @return IntOffset The card's top-left.
+	 */
+	override fun calculatePosition(
+		anchorBounds: IntRect,
+		windowSize: IntSize,
+		layoutDirection: LayoutDirection,
+		popupContentSize: IntSize,
+	): IntOffset {
+		val x =
+			startClearOfCursor(
+				cursor = anchorBounds.left + cursorOffset.x,
+				extent = popupContentSize.width,
+				windowExtent = windowSize.width,
+				prefersAfter = layoutDirection == LayoutDirection.Ltr,
+			)
+		val y =
+			startClearOfCursor(
+				cursor = anchorBounds.top + cursorOffset.y,
+				extent = popupContentSize.height,
+				windowExtent = windowSize.height,
+				prefersAfter = true,
+			)
+
+		return IntOffset(x, y)
+	}
+
+	/**
+	 * Picks the card's start on one axis: the preferred side of the cursor when the card fits there inside
+	 * the margin, else the other side, else the preferred side clamped into the window.
+	 *
+	 * @param Int     cursor       The cursor's window coordinate on this axis.
+	 * @param Int     extent       The card's size on this axis.
+	 * @param Int     windowExtent The window's size on this axis.
+	 * @param Boolean prefersAfter Whether the card goes after the cursor (right or below) when both sides fit.
+	 * @return Int The card's start coordinate on this axis.
+	 */
+	private fun startClearOfCursor(cursor: Int, extent: Int, windowExtent: Int, prefersAfter: Boolean): Int {
+		val after = cursor + gapAfter
+		val before = cursor - gapBefore - extent
+		val fitsAfter = after + extent <= windowExtent - windowMargin
+		val fitsBefore = before >= windowMargin
+		val preferred = if (prefersAfter) after else before
+
+		return when {
+			fitsAfter && (prefersAfter || !fitsBefore) -> after
+			fitsBefore -> before
+			else -> preferred.coerceIn(windowMargin, max(windowMargin, windowExtent - windowMargin - extent))
+		}
+	}
+}
