@@ -71,6 +71,23 @@ internal class ConstraintInserter(
 	}
 
 	/**
+	 * Releases a constraint no boundary ring runs along: unmarks it, then Lawson-flips it and whatever
+	 * its flips expose until every unconstrained edge is locally Delaunay again.  Both sides of such an
+	 * edge share a region, so no flip mixes regions.
+	 *
+	 * @param Int halfEdge Either half of the constraint.
+	 */
+	fun release(halfEdge: Int) {
+		check(triangulation.constrained[halfEdge] && triangulation.boundaryCount[halfEdge] == 0) { "only a constraint no boundary ring runs along can be released" }
+		val start = triangulation.origin[halfEdge]
+		val end = triangulation.destination(halfEdge)
+		triangulation.setEdgeAttributes(halfEdge, false, 0)
+		createdEdges.clear()
+		createdEdges.add(packVertexPair(start, end))
+		restoreDelaunay()
+	}
+
+	/**
 	 * Traces a constraint edge from start to end without changing anything, recording in [chain] the
 	 * vertices it passes through.
 	 *

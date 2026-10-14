@@ -228,7 +228,7 @@ fun EditorSession.commitUnchangedGeneration(base: PuppetModel, drawableIds: List
 }
 
 /** A drawable's old mesh made ready for a transfer, or why it cannot be. */
-private sealed interface SourcePreparation {
+internal sealed interface SourcePreparation {
 	/**
 	 * The old mesh, its art frame, and its vertices in art pixels.
 	 *
@@ -260,7 +260,7 @@ private sealed interface SourcePreparation {
  * @param DrawableId drawableId The drawable.
  * @return SourcePreparation The prepared source, or why it is unusable.
  */
-private fun PuppetModel.prepareSource(drawableId: DrawableId): SourcePreparation {
+internal fun PuppetModel.prepareSource(drawableId: DrawableId): SourcePreparation {
 	val drawable = drawables.firstOrNull { candidate -> candidate.id == drawableId } ?: return SourcePreparation.Unusable(RegenerationRefusal.NoMesh)
 	val mesh = drawable.mesh ?: return SourcePreparation.Unusable(RegenerationRefusal.NoMesh)
 	val tileId = drawable.atlasTileId ?: return SourcePreparation.Unusable(RegenerationRefusal.NoTile)

@@ -17,6 +17,7 @@ import org.umamo.edit.floatValue
 import org.umamo.edit.intValue
 import org.umamo.edit.structure.rename
 import org.umamo.edit.withParameter
+import org.umamo.geometry.locate.TriangleLocator
 import org.umamo.interop.art.mesh.ArtMeshPreset
 import org.umamo.render.DecodedImage
 import org.umamo.render.SourceArtRasters
@@ -36,6 +37,7 @@ import org.umamo.runtime.model.invertUvAffine
 import org.umamo.runtime.model.storedToArtAffineForTile
 import org.umamo.ui.model.repack.MAX_IMPORT_PAGE_SIZE
 import java.util.concurrent.CountDownLatch
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -148,6 +150,19 @@ class GenerateMeshFlowTest {
 			assertEquals("notice.mesh.generatedWithSkips", session.notice.value?.messageKey)
 			assertEquals(listOf("1", "2"), session.notice.value?.arguments)
 			assertEquals(4, vertexCountOf(session.model.value, drawableB))
+		}
+
+	@Test
+	fun aBentRigKeepsTheOldVerticesThatHoldIt() =
+		runBlocking {
+			// A fine grid over the disc whose canvas folds 15 px along x = 32: at the coarse Standard spacing
+			// the fold falls between new vertices unless the old ones holding it are kept.
+			val model = model(listOf(foldedGrid(drawableA, tileA)), unplacedAtlas(listOf(tileA)))
+			val held = largestFoldDeviation(model, freshRun(model, standardWithTolerance(0.5f)))
+			val loose = largestFoldDeviation(model, freshRun(model, standardWithTolerance(64f)))
+
+			assertTrue(held <= 0.5f + 1e-3f, "with a 0.5 px tolerance the fold is held to $held px")
+			assertTrue(loose > 3f, "with a 64 px tolerance the fold is lost: $loose px")
 		}
 
 	@Test
@@ -684,6 +699,90 @@ class GenerateMeshFlowTest {
 			geometryGrid = null,
 			atlasTileId = tileId,
 		)
+	}
+
+	/**
+	 * Standard with its deformation tolerance set.
+	 *
+	 * @param Float tolerance The tolerance, art pixels.
+	 * @return MeshGenerationOptions The options.
+	 */
+	private fun standardWithTolerance(tolerance: Float): MeshGenerationOptions =
+		MeshGenerationOptions(ArtMeshPreset.Standard, ArtMeshPreset.Standard.settings.copy(deformationTolerance = tolerance.toDouble()))
+
+	/**
+	 * A drawable over the disc art meshed by a 9 x 9 grid from 12 to 52, five pixels apart, whose canvas
+	 * is the art moved by the origin and folded up by 15 px along x = 32, back to flat by x = 27 and 37.
+	 *
+	 * @param DrawableId  id     The drawable.
+	 * @param AtlasTileId tileId The tile.
+	 * @return Drawable The drawable.
+	 */
+	private fun foldedGrid(id: DrawableId, tileId: AtlasTileId): Drawable {
+		val art = FloatArray(2 * 81) { component -> 12f + 5f * if (component % 2 == 0) (component / 2) % 9 else (component / 2) / 9 }
+		val canvas = FloatArray(art.size) { component -> if (component % 2 == 0) art[component] + ORIGIN_X else art[component] + ORIGIN_Y + foldAt(art[component - 1]) }
+		val indices = ArrayList<Int>()
+
+		for (row in 0 until 8) {
+			for (column in 0 until 8) {
+				val topLeft = row * 9 + column
+				indices.addAll(listOf(topLeft, topLeft + 1, topLeft + 10, topLeft, topLeft + 10, topLeft + 9))
+			}
+		}
+
+		return Drawable(
+			id = id,
+			name = id.raw,
+			parentDeformerId = null,
+			blendMode = BlendMode.Normal,
+			maskedBy = emptyList(),
+			mesh = DrawableMesh.withLocalEqualToCanvas(canvas, FloatArray(art.size) { component -> art[component] / 64f }, indices.toIntArray()),
+			geometryGrid = null,
+			atlasTileId = tileId,
+		)
+	}
+
+	/**
+	 * The fold's lift at an art x.
+	 *
+	 * @param Float x The art x.
+	 * @return Float The lift, canvas pixels.
+	 */
+	private fun foldAt(x: Float): Float = 15f * maxOf(0f, 1f - abs(x - 32f) / 5f)
+
+	/**
+	 * The largest distance, over the old grid vertices the new mesh covers, between the old canvas
+	 * position and the new mesh's interpolation of its own canvas there.
+	 *
+	 * @param PuppetModel before The model with the folded grid.
+	 * @param PuppetModel after  The model after the run.
+	 * @return Float The largest distance, canvas pixels.
+	 */
+	private fun largestFoldDeviation(before: PuppetModel, after: PuppetModel): Float {
+		val old = meshOf(before, drawableA)
+		val new = meshOf(after, drawableA)
+		val newArt = FloatArray(new.uvs.size) { component -> new.uvs[component] * 64f }
+		val locator = TriangleLocator(newArt, new.indices)
+		var largest = 0f
+
+		for (vertex in 0 until old.vertexCount) {
+			val location = locator.locate(old.uvs[2 * vertex] * 64.0, old.uvs[2 * vertex + 1] * 64.0) ?: continue
+
+			if (!location.isInside) {
+				continue
+			}
+
+			val first = new.indices[3 * location.triangleIndex]
+			val second = new.indices[3 * location.triangleIndex + 1]
+			val third = new.indices[3 * location.triangleIndex + 2]
+
+			for (axis in 0 until 2) {
+				val interpolated = location.weightA * new.positions[2 * first + axis] + location.weightB * new.positions[2 * second + axis] + location.weightC * new.positions[2 * third + axis]
+				largest = maxOf(largest, abs(interpolated.toFloat() - old.positions[2 * vertex + axis]))
+			}
+		}
+
+		return largest
 	}
 
 	/**

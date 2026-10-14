@@ -5,6 +5,7 @@ import org.umamo.edit.mesh.MeshRegeneration
 import org.umamo.edit.mesh.MeshTopologyEdit
 import org.umamo.edit.mesh.RegenerationInput
 import org.umamo.edit.mesh.RegenerationRefusal
+import org.umamo.edit.mesh.deformationGuideFor
 import org.umamo.edit.mesh.meshRegeneration
 import org.umamo.edit.mesh.regenerationInputFor
 import org.umamo.edit.mesh.withMeshTopologyEdits
@@ -17,6 +18,7 @@ import org.umamo.format.atlas.AtlasPackOptions
 import org.umamo.format.atlas.AtlasPackReserve
 import org.umamo.format.atlas.AtlasPackSkipReason
 import org.umamo.format.atlas.packAtlas
+import org.umamo.geometry.triangulation.refine.PiecewiseLinearGuide
 import org.umamo.interop.art.mesh.ArtMeshNotice
 import org.umamo.interop.art.mesh.ArtMeshResult
 import org.umamo.interop.art.mesh.ArtMeshSettings
@@ -27,6 +29,7 @@ import org.umamo.render.SampledRegion
 import org.umamo.render.TileMeshMask
 import org.umamo.render.TileOpaqueMask
 import org.umamo.render.drawableMeshTrianglesOf
+import org.umamo.render.eval.CpuDeformationEvaluator
 import org.umamo.render.generatedPuppetTextures
 import org.umamo.render.meshReserveByTile
 import org.umamo.render.meshReserveOf
@@ -62,6 +65,11 @@ import kotlin.coroutines.cancellation.CancellationException
  * share art to save atlas space stay alike.  A tile only one drawable samples is meshed whole; on a
  * shared tile each drawable meshes only the art its current mesh covers, so a layer split into pieces
  * keeps its pieces while twins over the same art come out identical.
+ *
+ * Each drawable's old mesh, with the rig built on it, guides its new one (see deformationGuideFor): the
+ * old vertices where the rig bends are kept until the new mesh follows it to the deformation tolerance.
+ * The rest pose is evaluated once per plan for the world field.  Twins - one tile, the same old mesh,
+ * the same pins - share one guide holding both rigs, so they still come out identical.
  *
  * A generated mesh usually reaches further past its art than the old one, and on a page that could mean
  * sampling a neighbour's pixels.  A tile whose new reach stays inside the room the atlas already gave it
@@ -124,12 +132,14 @@ internal enum class GenerateMeshSkipReason {
  * @property List<RegenerationInput.Ready>                 inputs             The inputs of the drawables that can be meshed, in document order.
  * @property Map<DrawableId, GenerateMeshSkipReason>       skipsBeforeMeshing Why the others cannot.
  * @property Map<DrawableId, TileMeshMask>                 coverageByDrawable The region a drawable on a shared tile meshes.
+ * @property Map<DrawableId, PiecewiseLinearGuide>         guidesByDrawable   The guide that keeps a drawable's rig, for those whose rig gives one.
  */
 internal class GenerateMeshPlan(
 	val drawableIds: List<DrawableId>,
 	val inputs: List<RegenerationInput.Ready>,
 	val skipsBeforeMeshing: Map<DrawableId, GenerateMeshSkipReason>,
 	val coverageByDrawable: Map<DrawableId, TileMeshMask>,
+	val guidesByDrawable: Map<DrawableId, PiecewiseLinearGuide> = emptyMap(),
 ) {
 	/** The tiles the inputs mesh, in input order. */
 	val tileIds: Set<AtlasTileId>
@@ -233,7 +243,7 @@ internal fun expandedMeshTargets(model: PuppetModel, targets: Collection<Drawabl
 /**
  * Plans a run over [targets] on [base]: expands the targets to their tiles' sharers, asks each for its
  * regeneration input, reads each meshed tile's art once to check it is there and the size the tile
- * records, and records the region of every drawable on a shared tile.
+ * records, records the region of every drawable on a shared tile, and builds each drawable's guide.
  *
  * @param PuppetModel          base    The model the run starts on.
  * @param Collection<DrawableId> targets The drawables asked for.
@@ -291,7 +301,63 @@ internal fun planMeshGeneration(base: PuppetModel, targets: Collection<DrawableI
 		inputs.add(input)
 	}
 
-	return GenerateMeshPlan(drawableIds, inputs, skips, coverage)
+	return GenerateMeshPlan(drawableIds, inputs, skips, coverage, guidesOf(base, inputs))
+}
+
+/**
+ * Each input's guide over the rest pose, twins sharing one merged guide.
+ *
+ * @param PuppetModel                   base   The model the run starts on.
+ * @param List<RegenerationInput.Ready> inputs The inputs.
+ * @return Map<DrawableId, PiecewiseLinearGuide> The guides, for the inputs whose rig gives one.
+ */
+private fun guidesOf(base: PuppetModel, inputs: List<RegenerationInput.Ready>): Map<DrawableId, PiecewiseLinearGuide> {
+	if (inputs.isEmpty()) {
+		return emptyMap()
+	}
+
+	val restWorld = CpuDeformationEvaluator().evaluate(base, emptyMap()).worldPositions
+	val guides = LinkedHashMap<DrawableId, PiecewiseLinearGuide>()
+
+	for (input in inputs) {
+		base.deformationGuideFor(input, restWorld[input.drawableId])?.let { guide -> guides[input.drawableId] = guide }
+	}
+
+	val meshById = base.drawables.associate { drawable -> drawable.id to drawable.mesh }
+	val twins = inputs.filter { input -> input.drawableId in guides }.groupBy { input -> TwinKey(input, meshById[input.drawableId]?.uvs, meshById[input.drawableId]?.indices) }
+
+	for (group in twins.values) {
+		if (group.size < 2) {
+			continue
+		}
+
+		val merged = group.map { input -> guides.getValue(input.drawableId) }.reduce { combined, next -> combined.mergedWith(next) }
+
+		for (input in group) {
+			guides[input.drawableId] = merged
+		}
+	}
+
+	return guides
+}
+
+/**
+ * What makes two drawables twins for a guide: the same tile, the same old mesh (stored UVs and
+ * triangles, so the same art-pixel points), and the same pins.
+ *
+ * @property RegenerationInput.Ready input   The drawable's input.
+ * @property FloatArray?             uvs     Its old mesh's stored UVs.
+ * @property IntArray?               indices Its old mesh's triangles.
+ */
+private class TwinKey(private val input: RegenerationInput.Ready, private val uvs: FloatArray?, private val indices: IntArray?) {
+	override fun equals(other: Any?): Boolean =
+		other is TwinKey &&
+			input.tileId == other.input.tileId &&
+			input.pinPoints.contentEquals(other.input.pinPoints) &&
+			uvs.contentEquals(other.uvs) &&
+			indices.contentEquals(other.indices)
+
+	override fun hashCode(): Int = 31 * (31 * input.tileId.hashCode() + uvs.contentHashCode()) + indices.contentHashCode()
 }
 
 /**
@@ -432,7 +498,7 @@ private fun meshOne(
 	val alpha = tileAlphaChannel(decoded, plan.coverageByDrawable[input.drawableId])
 
 	try {
-		val fitted = fitArtMesh(alpha, settings, input.pinPoints, input.pinSurroundings)
+		val fitted = fitArtMesh(alpha, settings, input.pinPoints, input.pinSurroundings, guide = plan.guidesByDrawable[input.drawableId])
 		val result = fitted.result
 		val mesh = result.mesh ?: return MeshingResult(input.drawableId, null, skipReasonOf(result.notices), emptyList())
 
@@ -485,9 +551,17 @@ internal class FittedArtMesh(val result: ArtMeshResult, val fit: MeshFit?)
  * @param DoubleArray     pins            The pins.
  * @param DoubleArray     pinSurroundings The pins' old triangles.
  * @param Int             budgetCap       The highest budget to raise to.
+ * @param PiecewiseLinearGuide? guide     The old mesh's guide, kept through every refit, or null.
  * @return FittedArtMesh The last answer and how it was fitted.
  */
-internal fun fitArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins: DoubleArray, pinSurroundings: DoubleArray, budgetCap: Int = MAXIMUM_VERTEX_BUDGET): FittedArtMesh {
+internal fun fitArtMesh(
+	alpha: AlphaChannel,
+	settings: ArtMeshSettings,
+	pins: DoubleArray,
+	pinSurroundings: DoubleArray,
+	budgetCap: Int = MAXIMUM_VERTEX_BUDGET,
+	guide: PiecewiseLinearGuide? = null,
+): FittedArtMesh {
 	val holeStages = if (settings.fillHoles) listOf(true) else listOf(false, true)
 	var last: FittedArtMesh? = null
 
@@ -495,7 +569,7 @@ internal fun fitArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins: Do
 		var budget = settings.vertexBudget
 
 		while (true) {
-			val result = generateArtMesh(alpha, settings.copy(vertexBudget = budget, fillHoles = fillHoles), pins, pinSurroundings)
+			val result = generateArtMesh(alpha, settings.copy(vertexBudget = budget, fillHoles = fillHoles), pins, pinSurroundings, guide)
 			val holesFilled = fillHoles && !settings.fillHoles
 			val fit = if (budget != settings.vertexBudget || holesFilled) MeshFit(budget.takeIf { raised -> raised != settings.vertexBudget }, holesFilled) else null
 			last = FittedArtMesh(result, fit)

@@ -165,6 +165,17 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, point
 	fun orient(first: Int, second: Int, third: Int): Double = orient2d(pointX(first), pointY(first), pointX(second), pointY(second), pointX(third), pointY(third), scratch)
 
 	/**
+	 * The exact orientation of a point and two real vertices (see [orient2d]).
+	 *
+	 * @param Double x      The point's x.
+	 * @param Double y      The point's y.
+	 * @param Int    second The second vertex.
+	 * @param Int    third  The third vertex.
+	 * @return Double Positive when they turn counterclockwise with y up.
+	 */
+	fun orientAt(x: Double, y: Double, second: Int, third: Int): Double = orient2d(x, y, pointX(second), pointY(second), pointX(third), pointY(third), scratch)
+
+	/**
 	 * The exact incircle test of four real vertices (see [incircle]).
 	 *
 	 * @param Int first  The first circle vertex.

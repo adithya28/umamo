@@ -6,8 +6,10 @@ import org.umamo.format.art.LayerRaster
 import org.umamo.format.art.alphaChannel
 import org.umamo.format.art.alphaField
 import org.umamo.geometry.polyline.outermostRings
+import org.umamo.geometry.triangulation.refine.PiecewiseLinearGuide
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.hypot
 import kotlin.math.sqrt
 
 /*
@@ -25,13 +27,17 @@ import kotlin.math.sqrt
  * their exact positions, and the constrained triangulation of all of it, clipped to the outline, is
  * the mesh.  A pin's SURROUNDINGS (the old triangles around a glued vertex) count as art, so a pin off
  * the art is joined to it by the surface it had rather than meshed around on its own.  With a MINIMUM
- * ANGLE the triangulation is refined toward it in what the vertex budget leaves (see assembleMesh).
+ * ANGLE the triangulation is refined toward it in what the vertex budget leaves (see assembleMesh), and
+ * with a GUIDE - the mesh being replaced, carrying the rig built on it - the old vertices where that rig
+ * bends go in first, at their exact points, until the new mesh follows it to the deformation tolerance.
  *
  * Over the VERTEX BUDGET the interior gives way first: its spacing widens while the outline keeps the
- * silhouette as asked, and only when the outline and pins alone fill the budget is the interior left
- * to refinement and the outline widened.  A mesh that fits is never coarsened; one that must be keeps
- * a share of the budget back, so refinement has room to fix what coarsening makes - unless the last
- * round only fits the whole budget, which then stands rather than fail.
+ * silhouette as asked, up to the interior thinning limit times the outline spacing; past that the two
+ * widen together at the limit, so a dense outline never stands around a nearly empty interior.  Only
+ * when the outline can give no more (every ring at its minimum) is the interior left to refinement.  A
+ * mesh that fits is never coarsened; one that must be keeps a share of the budget back, so refinement
+ * has room to fix what coarsening makes - unless the last round only fits the whole budget, which then
+ * stands rather than fail.
  *
  * Filling holes meshes the art's silhouette instead.  The outline keeps only the rings nothing else
  * encloses, so no hole ring (and no ring of art inside a hole) ever reaches the triangulation and the
@@ -62,10 +68,16 @@ private const val REFINEMENT_RESERVE_SHARE: Double = 0.30
  * @param ArtMeshSettings settings How to space and place vertices.
  * @param DoubleArray     pins            Points that must become vertices, x0, y0, ..., raster px.
  * @param DoubleArray     pinSurroundings Triangles that count as art, six coordinates each, raster px.
+ * @param PiecewiseLinearGuide? guide     The mesh being replaced with the rig's fields, raster px, or null.
  * @return ArtMeshResult The mesh, or why there is none, with what was adjusted.
  */
-public fun generateArtMesh(raster: LayerRaster, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0), pinSurroundings: DoubleArray = DoubleArray(0)): ArtMeshResult =
-	generateArtMesh(raster.alphaChannel(), settings, pins, pinSurroundings)
+public fun generateArtMesh(
+	raster: LayerRaster,
+	settings: ArtMeshSettings,
+	pins: DoubleArray = DoubleArray(0),
+	pinSurroundings: DoubleArray = DoubleArray(0),
+	guide: PiecewiseLinearGuide? = null,
+): ArtMeshResult = generateArtMesh(raster.alphaChannel(), settings, pins, pinSurroundings, guide)
 
 /**
  * Meshes one layer's alpha channel.
@@ -74,9 +86,16 @@ public fun generateArtMesh(raster: LayerRaster, settings: ArtMeshSettings, pins:
  * @param ArtMeshSettings settings How to space and place vertices.
  * @param DoubleArray     pins            Points that must become vertices, x0, y0, ..., raster px (glued vertices kept through a regeneration).
  * @param DoubleArray     pinSurroundings Triangles that count as art, six coordinates each, raster px (the old surface around those glued vertices).
+ * @param PiecewiseLinearGuide? guide     The mesh being replaced, raster px, with the fields of the rig built on it (see PiecewiseLinearGuide), or null.
  * @return ArtMeshResult The mesh, or why there is none, with what was adjusted.
  */
-public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0), pinSurroundings: DoubleArray = DoubleArray(0)): ArtMeshResult {
+public fun generateArtMesh(
+	alpha: AlphaChannel,
+	settings: ArtMeshSettings,
+	pins: DoubleArray = DoubleArray(0),
+	pinSurroundings: DoubleArray = DoubleArray(0),
+	guide: PiecewiseLinearGuide? = null,
+): ArtMeshResult {
 	require(pins.size % 2 == 0) { "pins must hold x, y pairs, but has ${pins.size} components" }
 
 	for (component in pins.indices) {
@@ -114,6 +133,10 @@ public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins:
 	val roundedPins = DoubleArray(pins.size) { component -> pins[component].toFloat().toDouble() }
 	val pinCount = pins.size / 2
 	val vertexFloor = denseOutline.size * settings.minimumOutlinePoints + pinCount
+	// Past this spacing every ring is at its minimum, so widening further changes nothing.
+	val widestUsefulOutlineSpacing = maxOf(settings.outlineSpacing, denseOutline.maxOfOrNull { ring -> closedRingLength(ring) / settings.minimumOutlinePoints } ?: 0.0)
+	// The limit never asks for an interior denser, against the outline, than the settings themselves.
+	val thinningLimit = maxOf(settings.interiorThinningLimit, settings.interiorSpacing / settings.outlineSpacing)
 
 	if (vertexFloor > settings.vertexBudget) {
 		notices.add(ArtMeshNotice.OverBudget(vertexFloor, settings.vertexBudget))
@@ -138,7 +161,7 @@ public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins:
 				notices.add(ArtMeshNotice.SpacingCoarsened(outlineSpacing, interiorSpacing))
 			}
 
-			return assemble(points, field, settings, notices, cellSize, outlineLevel, outlineSpacing, interiorSpacing, pinCount)
+			return assemble(points, field, settings, notices, cellSize, outlineLevel, outlineSpacing, interiorSpacing, pinCount, guide)
 		}
 
 		round++
@@ -156,22 +179,60 @@ public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins:
 		val interiorCount = points.interiorCount
 		val currentInteriorSpacing = interiorSpacing
 
-		if (currentInteriorSpacing != null && interiorRoom > 0 && interiorCount in 1 until previousInteriorCount) {
-			// Thin the interior alone: the lattice shrinks with the spacing's square and the inner ring
-			// with the spacing, so the square root of the overshoot (plus a little) lands close.
-			interiorSpacing = currentInteriorSpacing * sqrt(interiorCount.toDouble() / interiorRoom) * 1.05
+		// The lattice shrinks with the spacing's square and the inner ring with the spacing, so the square
+		// root of the overshoot (plus a little) lands close.
+		val thinnedInteriorSpacing = if (currentInteriorSpacing != null && interiorRoom > 0) currentInteriorSpacing * sqrt(interiorCount.toDouble() / interiorRoom) * 1.05 else Double.POSITIVE_INFINITY
+		val outlineCanWiden = points.outlineCount > vertexFloor && outlineSpacing < widestUsefulOutlineSpacing
+
+		if (currentInteriorSpacing != null && thinnedInteriorSpacing <= thinningLimit * outlineSpacing && interiorCount in 1 until previousInteriorCount) {
+			// Thin the interior alone.
+			interiorSpacing = thinnedInteriorSpacing
 			previousInteriorCount = interiorCount
+		} else if (currentInteriorSpacing != null && outlineCanWiden) {
+			// At its limit the interior widens with the outline.  The outline above its floor shrinks as
+			// 1 / s and the interior, moved to the limit, as 1 / s squared; solving the two for the room
+			// left lands close.
+			val reducibleOutline = (points.outlineCount - vertexFloor).toDouble()
+			val interiorAtLimit = interiorCount * (currentInteriorSpacing / (thinningLimit * outlineSpacing)).let { ratio -> ratio * ratio }
+			val room = maxOf(1.0, (target - vertexFloor).toDouble())
+			val shrink =
+				if (interiorAtLimit > 0.0) {
+					(-reducibleOutline + sqrt(reducibleOutline * reducibleOutline + 4.0 * interiorAtLimit * room)) / (2.0 * interiorAtLimit)
+				} else {
+					room / reducibleOutline
+				}
+			outlineSpacing = minOf(outlineSpacing * maxOf(1.01, 1.02 / shrink), widestUsefulOutlineSpacing)
+			interiorSpacing = thinningLimit * outlineSpacing
 		} else if (currentInteriorSpacing != null) {
-			// The outline and pins fill the budget themselves (or the interior stopped thinning).
+			// The outline and pins fill the budget themselves at their leanest (or the interior stopped
+			// thinning with the outline as lean as it gets).
 			interiorSpacing = null
 		} else {
 			// Only the outline above its floor (each ring's minimum, plus the pins) shrinks as it widens,
 			// in proportion to the spacing.
 			val reducible = (points.outlineCount - vertexFloor).toDouble()
 			val reducibleBudget = maxOf(1.0, (target - vertexFloor).toDouble())
-			outlineSpacing *= reducible / reducibleBudget * 1.05
+			outlineSpacing = minOf(outlineSpacing * reducible / reducibleBudget * 1.05, widestUsefulOutlineSpacing)
 		}
 	}
+}
+
+/**
+ * The length around a closed ring.
+ *
+ * @param DoubleArray ring The ring's points, x0, y0, ..., the last joined back to the first.
+ * @return Double The length.
+ */
+private fun closedRingLength(ring: DoubleArray): Double {
+	val count = ring.size / 2
+	var length = 0.0
+
+	for (vertex in 0 until count) {
+		val next = (vertex + 1) % count
+		length += hypot(ring[2 * next] - ring[2 * vertex], ring[2 * next + 1] - ring[2 * vertex + 1])
+	}
+
+	return length
 }
 
 /**
@@ -279,6 +340,7 @@ private fun placePoints(
  * @param Double                outlineSpacing  The outline spacing used.
  * @param Double?               interiorSpacing The interior spacing used, or null when the interior was left to refinement.
  * @param Int                   pinCount        The number of pins.
+ * @param PiecewiseLinearGuide? guide           The mesh being replaced, or null.
  * @return ArtMeshResult The result.
  */
 private fun assemble(
@@ -291,9 +353,10 @@ private fun assemble(
 	outlineSpacing: Double,
 	interiorSpacing: Double?,
 	pinCount: Int,
+	guide: PiecewiseLinearGuide?,
 ): ArtMeshResult {
 	val refinedChordCount = points.outline.sumOf { ring -> ring.refinedChordCount }
-	val assembled = assembleMesh(points.outline, points.innerRings, points.lattice, points.pins, field, settings, cellSize)
+	val assembled = assembleMesh(points.outline, points.innerRings, points.lattice, points.pins, field, settings, cellSize, guide)
 	val refinement = assembled.refinement
 
 	if (assembled.densifiedChordCount > 0) {
@@ -308,7 +371,11 @@ private fun assemble(
 		notices.add(ArtMeshNotice.PinsShareVertex(assembled.sharedPinCount))
 	}
 
-	if (refinement != null && refinement.stoppedByCap) {
+	if (refinement != null && refinement.guideStoppedByCap) {
+		notices.add(ArtMeshNotice.DeformationToleranceUnmet(refinement.guideRemainingError))
+	}
+
+	if (refinement != null && refinement.stoppedByCap && refinement.underTargetTriangleCount > 0) {
 		notices.add(ArtMeshNotice.RefinementBudgetReached(refinement.underTargetTriangleCount))
 	}
 
@@ -329,6 +396,7 @@ private fun assemble(
 			boundarySplitCount = refinement?.boundarySplitCount ?: 0,
 			underTargetCount = refinement?.underTargetTriangleCount ?: 0,
 			unfixableCount = refinement?.unfixableTriangleCount ?: 0,
+			guideVertexCount = refinement?.guidePointCount ?: 0,
 		)
 	val mesh = assembled.mesh
 

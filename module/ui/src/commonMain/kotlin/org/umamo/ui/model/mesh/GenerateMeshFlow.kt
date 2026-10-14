@@ -361,6 +361,7 @@ private fun wordingOf(notice: ArtMeshNotice): String =
 		is ArtMeshNotice.OutlineDensified -> "${notice.chordCount} outline chord(s) crossed another ring after simplification and were kept at their traced density"
 		is ArtMeshNotice.InnerRingEdgesDropped -> "${notice.edgeCount} inner-ring edge(s) crossed the outline and were left out"
 		is ArtMeshNotice.PinsShareVertex -> "${notice.pinCount} glued vertex pin(s) sit at the same position and share one vertex"
+		is ArtMeshNotice.DeformationToleranceUnmet -> "the vertex budget ran out with the new mesh still up to ${tenths(notice.largestError)} px from the rig's old shape"
 		is ArtMeshNotice.RefinementBudgetReached -> "refinement reached the vertex budget with ${notice.underTargetTriangleCount} triangle(s) still below the minimum angle"
 		is ArtMeshNotice.NothingOpaque -> "nothing in the art reaches the alpha threshold"
 		is ArtMeshNotice.OverBudget -> "the mesh needs ${notice.vertexCount} vertices, past the budget of ${notice.budget}"

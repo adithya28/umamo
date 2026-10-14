@@ -69,10 +69,12 @@ Commands:
                      --scale=N       Magnify previews N times (Default: 1).
                      --alpha-threshold=N, --outline-spacing=N, --interior-spacing=N,
                      --outer-margin=N, --inner-margin=N, --minimum-margin=N,
-                     --minimum-outline-points=N, --vertex-budget=N, --minimum-angle=N
+                     --minimum-outline-points=N, --vertex-budget=N, --minimum-angle=N,
+                     --interior-thinning-limit=N
                                      Override one setting of the preset; distances
                                      are in pixels, the angle in degrees (0 for no
-                                     refinement).
+                                     refinement), the thinning limit in outline
+                                     spacings.
   convert <in> <out>
                    Direction by input format and output extension:
                      cmo3 -> cmo3  Resave (An unedited main.xml will reemit byte-identical.)

@@ -921,7 +921,9 @@
 	<string name="mesh_options_minimum_outline_points">Minimum Outline Points</string>
 	<string name="mesh_options_minimum_angle">Minimum Angle</string>
 	<string name="mesh_options_vertex_budget">Vertex Budget</string>
+	<string name="mesh_options_interior_thinning_limit">Interior Thinning Limit</string>
 	<string name="mesh_options_fill_holes">Fill Holes</string>
+	<string name="mesh_options_deformation_tolerance">Deformation Tolerance</string>
 	<string name="import_options_align">Align</string>
 	<string name="import_options_offset_x">Offset X</string>
 	<string name="import_options_offset_z">Offset Z</string>
@@ -1025,7 +1027,9 @@
 	<string name="mesh_options_minimum_outline_points_description">The fewest vertices one outline ring may have, however small its piece of art.</string>
 	<string name="mesh_options_minimum_angle_description">The smallest angle, in degrees, the mesher brings every triangle up to by adding vertices, within the vertex budget.  Angles the outline itself makes, such as a hair tip's, stay as they are.  0 for none.</string>
 	<string name="mesh_options_vertex_budget_description">The most vertices one mesh should have.  Art that can't fit is meshed again under a higher budget, up to 4096, and then with its holes filled.</string>
+	<string name="mesh_options_interior_thinning_limit_description">When the art needs more vertices than the Vertex Budget, the interior thins first, its spacing growing to at most this many times the outline spacing; past that, the outline thins along with it.  Higher keeps the outline's detail longer, lower keeps the interior even.</string>
 	<string name="mesh_options_fill_holes_description">Meshes over holes in the art as one sheet instead of cutting them out.</string>
+	<string name="mesh_options_deformation_tolerance_description">How far, in pixels, the new mesh may stray from the shapes the rig gives the old one, at rest and in every keyform.  Where it would stray further, the old vertices that hold those shapes are kept.  Smaller keeps more of them.</string>
 	<!-- Blend modes (Cubism color blend list). -->
 	<string name="blend_mode_normal">Normal</string>
 	<string name="blend_mode_additive">Additive</string>

@@ -34,6 +34,9 @@ public fun interface BoundarySplitCheck {
  * @property Double              minimumSeparation    No added vertex comes closer than this to a vertex it joins.
  * @property Double              minimumSegmentLength No constraint is split into a piece shorter than this.
  * @property BoundarySplitCheck? boundarySplitCheck   Asked before any boundary edge is split; null allows every split.
+ * @property PiecewiseLinearGuide? guide             A target the triangulation should follow: where it strays, the guide's vertices are inserted and its creases held as constraints (see [PiecewiseLinearGuide]), after angle refinement; null for none.  A crease splits the constraints across it, a boundary only where [boundarySplitCheck] allows; a segment (never a boundary) with no room for the split gives way, so the result may lack it.
+ * @property Double              guideTolerance       The largest error from the guide left alone, in the plane's units.
+ * @property Double              guidePointShare      The share of [maximumAddedPoints] kept for a guide the triangulation strays from before refinement: angle refinement, which runs first, stops short of it, and the guide takes whatever is left.  A guide nothing strays from keeps no share.
  */
 public class RefinementOptions(
 	public val minimumAngleDegrees: Double,
@@ -41,12 +44,17 @@ public class RefinementOptions(
 	public val minimumSeparation: Double,
 	public val minimumSegmentLength: Double,
 	public val boundarySplitCheck: BoundarySplitCheck? = null,
+	public val guide: PiecewiseLinearGuide? = null,
+	public val guideTolerance: Double = 0.5,
+	public val guidePointShare: Double = 0.75,
 ) {
 	init {
 		require(minimumAngleDegrees >= 0.0 && minimumAngleDegrees < 60.0) { "the minimum angle $minimumAngleDegrees is outside 0 until 60 degrees" }
 		require(maximumAddedPoints >= 0) { "the added point limit $maximumAddedPoints is negative" }
 		require(minimumSeparation > 0.0 && minimumSeparation.isFinite()) { "the minimum separation $minimumSeparation is not a positive distance" }
 		require(minimumSegmentLength > 0.0 && minimumSegmentLength.isFinite()) { "the minimum segment length $minimumSegmentLength is not a positive distance" }
+		require(guideTolerance > 0.0 && guideTolerance.isFinite()) { "the guide tolerance $guideTolerance is not a positive distance" }
+		require(guidePointShare in 0.0..1.0) { "the guide's share $guidePointShare is outside 0 to 1" }
 	}
 }
 
@@ -60,9 +68,12 @@ public class RefinementOptions(
  * @property Int     boundarySplitCount        Of those, boundary edges.
  * @property Int     refusedBoundarySplitCount Split points the boundary split check refused.
  * @property Int     underTargetTriangleCount  Inside triangles left with an angle below the target.
- * @property Int     unfixableTriangleCount    Of those, the ones refinement gave up on: an angle between two constraints, a triangle across two segments' matching shells, or a floor.  Every one of them when neither stop below fired.
+ * @property Int     unfixableTriangleCount    Of those, the ones refinement gave up on: an angle between two constraints, a triangle across two segments' matching shells, a floor, or one the guide left (refinement does not run after it).  Every one of them when neither stop below fired.
  * @property Boolean stoppedByCap              Whether it stopped at [RefinementOptions.maximumAddedPoints] with work left - or, with no room to add any vertex, left triangles below the target.
  * @property Boolean stoppedByBackstop         Whether it stopped at its operation backstop, which only a defect reaches.
+ * @property Int     guidePointCount           Of the added vertices, the guide's.
+ * @property Double  guideRemainingError       The largest error from the guide any candidate kept (0 without a guide).
+ * @property Boolean guideStoppedByCap         Whether the guide's share ran out with a candidate still past the tolerance.
  */
 public data class RefinementStatistics(
 	val addedPointCount: Int,
@@ -75,6 +86,9 @@ public data class RefinementStatistics(
 	val unfixableTriangleCount: Int,
 	val stoppedByCap: Boolean,
 	val stoppedByBackstop: Boolean,
+	val guidePointCount: Int,
+	val guideRemainingError: Double,
+	val guideStoppedByCap: Boolean,
 )
 
 /**
@@ -101,7 +115,8 @@ public class RefinedTriangulation(
  * the segments, so a vertex a little behind a segment does not force it to split.
  *
  * The triangulation is exactly [org.umamo.geometry.triangulation.triangulate]'s, given the same
- * input; refinement then adds vertices after the input ones.  Without boundaries the convex hull's
+ * input; refinement then adds vertices after the input ones - angle refinement's first, short of the
+ * share of the cap a guide with something to hold claims, then the guide's.  Without boundaries the convex hull's
  * edges bound the domain: they are made boundary constraints first, so they split like any other.
  * When a boundary edge is rejected or a ring is left open, inside and outside are not well defined and
  * nothing is added.
@@ -169,7 +184,7 @@ internal fun refineTriangulation(
 	val classification = classifyRegions(store)
 	store.adoptRegions(classification.inside)
 	val boundaryRejected = built.rejectedConstraints.any { rejection -> rejection.kind == ConstraintKind.Boundary }
-	val refines = classification.consistent && !boundaryRejected && options.minimumAngleDegrees > 0.0
+	val refines = classification.consistent && !boundaryRejected && (options.minimumAngleDegrees > 0.0 || options.guide != null)
 	val statistics =
 		if (refines && options.maximumAddedPoints > 0) {
 			QualityRefiner(store, inputPointCount, options, steinerPoints, afterEachStep).run()
@@ -239,4 +254,4 @@ private fun countUnderTarget(store: HalfEdgeTriangulation, targetDegrees: Double
  * @param Boolean stoppedByCap     Whether a zero cap is what left them.
  * @return RefinementStatistics Nothing added.
  */
-private fun unrefinedStatistics(underTargetCount: Int, stoppedByCap: Boolean): RefinementStatistics = RefinementStatistics(0, 0, 0, 0, 0, 0, underTargetCount, 0, stoppedByCap, false)
+private fun unrefinedStatistics(underTargetCount: Int, stoppedByCap: Boolean): RefinementStatistics = RefinementStatistics(0, 0, 0, 0, 0, 0, underTargetCount, 0, stoppedByCap, false, 0, 0.0, false)

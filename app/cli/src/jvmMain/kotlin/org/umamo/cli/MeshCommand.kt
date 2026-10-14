@@ -40,6 +40,7 @@ private val SETTING_OPTIONS =
 		"--minimum-outline-points",
 		"--vertex-budget",
 		"--minimum-angle",
+		"--interior-thinning-limit",
 	)
 
 /**
@@ -175,6 +176,7 @@ private fun settingsFrom(parsed: CliArguments): ArtMeshSettings {
 			vertexBudget = parsed.intOption("--vertex-budget", base.vertexBudget),
 			fillHoles = "--fill-holes" in parsed.flags,
 			minimumAngle = parsed.doubleOption("--minimum-angle", base.minimumAngle),
+			interiorThinningLimit = parsed.doubleOption("--interior-thinning-limit", base.interiorThinningLimit),
 		)
 	} catch (invalid: IllegalArgumentException) {
 		throw CliUsageException(invalid.message ?: "invalid mesh settings")
