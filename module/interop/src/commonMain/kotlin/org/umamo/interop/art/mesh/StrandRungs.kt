@@ -16,11 +16,12 @@ import kotlin.math.roundToInt
  * a strand wide enough for a vertex between its sides gets one on its centerline at every rung.
  *
  * The strands come from the outline's chordal axis: the chords across each limb, their art width (twice
- * the field's depth along the chord), and the runs of chords narrower than the band where no inner ring
- * fits - twice the inner margin plus half the interior spacing.  A wider stretch too short to hold an
- * inner ring of its own (under one and a half interior spacings, under twice the band) between two such
- * runs, or between one and the strand's tip, joins them: a strap that widens a little near its end, or
- * a knot in a lock of hair, stays one strip.  Rungs go at the outline spacing along a
+ * the field's depth along the chord), and the runs of chords narrower than the settings' strand width -
+ * by default the band where no inner ring fits, twice the inner margin plus half the interior spacing;
+ * raised past it, a strand's rungs take the place of the inner ring through it.  A wider stretch too
+ * short to hold an inner ring of its own (under one and a half interior spacings, under twice the strand
+ * width) between two such runs, or between one and the strand's tip, joins them: a strap that widens a
+ * little near its end, or a knot in a lock of hair, stays one strip.  Rungs go at the outline spacing along a
  * run's axis, its ends kept back by half a spacing from a junction - so the strand meets the body
  * through the body's own sampling - and from a tip, where the outline turns too tightly to pair across,
  * and each rung's two ends are placed by interpolating the chords'
@@ -126,7 +127,7 @@ internal class StrandPlacement(
 /**
  * Finds the outline's strands: samples each ring about a working cell apart, takes the chordal axis,
  * measures the art's width across every chord short enough to cross a strand, and keeps the runs of
- * chords narrower than twice the inner margin plus half the interior spacing.
+ * chords narrower than the strand width.
  *
  * @param AlphaField        field        The field the widths are measured in (the silhouette's when filling holes).
  * @param List<SampledRing> outline      The outline rings.
@@ -164,7 +165,7 @@ internal fun planStrands(field: AlphaField, outline: List<SampledRing>, settings
 		return StrandPlan.NONE
 	}
 
-	val cutoff = 2.0 * settings.innerMargin + settings.interiorSpacing / 2.0
+	val cutoff = settings.strandWidth
 	// A chord across a strand, or across a stretch wide enough to join one (under twice the cutoff), is no
 	// longer than that width plus the outline's margin on both sides; longer chords are not measured.
 	val longestStrandChord = 2.0 * cutoff + 2.0 * (outlineLevel + 2.0 * cellSize)

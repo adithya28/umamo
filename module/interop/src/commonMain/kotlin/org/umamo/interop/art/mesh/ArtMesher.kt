@@ -137,7 +137,7 @@ public fun generateArtMesh(
 	val widestUsefulOutlineSpacing = maxOf(settings.outlineSpacing, denseOutline.maxOfOrNull { ring -> closedRingLength(ring) / settings.minimumOutlinePoints } ?: 0.0)
 	// The limit never asks for an interior denser, against the outline, than the settings themselves.
 	val thinningLimit = maxOf(settings.interiorThinningLimit, settings.interiorSpacing / settings.outlineSpacing)
-	val strandPlan = planStrands(interiorField, denseOutline.map { ring -> SampledRing(ring) }, settings, cellSize, outlineLevel)
+	val strandPlan = if (settings.strandRungs) planStrands(interiorField, denseOutline.map { ring -> SampledRing(ring) }, settings, cellSize, outlineLevel) else StrandPlan.NONE
 
 	if (vertexFloor > settings.vertexBudget) {
 		notices.add(ArtMeshNotice.OverBudget(vertexFloor, settings.vertexBudget))

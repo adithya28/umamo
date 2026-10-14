@@ -849,6 +849,8 @@
 	<string name="mesh_options_vertex_budget">頂点数の上限</string>
 	<string name="mesh_options_interior_thinning_limit">内部の間引き上限</string>
 	<string name="mesh_options_fill_holes">穴を埋める</string>
+	<string name="mesh_options_strand_rungs">細部をはしご状に</string>
+	<string name="mesh_options_strand_width">はしご状にする幅</string>
 	<string name="mesh_options_deformation_tolerance">変形の許容差</string>
 	<string name="import_options_align">基準位置</string>
 	<string name="import_options_offset_x">オフセット X</string>
@@ -939,7 +941,7 @@
 	<string name="transform_options_connected_description">プロポーショナル編集の影響を、メッシュの辺で選択とつながった頂点に限り、距離を辺に沿って測ります。</string>
 	<string name="transform_options_slide_factor_description">頂点が辺上のどこに移動したか。0 は元の位置、1 は隣の頂点の位置です。</string>
 	<string name="merge_options_target_description">結合した頂点を集める位置。中心、または最初か最後に選択した頂点の位置です。</string>
-	<string name="mesh_options_preset_description">プリセットの値で間隔、余白、輪郭の最小点数、最小角度を設定します。しきい値、頂点数の上限、穴を埋める、変形の許容差はそのままです。</string>
+	<string name="mesh_options_preset_description">プリセットの値で間隔、余白、輪郭の最小点数、最小角度、はしご状にする幅を設定します。しきい値、頂点数の上限、内部の間引き上限、穴を埋める、細部をはしご状に、変形の許容差はそのままです。</string>
 	<string name="mesh_options_alpha_threshold_description">アートとみなすピクセルの不透明度（最大 255）。該当するピクセルはすべて生成されたメッシュで覆われます。</string>
 	<string name="mesh_options_outline_spacing_description">輪郭に沿った頂点の目標間隔（アートのピクセル単位）。</string>
 	<string name="mesh_options_interior_spacing_description">アート内部の頂点（内側の輪と均等な格子）の目標間隔（アートのピクセル単位）。</string>
@@ -951,6 +953,8 @@
 	<string name="mesh_options_vertex_budget_description">1 つのメッシュの頂点数の目安。収まらないアートは上限を 4096 まで上げて、それでも収まらなければ穴を埋めて生成し直します。</string>
 	<string name="mesh_options_interior_thinning_limit_description">頂点数の上限を超えるアートでは、まず内部の頂点を間引きます。内部の間隔は輪郭の間隔のこの倍数まで広げ、それ以上は輪郭も一緒に間引きます。大きいほど輪郭の細部を長く保ち、小さいほど内部が均一になります。</string>
 	<string name="mesh_options_fill_holes_description">アートの穴（レース、クモの巣など）を切り抜かず、1 枚のシートとしてメッシュで覆います。</string>
+	<string name="mesh_options_strand_rungs_description">髪の房、眉、ストラップ、線画などアートの細い部分を、輪郭の頂点を真向かいに対にした均等な帯にします。十分な幅がある部分は中央にも頂点を置きます。オフにすると輪郭だけからメッシュを作ります。</string>
+	<string name="mesh_options_strand_width_description">「細部をはしご状に」がオンのとき、この幅（ピクセル）より細いアートをはしご状の帯にします。各プリセットは内側の輪が収まらなくなる幅に設定します。大きくすると太めのストラップや髪の房も帯になり、小さくすると内側の輪を持つ部分が増えます。</string>
 	<string name="mesh_options_deformation_tolerance_description">新しいメッシュが、リグが元のメッシュに与える形（初期状態と各キーフォーム）からずれてよい距離（ピクセル）。それを超える箇所では、その形を保つ元の頂点を残します。小さいほど多くの頂点が残ります。</string>
 	<!-- ブレンドモード（Cubism のカラーブレンド一覧）。 -->
 	<string name="blend_mode_normal">通常</string>

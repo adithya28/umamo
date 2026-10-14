@@ -137,6 +137,39 @@ class ArtMesherTest {
 	}
 
 	@Test
+	fun withStrandRungsOffAStrandIsMeshedFromItsOutline() {
+		val raster = rasterOf(200, 50) { column, row -> row in 13 until 37 && column in 10 until 190 }
+		val settings = standard.copy(strandRungs = false)
+		val result = generateArtMesh(raster, settings)
+		val mesh = assertValidArtMesh(raster, settings, result)
+		val statistics = result.statistics!!
+
+		assertEquals(0, statistics.strandCount + statistics.rungCount + statistics.strandCenterCount)
+		assertTrue(verticesWhere(mesh) { x, y -> abs(y - 25.0) < 1.0 && x in 30.0..170.0 }.isEmpty(), "no centerline")
+	}
+
+	@Test
+	fun aWiderStrandWidthMeshesAnInnerRingsStrapAsRungs() {
+		// 34 px tall: past Fine's 26 px strand width, so at the preset an inner ring runs through it.
+		val raster = rasterOf(300, 80) { column, row -> row in 23 until 57 && column in 10 until 290 }
+		val fine = ArtMeshPreset.Fine.settings
+		val widened = fine.copy(strandWidth = 40.0)
+		val presetResult = generateArtMesh(raster, fine)
+		val widenedResult = generateArtMesh(raster, widened)
+		assertValidArtMesh(raster, fine, presetResult)
+		val mesh = assertValidArtMesh(raster, widened, widenedResult)
+		val statistics = widenedResult.statistics!!
+		val innerRingRows = verticesWhere(mesh) { x, y -> x in 50.0..250.0 && (abs(y - 29.0) < 2.0 || abs(y - 51.0) < 2.0) }
+
+		assertEquals(0, presetResult.statistics!!.strandCount)
+		assertTrue(presetResult.statistics!!.innerRingCount >= 1)
+		assertEquals(1, statistics.strandCount)
+		assertTrue(statistics.strandCenterCount >= 3, "${statistics.strandCenterCount}")
+		assertTrue(innerRingRows.isEmpty(), "the rungs take the inner ring's place: $innerRingRows")
+		assertPairedAcross(mesh, 40.0, 50.0..250.0)
+	}
+
+	@Test
 	fun aStrandWideEnoughGetsACenterlineVertexAtEveryRung() {
 		// 24 px tall: past twice the inner margin, still short of an inner ring's band.
 		val raster = rasterOf(200, 50) { column, row -> row in 13 until 37 && column in 10 until 190 }

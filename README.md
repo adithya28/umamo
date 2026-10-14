@@ -240,9 +240,68 @@ The `:cli` module (`app/cli`) is a headless dump, convert, diff, atlas packing, 
 
 A moc3 input may also be given as its `.model3.json` manifest; textures and sidecars(cdi3/physics3/pose3/userdata3) are discovered through the manifest's file references.
 
-`dump`, `atlas`, and `mesh` accept source layered artwork(`.psd`, `.clip`, `.kra`) or any flat raster read as a one-layer document.
-* The `atlas` command takes `--page-size=N`, `--gutter=N`, `--extrude=N`, `--rotate`, `--visible-only`, and `--no-shrink`.  It reads every packed tile back out of its page and exits non-zero if any byte differs and reports layers it could not pack(no opaque pixels, or larger than a page) rather than dropping them silently.
-* The `mesh` command takes `--layer=NAME`, `--preset=standard|fine|coarse`, `--visible-only`, `--fill-holes`, `--preview`, `--scale=N`, and one `--key=value` per mesher setting.  Use `--fill-holes` meshes over holes in the art (lace, a spider web) as one solid sheet instead of cutting them out, `--minimum-angle=N` sets the angle refinement brings every triangle up to (0 turns refinement off), and `--interior-thinning-limit=N` sets how many outline spacings the interior may thin to before the outline thins with it when a layer is over its vertex budget.  It prints each layer's vertex counts, the vertices refinement added, the smallest triangle angle and the counts under 5, 10, and 20 degrees, timing, and notices, then the run's smallest angles in 5-degree buckets.  It will exit with a non-zero status if the mesher withheld a mesh after a failed structural check.
+`dump`, `atlas`, and `mesh` accept layered source artwork (`.psd`, `.clip`, `.kra`) or any flat raster, read as a one-layer document.
+
+##### `atlas`
+
+Packs a document's layers into atlas pages, writing `page_NN.png` and `placements.txt` to a new subdirectory named after the input.  It reads every packed tile back out of its page and exits non-zero if any byte differs.  Layers it cannot pack (no opaque pixels, or larger than a page) are reported rather than dropped silently.
+
+| Option           | Effect                                                                                                           | Default |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------- | ------- |
+| `--page-size=N`  | Page side to pack against.                                                                                       | 4096    |
+| `--gutter=N`     | Transparent spacing around every tile.                                                                           | 2       |
+| `--extrude=N`    | Edge pixels replicated into the gutter.                                                                          | 2       |
+| `--rotate`       | Allow quarter-turning tiles to pack tighter.                                                                     | Off     |
+| `--visible-only` | Skip layers hidden by their own or a folder's eye.                                                               | Off     |
+| `--no-shrink`    | Keep full `--page-size` pages instead of cropping them.                                                          | Off     |
+| `--preview`      | Also write `preview.png`: the canvas recomposited from the packed pages (blend modes and layer opacity ignored). | Off     |
+
+##### `mesh`
+
+Runs the art mesher over a document's raster layers, printing a report and writing it to `mesh.txt` in a new `<input>-mesh` subdirectory.  It exits non-zero if the mesher withheld a mesh after a failed structural check.
+
+| Option              | Effect                                                                                                                                                                  | Default            |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `--layer=NAME`      | Mesh only the layer with this exact name.                                                                                                                               | Every raster layer |
+| `--preset=NAME`     | `standard`, `fine`, or `coarse`: The settings the overrides below start from.                                                                                           | `standard`         |
+| `--visible-only`    | Skip layers hidden by their own or a folder's eye.                                                                                                                      | Off                |
+| `--fill-holes`      | Mesh over holes in the art (lace, a spider web) as one solid sheet instead of cutting them out.                                                                         | Off                |
+| `--no-strand-rungs` | Mesh thin strands from their outline alone instead of as rung strips.                                                                                                   | Off                |
+| `--preview`         | Also write `NNN-<layer>.png`: each mesh over its art (outline magenta, interior edges blue, triangles under the minimum angle orange, vertices refinement added green). | Off                |
+| `--scale=N`         | Magnify previews N times.                                                                                                                                               | 1                  |
+
+Each setting override replaces one value of the preset.  Distances are in art pixels.
+
+| Override                      | Sets                                                                                                         | Standard | Fine | Coarse |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------ | -------- | ---- | ------ |
+| `--alpha-threshold=N`         | The least alpha (1-255) counted as art.                                                                      | 16       | 16   | 16     |
+| `--outline-spacing=N`         | The distance between outline vertices.                                                                       | 32       | 20   | 48     |
+| `--interior-spacing=N`        | The distance between inner-ring and lattice vertices.                                                        | 48       | 28   | 72     |
+| `--outer-margin=N`            | How far outside the art the outline runs.                                                                    | 4        | 3    | 6      |
+| `--inner-margin=N`            | How far inside the art's edge the inner ring runs; 0 for none.                                               | 8        | 6    | 12     |
+| `--minimum-margin=N`          | The closest the outline may come to any art pixel.                                                           | 2        | 1.5  | 3      |
+| `--minimum-outline-points=N`  | The fewest vertices one outline ring may have.                                                               | 6        | 8    | 4      |
+| `--vertex-budget=N`           | The most vertices one mesh may have.                                                                         | 1024     | 1024 | 1024   |
+| `--minimum-angle=N`           | The angle, in degrees, refinement brings every triangle up to; 0 turns refinement off.                       | 20       | 24   | 15     |
+| `--interior-thinning-limit=N` | Over the vertex budget, how many outline spacings the interior may thin to before the outline thins with it. | 4        | 4    | 4      |
+| `--strand-width=N`            | The art width below which a stretch of art is a strand, meshed as rungs.                                     | 40       | 26   | 60     |
+
+The report has one row per layer, then the run's smallest triangle angles in 5-degree buckets.
+
+| Column                         | Meaning                                                                                                                                 |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `order`, `name`, `raster`      | The layer's order, name, and raster size.                                                                                               |
+| `vertices`, `triangles`        | The mesh's vertex and triangle counts.                                                                                                  |
+| `outline`                      | Outline rings / outline vertices.                                                                                                       |
+| `refined`                      | Outline chords split because they came too close to the art or cut it off.                                                              |
+| `inner`                        | Inner rings / inner-ring vertices.                                                                                                      |
+| `lattice`                      | Interior lattice vertices.                                                                                                              |
+| `strands`                      | Strands / rungs / centerline vertices.                                                                                                  |
+| `steiner`                      | Vertices refinement added toward the minimum angle.                                                                                     |
+| `minAngle`                     | The smallest triangle angle, in degrees.                                                                                                |
+| `under5`, `under10`, `under20` | Triangles whose smallest angle is under 5, 10, and 20 degrees.                                                                          |
+| `unfixable`                    | Triangles left under the minimum angle that refinement could not help: an angle the outline itself makes, or a spot too tight to split. |
+| `milliseconds`, `notices`      | The time taken and the mesher's notices.                                                                                                |
 
 #### Running Tests
 
