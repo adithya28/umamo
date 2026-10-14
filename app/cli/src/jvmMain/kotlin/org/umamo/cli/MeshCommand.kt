@@ -91,7 +91,7 @@ internal fun runMesh(arguments: List<String>): Int {
 	val report = StringBuilder()
 	report.append("# mesh ${loaded.file.name}\n")
 	report.append("# settings $settings\n")
-	report.append(listOf("# order", "name", "raster", "vertices", "triangles", "outline", "refined", "inner", "lattice", "steiner", "minAngle", "under5", "under10", "under20", "unfixable", "milliseconds", "notices").joinToString("\t")).append('\n')
+	report.append(listOf("# order", "name", "raster", "vertices", "triangles", "outline", "refined", "inner", "lattice", "strands", "steiner", "minAngle", "under5", "under10", "under20", "unfixable", "milliseconds", "notices").joinToString("\t")).append('\n')
 	var meshedCount = 0
 	var withheldCount = 0
 	var vertexTotal = 0
@@ -207,6 +207,7 @@ private fun reportRow(layer: SourceLayer, result: ArtMeshResult, quality: MeshQu
 		statistics?.refinedChordCount?.toString() ?: "-",
 		if (statistics != null) "${statistics.innerRingCount}/${statistics.innerVertexCount}" else "-",
 		statistics?.latticeVertexCount?.toString() ?: "-",
+		if (statistics != null) "${statistics.strandCount}/${statistics.rungCount}/${statistics.strandCenterCount}" else "-",
 		statistics?.steinerVertexCount?.toString() ?: "-",
 		if (quality != null) format(quality.minimumAngleDegrees) else "-",
 		quality?.countBelow(5.0)?.toString() ?: "-",

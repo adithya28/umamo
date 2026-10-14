@@ -137,6 +137,7 @@ public fun generateArtMesh(
 	val widestUsefulOutlineSpacing = maxOf(settings.outlineSpacing, denseOutline.maxOfOrNull { ring -> closedRingLength(ring) / settings.minimumOutlinePoints } ?: 0.0)
 	// The limit never asks for an interior denser, against the outline, than the settings themselves.
 	val thinningLimit = maxOf(settings.interiorThinningLimit, settings.interiorSpacing / settings.outlineSpacing)
+	val strandPlan = planStrands(interiorField, denseOutline.map { ring -> SampledRing(ring) }, settings, cellSize, outlineLevel)
 
 	if (vertexFloor > settings.vertexBudget) {
 		notices.add(ArtMeshNotice.OverBudget(vertexFloor, settings.vertexBudget))
@@ -152,7 +153,7 @@ public fun generateArtMesh(
 	var round = 0
 
 	while (true) {
-		val points = placePoints(field, interiorField, settings, denseOutline, denseInner, roundedPins, outlineSpacing, interiorSpacing, tolerance)
+		val points = placePoints(field, interiorField, settings, denseOutline, denseInner, roundedPins, outlineSpacing, interiorSpacing, tolerance, strandPlan, cellSize)
 		// The reserve gives way on the last round, so it never turns a mesh that fits into none.
 		val fits = points.vertexCount <= target || (round == BUDGET_ROUNDS && points.vertexCount <= settings.vertexBudget)
 
@@ -238,19 +239,20 @@ private fun closedRingLength(ring: DoubleArray): Double {
 /**
  * Every point one attempt places, before triangulation.
  *
- * @property List<SampledRing> outline    The outline rings.
- * @property List<DoubleArray> innerRings The inner rings' points.
- * @property DoubleArray       lattice    The lattice points.
- * @property DoubleArray       pins       The pins.
+ * @property List<SampledRing>   outline    The outline rings.
+ * @property List<InnerPolyline> innerRings The inner rings' points, whole or cut by strands.
+ * @property DoubleArray         lattice    The lattice points.
+ * @property DoubleArray         pins       The pins.
+ * @property StrandPlacement     strands    The strands' rungs and centerline vertices.
  */
-private class PlacedPoints(val outline: List<SampledRing>, val innerRings: List<DoubleArray>, val lattice: DoubleArray, val pins: DoubleArray) {
-	/** The outline's and the pins' points: what the interior cannot give way for. */
+private class PlacedPoints(val outline: List<SampledRing>, val innerRings: List<InnerPolyline>, val lattice: DoubleArray, val pins: DoubleArray, val strands: StrandPlacement) {
+	/** The outline's, the strands' centerline, and the pins' points: what the interior cannot give way for. */
 	val outlineCount: Int
-		get() = outline.sumOf { ring -> ring.sampleCount } + pins.size / 2
+		get() = outline.sumOf { ring -> ring.sampleCount } + strands.centers.size / 2 + pins.size / 2
 
 	/** The inner rings' and the lattice's points. */
 	val interiorCount: Int
-		get() = innerRings.sumOf { ring -> ring.size / 2 } + lattice.size / 2
+		get() = innerRings.sumOf { ring -> ring.pointCount } + lattice.size / 2
 
 	/** The vertex count the mesh would have (an upper bound; aliasing and unused points only lower it). */
 	val vertexCount: Int
@@ -269,6 +271,8 @@ private class PlacedPoints(val outline: List<SampledRing>, val innerRings: List<
  * @param Double            outlineSpacing  The outline spacing.
  * @param Double?           interiorSpacing The interior spacing, or null to place no interior points.
  * @param Double            tolerance       The corner-finding tolerance.
+ * @param StrandPlan        strandPlan      The outline's thin strands.
+ * @param Int               cellSize        The working cell size.
  * @return PlacedPoints The points.
  */
 private fun placePoints(
@@ -281,6 +285,8 @@ private fun placePoints(
 	outlineSpacing: Double,
 	interiorSpacing: Double?,
 	tolerance: Double,
+	strandPlan: StrandPlan,
+	cellSize: Int,
 ): PlacedPoints {
 	val minimumMargin = settings.minimumMargin
 	// A chord stands only when it keeps the minimum margin from every art pixel AND cuts no art pixel
@@ -310,22 +316,43 @@ private fun placePoints(
 				!field.containsOpaquePixelCenter(cap)
 			}
 		}
-	val outline =
-		denseOutline.map { dense ->
-			val ring = SampledRing(dense)
-			ring.sampleEvenly(outlineSpacing, tolerance, settings.minimumOutlinePoints)
-			ring.refine(coversArt)
-			ring
-		}
+	val outline = denseOutline.map { dense -> SampledRing(dense) }
+	// The strands' rungs pair the outline's samples across them, so they are placed first.
+	val strands = placeStrands(strandPlan, outline, outlineSpacing, interiorField, settings, cellSize, pins)
 
-	if (interiorSpacing == null) {
-		return PlacedPoints(outline, emptyList(), DoubleArray(0), pins)
+	for ((ringIndex, ring) in outline.withIndex()) {
+		ring.sampleEvenly(outlineSpacing, tolerance, settings.minimumOutlinePoints, strands.anchorRunsByRing[ringIndex])
+		ring.refine(coversArt)
 	}
 
-	val innerRings = innerRingPoints(denseInner, interiorField, interiorSpacing, settings.innerMargin, tolerance, pins)
-	val lattice = latticePoints(interiorField, interiorSpacing, settings.innerMargin, pins)
+	if (interiorSpacing == null) {
+		return PlacedPoints(outline, emptyList(), DoubleArray(0), pins, strands)
+	}
 
-	return PlacedPoints(outline, innerRings, lattice, pins)
+	val innerRings = pruneInsideStrands(innerRingPoints(denseInner, interiorField, interiorSpacing, settings.innerMargin, tolerance, pins), strands)
+	val lattice = latticePoints(interiorField, interiorSpacing, settings.innerMargin, pins).let { all -> if (strands.quads.isEmpty()) all else withoutStrandPoints(all, strands) }
+
+	return PlacedPoints(outline, innerRings, lattice, pins, strands)
+}
+
+/**
+ * Points with those inside a strand taken out.
+ *
+ * @param DoubleArray     points  The points, x0, y0, ...
+ * @param StrandPlacement strands Where the strands lie.
+ * @return DoubleArray The points outside every strand.
+ */
+private fun withoutStrandPoints(points: DoubleArray, strands: StrandPlacement): DoubleArray {
+	val kept = ArrayList<Double>()
+
+	for (point in 0 until points.size / 2) {
+		if (!strands.contains(points[2 * point], points[2 * point + 1])) {
+			kept.add(points[2 * point])
+			kept.add(points[2 * point + 1])
+		}
+	}
+
+	return kept.toDoubleArray()
 }
 
 /**
@@ -356,7 +383,7 @@ private fun assemble(
 	guide: PiecewiseLinearGuide?,
 ): ArtMeshResult {
 	val refinedChordCount = points.outline.sumOf { ring -> ring.refinedChordCount }
-	val assembled = assembleMesh(points.outline, points.innerRings, points.lattice, points.pins, field, settings, cellSize, guide)
+	val assembled = assembleMesh(points.outline, points.innerRings, points.lattice + points.strands.centers, points.pins, field, settings, cellSize, guide)
 	val refinement = assembled.refinement
 
 	if (assembled.densifiedChordCount > 0) {
@@ -389,7 +416,7 @@ private fun assemble(
 			outlineVertexCount = assembled.outlineVertexCount,
 			refinedChordCount = refinedChordCount,
 			innerRingCount = points.innerRings.size,
-			innerVertexCount = points.innerRings.sumOf { ring -> ring.size / 2 },
+			innerVertexCount = points.innerRings.sumOf { ring -> ring.pointCount },
 			latticeVertexCount = points.lattice.size / 2,
 			pinCount = pinCount,
 			steinerVertexCount = refinement?.addedPointCount ?: 0,
@@ -397,6 +424,9 @@ private fun assemble(
 			underTargetCount = refinement?.underTargetTriangleCount ?: 0,
 			unfixableCount = refinement?.unfixableTriangleCount ?: 0,
 			guideVertexCount = refinement?.guidePointCount ?: 0,
+			strandCount = points.strands.strandCount,
+			rungCount = points.strands.rungCount,
+			strandCenterCount = points.strands.centers.size / 2,
 		)
 	val mesh = assembled.mesh
 
