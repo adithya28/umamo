@@ -52,38 +52,61 @@ public class MeshQuality(
 public fun PlanarTriangleMesh.measureQuality(bucketDegrees: Double = DEFAULT_BUCKET_DEGREES): MeshQuality {
 	require(bucketDegrees > 0.0 && bucketDegrees <= LARGEST_SMALLEST_ANGLE) { "the bucket width $bucketDegrees is outside (0, 60] degrees" }
 	var minimumAngle = Double.POSITIVE_INFINITY
-	val bucketCount = ceil(LARGEST_SMALLEST_ANGLE / bucketDegrees).toInt()
+	val bucketCount = smallestAngleBucketCount(bucketDegrees)
 	val histogram = IntArray(bucketCount)
 	var degenerateCount = 0
 
 	for (triangle in 0 until triangleCount) {
-		val first = triangles[3 * triangle]
-		val second = triangles[3 * triangle + 1]
-		val third = triangles[3 * triangle + 2]
-		val firstX = positions[2 * first].toDouble()
-		val firstY = positions[2 * first + 1].toDouble()
-		val secondX = positions[2 * second].toDouble()
-		val secondY = positions[2 * second + 1].toDouble()
-		val thirdX = positions[2 * third].toDouble()
-		val thirdY = positions[2 * third + 1].toDouble()
+		val smallest = smallestAngleDegrees(triangle)
 
-		if (orient2d(firstX, firstY, secondX, secondY, thirdX, thirdY) == 0.0) {
+		if (smallest.isNaN()) {
 			degenerateCount++
 
 			continue
 		}
 
-		val smallest =
-			minOf(
-				angleAt(firstX, firstY, secondX, secondY, thirdX, thirdY),
-				angleAt(secondX, secondY, thirdX, thirdY, firstX, firstY),
-				angleAt(thirdX, thirdY, firstX, firstY, secondX, secondY),
-			)
 		minimumAngle = minOf(minimumAngle, smallest)
 		histogram[(smallest / bucketDegrees).toInt().coerceIn(0, bucketCount - 1)]++
 	}
 
 	return MeshQuality(if (minimumAngle.isFinite()) minimumAngle else 0.0, histogram, degenerateCount, bucketDegrees)
+}
+
+/**
+ * How many buckets of a width a smallest-angle histogram has: a triangle's smallest angle is at most 60
+ * degrees.
+ *
+ * @param Double bucketDegrees The bucket width in degrees (positive, at most 60).
+ * @return Int The bucket count.
+ */
+public fun smallestAngleBucketCount(bucketDegrees: Double): Int = ceil(LARGEST_SMALLEST_ANGLE / bucketDegrees).toInt()
+
+/**
+ * One triangle's smallest angle, from acos, so diagnostic only (see [measureQuality]).
+ *
+ * @param Int triangle The triangle.
+ * @return Double The smallest angle in degrees, or NaN for a degenerate triangle (its corners on one line), which has none.
+ */
+public fun PlanarTriangleMesh.smallestAngleDegrees(triangle: Int): Double {
+	val first = triangles[3 * triangle]
+	val second = triangles[3 * triangle + 1]
+	val third = triangles[3 * triangle + 2]
+	val firstX = positions[2 * first].toDouble()
+	val firstY = positions[2 * first + 1].toDouble()
+	val secondX = positions[2 * second].toDouble()
+	val secondY = positions[2 * second + 1].toDouble()
+	val thirdX = positions[2 * third].toDouble()
+	val thirdY = positions[2 * third + 1].toDouble()
+
+	if (orient2d(firstX, firstY, secondX, secondY, thirdX, thirdY) == 0.0) {
+		return Double.NaN
+	}
+
+	return minOf(
+		angleAt(firstX, firstY, secondX, secondY, thirdX, thirdY),
+		angleAt(secondX, secondY, thirdX, thirdY, firstX, firstY),
+		angleAt(thirdX, thirdY, firstX, firstY, secondX, secondY),
+	)
 }
 
 /**

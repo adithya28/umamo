@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import org.umamo.ui.kit.POINTER_ARROW_CLEARANCE
 import org.umamo.ui.kit.Surface
 import org.umamo.ui.kit.Text
 import org.umamo.ui.kit.ThumbnailSlot
@@ -33,9 +34,6 @@ import kotlin.math.roundToInt
 
 /** The square edge of a row's hover preview - bigger than the picker slot so the art is easy to read. */
 private val ROW_PREVIEW_SIZE = 120.dp
-
-/** How far from the pointer a pointer-anchored preview sits: clear of the cursor, and never under it. */
-private val ROW_PREVIEW_POINTER_GAP = 16.dp
 
 /**
  * Where a row's hover preview goes, as its top-left in window pixels.
@@ -156,7 +154,8 @@ fun RowThumbnailPreview(name: String, thumbnail: ImageBitmap, anchorRect: Rect, 
 	val shapes = LocalUmamoShapes.current
 	val typography = LocalUmamoTypography.current
 	val gapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
-	val pointerGapPx = with(LocalDensity.current) { ROW_PREVIEW_POINTER_GAP.roundToPx() }
+	// Clear of the cursor, and never under it.
+	val pointerGapPx = with(LocalDensity.current) { POINTER_ARROW_CLEARANCE.roundToPx() }
 	val positionProvider =
 		remember(anchorRect, pointerInWindow, gapPx, pointerGapPx) {
 			RowPreviewPositionProvider(anchorRect, pointerInWindow, gapPx, pointerGapPx)

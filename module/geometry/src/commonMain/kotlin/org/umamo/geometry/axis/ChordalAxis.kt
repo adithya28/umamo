@@ -1,6 +1,6 @@
 package org.umamo.geometry.axis
 
-import org.umamo.geometry.packVertexPair
+import org.umamo.geometry.packUndirectedPair
 import org.umamo.geometry.pairFirst
 import org.umamo.geometry.pairSecond
 import org.umamo.geometry.triangulation.Triangulation
@@ -84,59 +84,11 @@ public class ChordalAxis(public val branches: List<AxisBranch>, public val trian
  */
 public fun chordalAxis(points: DoubleArray, rings: List<IntArray>): ChordalAxis {
 	val triangulation = triangulate(points, rings)
-	val triangles = triangulation.triangles
-	val triangleCount = triangles.size / 3
-	// Per edge, the inside triangles that hold it.
-	val firstHolder = HashMap<Long, Int>()
-	val secondHolder = HashMap<Long, Int>()
-
-	for (triangle in 0 until triangleCount) {
-		for (offset in 0 until 3) {
-			val key = edgeKey(triangles, triangle, offset)
-
-			if (firstHolder.containsKey(key)) {
-				secondHolder[key] = triangle
-			} else {
-				firstHolder[key] = triangle
-			}
-		}
-	}
-
-	val chords = AxisChords(points, triangles, firstHolder, secondHolder)
+	val chords = AxisChords.of(points, triangulation.triangles)
 	chords.pruneInsignificantTips()
-	val walker = BranchWalker(triangles, chords)
-	val branches = ArrayList<AxisBranch>()
-
-	for (triangle in 0 until triangleCount) {
-		val count = chords.countOf(triangle)
-
-		if (chords.pruned[triangle] || count == 2 || count == 0) {
-			continue
-		}
-
-		for (offset in 0 until 3) {
-			val key = edgeKey(triangles, triangle, offset)
-
-			if (chords.isChord(key) && key !in walker.visited) {
-				branches.add(walker.walk(triangle, offset))
-			}
-		}
-	}
-
-	// What is left of the sleeves runs around closed loops.
-	for (triangle in 0 until triangleCount) {
-		if (chords.pruned[triangle] || chords.countOf(triangle) != 2) {
-			continue
-		}
-
-		for (offset in 0 until 3) {
-			val key = edgeKey(triangles, triangle, offset)
-
-			if (chords.isChord(key) && key !in walker.visited) {
-				branches.add(walker.walk(triangle, offset))
-			}
-		}
-	}
+	val walker = BranchWalker(triangulation.triangles, chords)
+	// Branches leave the tips and junctions first; what is left of the sleeves runs around closed loops.
+	val branches = walker.walkUnvisited { chordCount -> chordCount != 2 && chordCount != 0 } + walker.walkUnvisited { chordCount -> chordCount == 2 }
 
 	return ChordalAxis(branches, triangulation)
 }
@@ -160,6 +112,35 @@ private class AxisChords(
 
 	/** Shared edges that no longer count as chords, because what lies across them was pruned. */
 	private val cut = HashSet<Long>()
+
+	companion object {
+		/**
+		 * The chords of a triangle list, before pruning: every edge two triangles share.
+		 *
+		 * @param DoubleArray points    The points.
+		 * @param IntArray    triangles The inside triangles' vertices.
+		 * @return AxisChords The chords.
+		 */
+		fun of(points: DoubleArray, triangles: IntArray): AxisChords {
+			// Per edge, the inside triangles that hold it.
+			val firstHolder = HashMap<Long, Int>()
+			val secondHolder = HashMap<Long, Int>()
+
+			for (triangle in 0 until triangles.size / 3) {
+				for (offset in 0 until 3) {
+					val key = edgeKey(triangles, triangle, offset)
+
+					if (firstHolder.containsKey(key)) {
+						secondHolder[key] = triangle
+					} else {
+						firstHolder[key] = triangle
+					}
+				}
+			}
+
+			return AxisChords(points, triangles, firstHolder, secondHolder)
+		}
+	}
 
 	/**
 	 * Whether an edge is a chord: shared by two triangles still in the axis, and not cut.
@@ -189,6 +170,15 @@ private class AxisChords(
 	 * @return Int How many of its edges are chords.
 	 */
 	fun countOf(triangle: Int): Int = (0 until 3).count { offset -> isChord(edgeKey(triangles, triangle, offset)) }
+
+	/**
+	 * The offset of a triangle's first chord other than one it was entered through.
+	 *
+	 * @param Int  triangle   The triangle.
+	 * @param Long enteredKey The chord it was entered through, or [NO_EDGE].
+	 * @return Int The offset.
+	 */
+	fun otherChordOffset(triangle: Int, enteredKey: Long): Int = (0 until 3).first { offset -> edgeKey(triangles, triangle, offset).let { key -> key != enteredKey && isChord(key) } }
 
 	/** Prunes every tip no wider than it is long back to its junction, until none is left to prune. */
 	fun pruneInsignificantTips() {
@@ -225,7 +215,7 @@ private class AxisChords(
 		val walked = arrayListOf(tip)
 		val vertices = arrayListOf(triangles[3 * tip], triangles[3 * tip + 1], triangles[3 * tip + 2])
 		var from = tip
-		var key = (0 until 3).map { offset -> edgeKey(triangles, tip, offset) }.first { candidate -> isChord(candidate) }
+		var key = edgeKey(triangles, tip, otherChordOffset(tip, NO_EDGE))
 
 		while (true) {
 			if (!allInsideChordCircle(vertices, key)) {
@@ -251,8 +241,8 @@ private class AxisChords(
 			}
 
 			walked.add(across)
-			val nextKey = (0 until 3).map { offset -> edgeKey(triangles, across, offset) }.first { candidate -> candidate != key && isChord(candidate) }
-			vertices.add((0 until 3).map { offset -> triangles[3 * across + offset] }.first { vertex -> vertex != pairLow(key) && vertex != pairHigh(key) })
+			val nextKey = edgeKey(triangles, across, otherChordOffset(across, key))
+			vertices.add((0 until 3).map { offset -> triangles[3 * across + offset] }.first { vertex -> vertex != pairFirst(key) && vertex != pairSecond(key) })
 			from = across
 			key = nextKey
 		}
@@ -266,8 +256,8 @@ private class AxisChords(
 	 * @return Boolean True when none lies outside.
 	 */
 	private fun allInsideChordCircle(vertices: List<Int>, key: Long): Boolean {
-		val low = pairLow(key)
-		val high = pairHigh(key)
+		val low = pairFirst(key)
+		val high = pairSecond(key)
 		val centerX = (points[2 * low] + points[2 * high]) / 2.0
 		val centerY = (points[2 * low + 1] + points[2 * high + 1]) / 2.0
 		val halfX = (points[2 * high] - points[2 * low]) / 2.0
@@ -293,7 +283,34 @@ private class BranchWalker(
 	private val chords: AxisChords,
 ) {
 	/** The chords some branch already holds. */
-	val visited = HashSet<Long>()
+	private val visited = HashSet<Long>()
+
+	/**
+	 * Walks a branch out of every chord no branch holds yet, from every triangle still in the axis whose
+	 * chord count a rule admits, in triangle order.
+	 *
+	 * @param (Int) -> Boolean admits Whether a triangle with this many chords starts branches.
+	 * @return List<AxisBranch> The branches walked.
+	 */
+	fun walkUnvisited(admits: (chordCount: Int) -> Boolean): List<AxisBranch> {
+		val branches = ArrayList<AxisBranch>()
+
+		for (triangle in 0 until triangles.size / 3) {
+			if (chords.pruned[triangle] || !admits(chords.countOf(triangle))) {
+				continue
+			}
+
+			for (offset in 0 until 3) {
+				val key = edgeKey(triangles, triangle, offset)
+
+				if (chords.isChord(key) && key !in visited) {
+					branches.add(walk(triangle, offset))
+				}
+			}
+		}
+
+		return branches
+	}
 
 	/**
 	 * Walks one branch from a triangle out through one of its chords until it reaches a triangle that is
@@ -315,21 +332,7 @@ private class BranchWalker(
 		while (true) {
 			val key = edgeKey(triangles, from, offset)
 			visited.add(key)
-			val first = triangles[3 * from + offset]
-			val second = triangles[3 * from + (offset + 1) % 3]
-
-			if (sideA.isEmpty()) {
-				sideA.add(minOf(first, second))
-				sideB.add(maxOf(first, second))
-			} else if (first == sideA.last() || second == sideA.last()) {
-				// The vertex the chords share keeps its side.
-				sideA.add(sideA.last())
-				sideB.add(if (first == sideA.last()) second else first)
-			} else {
-				sideB.add(sideB.last())
-				sideA.add(if (first == sideB.last()) second else first)
-			}
-
+			appendChord(sideA, sideB, triangles[3 * from + offset], triangles[3 * from + (offset + 1) % 3])
 			val across = chords.across(key, from)
 
 			if (chords.countOf(across) != 2) {
@@ -338,7 +341,7 @@ private class BranchWalker(
 				break
 			}
 
-			val nextOffset = (0 until 3).first { candidate -> candidate != offsetOf(across, key) && chords.isChord(edgeKey(triangles, across, candidate)) }
+			val nextOffset = chords.otherChordOffset(across, key)
 
 			for (corner in 0 until 3) {
 				sleeves.add(triangles[3 * across + corner])
@@ -372,30 +375,30 @@ private class BranchWalker(
 		}
 
 	/**
-	 * The offset of an edge within a triangle.
+	 * Adds a chord's ends to the branch's two sides: the vertex it shares with the chord before keeps
+	 * its side.
 	 *
-	 * @param Int  triangle The triangle.
-	 * @param Long key      The edge.
-	 * @return Int The offset.
+	 * @param MutableList<Int> sideA  Side A's vertices so far.
+	 * @param MutableList<Int> sideB  Side B's vertices so far.
+	 * @param Int              first  One end of the chord.
+	 * @param Int              second The other.
 	 */
-	private fun offsetOf(triangle: Int, key: Long): Int = (0 until 3).first { candidate -> edgeKey(triangles, triangle, candidate) == key }
+	private fun appendChord(sideA: MutableList<Int>, sideB: MutableList<Int>, first: Int, second: Int) {
+		if (sideA.isEmpty()) {
+			sideA.add(minOf(first, second))
+			sideB.add(maxOf(first, second))
+		} else if (first == sideA.last() || second == sideA.last()) {
+			sideA.add(sideA.last())
+			sideB.add(if (first == sideA.last()) second else first)
+		} else {
+			sideB.add(sideB.last())
+			sideA.add(if (first == sideB.last()) second else first)
+		}
+	}
 }
 
-/**
- * A packed edge's lower vertex.
- *
- * @param Long key The edge.
- * @return Int The vertex.
- */
-private fun pairLow(key: Long): Int = pairFirst(key)
-
-/**
- * A packed edge's higher vertex.
- *
- * @param Long key The edge.
- * @return Int The vertex.
- */
-private fun pairHigh(key: Long): Int = pairSecond(key)
+/** An edge key no edge has: packed pairs of real vertices are never negative. */
+private const val NO_EDGE: Long = -1L
 
 /**
  * One edge of a triangle as a packed (low, high) vertex pair.
@@ -405,9 +408,4 @@ private fun pairHigh(key: Long): Int = pairSecond(key)
  * @param Int      offset    The edge's offset: from corner [offset] to the next.
  * @return Long The key.
  */
-private fun edgeKey(triangles: IntArray, triangle: Int, offset: Int): Long {
-	val start = triangles[3 * triangle + offset]
-	val end = triangles[3 * triangle + (offset + 1) % 3]
-
-	return packVertexPair(minOf(start, end), maxOf(start, end))
-}
+private fun edgeKey(triangles: IntArray, triangle: Int, offset: Int): Long = packUndirectedPair(triangles[3 * triangle + offset], triangles[3 * triangle + (offset + 1) % 3])

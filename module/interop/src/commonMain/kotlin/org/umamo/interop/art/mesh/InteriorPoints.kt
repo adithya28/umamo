@@ -186,27 +186,18 @@ internal fun pruneInsideStrands(rings: List<DoubleArray>, strands: StrandPlaceme
 			continue
 		}
 
-		// Read the ring from just after a point inside, so no stretch is cut in two at its start.
-		val stretch = ArrayList<Double>()
-
-		for (offset in 1..count) {
-			val point = (firstInside + offset) % count
-
-			if (inside[point]) {
-				if (stretch.size >= 4) {
-					polylines.add(InnerPolyline(stretch.toDoubleArray(), closed = false))
-				}
-
-				stretch.clear()
-			} else {
-				stretch.add(ring[2 * point])
-				stretch.add(ring[2 * point + 1])
+		for (stretch in runsOf(inside, wanted = false, circular = true)) {
+			if (stretch.size >= MINIMUM_STRETCH_POINTS) {
+				polylines.add(InnerPolyline(DoubleArray(2 * stretch.size) { component -> ring[2 * stretch[component / 2] + component % 2] }, closed = false))
 			}
 		}
 	}
 
 	return polylines
 }
+
+/** An open stretch of inner ring with fewer points than this holds no edge. */
+private const val MINIMUM_STRETCH_POINTS: Int = 2
 
 /** An inner ring with fewer points than this cannot enclose anything. */
 private const val MINIMUM_INNER_RING_POINTS: Int = 3

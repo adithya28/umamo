@@ -1,10 +1,9 @@
 package org.umamo.geometry.triangulation.refine
 
 import org.umamo.geometry.IntStack
-import org.umamo.geometry.predicate.PredicateScratch
-import org.umamo.geometry.predicate.orient2d
 import org.umamo.geometry.triangulation.DelaunayInserter
 import org.umamo.geometry.triangulation.HalfEdgeTriangulation
+import org.umamo.geometry.triangulation.compareAlongLine
 
 /*
  * Adding one vertex to a constrained Delaunay triangulation in place, the mechanics refinement is built
@@ -48,7 +47,6 @@ internal fun interface SplitApproval {
  */
 internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 	private val inserter = DelaunayInserter(store)
-	private val scratch = PredicateScratch()
 
 	/** What the last [locate] found: a triangle, a half-edge, or a vertex, by its result. */
 	var locatedAt: Int = 0
@@ -67,6 +65,10 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 	private val vertexStamp = IntArray(store.vertexCapacity + 1)
 	private var stamp = 0
 
+	/** Whether the boundary split check turned down a candidate during the last [splitConstraint]. */
+	var lastSplitRefusedByCheck: Boolean = false
+		private set
+
 	/** Why the last [crossEdge] refused to cross. */
 	private var lastStop: Int = LOCATED_UNRESOLVED
 
@@ -75,6 +77,9 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 	private var rayFromY = 0.0
 	private var rayToX = 0.0
 	private var rayToY = 0.0
+
+	/** The corner the walk's segment leaves a triangle through, when [exitOfRay] found no edge. */
+	private var rayExitVertex = NO_VERTEX
 
 	/**
 	 * Walks the straight segment from a triangle's centroid to an appended candidate, through inside
@@ -86,27 +91,13 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 	 * @return Int One of the LOCATED_* results; [locatedAt] names the triangle (inside), the unconstrained half-edge (on edge), the constrained half-edge (blocked), or nothing.
 	 */
 	fun locate(startTriangle: Int, candidate: Int): Int {
-		val startBase = 3 * startTriangle
-		val firstCorner = store.origin[startBase]
-		val secondCorner = store.origin[startBase + 1]
-		val thirdCorner = store.origin[startBase + 2]
-		rayFromX = (store.pointX(firstCorner) + store.pointX(secondCorner) + store.pointX(thirdCorner)) / 3.0
-		rayFromY = (store.pointY(firstCorner) + store.pointY(secondCorner) + store.pointY(thirdCorner)) / 3.0
-		rayToX = store.pointX(candidate)
-		rayToY = store.pointY(candidate)
-
-		for (offset in 0 until 3) {
-			val halfEdge = startBase + offset
-
-			if (sideOf(store.origin[halfEdge], store.destination(halfEdge), rayFromX, rayFromY) <= 0.0) {
-				// The centroid rounded onto or past an edge: the triangle is too thin to walk out of.
-				return LOCATED_UNRESOLVED
-			}
+		if (!startRay(startTriangle, candidate)) {
+			return LOCATED_UNRESOLVED
 		}
 
 		var triangle = startTriangle
 		var entered = HalfEdgeTriangulation.NO_HALF_EDGE
-		val stepLimit = 3 * store.triangleCount + 16
+		val stepLimit = store.lineWalkStepLimit()
 
 		for (step in 0 until stepLimit) {
 			val placement = placeInTriangle(triangle, entered, candidate)
@@ -115,23 +106,7 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 				return placement
 			}
 
-			val base = 3 * triangle
-			var exitEdge = HalfEdgeTriangulation.NO_HALF_EDGE
-			var exitVertex = -1
-
-			for (offset in 0 until 3) {
-				val halfEdge = base + offset
-				val originSide = sideOfRay(store.origin[halfEdge])
-				val destinationSide = sideOfRay(store.destination(halfEdge))
-
-				// The segment leaves through the edge whose origin is right of it and destination left,
-				// or through a corner on it whose neighbors sit that way round.
-				if (originSide < 0.0 && destinationSide > 0.0) {
-					exitEdge = halfEdge
-				} else if (originSide == 0.0 && destinationSide > 0.0 && sideOfRay(store.origin[store.previous(halfEdge)]) < 0.0) {
-					exitVertex = store.origin[halfEdge]
-				}
-			}
+			val exitEdge = exitOfRay(triangle)
 
 			if (exitEdge != HalfEdgeTriangulation.NO_HALF_EDGE) {
 				val crossing = crossEdge(exitEdge)
@@ -146,11 +121,11 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 				continue
 			}
 
-			if (exitVertex < 0) {
+			if (rayExitVertex == NO_VERTEX) {
 				return LOCATED_UNRESOLVED
 			}
 
-			val leaving = leaveVertex(exitVertex, candidate, stepLimit)
+			val leaving = leaveVertex(rayExitVertex, candidate, stepLimit)
 
 			if (leaving != STILL_BEYOND) {
 				return leaving
@@ -161,6 +136,60 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 		}
 
 		return LOCATED_UNRESOLVED
+	}
+
+	/**
+	 * Starts the straight walk from a triangle's centroid toward a candidate.
+	 *
+	 * @param Int startTriangle The triangle.
+	 * @param Int candidate     The candidate.
+	 * @return Boolean False when the centroid rounded onto or past an edge: the triangle is too thin to walk out of.
+	 */
+	private fun startRay(startTriangle: Int, candidate: Int): Boolean {
+		val startBase = 3 * startTriangle
+		val firstCorner = store.origin[startBase]
+		val secondCorner = store.origin[startBase + 1]
+		val thirdCorner = store.origin[startBase + 2]
+		rayFromX = (store.pointX(firstCorner) + store.pointX(secondCorner) + store.pointX(thirdCorner)) / 3.0
+		rayFromY = (store.pointY(firstCorner) + store.pointY(secondCorner) + store.pointY(thirdCorner)) / 3.0
+		rayToX = store.pointX(candidate)
+		rayToY = store.pointY(candidate)
+
+		for (offset in 0 until 3) {
+			val halfEdge = startBase + offset
+
+			if (sideOf(store.origin[halfEdge], store.destination(halfEdge), rayFromX, rayFromY) <= 0.0) {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	/**
+	 * How the walk's segment leaves a triangle: through the edge whose origin is right of it and
+	 * destination left, or through a corner on it whose neighbors sit that way round ([rayExitVertex]).
+	 *
+	 * @param Int triangle The triangle.
+	 * @return Int The exit half-edge, or [HalfEdgeTriangulation.NO_HALF_EDGE].
+	 */
+	private fun exitOfRay(triangle: Int): Int {
+		var exitEdge = HalfEdgeTriangulation.NO_HALF_EDGE
+		rayExitVertex = NO_VERTEX
+
+		for (offset in 0 until 3) {
+			val halfEdge = 3 * triangle + offset
+			val originSide = sideOfRay(store.origin[halfEdge])
+			val destinationSide = sideOfRay(store.destination(halfEdge))
+
+			if (originSide < 0.0 && destinationSide > 0.0) {
+				exitEdge = halfEdge
+			} else if (originSide == 0.0 && destinationSide > 0.0 && sideOfRay(store.origin[store.previous(halfEdge)]) < 0.0) {
+				rayExitVertex = store.origin[halfEdge]
+			}
+		}
+
+		return exitEdge
 	}
 
 	/**
@@ -246,6 +275,22 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 	}
 
 	/**
+	 * Gathers the cavity of a located candidate, from the triangle it lies in or the two beside the
+	 * unconstrained half-edge it lies on.
+	 *
+	 * @param Int     candidate The appended candidate.
+	 * @param Boolean onEdge    Whether [at] is the unconstrained half-edge it lies on rather than the triangle it lies in.
+	 * @param Int     at        The half-edge or triangle.
+	 */
+	fun collectCavityAt(candidate: Int, onEdge: Boolean, at: Int) {
+		if (onEdge) {
+			collectCavity(candidate, at / 3, store.twin[at] / 3)
+		} else {
+			collectCavity(candidate, at, -1)
+		}
+	}
+
+	/**
 	 * Inserts a located candidate and restores the Delaunay property around it.
 	 *
 	 * @param Int     candidate The appended candidate.
@@ -254,6 +299,62 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 	 */
 	fun insert(candidate: Int, onEdge: Boolean, at: Int) {
 		inserter.insertLocated(candidate, onEdge, at)
+	}
+
+	/**
+	 * Splits a constrained edge near a point on or beside it, keeping clear of every vertex the split
+	 * would join.  A boundary edge tries its outward side first and splits only where the check allows;
+	 * [lastSplitRefusedByCheck] then says whether the check turned a candidate down.
+	 *
+	 * @param Int                 halfEdge          The constrained half-edge.
+	 * @param Double              targetX           The point's x.
+	 * @param Double              targetY           The point's y.
+	 * @param Double              separationSquared The squared separation floor.
+	 * @param BoundarySplitCheck? check             Asked before a boundary edge splits; null allows every split.
+	 * @return Int The new vertex, or [NO_VERTEX].
+	 */
+	fun splitConstraint(halfEdge: Int, targetX: Double, targetY: Double, separationSquared: Double, check: BoundarySplitCheck?): Int {
+		val start = store.origin[halfEdge]
+		val end = store.destination(halfEdge)
+		val isBoundary = store.boundaryCount[halfEdge] % 2 == 1
+		val outwardIsLeft = if (isBoundary) !store.regions[halfEdge / 3] else null
+		val boundaryCheck = if (isBoundary) check else null
+		lastSplitRefusedByCheck = false
+
+		return splitSegment(start, end, targetX, targetY, outwardIsLeft) { candidate, cutsInside, nearestNeighborDistanceSquared ->
+			approvesSplit(start, end, candidate, cutsInside, nearestNeighborDistanceSquared, separationSquared, boundaryCheck)
+		}
+	}
+
+	/**
+	 * Whether a constraint split's candidate may go in: far enough from every vertex it would join, and
+	 * allowed by the check when it splits a boundary edge.
+	 *
+	 * @param Int                 start                          The edge's start.
+	 * @param Int                 end                            Its end.
+	 * @param Int                 candidate                      The appended candidate.
+	 * @param Boolean             cutsInside                     Whether it lies on the boundary's inside.
+	 * @param Double              nearestNeighborDistanceSquared The squared distance to its nearest would-be neighbor.
+	 * @param Double              separationSquared              The squared separation floor.
+	 * @param BoundarySplitCheck? check                          The check, for a boundary edge.
+	 * @return Boolean True to insert it.
+	 */
+	private fun approvesSplit(start: Int, end: Int, candidate: Int, cutsInside: Boolean, nearestNeighborDistanceSquared: Double, separationSquared: Double, check: BoundarySplitCheck?): Boolean {
+		if (nearestNeighborDistanceSquared < separationSquared) {
+			return false
+		}
+
+		if (check == null) {
+			return true
+		}
+
+		val accepted = check.accepts(store.pointX(start), store.pointY(start), store.pointX(end), store.pointY(end), store.pointX(candidate), store.pointY(candidate), cutsInside)
+
+		if (!accepted) {
+			lastSplitRefusedByCheck = true
+		}
+
+		return accepted
 	}
 
 	/**
@@ -280,9 +381,48 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 			return NO_VERTEX
 		}
 
-		var collinear = NO_CANDIDATE
-		var left = NO_CANDIDATE
-		var right = NO_CANDIDATE
+		val candidates = gatherSplitCandidates(halfEdge, roundedX, roundedY)
+		val collinear = candidates[SPLIT_ON_SEGMENT]
+
+		if (collinear != NO_CANDIDATE) {
+			val inserted = trySplitCandidate(start, end, collinear, SPLIT_ON_SEGMENT, false, approval)
+
+			if (inserted != NO_VERTEX) {
+				return inserted
+			}
+		}
+
+		val outwardFirst = outwardIsLeft ?: true
+
+		for (isLeft in booleanArrayOf(outwardFirst, !outwardFirst)) {
+			val placement = if (isLeft) SPLIT_LEFT else SPLIT_RIGHT
+			val packed = candidates[placement]
+
+			if (packed == NO_CANDIDATE) {
+				continue
+			}
+
+			val cutsInside = outwardIsLeft != null && isLeft != outwardIsLeft
+			val inserted = trySplitCandidate(start, end, packed, placement, cutsInside, approval)
+
+			if (inserted != NO_VERTEX) {
+				return inserted
+			}
+		}
+
+		return NO_VERTEX
+	}
+
+	/**
+	 * The first valid split candidate of each kind among a rounded point and its eight Float neighbors.
+	 *
+	 * @param Int   halfEdge The edge, start -> end.
+	 * @param Float roundedX The rounded split point's x.
+	 * @param Float roundedY The rounded split point's y.
+	 * @return LongArray Per kind (SPLIT_ON_SEGMENT, SPLIT_LEFT, SPLIT_RIGHT), the packed candidate or [NO_CANDIDATE].
+	 */
+	private fun gatherSplitCandidates(halfEdge: Int, roundedX: Float, roundedY: Float): LongArray {
+		val candidates = LongArray(SPLIT_KIND_COUNT) { NO_CANDIDATE }
 
 		for (stepX in CANDIDATE_STEPS) {
 			for (stepY in CANDIDATE_STEPS) {
@@ -293,56 +433,15 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 					continue
 				}
 
-				val packed = packFloatPoint(candidateX, candidateY)
+				val placement = classifySplitCandidate(halfEdge, candidateX.toDouble(), candidateY.toDouble())
 
-				when (classifySplitCandidate(halfEdge, candidateX.toDouble(), candidateY.toDouble())) {
-					SPLIT_ON_SEGMENT -> {
-						if (collinear == NO_CANDIDATE) {
-							collinear = packed
-						}
-					}
-
-					SPLIT_LEFT -> {
-						if (left == NO_CANDIDATE) {
-							left = packed
-						}
-					}
-
-					SPLIT_RIGHT -> {
-						if (right == NO_CANDIDATE) {
-							right = packed
-						}
-					}
+				if (placement != SPLIT_INVALID && candidates[placement] == NO_CANDIDATE) {
+					candidates[placement] = packFloatPoint(candidateX, candidateY)
 				}
 			}
 		}
 
-		val outwardFirst = outwardIsLeft ?: true
-		val firstBeside = if (outwardFirst) left else right
-		val secondBeside = if (outwardFirst) right else left
-
-		if (collinear != NO_CANDIDATE) {
-			val inserted = trySplitCandidate(start, end, collinear, SPLIT_ON_SEGMENT, false, approval)
-
-			if (inserted != NO_VERTEX) {
-				return inserted
-			}
-		}
-
-		for ((packed, isLeft) in listOf(firstBeside to outwardFirst, secondBeside to !outwardFirst)) {
-			if (packed == NO_CANDIDATE) {
-				continue
-			}
-
-			val cutsInside = outwardIsLeft != null && isLeft != outwardIsLeft
-			val inserted = trySplitCandidate(start, end, packed, if (isLeft) SPLIT_LEFT else SPLIT_RIGHT, cutsInside, approval)
-
-			if (inserted != NO_VERTEX) {
-				return inserted
-			}
-		}
-
-		return NO_VERTEX
+		return candidates
 	}
 
 	/**
@@ -586,74 +685,63 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 				continue
 			}
 
-			if (!store.regions[exit / 3]) {
-				return LOCATED_UNRESOLVED
-			}
-
-			// The segment passes between the two spokes, so only the far edge can hold the candidate.
-			val side = store.orient(store.origin[exit], store.destination(exit), candidate)
-
-			if (side > 0.0) {
-				locatedAt = exit / 3
-
-				return LOCATED_INSIDE
-			}
-
-			if (side == 0.0) {
-				return placeOnEdge(exit)
-			}
-
-			val crossing = crossEdge(exit)
-
-			if (crossing == HalfEdgeTriangulation.NO_HALF_EDGE) {
-				return lastStop
-			}
-
-			locatedAt = crossing
-
-			return STILL_BEYOND
+			return placeAcrossFarEdge(exit, candidate)
 		}
 
 		return LOCATED_UNRESOLVED
 	}
 
 	/**
+	 * Places the candidate against the far edge of the triangle the segment enters from a vertex: the
+	 * segment passes between the two spokes, so only that edge can hold the candidate.
+	 *
+	 * @param Int exit      The triangle's far edge, the one the segment crosses.
+	 * @param Int candidate The candidate.
+	 * @return Int A LOCATED_* result, or [STILL_BEYOND] with [locatedAt] set to the half-edge entered next.
+	 */
+	private fun placeAcrossFarEdge(exit: Int, candidate: Int): Int {
+		if (!store.regions[exit / 3]) {
+			return LOCATED_UNRESOLVED
+		}
+
+		val side = store.orient(store.origin[exit], store.destination(exit), candidate)
+
+		if (side > 0.0) {
+			locatedAt = exit / 3
+
+			return LOCATED_INSIDE
+		}
+
+		if (side == 0.0) {
+			return placeOnEdge(exit)
+		}
+
+		val crossing = crossEdge(exit)
+
+		if (crossing == HalfEdgeTriangulation.NO_HALF_EDGE) {
+			return lastStop
+		}
+
+		locatedAt = crossing
+
+		return STILL_BEYOND
+	}
+
+	/**
 	 * Where a candidate lies along an edge running from a vertex on the walk's segment, toward the
-	 * candidate.  Exact: on a line, one coordinate the line spans orders its points.
+	 * candidate, exactly (see [compareAlongLine]).
 	 *
 	 * @param Int from      The vertex the edge leaves.
 	 * @param Int to        The edge's far end, ahead on the segment.
 	 * @param Int candidate The candidate, ahead on the segment.
 	 * @return Int Negative before [to], zero at it, positive beyond it.
 	 */
-	private fun orderAlong(from: Int, to: Int, candidate: Int): Int {
-		val alongX = store.pointX(to) - store.pointX(from)
-
-		if (alongX != 0.0) {
-			return orderOnAxis(store.pointX(candidate), store.pointX(to), alongX > 0.0)
-		}
-
-		return orderOnAxis(store.pointY(candidate), store.pointY(to), store.pointY(to) - store.pointY(from) > 0.0)
-	}
+	private fun orderAlong(from: Int, to: Int, candidate: Int): Int =
+		compareAlongLine(store.pointX(to) - store.pointX(from), store.pointY(to) - store.pointY(from), store.pointX(to), store.pointY(to), store.pointX(candidate), store.pointY(candidate))
 
 	/**
-	 * Where one coordinate lies against another along an axis the segment runs up or down.
-	 *
-	 * @param Double  candidate  The candidate's coordinate.
-	 * @param Double  edgeEnd    The edge end's coordinate.
-	 * @param Boolean increasing Whether the segment runs toward larger coordinates.
-	 * @return Int Negative before the edge end, zero at it, positive beyond it.
-	 */
-	private fun orderOnAxis(candidate: Double, edgeEnd: Double, increasing: Boolean): Int {
-		if (candidate == edgeEnd) {
-			return 0
-		}
-
-		return if ((candidate < edgeEnd) == increasing) -1 else 1
-	}
-
-	/**
-	 * Whether a point collinear with an edge lies strictly between its ends.
+	 * Whether a point collinear with an edge lies strictly between its ends, exactly (see
+	 * [compareAlongLine]).
 	 *
 	 * @param Int    start  The edge's start.
 	 * @param Int    end    The edge's end.
@@ -662,17 +750,11 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 	 * @return Boolean True inside the open segment.
 	 */
 	private fun strictlyBetween(start: Int, end: Int, pointX: Double, pointY: Double): Boolean {
-		val startX = store.pointX(start)
-		val endX = store.pointX(end)
+		val directionX = store.pointX(end) - store.pointX(start)
+		val directionY = store.pointY(end) - store.pointY(start)
 
-		if (startX != endX) {
-			return pointX > minOf(startX, endX) && pointX < maxOf(startX, endX)
-		}
-
-		val startY = store.pointY(start)
-		val endY = store.pointY(end)
-
-		return pointY > minOf(startY, endY) && pointY < maxOf(startY, endY)
+		return compareAlongLine(directionX, directionY, store.pointX(start), store.pointY(start), pointX, pointY) > 0 &&
+			compareAlongLine(directionX, directionY, store.pointX(end), store.pointY(end), pointX, pointY) < 0
 	}
 
 	/**
@@ -681,7 +763,7 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 	 * @param Int vertex The vertex.
 	 * @return Double Positive left of the segment's direction, negative right, zero on its line.
 	 */
-	private fun sideOfRay(vertex: Int): Double = orient2d(rayFromX, rayFromY, rayToX, rayToY, store.pointX(vertex), store.pointY(vertex), scratch)
+	private fun sideOfRay(vertex: Int): Double = store.orientOf(rayFromX, rayFromY, rayToX, rayToY, vertex)
 
 	/**
 	 * The side of an edge's line a point lies on.
@@ -692,7 +774,7 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 	 * @param Double pointY The point's y.
 	 * @return Double Positive left of start -> end.
 	 */
-	private fun sideOf(start: Int, end: Int, pointX: Double, pointY: Double): Double = orient2d(store.pointX(start), store.pointY(start), store.pointX(end), store.pointY(end), pointX, pointY, scratch)
+	private fun sideOf(start: Int, end: Int, pointX: Double, pointY: Double): Double = store.orientAt(pointX, pointY, start, end)
 
 	/**
 	 * Adds a vertex to the cavity's vertex list once.
@@ -736,6 +818,9 @@ internal class SteinerInsertion(private val store: HalfEdgeTriangulation) {
 
 		/** A split candidate strictly right of the segment, inside the triangle there. */
 		private const val SPLIT_RIGHT: Int = 2
+
+		/** The valid split candidate kinds, each an index below this. */
+		private const val SPLIT_KIND_COUNT: Int = 3
 
 		/** A split candidate that lies past the segment's ends or outside the triangle on its side. */
 		private const val SPLIT_INVALID: Int = 3

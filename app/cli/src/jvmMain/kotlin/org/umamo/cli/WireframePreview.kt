@@ -4,13 +4,11 @@ import org.umamo.format.art.LayerRaster
 import org.umamo.format.raster.RasterImage
 import org.umamo.geometry.mesh.PlanarTriangleMesh
 import org.umamo.geometry.mesh.forEachEdge
-import kotlin.math.PI
+import org.umamo.geometry.mesh.smallestAngleDegrees
 import kotlin.math.abs
-import kotlin.math.acos
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 /*
  * A mesh drawn over the art it was generated from, for a human to judge: the layer on a checkerboard,
@@ -61,7 +59,8 @@ internal fun renderWireframe(raster: LayerRaster, mesh: PlanarTriangleMesh, scal
 	canvas.paintBackground(raster, originX, originY, scale)
 
 	for (triangle in 0 until mesh.triangleCount) {
-		if (smallestAngleOf(mesh, triangle) < minimumAngle) {
+		// A degenerate triangle has no angle (NaN), so it is never tinted - as the report never counts it.
+		if (mesh.smallestAngleDegrees(triangle) < minimumAngle) {
 			canvas.fillTriangle(canvasCornersOf(mesh, triangle, originX, originY, scale), UNDER_TARGET_COLOR, UNDER_TARGET_OPACITY)
 		}
 	}
@@ -142,31 +141,6 @@ private fun canvasCornersOf(mesh: PlanarTriangleMesh, triangle: Int, originX: In
 	}
 
 	return corners
-}
-
-/**
- * A triangle's smallest angle, measured with acos (diagnostic only).
- *
- * @param PlanarTriangleMesh mesh     The mesh.
- * @param Int                triangle The triangle.
- * @return Double The smallest angle in degrees.
- */
-private fun smallestAngleOf(mesh: PlanarTriangleMesh, triangle: Int): Double {
-	var smallest = 180.0
-
-	for (corner in 0 until 3) {
-		val vertex = mesh.triangles[3 * triangle + corner]
-		val next = mesh.triangles[3 * triangle + (corner + 1) % 3]
-		val other = mesh.triangles[3 * triangle + (corner + 2) % 3]
-		val toNextX = (mesh.positions[2 * next] - mesh.positions[2 * vertex]).toDouble()
-		val toNextY = (mesh.positions[2 * next + 1] - mesh.positions[2 * vertex + 1]).toDouble()
-		val toOtherX = (mesh.positions[2 * other] - mesh.positions[2 * vertex]).toDouble()
-		val toOtherY = (mesh.positions[2 * other + 1] - mesh.positions[2 * vertex + 1]).toDouble()
-		val cosine = (toNextX * toOtherX + toNextY * toOtherY) / (sqrt(toNextX * toNextX + toNextY * toNextY) * sqrt(toOtherX * toOtherX + toOtherY * toOtherY))
-		smallest = minOf(smallest, acos(cosine.coerceIn(-1.0, 1.0)) * 180.0 / PI)
-	}
-
-	return smallest
 }
 
 /**

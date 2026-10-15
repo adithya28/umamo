@@ -1,5 +1,7 @@
 package org.umamo.geometry.triangulation.refine
 
+import org.umamo.geometry.triangulation.areaOf
+import org.umamo.geometry.triangulation.ringArea
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -33,7 +35,7 @@ class RefinementFuzzTest {
 			val result = refineValidated(points, boundaries, options = options)
 
 			assertRefinedMesh(points, result, options)
-			val expected = abs(areaOf(points, outerTriangles(outerCount))) - abs(areaOf(points, holeTriangles(outerCount, holeCount)))
+			val expected = abs(ringArea(points, 0, outerCount)) - abs(ringArea(points, outerCount, holeCount))
 			assertEquals(expected, areaOf(result.points, result.triangulation.triangles), 1e-3 * expected, "seed $seed keeps its area")
 		}
 	}
@@ -60,7 +62,7 @@ class RefinementFuzzTest {
 			val result = refineValidated(points, listOf(ringOf(0, outerCount)), options = options)
 
 			assertRefinedMesh(points, result, options)
-			val before = abs(areaOf(points, outerTriangles(outerCount)))
+			val before = abs(ringArea(points, 0, outerCount))
 			assertTrue(areaOf(result.points, result.triangulation.triangles) >= before - 1e-9 * before, "seed $seed: no sliver was cut out")
 		}
 	}
@@ -96,64 +98,5 @@ class RefinementFuzzTest {
 			assertRefinedMesh(points, result, options)
 			assertEquals(64.0, areaOf(result.points, result.triangulation.triangles), 1e-6)
 		}
-	}
-
-	/**
-	 * A star-shaped polygon around the origin: angles in order with jitter, radii in a band.
-	 *
-	 * @param Random random        The source.
-	 * @param Int    vertexCount   The number of vertices.
-	 * @param Double minimumRadius The smallest vertex radius.
-	 * @param Double maximumRadius The largest vertex radius.
-	 * @return DoubleArray The polygon's vertices, counterclockwise.
-	 */
-	private fun starPolygon(random: Random, vertexCount: Int, minimumRadius: Double, maximumRadius: Double): DoubleArray {
-		val polygon = DoubleArray(2 * vertexCount)
-
-		for (vertex in 0 until vertexCount) {
-			val angle = 2.0 * PI * (vertex + random.nextDouble(-0.3, 0.3)) / vertexCount
-			val radius = random.nextDouble(minimumRadius, maximumRadius)
-			polygon[2 * vertex] = radius * cos(angle)
-			polygon[2 * vertex + 1] = radius * sin(angle)
-		}
-
-		return polygon
-	}
-
-	/**
-	 * A fan over a star polygon from its first vertex - only its signed area is used, which a fan over
-	 * any simple polygon gives exactly.
-	 *
-	 * @param Int count The polygon's vertex count (it starts at index 0).
-	 * @return IntArray The fan's triangles.
-	 */
-	private fun outerTriangles(count: Int): IntArray = fanOver(0, count)
-
-	/**
-	 * The same fan over the hole polygon.
-	 *
-	 * @param Int first The hole's first index.
-	 * @param Int count Its vertex count.
-	 * @return IntArray The fan's triangles.
-	 */
-	private fun holeTriangles(first: Int, count: Int): IntArray = fanOver(first, count)
-
-	/**
-	 * A fan from a polygon's first vertex.
-	 *
-	 * @param Int first The first index.
-	 * @param Int count The vertex count.
-	 * @return IntArray Three indices per fan triangle.
-	 */
-	private fun fanOver(first: Int, count: Int): IntArray {
-		val triangles = IntArray(3 * (count - 2))
-
-		for (triangle in 0 until count - 2) {
-			triangles[3 * triangle] = first
-			triangles[3 * triangle + 1] = first + triangle + 1
-			triangles[3 * triangle + 2] = first + triangle + 2
-		}
-
-		return triangles
 	}
 }

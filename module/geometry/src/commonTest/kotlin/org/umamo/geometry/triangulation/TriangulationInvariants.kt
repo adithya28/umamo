@@ -317,15 +317,44 @@ internal fun assertConstrainedDelaunayTriangulation(points: DoubleArray, result:
  * @param Triangulation result The result.
  * @return Double The total area (every triangle is positively oriented, so it is a plain sum).
  */
-internal fun totalArea(points: DoubleArray, result: Triangulation): Double {
+internal fun totalArea(points: DoubleArray, result: Triangulation): Double = areaOf(points, result.triangles)
+
+/**
+ * The summed signed area of a triangle list.
+ *
+ * @param DoubleArray points    The points.
+ * @param IntArray    triangles Three indices per triangle.
+ * @return Double The area.
+ */
+internal fun areaOf(points: DoubleArray, triangles: IntArray): Double {
 	var doubledArea = 0.0
 
-	for (triangleIndex in 0 until result.triangleCount) {
-		val first = result.triangles[3 * triangleIndex]
-		val second = result.triangles[3 * triangleIndex + 1]
-		val third = result.triangles[3 * triangleIndex + 2]
+	for (triangle in 0 until triangles.size / 3) {
+		val first = triangles[3 * triangle]
+		val second = triangles[3 * triangle + 1]
+		val third = triangles[3 * triangle + 2]
 		doubledArea += (points[2 * second] - points[2 * first]) * (points[2 * third + 1] - points[2 * first + 1]) -
 			(points[2 * second + 1] - points[2 * first + 1]) * (points[2 * third] - points[2 * first])
+	}
+
+	return doubledArea / 2.0
+}
+
+/**
+ * A ring's signed area by the shoelace formula: positive counterclockwise.
+ *
+ * @param DoubleArray points The points, x0, y0, ...
+ * @param Int         first  The ring's first point.
+ * @param Int         count  Its point count; by default every point from [first] on.
+ * @return Double The signed area.
+ */
+internal fun ringArea(points: DoubleArray, first: Int = 0, count: Int = points.size / 2 - first): Double {
+	var doubledArea = 0.0
+
+	for (vertex in 0 until count) {
+		val current = first + vertex
+		val next = first + (vertex + 1) % count
+		doubledArea += points[2 * current] * points[2 * next + 1] - points[2 * next] * points[2 * current + 1]
 	}
 
 	return doubledArea / 2.0

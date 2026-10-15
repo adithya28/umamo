@@ -224,25 +224,8 @@ private fun countUnderTarget(store: HalfEdgeTriangulation, targetDegrees: Double
 		return 0
 	}
 
-	val targetSineSquared = sineSquaredOfDegrees(targetDegrees)
-	val shape = TriangleShape()
 	var count = 0
-
-	for (triangle in 0 until store.triangleCount) {
-		if (!store.regions[triangle]) {
-			continue
-		}
-
-		val base = 3 * triangle
-		val first = store.origin[base]
-		val second = store.origin[base + 1]
-		val third = store.origin[base + 2]
-		shape.measure(store.pointX(first), store.pointY(first), store.pointX(second), store.pointY(second), store.pointX(third), store.pointY(third))
-
-		if (shape.smallestSineSquared < targetSineSquared) {
-			count++
-		}
-	}
+	store.forEachInsideBelow(sineSquaredOfDegrees(targetDegrees), TriangleShape()) { _, _, _ -> count++ }
 
 	return count
 }

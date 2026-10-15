@@ -37,6 +37,7 @@ import org.umamo.runtime.model.PuppetModel
 import org.umamo.runtime.model.applyUvAffine
 import org.umamo.runtime.model.invertUvAffine
 import org.umamo.runtime.model.storedToArtAffineForTile
+import org.umamo.ui.document.blendedAt
 import org.umamo.ui.model.repack.MAX_IMPORT_PAGE_SIZE
 import java.util.concurrent.CountDownLatch
 import kotlin.math.abs
@@ -803,20 +804,8 @@ class GenerateMeshFlowTest {
 		var largest = 0f
 
 		for (vertex in 0 until old.vertexCount) {
-			val location = locator.locate(old.uvs[2 * vertex] * 64.0, old.uvs[2 * vertex + 1] * 64.0) ?: continue
-
-			if (!location.isInside) {
-				continue
-			}
-
-			val first = new.indices[3 * location.triangleIndex]
-			val second = new.indices[3 * location.triangleIndex + 1]
-			val third = new.indices[3 * location.triangleIndex + 2]
-
-			for (axis in 0 until 2) {
-				val interpolated = location.weightA * new.positions[2 * first + axis] + location.weightB * new.positions[2 * second + axis] + location.weightC * new.positions[2 * third + axis]
-				largest = maxOf(largest, abs(interpolated.toFloat() - old.positions[2 * vertex + axis]))
-			}
+			val point = blendedAt(locator, new.indices, new.positions, old.uvs[2 * vertex] * 64.0, old.uvs[2 * vertex + 1] * 64.0) ?: continue
+			largest = maxOf(largest, abs(point.first.toFloat() - old.positions[2 * vertex]), abs(point.second.toFloat() - old.positions[2 * vertex + 1]))
 		}
 
 		return largest

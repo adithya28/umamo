@@ -56,6 +56,30 @@ internal fun inDisc(column: Int, row: Int, centerX: Double, centerY: Double, rad
 }
 
 /**
+ * A mesh generated and checked with the same settings: the result, and the mesh [assertValidArtMesh]
+ * found valid.
+ *
+ * @property ArtMeshResult      result The result.
+ * @property PlanarTriangleMesh mesh   The mesh.
+ */
+internal data class ValidatedArtMesh(val result: ArtMeshResult, val mesh: PlanarTriangleMesh)
+
+/**
+ * Generates a raster's mesh and asserts it valid against the same settings and pins.
+ *
+ * @param LayerRaster     raster          The raster.
+ * @param ArtMeshSettings settings        The settings.
+ * @param DoubleArray     pins            The pins.
+ * @param DoubleArray     pinSurroundings The pins' surroundings.
+ * @return ValidatedArtMesh The result and its mesh.
+ */
+internal fun generateValidated(raster: LayerRaster, settings: ArtMeshSettings, pins: DoubleArray = DoubleArray(0), pinSurroundings: DoubleArray = DoubleArray(0)): ValidatedArtMesh {
+	val result = generateArtMesh(raster, settings, pins, pinSurroundings)
+
+	return ValidatedArtMesh(result, assertValidArtMesh(raster, settings, result, pins))
+}
+
+/**
  * Checks a generated mesh against everything the mesher promises, with oracles that share no code
  * with it: every triangle positively oriented on its Float coordinates, every directed edge used
  * once, every vertex used and distinct, pins at their exact Float positions, every art pixel's

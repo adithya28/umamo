@@ -29,3 +29,12 @@ public fun pairFirst(pair: Long): Int = (pair ushr 32).toInt()
  * @return Int The second vertex.
  */
 public fun pairSecond(pair: Long): Int = pair.toInt()
+
+/**
+ * Packs an undirected pair, the lower vertex first, so either order names the same edge.
+ *
+ * @param Int first  One vertex.
+ * @param Int second The other.
+ * @return Long The key.
+ */
+public fun packUndirectedPair(first: Int, second: Int): Long = packVertexPair(minOf(first, second), maxOf(first, second))

@@ -148,24 +148,6 @@ class RegionClassificationTest {
 		return polygon
 	}
 
-	/**
-	 * A ring's signed area by the shoelace formula.
-	 *
-	 * @param DoubleArray ring The ring's vertices.
-	 * @return Double The signed area.
-	 */
-	private fun ringArea(ring: DoubleArray): Double {
-		val vertexCount = ring.size / 2
-		var doubledArea = 0.0
-
-		for (vertex in 0 until vertexCount) {
-			val next = (vertex + 1) % vertexCount
-			doubledArea += ring[2 * vertex] * ring[2 * next + 1] - ring[2 * next] * ring[2 * vertex + 1]
-		}
-
-		return doubledArea / 2.0
-	}
-
 	private companion object {
 		/** A 10 x 10 square at the origin, points 0..3. */
 		val OUTER_SQUARE = doubleArrayOf(0.0, 0.0, 10.0, 0.0, 10.0, 10.0, 0.0, 10.0)

@@ -80,6 +80,76 @@ private const val SMALLEST_VERTEX_BUDGET: Int = 16
 /** The largest vertex budget the strip offers: a delta texture this tall draws on any desktop GPU and most tablets. */
 internal const val MAXIMUM_VERTEX_BUDGET: Int = 4096
 
+/** The fewest outline points one ring may be asked for: a ring needs three to enclose anything. */
+private const val SMALLEST_OUTLINE_POINTS: Int = 3
+
+/** The largest alpha threshold, and the cap on the atlas's own. */
+private const val MAXIMUM_ALPHA_THRESHOLD: Int = 255
+
+/**
+ * One decimal row of the strip: its key (also its label key), its range, the step its field nudges by,
+ * and its unit.  The range is written once, here, for both the row and the clamp.
+ *
+ * @property String        key     The row's key.
+ * @property Double        minimum The smallest value, also what a value that is not finite falls back to.
+ * @property Double        maximum The largest value.
+ * @property Float         step    The step the field nudges by.
+ * @property ParameterUnit unit    The row's unit.
+ */
+private class DecimalRow(val key: String, val minimum: Double, val maximum: Double, val step: Float, val unit: ParameterUnit) {
+	/**
+	 * A value clamped into the range; one that is not finite falls back to the floor.
+	 *
+	 * @param Double value The value.
+	 * @return Double The clamped value.
+	 */
+	fun clamp(value: Double): Double = (if (value.isFinite()) value else minimum).coerceIn(minimum, maximum)
+
+	/**
+	 * The row showing a value.
+	 *
+	 * @param Double value The value, already clamped.
+	 * @return OperatorParameter The row.
+	 */
+	fun row(value: Double): OperatorParameter = OperatorParameter.FloatParameter(key, key, value.toFloat(), minimum.toFloat(), maximum.toFloat(), step, unit)
+
+	/**
+	 * The value the strip's rows carry for this row.
+	 *
+	 * @param List<OperatorParameter> parameters The strip's rows.
+	 * @param Double                  fallback   The value when no row carries one.
+	 * @return Double The value, not yet clamped.
+	 */
+	fun read(parameters: List<OperatorParameter>, fallback: Double): Double = parameters.floatValue(key, fallback.toFloat()).toDouble()
+}
+
+/** The Outline Spacing row, art pixels. */
+private val OUTLINE_SPACING_ROW = DecimalRow(MeshGenerationParameterKeys.OUTLINE_SPACING, 1.0, MAXIMUM_SPACING.toDouble(), 1f, ParameterUnit.Pixels)
+
+/** The Interior Spacing row, art pixels. */
+private val INTERIOR_SPACING_ROW = DecimalRow(MeshGenerationParameterKeys.INTERIOR_SPACING, 1.0, MAXIMUM_SPACING.toDouble(), 1f, ParameterUnit.Pixels)
+
+/** The Outer Margin row, art pixels. */
+private val OUTER_MARGIN_ROW = DecimalRow(MeshGenerationParameterKeys.OUTER_MARGIN, 0.0, MAXIMUM_OUTER_MARGIN.toDouble(), 1f, ParameterUnit.Pixels)
+
+/** The Inner Margin row, art pixels. */
+private val INNER_MARGIN_ROW = DecimalRow(MeshGenerationParameterKeys.INNER_MARGIN, 0.0, MAXIMUM_INNER_MARGIN.toDouble(), 1f, ParameterUnit.Pixels)
+
+/** The Minimum Margin row, art pixels, from the smallest the mesher accepts. */
+private val MINIMUM_MARGIN_ROW = DecimalRow(MeshGenerationParameterKeys.MINIMUM_MARGIN, SMALLEST_MINIMUM_MARGIN.toDouble(), MAXIMUM_OUTER_MARGIN.toDouble(), 0.5f, ParameterUnit.Pixels)
+
+/** The Minimum Angle row, degrees; 0 refines nothing. */
+private val MINIMUM_ANGLE_ROW = DecimalRow(MeshGenerationParameterKeys.MINIMUM_ANGLE, 0.0, MAXIMUM_ART_MESH_MINIMUM_ANGLE, 1f, ParameterUnit.Degrees)
+
+/** The Interior Thinning Limit row, outline spacings. */
+private val INTERIOR_THINNING_LIMIT_ROW = DecimalRow(MeshGenerationParameterKeys.INTERIOR_THINNING_LIMIT, MINIMUM_ART_MESH_INTERIOR_THINNING_LIMIT, MAXIMUM_INTERIOR_THINNING_LIMIT.toDouble(), 0.5f, ParameterUnit.None)
+
+/** The Strand Width row, art pixels. */
+private val STRAND_WIDTH_ROW = DecimalRow(MeshGenerationParameterKeys.STRAND_WIDTH, SMALLEST_STRAND_WIDTH.toDouble(), MAXIMUM_STRAND_WIDTH.toDouble(), 1f, ParameterUnit.Pixels)
+
+/** The Deformation Tolerance row, art pixels. */
+private val DEFORMATION_TOLERANCE_ROW = DecimalRow(MeshGenerationParameterKeys.DEFORMATION_TOLERANCE, MINIMUM_ART_MESH_DEFORMATION_TOLERANCE, MAXIMUM_DEFORMATION_TOLERANCE.toDouble(), 0.1f, ParameterUnit.Pixels)
+
 /**
  * What one Generate Mesh from Art run uses: the preset its rows were last seeded from, and the
  * settings the mesher receives.
@@ -109,21 +179,21 @@ internal data class MeshGenerationOptions(val preset: ArtMeshPreset, val setting
  */
 internal fun clampedMeshSettings(settings: ArtMeshSettings, minimumAlphaThreshold: Int): ArtMeshSettings =
 	clampedMeshSettingsOf(
-		settings.alphaThreshold,
-		settings.outlineSpacing,
-		settings.interiorSpacing,
-		settings.outerMargin,
-		settings.innerMargin,
-		settings.minimumMargin,
-		settings.minimumOutlinePoints,
-		settings.vertexBudget,
-		settings.fillHoles,
-		settings.strandRungs,
-		settings.strandWidth,
-		settings.minimumAngle,
-		settings.deformationTolerance,
-		settings.interiorThinningLimit,
-		minimumAlphaThreshold,
+		alphaThreshold = settings.alphaThreshold,
+		outlineSpacing = settings.outlineSpacing,
+		interiorSpacing = settings.interiorSpacing,
+		outerMargin = settings.outerMargin,
+		innerMargin = settings.innerMargin,
+		minimumMargin = settings.minimumMargin,
+		minimumOutlinePoints = settings.minimumOutlinePoints,
+		vertexBudget = settings.vertexBudget,
+		fillHoles = settings.fillHoles,
+		strandRungs = settings.strandRungs,
+		strandWidth = settings.strandWidth,
+		minimumAngle = settings.minimumAngle,
+		deformationTolerance = settings.deformationTolerance,
+		interiorThinningLimit = settings.interiorThinningLimit,
+		minimumAlphaThreshold = minimumAlphaThreshold,
 	)
 
 /**
@@ -165,34 +235,33 @@ private fun clampedMeshSettingsOf(
 	interiorThinningLimit: Double,
 	minimumAlphaThreshold: Int,
 ): ArtMeshSettings {
-	val minimumPoints = minimumOutlinePoints.coerceIn(3, MAXIMUM_OUTLINE_POINTS)
+	val minimumPoints = minimumOutlinePoints.coerceIn(SMALLEST_OUTLINE_POINTS, MAXIMUM_OUTLINE_POINTS)
 
 	return ArtMeshSettings(
-		alphaThreshold = alphaThreshold.coerceIn(minimumAlphaThreshold.coerceIn(1, 255), 255),
-		outlineSpacing = finiteOr(outlineSpacing, 1.0).coerceIn(1.0, MAXIMUM_SPACING.toDouble()),
-		interiorSpacing = finiteOr(interiorSpacing, 1.0).coerceIn(1.0, MAXIMUM_SPACING.toDouble()),
-		outerMargin = finiteOr(outerMargin, 0.0).coerceIn(0.0, MAXIMUM_OUTER_MARGIN.toDouble()),
-		innerMargin = finiteOr(innerMargin, 0.0).coerceIn(0.0, MAXIMUM_INNER_MARGIN.toDouble()),
-		minimumMargin = finiteOr(minimumMargin, SMALLEST_MINIMUM_MARGIN.toDouble()).coerceIn(SMALLEST_MINIMUM_MARGIN.toDouble(), MAXIMUM_OUTER_MARGIN.toDouble()),
+		alphaThreshold = alphaThreshold.coerceIn(alphaThresholdFloor(minimumAlphaThreshold), MAXIMUM_ALPHA_THRESHOLD),
+		outlineSpacing = OUTLINE_SPACING_ROW.clamp(outlineSpacing),
+		interiorSpacing = INTERIOR_SPACING_ROW.clamp(interiorSpacing),
+		outerMargin = OUTER_MARGIN_ROW.clamp(outerMargin),
+		innerMargin = INNER_MARGIN_ROW.clamp(innerMargin),
+		minimumMargin = MINIMUM_MARGIN_ROW.clamp(minimumMargin),
 		minimumOutlinePoints = minimumPoints,
 		vertexBudget = vertexBudget.coerceIn(maxOf(SMALLEST_VERTEX_BUDGET, minimumPoints), MAXIMUM_VERTEX_BUDGET),
 		fillHoles = fillHoles,
 		strandRungs = strandRungs,
-		strandWidth = finiteOr(strandWidth, SMALLEST_STRAND_WIDTH.toDouble()).coerceIn(SMALLEST_STRAND_WIDTH.toDouble(), MAXIMUM_STRAND_WIDTH.toDouble()),
-		minimumAngle = finiteOr(minimumAngle, 0.0).coerceIn(0.0, MAXIMUM_ART_MESH_MINIMUM_ANGLE),
-		deformationTolerance = finiteOr(deformationTolerance, MINIMUM_ART_MESH_DEFORMATION_TOLERANCE).coerceIn(MINIMUM_ART_MESH_DEFORMATION_TOLERANCE, MAXIMUM_DEFORMATION_TOLERANCE.toDouble()),
-		interiorThinningLimit = finiteOr(interiorThinningLimit, MINIMUM_ART_MESH_INTERIOR_THINNING_LIMIT).coerceIn(MINIMUM_ART_MESH_INTERIOR_THINNING_LIMIT, MAXIMUM_INTERIOR_THINNING_LIMIT.toDouble()),
+		strandWidth = STRAND_WIDTH_ROW.clamp(strandWidth),
+		minimumAngle = MINIMUM_ANGLE_ROW.clamp(minimumAngle),
+		deformationTolerance = DEFORMATION_TOLERANCE_ROW.clamp(deformationTolerance),
+		interiorThinningLimit = INTERIOR_THINNING_LIMIT_ROW.clamp(interiorThinningLimit),
 	)
 }
 
 /**
- * A value, or a fallback when it is not finite.
+ * The alpha threshold's floor: the atlas's own, kept inside the threshold's range.
  *
- * @param Double value    The value.
- * @param Double fallback The fallback.
- * @return Double The value when finite, else the fallback.
+ * @param Int minimumAlphaThreshold The atlas's alpha threshold.
+ * @return Int The floor.
  */
-private fun finiteOr(value: Double, fallback: Double): Double = if (value.isFinite()) value else fallback
+private fun alphaThresholdFloor(minimumAlphaThreshold: Int): Int = minimumAlphaThreshold.coerceIn(1, MAXIMUM_ALPHA_THRESHOLD)
 
 /**
  * The strip's rows for a run with [options].
@@ -211,51 +280,22 @@ internal fun meshGenerationParameters(options: MeshGenerationOptions, minimumAlp
 			options.preset.key,
 			ArtMeshPreset.entries.map { preset -> ParameterChoice(preset.key, MeshGenerationParameterKeys.PRESET_CHOICE_PREFIX + preset.key) },
 		),
-		OperatorParameter.IntParameter(MeshGenerationParameterKeys.ALPHA_THRESHOLD, MeshGenerationParameterKeys.ALPHA_THRESHOLD, settings.alphaThreshold, minimumAlphaThreshold.coerceIn(1, 255), 255),
-		pixelsRow(MeshGenerationParameterKeys.OUTLINE_SPACING, settings.outlineSpacing, 1f, MAXIMUM_SPACING),
-		pixelsRow(MeshGenerationParameterKeys.INTERIOR_SPACING, settings.interiorSpacing, 1f, MAXIMUM_SPACING),
-		pixelsRow(MeshGenerationParameterKeys.OUTER_MARGIN, settings.outerMargin, 0f, MAXIMUM_OUTER_MARGIN),
-		pixelsRow(MeshGenerationParameterKeys.INNER_MARGIN, settings.innerMargin, 0f, MAXIMUM_INNER_MARGIN),
-		pixelsRow(MeshGenerationParameterKeys.MINIMUM_MARGIN, settings.minimumMargin, SMALLEST_MINIMUM_MARGIN, MAXIMUM_OUTER_MARGIN, step = 0.5f),
-		OperatorParameter.IntParameter(MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS, MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS, settings.minimumOutlinePoints, 3, MAXIMUM_OUTLINE_POINTS),
-		OperatorParameter.FloatParameter(
-			MeshGenerationParameterKeys.MINIMUM_ANGLE,
-			MeshGenerationParameterKeys.MINIMUM_ANGLE,
-			settings.minimumAngle.toFloat(),
-			0f,
-			MAXIMUM_ART_MESH_MINIMUM_ANGLE.toFloat(),
-			1f,
-			ParameterUnit.Degrees,
-		),
+		OperatorParameter.IntParameter(MeshGenerationParameterKeys.ALPHA_THRESHOLD, MeshGenerationParameterKeys.ALPHA_THRESHOLD, settings.alphaThreshold, alphaThresholdFloor(minimumAlphaThreshold), MAXIMUM_ALPHA_THRESHOLD),
+		OUTLINE_SPACING_ROW.row(settings.outlineSpacing),
+		INTERIOR_SPACING_ROW.row(settings.interiorSpacing),
+		OUTER_MARGIN_ROW.row(settings.outerMargin),
+		INNER_MARGIN_ROW.row(settings.innerMargin),
+		MINIMUM_MARGIN_ROW.row(settings.minimumMargin),
+		OperatorParameter.IntParameter(MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS, MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS, settings.minimumOutlinePoints, SMALLEST_OUTLINE_POINTS, MAXIMUM_OUTLINE_POINTS),
+		MINIMUM_ANGLE_ROW.row(settings.minimumAngle),
 		OperatorParameter.IntParameter(MeshGenerationParameterKeys.VERTEX_BUDGET, MeshGenerationParameterKeys.VERTEX_BUDGET, settings.vertexBudget, SMALLEST_VERTEX_BUDGET, MAXIMUM_VERTEX_BUDGET, step = 16),
-		OperatorParameter.FloatParameter(
-			MeshGenerationParameterKeys.INTERIOR_THINNING_LIMIT,
-			MeshGenerationParameterKeys.INTERIOR_THINNING_LIMIT,
-			settings.interiorThinningLimit.toFloat(),
-			MINIMUM_ART_MESH_INTERIOR_THINNING_LIMIT.toFloat(),
-			MAXIMUM_INTERIOR_THINNING_LIMIT,
-			0.5f,
-			ParameterUnit.None,
-		),
+		INTERIOR_THINNING_LIMIT_ROW.row(settings.interiorThinningLimit),
 		OperatorParameter.BooleanParameter(MeshGenerationParameterKeys.FILL_HOLES, MeshGenerationParameterKeys.FILL_HOLES, settings.fillHoles),
 		OperatorParameter.BooleanParameter(MeshGenerationParameterKeys.STRAND_RUNGS, MeshGenerationParameterKeys.STRAND_RUNGS, settings.strandRungs),
-		pixelsRow(MeshGenerationParameterKeys.STRAND_WIDTH, settings.strandWidth, SMALLEST_STRAND_WIDTH, MAXIMUM_STRAND_WIDTH),
-		pixelsRow(MeshGenerationParameterKeys.DEFORMATION_TOLERANCE, settings.deformationTolerance, MINIMUM_ART_MESH_DEFORMATION_TOLERANCE.toFloat(), MAXIMUM_DEFORMATION_TOLERANCE, step = 0.1f),
+		STRAND_WIDTH_ROW.row(settings.strandWidth),
+		DEFORMATION_TOLERANCE_ROW.row(settings.deformationTolerance),
 	)
 }
-
-/**
- * One row of art pixels.
- *
- * @param String key     The row's key, also its label key.
- * @param Double value   The value.
- * @param Float  minimum The smallest value.
- * @param Float  maximum The largest value.
- * @param Float  step    The step the field nudges by.
- * @return OperatorParameter The row.
- */
-private fun pixelsRow(key: String, value: Double, minimum: Float, maximum: Float, step: Float = 1f): OperatorParameter =
-	OperatorParameter.FloatParameter(key, key, value.toFloat(), minimum, maximum, step, ParameterUnit.Pixels)
 
 /**
  * The options the strip's rows describe, over [fallback] for anything a row does not carry, clamped.
@@ -270,19 +310,19 @@ internal fun meshGenerationOptionsOf(parameters: List<OperatorParameter>, fallba
 	val settings =
 		clampedMeshSettingsOf(
 			alphaThreshold = parameters.intValue(MeshGenerationParameterKeys.ALPHA_THRESHOLD, base.alphaThreshold),
-			outlineSpacing = parameters.floatValue(MeshGenerationParameterKeys.OUTLINE_SPACING, base.outlineSpacing.toFloat()).toDouble(),
-			interiorSpacing = parameters.floatValue(MeshGenerationParameterKeys.INTERIOR_SPACING, base.interiorSpacing.toFloat()).toDouble(),
-			outerMargin = parameters.floatValue(MeshGenerationParameterKeys.OUTER_MARGIN, base.outerMargin.toFloat()).toDouble(),
-			innerMargin = parameters.floatValue(MeshGenerationParameterKeys.INNER_MARGIN, base.innerMargin.toFloat()).toDouble(),
-			minimumMargin = parameters.floatValue(MeshGenerationParameterKeys.MINIMUM_MARGIN, base.minimumMargin.toFloat()).toDouble(),
+			outlineSpacing = OUTLINE_SPACING_ROW.read(parameters, base.outlineSpacing),
+			interiorSpacing = INTERIOR_SPACING_ROW.read(parameters, base.interiorSpacing),
+			outerMargin = OUTER_MARGIN_ROW.read(parameters, base.outerMargin),
+			innerMargin = INNER_MARGIN_ROW.read(parameters, base.innerMargin),
+			minimumMargin = MINIMUM_MARGIN_ROW.read(parameters, base.minimumMargin),
 			minimumOutlinePoints = parameters.intValue(MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS, base.minimumOutlinePoints),
 			vertexBudget = parameters.intValue(MeshGenerationParameterKeys.VERTEX_BUDGET, base.vertexBudget),
 			fillHoles = parameters.booleanValue(MeshGenerationParameterKeys.FILL_HOLES, base.fillHoles),
 			strandRungs = parameters.booleanValue(MeshGenerationParameterKeys.STRAND_RUNGS, base.strandRungs),
-			strandWidth = parameters.floatValue(MeshGenerationParameterKeys.STRAND_WIDTH, base.strandWidth.toFloat()).toDouble(),
-			minimumAngle = parameters.floatValue(MeshGenerationParameterKeys.MINIMUM_ANGLE, base.minimumAngle.toFloat()).toDouble(),
-			deformationTolerance = parameters.floatValue(MeshGenerationParameterKeys.DEFORMATION_TOLERANCE, base.deformationTolerance.toFloat()).toDouble(),
-			interiorThinningLimit = parameters.floatValue(MeshGenerationParameterKeys.INTERIOR_THINNING_LIMIT, base.interiorThinningLimit.toFloat()).toDouble(),
+			strandWidth = STRAND_WIDTH_ROW.read(parameters, base.strandWidth),
+			minimumAngle = MINIMUM_ANGLE_ROW.read(parameters, base.minimumAngle),
+			deformationTolerance = DEFORMATION_TOLERANCE_ROW.read(parameters, base.deformationTolerance),
+			interiorThinningLimit = INTERIOR_THINNING_LIMIT_ROW.read(parameters, base.interiorThinningLimit),
 			minimumAlphaThreshold = minimumAlphaThreshold,
 		)
 	val preset = ArtMeshPreset.fromKey(parameters.choiceValue(MeshGenerationParameterKeys.PRESET, fallback.preset.key))

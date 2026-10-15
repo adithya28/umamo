@@ -16,9 +16,6 @@ import androidx.compose.ui.window.PopupPositionProvider
 /** How long the pointer must dwell over the content before the tooltip appears. */
 private const val TOOLTIP_DELAY_MILLIS = 500
 
-/** The gap between the cursor and a tooltip card right of or below it, wide enough to clear the arrow. */
-private val TOOLTIP_GAP_AFTER_CURSOR = 16.dp
-
 /** The gap between the cursor and a tooltip card left of or above it, where no arrow sits between them. */
 private val TOOLTIP_GAP_BEFORE_CURSOR = 4.dp
 
@@ -42,7 +39,7 @@ private object CursorClearTooltipPlacement : TooltipPlacement {
 	@Composable
 	override fun positionProvider(cursorPosition: Offset): PopupPositionProvider {
 		val density = LocalDensity.current
-		val gapAfterPx = with(density) { TOOLTIP_GAP_AFTER_CURSOR.roundToPx() }
+		val gapAfterPx = with(density) { POINTER_ARROW_CLEARANCE.roundToPx() }
 		val gapBeforePx = with(density) { TOOLTIP_GAP_BEFORE_CURSOR.roundToPx() }
 		val windowMarginPx = with(density) { TOOLTIP_WINDOW_MARGIN.roundToPx() }
 

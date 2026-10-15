@@ -1,12 +1,12 @@
 package org.umamo.geometry.triangulation.refine
 
+import org.umamo.geometry.packUndirectedPair
 import org.umamo.geometry.packVertexPair
 import org.umamo.geometry.pairFirst
 import org.umamo.geometry.pairSecond
-import org.umamo.geometry.predicate.PredicateScratch
-import org.umamo.geometry.predicate.orient2d
 import org.umamo.geometry.triangulation.ConstraintInserter
 import org.umamo.geometry.triangulation.HalfEdgeTriangulation
+import org.umamo.geometry.triangulation.compareAlongLine
 import kotlin.math.sqrt
 
 /*
@@ -47,17 +47,11 @@ private const val NO_TRIANGLE: Long = -1L
 /** An edge candidate's error when it is left out or never meets the domain. */
 private const val OUT_OF_PLAY: Double = -1.0
 
-/** A guide vertex not yet found among the triangulation's vertices. */
-private const val ABSENT: Int = -1
-
 /** A guide vertex whose presence has not been looked up. */
 private const val UNKNOWN: Int = -2
 
-/** No store vertex. */
-private const val NO_STORE_VERTEX: Int = -1
-
-/** What [GuideInsertion.leaveVertex] returns when the line leaves through no triangle. */
-private const val NO_WAY_OUT: Int = -1
+/** What [GuideInsertion.edgeThrough] returns for a point on two edges' lines: a corner. */
+private const val ON_CORNER: Int = -2
 
 /**
  * One greedy insertion over a classified store.
@@ -85,7 +79,6 @@ internal class GuideInsertion(
 	private val pointValues = DoubleArray(valueCount)
 	private val endValues = DoubleArray(valueCount)
 	private val inserter = ConstraintInserter(store)
-	private val scratch = PredicateScratch()
 
 	/** The guide's candidate vertices, each with the triangle it was measured in and its error there. */
 	private val vertexCandidateCount = guide.candidates.size
@@ -111,7 +104,7 @@ internal class GuideInsertion(
 	private val lowSideFinal = BooleanArray(guideEdges.size)
 	private val highSideFinal = BooleanArray(guideEdges.size)
 
-	/** Per guide vertex, the store vertex at its point, [ABSENT], or [UNKNOWN]. */
+	/** Per guide vertex, the store vertex at its point, [SteinerInsertion.NO_VERTEX], or [UNKNOWN]. */
 	private val storeVertexOfGuide = IntArray(guide.points.size / 2) { UNKNOWN }
 
 	/** Per guide vertex, whether inserting it was refused, so it is not tried again. */
@@ -119,12 +112,17 @@ internal class GuideInsertion(
 
 	/** The chain pieces made constraints, as packed (low, high) pairs, each split piece replaced by its halves. */
 	private val heldPieces = HashSet<Long>()
-	private val operationLimit = BACKSTOP_OPERATIONS_PER_VERTEX * store.vertexCapacity + BACKSTOP_BASE_OPERATIONS
-	private var operations = 0L
+	private val backstop = OperationBackstop(store)
+
+	/** The most vertices the current [run] may insert. */
+	private var cap = 0
 
 	/** What the last obstacle walk met: a constrained half-edge, or a vertex on its line. */
 	private var metHalfEdge = HalfEdgeTriangulation.NO_HALF_EDGE
-	private var metVertex = NO_STORE_VERTEX
+	private var metVertex = SteinerInsertion.NO_VERTEX
+
+	/** The corner the line leaves a triangle through, when [exitOf] found no edge. */
+	private var exitCorner = SteinerInsertion.NO_VERTEX
 
 	/** The triangle the next locate starts from. */
 	private var walkStart = 0
@@ -145,9 +143,9 @@ internal class GuideInsertion(
 	private var traced = LongArray(16)
 	private var tracedCount = 0
 
-	/** The point [intersect] found. */
-	private var crossingX = 0.0
-	private var crossingY = 0.0
+	/** Where [crossLine] found two lines cross: along the segment (0 at its start, 1 at its end) and across the half-edge (0 at its origin, 1 at its destination). */
+	private var crossingAlong = 0.0
+	private var crossingAcross = 0.0
 
 	/** The vertices inserted: guide vertices and crossing points. */
 	var insertedCount: Int = 0
@@ -174,8 +172,8 @@ internal class GuideInsertion(
 		private set
 
 	/** Whether the operation backstop stopped insertion, which only a defect reaches. */
-	var stoppedByBackstop: Boolean = false
-		private set
+	val stoppedByBackstop: Boolean
+		get() = backstop.tripped
 
 	/**
 	 * Holds the worst candidate in place while it strays past the tolerance and the cap allows.
@@ -183,6 +181,7 @@ internal class GuideInsertion(
 	 * @param Int cap The most vertices to insert.
 	 */
 	fun run(cap: Int) {
+		this.cap = cap
 		scoreEveryCandidate()
 
 		while (true) {
@@ -194,15 +193,11 @@ internal class GuideInsertion(
 				return
 			}
 
-			operations++
-
-			if (operations > operationLimit) {
-				stoppedByBackstop = true
-
+			if (!backstop.spend()) {
 				return
 			}
 
-			if (holdCandidate(worst, cap)) {
+			if (holdCandidate(worst)) {
 				afterEachStep?.invoke(store)
 				refresh()
 
@@ -288,15 +283,14 @@ internal class GuideInsertion(
 	 * constraints (see [holdEdge]).
 	 *
 	 * @param Int candidate The candidate.
-	 * @param Int cap       The most vertices to insert.
 	 * @return Boolean True when something changed; false when the candidate cannot be held (or the cap stops it).
 	 */
-	private fun holdCandidate(candidate: Int, cap: Int): Boolean {
+	private fun holdCandidate(candidate: Int): Boolean {
 		if (candidate < vertexCandidateCount) {
-			return insertGuideVertex(guide.candidates[candidate], cap)
+			return insertGuideVertex(guide.candidates[candidate])
 		}
 
-		return holdEdge(candidate - vertexCandidateCount, cap)
+		return holdEdge(candidate - vertexCandidateCount)
 	}
 
 	/**
@@ -307,55 +301,13 @@ internal class GuideInsertion(
 	 * still strays, or no chain can start, a vertex goes in at its worst crossing.
 	 *
 	 * @param Int edge The edge's position in [guideEdges].
-	 * @param Int cap  The most vertices to insert.
 	 * @return Boolean True when the store changed.
 	 */
-	private fun holdEdge(edge: Int, cap: Int): Boolean {
+	private fun holdEdge(edge: Int): Boolean {
 		val low = pairFirst(guideEdges[edge])
 		val high = pairSecond(guideEdges[edge])
 
-		for (end in intArrayOf(low, high)) {
-			if (presentVertexOf(end) == ABSENT && !insertionRefused[end]) {
-				if (insertGuideVertex(end, cap)) {
-					return true
-				}
-
-				if (stoppedByCap) {
-					return false
-				}
-
-				insertionRefused[end] = true
-			}
-		}
-
-		if (edgeChain[edge] == null) {
-			val lowVertex = presentVertexOf(low)
-			val highVertex = presentVertexOf(high)
-
-			if (lowVertex == ABSENT && highVertex == ABSENT) {
-				// The edge runs through the domain with both ends outside it: the chain grows both ways
-				// from its worst crossing.
-				val seed = insertAtWorstCrossing(edge, cap)
-
-				if (seed == SteinerInsertion.NO_VERTEX) {
-					return false
-				}
-
-				edgeChain[edge] = intArrayOf(seed)
-
-				return true
-			}
-
-			edgeChain[edge] = listOf(lowVertex, highVertex).filter { vertex -> vertex != ABSENT }.toIntArray()
-			lowSideFinal[edge] = lowVertex != ABSENT
-			highSideFinal[edge] = highVertex != ABSENT
-		}
-
-		if (!lowSideFinal[edge] && extendChain(edge, low, towardLow = true, cap)) {
-			return true
-		}
-
-		if (!highSideFinal[edge] && extendChain(edge, high, towardLow = false, cap)) {
+		if (insertAbsentEnds(low, high)) {
 			return true
 		}
 
@@ -363,6 +315,93 @@ internal class GuideInsertion(
 			return false
 		}
 
+		if (edgeChain[edge] == null) {
+			val lowVertex = presentVertexOf(low)
+			val highVertex = presentVertexOf(high)
+
+			// The edge runs through the domain with both ends outside it: the chain grows both ways from
+			// its worst crossing.
+			if (lowVertex == SteinerInsertion.NO_VERTEX && highVertex == SteinerInsertion.NO_VERTEX) {
+				return seedChain(edge)
+			}
+
+			edgeChain[edge] = listOf(lowVertex, highVertex).filter { vertex -> vertex != SteinerInsertion.NO_VERTEX }.toIntArray()
+			lowSideFinal[edge] = lowVertex != SteinerInsertion.NO_VERTEX
+			highSideFinal[edge] = highVertex != SteinerInsertion.NO_VERTEX
+		}
+
+		if (!lowSideFinal[edge] && extendChain(edge, low, towardLow = true)) {
+			return true
+		}
+
+		if (!highSideFinal[edge] && extendChain(edge, high, towardLow = false)) {
+			return true
+		}
+
+		if (stoppedByCap) {
+			return false
+		}
+
+		return constrainChain(edge)
+	}
+
+	/**
+	 * Inserts a guide edge's ends the domain lacks, the first that goes in, marking each that cannot so
+	 * it is not tried again.
+	 *
+	 * @param Int low  The edge's low end.
+	 * @param Int high The edge's high end.
+	 * @return Boolean True when an end went in; false when none did, or the cap stopped one ([stoppedByCap]).
+	 */
+	private fun insertAbsentEnds(low: Int, high: Int): Boolean {
+		for (end in intArrayOf(low, high)) {
+			if (presentVertexOf(end) != SteinerInsertion.NO_VERTEX || insertionRefused[end]) {
+				continue
+			}
+
+			if (insertGuideVertex(end)) {
+				return true
+			}
+
+			if (stoppedByCap) {
+				return false
+			}
+
+			insertionRefused[end] = true
+		}
+
+		return false
+	}
+
+	/**
+	 * Starts the chain of an edge whose ends both lie outside the domain at a vertex inserted at its
+	 * worst crossing.
+	 *
+	 * @param Int edge The edge's position in [guideEdges].
+	 * @return Boolean True when the seed went in.
+	 */
+	private fun seedChain(edge: Int): Boolean {
+		val seed = insertAtWorstCrossing(edge)
+
+		if (seed == SteinerInsertion.NO_VERTEX) {
+			return false
+		}
+
+		edgeChain[edge] = intArrayOf(seed)
+
+		return true
+	}
+
+	/**
+	 * Makes the first piece of a final chain that is not yet a constraint one, splitting a constraint in
+	 * its way where the piece crosses it (the split joins the chain) or, with no room for the split,
+	 * releasing a constraint that bounds nothing.  When every piece holds and the edge still strays, a
+	 * vertex goes in at its worst crossing.
+	 *
+	 * @param Int edge The edge's position in [guideEdges].
+	 * @return Boolean True when the store changed.
+	 */
+	private fun constrainChain(edge: Int): Boolean {
 		var position = 0
 
 		while (position < edgeChain[edge]!!.size - 1) {
@@ -384,11 +423,8 @@ internal class GuideInsertion(
 				return true
 			}
 
-			// A constraint lies across the piece: it splits where the piece crosses it and the split joins
-			// the chain, or with no room for the split, a constraint that bounds nothing gives way.
 			val blocking = store.findHalfEdge(inserter.crossedStart, inserter.crossedEnd)
-			intersect(store.pointX(start), store.pointY(start), store.pointX(finish), store.pointY(finish), blocking)
-			val split = splitConstraintWithin(blocking, cap)
+			val split = splitWhereCrossed(blocking, store.pointX(start), store.pointY(start), store.pointX(finish), store.pointY(finish))
 
 			if (split == SteinerInsertion.NO_VERTEX) {
 				return !stoppedByCap && releaseIfNeutral(blocking)
@@ -399,7 +435,7 @@ internal class GuideInsertion(
 			return true
 		}
 
-		return insertAtWorstCrossing(edge, cap) != SteinerInsertion.NO_VERTEX
+		return insertAtWorstCrossing(edge) != SteinerInsertion.NO_VERTEX
 	}
 
 	/**
@@ -411,7 +447,7 @@ internal class GuideInsertion(
 	 * @return Boolean True when released; false for a boundary or a held crease.
 	 */
 	private fun releaseIfNeutral(halfEdge: Int): Boolean {
-		if (store.boundaryCount[halfEdge] != 0 || pieceKeyOf(store.origin[halfEdge], store.destination(halfEdge)) in heldPieces) {
+		if (store.boundaryCount[halfEdge] != 0 || store.edgeKey(halfEdge) in heldPieces) {
 			return false
 		}
 
@@ -426,18 +462,9 @@ internal class GuideInsertion(
 		val chain = inserter.insertedChain
 
 		for (position in 0 until chain.size - 1) {
-			heldPieces.add(pieceKeyOf(chain[position], chain[position + 1]))
+			heldPieces.add(packUndirectedPair(chain[position], chain[position + 1]))
 		}
 	}
-
-	/**
-	 * A constrained edge as a packed (low, high) pair.
-	 *
-	 * @param Int start One end.
-	 * @param Int end   The other.
-	 * @return Long The key.
-	 */
-	private fun pieceKeyOf(start: Int, end: Int): Long = packVertexPair(minOf(start, end), maxOf(start, end))
 
 	/**
 	 * Extends a chain from its end toward a guide end the domain lacks: along the edge's line through
@@ -447,10 +474,9 @@ internal class GuideInsertion(
 	 * @param Int     edge      The edge's position in [guideEdges].
 	 * @param Int     target    The guide end the domain lacks.
 	 * @param Boolean towardLow Whether the target is the edge's low end (the chain's front).
-	 * @param Int     cap       The most vertices to insert.
 	 * @return Boolean True when the store changed.
 	 */
-	private fun extendChain(edge: Int, target: Int, towardLow: Boolean, cap: Int): Boolean {
+	private fun extendChain(edge: Int, target: Int, towardLow: Boolean): Boolean {
 		val targetX = guide.points[2 * target].toDouble()
 		val targetY = guide.points[2 * target + 1].toDouble()
 
@@ -465,7 +491,7 @@ internal class GuideInsertion(
 				return false
 			}
 
-			if (metVertex != NO_STORE_VERTEX && metVertex !in chain) {
+			if (metVertex != SteinerInsertion.NO_VERTEX && metVertex !in chain) {
 				addToChain(edge, metVertex, towardLow)
 
 				continue
@@ -478,8 +504,7 @@ internal class GuideInsertion(
 			}
 
 			val boundsDomain = store.boundaryCount[metHalfEdge] % 2 == 1
-			intersect(lineStartX, lineStartY, lineEndX, lineEndY, metHalfEdge)
-			val split = splitConstraintWithin(metHalfEdge, cap)
+			val split = splitWhereCrossed(metHalfEdge, lineStartX, lineStartY, lineEndX, lineEndY)
 
 			if (stoppedByCap) {
 				return false
@@ -533,28 +558,60 @@ internal class GuideInsertion(
 	}
 
 	/**
-	 * Splits a constraint at the point [intersect] found, counting the split against the cap.
+	 * Splits a constraint where a segment's line crosses it, clamped to it (a parallel segment splits it
+	 * at its middle), counting the split against the cap.
 	 *
-	 * @param Int halfEdge The constrained half-edge.
-	 * @param Int cap      The most vertices to insert.
+	 * @param Int    halfEdge The constrained half-edge.
+	 * @param Double startX   The segment's start x.
+	 * @param Double startY   The segment's start y.
+	 * @param Double endX     The segment's end x.
+	 * @param Double endY     The segment's end y.
 	 * @return Int The new vertex, or [SteinerInsertion.NO_VERTEX].
 	 */
-	private fun splitConstraintWithin(halfEdge: Int, cap: Int): Int {
-		if (insertedCount >= cap) {
-			stoppedByCap = true
-
+	private fun splitWhereCrossed(halfEdge: Int, startX: Double, startY: Double, endX: Double, endY: Double): Int {
+		if (capReached()) {
 			return SteinerInsertion.NO_VERTEX
 		}
 
-		val vertex = splitConstraint(halfEdge, crossingX, crossingY)
+		val across = if (crossLine(startX, startY, endX, endY, halfEdge)) crossingAcross.coerceIn(0.0, 1.0) else 0.5
+		val vertex = splitConstraint(halfEdge, edgePointX(halfEdge, across), edgePointY(halfEdge, across))
 
 		if (vertex != SteinerInsertion.NO_VERTEX) {
-			insertedCount++
-			crossingPointCount++
-			walkStart = store.vertexHalfEdge[vertex] / 3
+			countInserted(vertex, atCrossing = true)
 		}
 
 		return vertex
+	}
+
+	/**
+	 * Whether the run has inserted all the cap allows, marking [stoppedByCap] when it has.
+	 *
+	 * @return Boolean True when no further vertex may go in.
+	 */
+	private fun capReached(): Boolean {
+		if (insertedCount < cap) {
+			return false
+		}
+
+		stoppedByCap = true
+
+		return true
+	}
+
+	/**
+	 * Counts an inserted vertex and starts the next locate beside it.
+	 *
+	 * @param Int     vertex     The vertex.
+	 * @param Boolean atCrossing Whether it went in at a guide edge's crossing.
+	 */
+	private fun countInserted(vertex: Int, atCrossing: Boolean) {
+		insertedCount++
+
+		if (atCrossing) {
+			crossingPointCount++
+		}
+
+		walkStart = store.vertexHalfEdge[vertex] / 3
 	}
 
 	/**
@@ -563,13 +620,10 @@ internal class GuideInsertion(
 	 * like any vertex.  Its values are the guide's at its Float point.
 	 *
 	 * @param Int edge The edge's position in [guideEdges].
-	 * @param Int cap  The most vertices to insert.
 	 * @return Int The new vertex, or [SteinerInsertion.NO_VERTEX].
 	 */
-	private fun insertAtWorstCrossing(edge: Int, cap: Int): Int {
-		if (insertedCount >= cap) {
-			stoppedByCap = true
-
+	private fun insertAtWorstCrossing(edge: Int): Int {
+		if (capReached()) {
 			return SteinerInsertion.NO_VERTEX
 		}
 
@@ -589,9 +643,7 @@ internal class GuideInsertion(
 			}
 
 		if (vertex != SteinerInsertion.NO_VERTEX) {
-			insertedCount++
-			crossingPointCount++
-			walkStart = store.vertexHalfEdge[vertex] / 3
+			countInserted(vertex, atCrossing = true)
 		}
 
 		return vertex
@@ -602,13 +654,10 @@ internal class GuideInsertion(
 	 * vertex it would join; on a constraint, it splits the constraint there.
 	 *
 	 * @param Int guideVertex The guide vertex.
-	 * @param Int cap         The most vertices to insert.
 	 * @return Boolean True when inserted.
 	 */
-	private fun insertGuideVertex(guideVertex: Int, cap: Int): Boolean {
-		if (insertedCount >= cap) {
-			stoppedByCap = true
-
+	private fun insertGuideVertex(guideVertex: Int): Boolean {
+		if (capReached()) {
 			return false
 		}
 
@@ -617,13 +666,12 @@ internal class GuideInsertion(
 		val vertex = insertPoint(x, y)
 
 		if (vertex == SteinerInsertion.NO_VERTEX) {
-			storeVertexOfGuide[guideVertex] = ABSENT
+			storeVertexOfGuide[guideVertex] = SteinerInsertion.NO_VERTEX
 
 			return false
 		}
 
-		insertedCount++
-		walkStart = store.vertexHalfEdge[vertex] / 3
+		countInserted(vertex, atCrossing = false)
 
 		// A split that could not take the point itself took a Float neighbor of it, which carries the
 		// guide's interpolation like any other vertex; the guide vertex stays absent.
@@ -633,7 +681,7 @@ internal class GuideInsertion(
 			vertexValuesKnown[vertex] = true
 			storeVertexOfGuide[guideVertex] = vertex
 		} else {
-			storeVertexOfGuide[guideVertex] = ABSENT
+			storeVertexOfGuide[guideVertex] = SteinerInsertion.NO_VERTEX
 		}
 
 		return true
@@ -654,19 +702,9 @@ internal class GuideInsertion(
 			return SteinerInsertion.NO_VERTEX
 		}
 
-		var onEdge = HalfEdgeTriangulation.NO_HALF_EDGE
-		var onEdgeCount = 0
+		val onEdge = edgeThrough(triangle, x, y)
 
-		for (offset in 0 until 3) {
-			val edge = 3 * triangle + offset
-
-			if (store.orientAt(x, y, store.origin[edge], store.destination(edge)) == 0.0) {
-				onEdge = edge
-				onEdgeCount++
-			}
-		}
-
-		if (onEdgeCount >= 2) {
+		if (onEdge == ON_CORNER) {
 			// The point is a vertex already.
 			return SteinerInsertion.NO_VERTEX
 		}
@@ -682,13 +720,10 @@ internal class GuideInsertion(
 			return SteinerInsertion.NO_VERTEX
 		}
 
+		val isOnEdge = onEdge != HalfEdgeTriangulation.NO_HALF_EDGE
+		val at = if (isOnEdge) onEdge else triangle
 		val vertex = store.appendVertex(x, y)
-
-		if (onEdge == HalfEdgeTriangulation.NO_HALF_EDGE) {
-			steiner.collectCavity(vertex, triangle, -1)
-		} else {
-			steiner.collectCavity(vertex, onEdge / 3, store.twin[onEdge] / 3)
-		}
+		steiner.collectCavityAt(vertex, isOnEdge, at)
 
 		if (steiner.nearestCavityDistanceSquared(vertex) < separationSquared) {
 			store.removeLastVertex()
@@ -696,11 +731,7 @@ internal class GuideInsertion(
 			return SteinerInsertion.NO_VERTEX
 		}
 
-		if (onEdge == HalfEdgeTriangulation.NO_HALF_EDGE) {
-			steiner.insert(vertex, false, triangle)
-		} else {
-			steiner.insert(vertex, true, onEdge)
-		}
+		steiner.insert(vertex, isOnEdge, at)
 
 		return vertex
 	}
@@ -717,19 +748,12 @@ internal class GuideInsertion(
 	private fun splitConstraint(halfEdge: Int, x: Double, y: Double): Int {
 		val origin = store.origin[halfEdge]
 		val destination = store.destination(halfEdge)
-		val isBoundary = store.boundaryCount[halfEdge] % 2 == 1
-		val outwardIsLeft = if (isBoundary) !store.regions[halfEdge / 3] else null
-		val check = if (isBoundary) boundarySplitCheck else null
-		val vertex =
-			steiner.splitSegment(origin, destination, x, y, outwardIsLeft) { candidate, cutsInside, nearestNeighborDistanceSquared ->
-				nearestNeighborDistanceSquared >= separationSquared &&
-					(check == null || check.accepts(store.pointX(origin), store.pointY(origin), store.pointX(destination), store.pointY(destination), store.pointX(candidate), store.pointY(candidate), cutsInside))
-			}
+		val vertex = steiner.splitConstraint(halfEdge, x, y, separationSquared, boundarySplitCheck)
 
 		// A held crease stays held through its halves.
-		if (vertex != SteinerInsertion.NO_VERTEX && heldPieces.remove(pieceKeyOf(origin, destination))) {
-			heldPieces.add(pieceKeyOf(origin, vertex))
-			heldPieces.add(pieceKeyOf(vertex, destination))
+		if (vertex != SteinerInsertion.NO_VERTEX && heldPieces.remove(packUndirectedPair(origin, destination))) {
+			heldPieces.add(packUndirectedPair(origin, vertex))
+			heldPieces.add(packUndirectedPair(vertex, destination))
 		}
 
 		return vertex
@@ -740,7 +764,7 @@ internal class GuideInsertion(
 		for (candidate in 0 until vertexCandidateCount) {
 			val key = vertexTriangle[candidate]
 
-			if (key != NO_TRIANGLE && !triangleExists(key)) {
+			if (key != NO_TRIANGLE && store.triangleOfKey(key) < 0) {
 				vertexTriangle[candidate] = NO_TRIANGLE
 				scoreVertex(candidate)
 			}
@@ -749,7 +773,7 @@ internal class GuideInsertion(
 		for (edge in guideEdges.indices) {
 			val entered = edgeTriangles[edge] ?: continue
 
-			if (entered.any { key -> !triangleExists(key) }) {
+			if (entered.any { key -> store.triangleOfKey(key) < 0 }) {
 				traceEdge(edge)
 			}
 		}
@@ -771,19 +795,15 @@ internal class GuideInsertion(
 			return
 		}
 
-		val base = 3 * triangle
+		val corner = cornerAt(triangle, x, y)
 
-		for (offset in 0 until 3) {
-			val corner = store.origin[base + offset]
+		if (corner != SteinerInsertion.NO_VERTEX) {
+			storeVertexOfGuide[guideVertex] = corner
 
-			if (store.pointX(corner) == x && store.pointY(corner) == y) {
-				storeVertexOfGuide[guideVertex] = corner
-
-				return
-			}
+			return
 		}
 
-		val key = packTriangle(store.origin[base], store.origin[base + 1], store.origin[base + 2])
+		val key = store.keyOfTriangle(triangle)
 		vertexTriangle[candidate] = key
 		guide.valuesAtVertex(guideVertex, pointValues)
 		vertexError[candidate] = errorInTriangle(key, x, y)
@@ -801,31 +821,24 @@ internal class GuideInsertion(
 		val first = triangleFirst(key)
 		val second = triangleSecond(key)
 		val third = triangleThird(key)
-		val firstX = store.pointX(first)
-		val firstY = store.pointY(first)
-		val secondX = store.pointX(second) - firstX
-		val secondY = store.pointY(second) - firstY
-		val thirdX = store.pointX(third) - firstX
-		val thirdY = store.pointY(third) - firstY
-		val determinant = secondX * thirdY - secondY * thirdX
-		val secondWeight = ((x - firstX) * thirdY - (y - firstY) * thirdX) / determinant
-		val thirdWeight = (secondX * (y - firstY) - secondY * (x - firstX)) / determinant
-		val firstWeight = 1.0 - secondWeight - thirdWeight
 		val firstValues = valuesOfVertex(first) * valueCount
 		val secondValues = valuesOfVertex(second) * valueCount
 		val thirdValues = valuesOfVertex(third) * valueCount
-		var largest = 0.0
 
-		for (field in 0 until guide.fieldCount) {
-			val component = 2 * field
-			val interpolatedX = firstWeight * vertexValues[firstValues + component] + secondWeight * vertexValues[secondValues + component] + thirdWeight * vertexValues[thirdValues + component]
-			val interpolatedY = firstWeight * vertexValues[firstValues + component + 1] + secondWeight * vertexValues[secondValues + component + 1] + thirdWeight * vertexValues[thirdValues + component + 1]
-			val deltaX = pointValues[component] - interpolatedX
-			val deltaY = pointValues[component + 1] - interpolatedY
-			largest = maxOf(largest, sqrt(deltaX * deltaX + deltaY * deltaY) / guide.fieldScales[field])
+		return withBarycentricWeights(store.pointX(first), store.pointY(first), store.pointX(second), store.pointY(second), store.pointX(third), store.pointY(third), x, y) { firstWeight, secondWeight, thirdWeight ->
+			var largest = 0.0
+
+			for (field in 0 until guide.fieldCount) {
+				val component = 2 * field
+				val interpolatedX = blendCorners(firstWeight, secondWeight, thirdWeight, vertexValues[firstValues + component], vertexValues[secondValues + component], vertexValues[thirdValues + component])
+				val interpolatedY = blendCorners(firstWeight, secondWeight, thirdWeight, vertexValues[firstValues + component + 1], vertexValues[secondValues + component + 1], vertexValues[thirdValues + component + 1])
+				val deltaX = pointValues[component] - interpolatedX
+				val deltaY = pointValues[component + 1] - interpolatedY
+				largest = maxOf(largest, sqrt(deltaX * deltaX + deltaY * deltaY) / guide.fieldScales[field])
+			}
+
+			largest
 		}
-
-		return largest
 	}
 
 	/**
@@ -855,10 +868,7 @@ internal class GuideInsertion(
 	 * @return Boolean True when the walk reached the far end; false when it left the domain first.
 	 */
 	private fun walkAlong(from: Int, to: Int): Boolean {
-		lineStartX = guide.points[2 * from].toDouble()
-		lineStartY = guide.points[2 * from + 1].toDouble()
-		lineEndX = guide.points[2 * to].toDouble()
-		lineEndY = guide.points[2 * to + 1].toDouble()
+		setLine(guide.points[2 * from].toDouble(), guide.points[2 * from + 1].toDouble(), guide.points[2 * to].toDouble(), guide.points[2 * to + 1].toDouble())
 		guide.valuesAtVertex(from, pointValues)
 		guide.valuesAtVertex(to, endValues)
 		var triangle = locate(lineStartX, lineStartY)
@@ -867,23 +877,13 @@ internal class GuideInsertion(
 			return enterHull()
 		}
 
-		var vertex = NO_STORE_VERTEX
+		var vertex = SteinerInsertion.NO_VERTEX
 		var entered = HalfEdgeTriangulation.NO_HALF_EDGE
-		var startEdge = HalfEdgeTriangulation.NO_HALF_EDGE
-		var startEdgeCount = 0
+		val startEdge = edgeThrough(triangle, lineStartX, lineStartY)
 
-		for (offset in 0 until 3) {
-			val halfEdge = 3 * triangle + offset
-
-			if (store.orientAt(lineStartX, lineStartY, store.origin[halfEdge], store.destination(halfEdge)) == 0.0) {
-				startEdge = halfEdge
-				startEdgeCount++
-			}
-		}
-
-		if (startEdgeCount >= 2) {
-			vertex = (0 until 3).map { offset -> store.origin[3 * triangle + offset] }.first { corner -> store.pointX(corner) == lineStartX && store.pointY(corner) == lineStartY }
-		} else if (startEdgeCount == 1) {
+		if (startEdge == ON_CORNER) {
+			vertex = cornerAt(triangle, lineStartX, lineStartY)
+		} else if (startEdge != HalfEdgeTriangulation.NO_HALF_EDGE) {
 			val originSide = sideOf(store.origin[startEdge])
 			val destinationSide = sideOf(store.destination(startEdge))
 
@@ -918,7 +918,7 @@ internal class GuideInsertion(
 	private fun enterHull(): Boolean {
 		var entry = HalfEdgeTriangulation.NO_HALF_EDGE
 		var entryAlong = Double.MAX_VALUE
-		var corner = NO_STORE_VERTEX
+		var corner = SteinerInsertion.NO_VERTEX
 		var cornerAlong = Double.MAX_VALUE
 		val directionX = lineEndX - lineStartX
 		val directionY = lineEndY - lineStartY
@@ -950,7 +950,7 @@ internal class GuideInsertion(
 			}
 		}
 
-		if (corner != NO_STORE_VERTEX && cornerAlong <= entryAlong) {
+		if (corner != SteinerInsertion.NO_VERTEX && cornerAlong <= entryAlong) {
 			return walkLine(corner, -1, HalfEdgeTriangulation.NO_HALF_EDGE, findsObstacle = false)
 		}
 
@@ -962,7 +962,7 @@ internal class GuideInsertion(
 			foldCrossing(entry)
 		}
 
-		return walkLine(NO_STORE_VERTEX, entry / 3, entry, findsObstacle = false)
+		return walkLine(SteinerInsertion.NO_VERTEX, entry / 3, entry, findsObstacle = false)
 	}
 
 	/**
@@ -971,21 +971,7 @@ internal class GuideInsertion(
 	 * @param Int halfEdge The half-edge.
 	 * @return Double The parameter, or infinity when the two are parallel.
 	 */
-	private fun alongLineAt(halfEdge: Int): Double {
-		val origin = store.origin[halfEdge]
-		val destination = store.destination(halfEdge)
-		val directionX = lineEndX - lineStartX
-		val directionY = lineEndY - lineStartY
-		val edgeX = store.pointX(destination) - store.pointX(origin)
-		val edgeY = store.pointY(destination) - store.pointY(origin)
-		val denominator = directionX * edgeY - directionY * edgeX
-
-		if (denominator == 0.0) {
-			return Double.POSITIVE_INFINITY
-		}
-
-		return ((store.pointX(origin) - lineStartX) * edgeY - (store.pointY(origin) - lineStartY) * edgeX) / denominator
-	}
+	private fun alongLineAt(halfEdge: Int): Double = if (crossLine(lineStartX, lineStartY, lineEndX, lineEndY, halfEdge)) crossingAlong else Double.POSITIVE_INFINITY
 
 	/**
 	 * Walks from a store vertex toward a point through the domain's triangles until something stands in
@@ -998,12 +984,9 @@ internal class GuideInsertion(
 	 * @return Boolean True when the point was reached; false when something stood in the way, or the line leaves the domain at the vertex itself (nothing met).
 	 */
 	private fun walkToward(from: Int, targetX: Double, targetY: Double): Boolean {
-		lineStartX = store.pointX(from)
-		lineStartY = store.pointY(from)
-		lineEndX = targetX
-		lineEndY = targetY
+		setLine(store.pointX(from), store.pointY(from), targetX, targetY)
 		metHalfEdge = HalfEdgeTriangulation.NO_HALF_EDGE
-		metVertex = NO_STORE_VERTEX
+		metVertex = SteinerInsertion.NO_VERTEX
 
 		return walkLine(from, -1, HalfEdgeTriangulation.NO_HALF_EDGE, findsObstacle = true)
 	}
@@ -1016,7 +999,7 @@ internal class GuideInsertion(
 	 * trace folds the error at every edge it crosses; an obstacle walk stops at the first constrained
 	 * edge or vertex on the line it meets.
 	 *
-	 * @param Int     startVertex   The vertex it stands on, or [NO_STORE_VERTEX].
+	 * @param Int     startVertex   The vertex it stands on, or [SteinerInsertion.NO_VERTEX].
 	 * @param Int     startTriangle The triangle it stands in, when not on a vertex.
 	 * @param Int     startEntered  The half-edge it entered that triangle through, or none.
 	 * @param Boolean findsObstacle Whether this is an obstacle walk rather than a trace.
@@ -1026,10 +1009,9 @@ internal class GuideInsertion(
 		var vertex = startVertex
 		var triangle = startTriangle
 		var entered = startEntered
-		val stepLimit = 3 * store.triangleCount + 16
 
-		for (step in 0 until stepLimit) {
-			if (vertex != NO_STORE_VERTEX) {
+		for (step in 0 until store.lineWalkStepLimit()) {
+			if (vertex != SteinerInsertion.NO_VERTEX) {
 				if (findsObstacle && vertex != startVertex) {
 					metVertex = vertex
 
@@ -1040,15 +1022,18 @@ internal class GuideInsertion(
 					return true
 				}
 
-				val leaving = leaveVertex(vertex)
+				// The vertex lies on the line before its end, so the line from it toward the end is the same
+				// line, the same way round.
+				val exit = store.exitEdgeToward(vertex, lineEndX, lineEndY)
 
-				if (leaving == NO_WAY_OUT) {
+				if (exit == HalfEdgeTriangulation.NO_EXIT) {
 					return false
 				}
 
-				if (leaving < 0) {
+				if (exit < 0) {
 					// Along a spoke: the error there is the guide's own at both ends.
-					val neighbor = -(leaving + 2)
+					val neighbor = -(exit + 1)
+					recordSpoke(vertex, neighbor)
 
 					if (endLiesBefore(neighbor)) {
 						return true
@@ -1059,9 +1044,9 @@ internal class GuideInsertion(
 					continue
 				}
 
-				triangle = leaving
+				triangle = exit / 3
 				entered = HalfEdgeTriangulation.NO_HALF_EDGE
-				vertex = NO_STORE_VERTEX
+				vertex = SteinerInsertion.NO_VERTEX
 			}
 
 			if (store.isGhostTriangle(triangle)) {
@@ -1086,24 +1071,7 @@ internal class GuideInsertion(
 				return true
 			}
 
-			var exit = HalfEdgeTriangulation.NO_HALF_EDGE
-			var corner = NO_STORE_VERTEX
-
-			for (offset in 0 until 3) {
-				val halfEdge = 3 * triangle + offset
-
-				if (halfEdge == entered) {
-					continue
-				}
-
-				val originSide = sideOf(store.origin[halfEdge])
-
-				if (originSide < 0.0 && sideOf(store.destination(halfEdge)) > 0.0) {
-					exit = halfEdge
-				} else if (originSide == 0.0) {
-					corner = store.origin[halfEdge]
-				}
-			}
+			val exit = exitOf(triangle, entered)
 
 			if (exit != HalfEdgeTriangulation.NO_HALF_EDGE) {
 				if (findsObstacle && store.constrained[exit]) {
@@ -1121,8 +1089,8 @@ internal class GuideInsertion(
 
 				entered = store.twin[exit]
 				triangle = entered / 3
-			} else if (corner != NO_STORE_VERTEX) {
-				vertex = corner
+			} else if (exitCorner != SteinerInsertion.NO_VERTEX) {
+				vertex = exitCorner
 			} else {
 				return false
 			}
@@ -1132,39 +1100,46 @@ internal class GuideInsertion(
 	}
 
 	/**
-	 * How the current line leaves a store vertex on it: along a spoke to a neighbor ahead, or into the
-	 * one triangle around the vertex whose far edge it crosses.
+	 * How the current line leaves a triangle: through the edge whose origin lies right of it and
+	 * destination left, or - when it leaves through no edge - through a corner on it ([exitCorner]).
 	 *
-	 * @param Int vertex The vertex, on the line.
-	 * @return Int The triangle entered, -(neighbor + 2) along a spoke, or [NO_WAY_OUT].
+	 * @param Int triangle The triangle slot.
+	 * @param Int entered  The half-edge the line came in through, or none.
+	 * @return Int The exit half-edge, or [HalfEdgeTriangulation.NO_HALF_EDGE].
 	 */
-	private fun leaveVertex(vertex: Int): Int {
-		val first = store.vertexHalfEdge[vertex]
-		var spoke = first
+	private fun exitOf(triangle: Int, entered: Int): Int {
+		var exit = HalfEdgeTriangulation.NO_HALF_EDGE
+		exitCorner = SteinerInsertion.NO_VERTEX
 
-		do {
-			val neighbor = store.destination(spoke)
+		for (offset in 0 until 3) {
+			val halfEdge = 3 * triangle + offset
 
-			if (neighbor != store.ghostVertex) {
-				val neighborSide = sideOf(neighbor)
-
-				if (neighborSide == 0.0 && isAhead(store.pointX(vertex), store.pointY(vertex), neighbor)) {
-					record(if (store.isGhostTriangle(spoke / 3)) store.twin[spoke] / 3 else spoke / 3)
-
-					return -(neighbor + 2)
-				}
-
-				val apex = store.origin[store.previous(spoke)]
-
-				if (apex != store.ghostVertex && neighborSide < 0.0 && sideOf(apex) > 0.0) {
-					return spoke / 3
-				}
+			if (halfEdge == entered) {
+				continue
 			}
 
-			spoke = store.twin[store.previous(spoke)]
-		} while (spoke != first)
+			val originSide = sideOf(store.origin[halfEdge])
 
-		return NO_WAY_OUT
+			if (originSide < 0.0 && sideOf(store.destination(halfEdge)) > 0.0) {
+				exit = halfEdge
+			} else if (originSide == 0.0) {
+				exitCorner = store.origin[halfEdge]
+			}
+		}
+
+		return exit
+	}
+
+	/**
+	 * Notes the triangle beside a spoke the current line runs along - the real one, for a spoke on the
+	 * hull - so a change that takes it away traces the edge again.
+	 *
+	 * @param Int vertex   The vertex the spoke leaves.
+	 * @param Int neighbor The vertex it runs to.
+	 */
+	private fun recordSpoke(vertex: Int, neighbor: Int) {
+		val spoke = store.findHalfEdge(vertex, neighbor)
+		record(if (store.isGhostTriangle(spoke / 3)) store.twin[spoke] / 3 else spoke / 3)
 	}
 
 	/**
@@ -1175,22 +1150,14 @@ internal class GuideInsertion(
 	 * @param Int halfEdge The crossed half-edge.
 	 */
 	private fun foldCrossing(halfEdge: Int) {
-		val origin = store.origin[halfEdge]
-		val destination = store.destination(halfEdge)
-		val directionX = lineEndX - lineStartX
-		val directionY = lineEndY - lineStartY
-		val edgeX = store.pointX(destination) - store.pointX(origin)
-		val edgeY = store.pointY(destination) - store.pointY(origin)
-		val toOriginX = store.pointX(origin) - lineStartX
-		val toOriginY = store.pointY(origin) - lineStartY
-		val denominator = directionX * edgeY - directionY * edgeX
-
-		if (denominator == 0.0) {
+		if (!crossLine(lineStartX, lineStartY, lineEndX, lineEndY, halfEdge)) {
 			return
 		}
 
-		val along = ((toOriginX * edgeY - toOriginY * edgeX) / denominator).coerceIn(0.0, 1.0)
-		val across = ((toOriginX * directionY - toOriginY * directionX) / denominator).coerceIn(0.0, 1.0)
+		val origin = store.origin[halfEdge]
+		val destination = store.destination(halfEdge)
+		val along = crossingAlong.coerceIn(0.0, 1.0)
+		val across = crossingAcross.coerceIn(0.0, 1.0)
 		val originValues = valuesOfVertex(origin) * valueCount
 		val destinationValues = valuesOfVertex(destination) * valueCount
 
@@ -1206,24 +1173,25 @@ internal class GuideInsertion(
 
 			if (error > traceError) {
 				traceError = error
-				traceWorstX = store.pointX(origin) + across * edgeX
-				traceWorstY = store.pointY(origin) + across * edgeY
+				traceWorstX = edgePointX(halfEdge, across)
+				traceWorstY = edgePointY(halfEdge, across)
 				traceWorstCrossed = packVertexPair(origin, destination)
 			}
 		}
 	}
 
 	/**
-	 * Where a segment's line crosses a half-edge, into [crossingX] and [crossingY]: on the half-edge,
-	 * clamped to it.
+	 * Where a segment's line and a half-edge's line cross, unclamped, into [crossingAlong] and
+	 * [crossingAcross].
 	 *
 	 * @param Double startX   The segment's start x.
 	 * @param Double startY   The segment's start y.
 	 * @param Double endX     The segment's end x.
 	 * @param Double endY     The segment's end y.
 	 * @param Int    halfEdge The half-edge.
+	 * @return Boolean False when the two are parallel, leaving both untouched.
 	 */
-	private fun intersect(startX: Double, startY: Double, endX: Double, endY: Double, halfEdge: Int) {
+	private fun crossLine(startX: Double, startY: Double, endX: Double, endY: Double, halfEdge: Int): Boolean {
 		val origin = store.origin[halfEdge]
 		val destination = store.destination(halfEdge)
 		val directionX = endX - startX
@@ -1233,9 +1201,41 @@ internal class GuideInsertion(
 		val toOriginX = store.pointX(origin) - startX
 		val toOriginY = store.pointY(origin) - startY
 		val denominator = directionX * edgeY - directionY * edgeX
-		val across = if (denominator == 0.0) 0.5 else ((toOriginX * directionY - toOriginY * directionX) / denominator).coerceIn(0.0, 1.0)
-		crossingX = store.pointX(origin) + across * edgeX
-		crossingY = store.pointY(origin) + across * edgeY
+
+		if (denominator == 0.0) {
+			return false
+		}
+
+		crossingAlong = (toOriginX * edgeY - toOriginY * edgeX) / denominator
+		crossingAcross = (toOriginX * directionY - toOriginY * directionX) / denominator
+
+		return true
+	}
+
+	/**
+	 * The x of the point a share of the way along a half-edge.
+	 *
+	 * @param Int    halfEdge The half-edge.
+	 * @param Double across   The share, 0 at its origin, 1 at its destination.
+	 * @return Double The x.
+	 */
+	private fun edgePointX(halfEdge: Int, across: Double): Double {
+		val originX = store.pointX(store.origin[halfEdge])
+
+		return originX + across * (store.pointX(store.destination(halfEdge)) - originX)
+	}
+
+	/**
+	 * The y of the point a share of the way along a half-edge.
+	 *
+	 * @param Int    halfEdge The half-edge.
+	 * @param Double across   The share, 0 at its origin, 1 at its destination.
+	 * @return Double The y.
+	 */
+	private fun edgePointY(halfEdge: Int, across: Double): Double {
+		val originY = store.pointY(store.origin[halfEdge])
+
+		return originY + across * (store.pointY(store.destination(halfEdge)) - originY)
 	}
 
 	/**
@@ -1248,8 +1248,7 @@ internal class GuideInsertion(
 			traced = traced.copyOf(2 * traced.size)
 		}
 
-		val base = 3 * triangle
-		traced[tracedCount++] = packTriangle(store.origin[base], store.origin[base + 1], store.origin[base + 2])
+		traced[tracedCount++] = store.keyOfTriangle(triangle)
 	}
 
 	/**
@@ -1258,10 +1257,11 @@ internal class GuideInsertion(
 	 * @param Int vertex The vertex.
 	 * @return Double Positive left of the line, negative right, zero on it.
 	 */
-	private fun sideOf(vertex: Int): Double = orient2d(lineStartX, lineStartY, lineEndX, lineEndY, store.pointX(vertex), store.pointY(vertex), scratch)
+	private fun sideOf(vertex: Int): Double = store.orientOf(lineStartX, lineStartY, lineEndX, lineEndY, vertex)
 
 	/**
-	 * Whether a vertex on the current line lies strictly ahead of a point on it, toward the line's end.
+	 * Whether a vertex on the current line lies strictly ahead of a point on it, toward the line's end,
+	 * exactly (see [compareAlongLine]).
 	 *
 	 * @param Double fromX  The point's x.
 	 * @param Double fromY  The point's y.
@@ -1269,16 +1269,17 @@ internal class GuideInsertion(
 	 * @return Boolean True when it lies past the point.
 	 */
 	private fun isAhead(fromX: Double, fromY: Double, vertex: Int): Boolean =
-		(store.pointX(vertex) - fromX) * (lineEndX - lineStartX) + (store.pointY(vertex) - fromY) * (lineEndY - lineStartY) > 0.0
+		compareAlongLine(lineEndX - lineStartX, lineEndY - lineStartY, fromX, fromY, store.pointX(vertex), store.pointY(vertex)) > 0
 
 	/**
-	 * Whether the current line's end lies no further along than a vertex on the line.
+	 * Whether the current line's end lies no further along than a vertex on the line, exactly (see
+	 * [compareAlongLine]).
 	 *
 	 * @param Int vertex The vertex.
 	 * @return Boolean True when the end has been reached by the vertex.
 	 */
 	private fun endLiesBefore(vertex: Int): Boolean =
-		(store.pointX(vertex) - lineEndX) * (lineEndX - lineStartX) + (store.pointY(vertex) - lineEndY) * (lineEndY - lineStartY) >= 0.0
+		compareAlongLine(lineEndX - lineStartX, lineEndY - lineStartY, lineEndX, lineEndY, store.pointX(vertex), store.pointY(vertex)) >= 0
 
 	/**
 	 * Whether a point lies in a triangle's closure, exactly.
@@ -1298,7 +1299,7 @@ internal class GuideInsertion(
 	 * The store vertex standing at a guide vertex's point, looked up on first ask.
 	 *
 	 * @param Int guideVertex The guide vertex.
-	 * @return Int The store vertex, or [ABSENT].
+	 * @return Int The store vertex, or [SteinerInsertion.NO_VERTEX].
 	 */
 	private fun presentVertexOf(guideVertex: Int): Int {
 		if (storeVertexOfGuide[guideVertex] != UNKNOWN) {
@@ -1308,33 +1309,10 @@ internal class GuideInsertion(
 		val x = guide.points[2 * guideVertex].toDouble()
 		val y = guide.points[2 * guideVertex + 1].toDouble()
 		val triangle = locate(x, y)
-		var found = ABSENT
-
-		if (triangle >= 0) {
-			for (offset in 0 until 3) {
-				val corner = store.origin[3 * triangle + offset]
-
-				if (store.pointX(corner) == x && store.pointY(corner) == y) {
-					found = corner
-				}
-			}
-		}
-
+		val found = if (triangle >= 0) cornerAt(triangle, x, y) else SteinerInsertion.NO_VERTEX
 		storeVertexOfGuide[guideVertex] = found
 
 		return found
-	}
-
-	/**
-	 * Whether a packed triangle is still one of the store's.
-	 *
-	 * @param Long key The triangle.
-	 * @return Boolean True when it exists.
-	 */
-	private fun triangleExists(key: Long): Boolean {
-		val halfEdge = store.findHalfEdge(triangleFirst(key), triangleSecond(key))
-
-		return halfEdge != HalfEdgeTriangulation.NO_HALF_EDGE && store.origin[store.previous(halfEdge)] == triangleThird(key)
 	}
 
 	/**
@@ -1372,6 +1350,65 @@ internal class GuideInsertion(
 	}
 
 	/**
+	 * The corner of a triangle standing exactly at a point.
+	 *
+	 * @param Int    triangle The triangle slot.
+	 * @param Double x        The point's x.
+	 * @param Double y        The point's y.
+	 * @return Int The corner, or [SteinerInsertion.NO_VERTEX].
+	 */
+	private fun cornerAt(triangle: Int, x: Double, y: Double): Int {
+		for (offset in 0 until 3) {
+			val corner = store.origin[3 * triangle + offset]
+
+			if (store.pointX(corner) == x && store.pointY(corner) == y) {
+				return corner
+			}
+		}
+
+		return SteinerInsertion.NO_VERTEX
+	}
+
+	/**
+	 * The edge of a triangle whose line a point in its closure lies on, exactly.
+	 *
+	 * @param Int    triangle The triangle slot.
+	 * @param Double x        The point's x.
+	 * @param Double y        The point's y.
+	 * @return Int The half-edge, [HalfEdgeTriangulation.NO_HALF_EDGE] off every edge, or [ON_CORNER] on two (a corner).
+	 */
+	private fun edgeThrough(triangle: Int, x: Double, y: Double): Int {
+		var onEdge = HalfEdgeTriangulation.NO_HALF_EDGE
+		var onEdgeCount = 0
+
+		for (offset in 0 until 3) {
+			val halfEdge = 3 * triangle + offset
+
+			if (store.orientAt(x, y, store.origin[halfEdge], store.destination(halfEdge)) == 0.0) {
+				onEdge = halfEdge
+				onEdgeCount++
+			}
+		}
+
+		return if (onEdgeCount >= 2) ON_CORNER else onEdge
+	}
+
+	/**
+	 * Sets the line the next walk follows.
+	 *
+	 * @param Double startX The line's start x.
+	 * @param Double startY The line's start y.
+	 * @param Double endX   The line's end x.
+	 * @param Double endY   The line's end y.
+	 */
+	private fun setLine(startX: Double, startY: Double, endX: Double, endY: Double) {
+		lineStartX = startX
+		lineStartY = startY
+		lineEndX = endX
+		lineEndY = endY
+	}
+
+	/**
 	 * The real triangle whose closure holds a point, by a visibility walk across every edge from the last
 	 * triangle reached, falling back to a scan when the walk runs long.
 	 *
@@ -1381,9 +1418,8 @@ internal class GuideInsertion(
 	 */
 	private fun locate(x: Double, y: Double): Int {
 		var triangle = if (walkStart < store.triangleCount && !store.isGhostTriangle(walkStart)) walkStart else firstRealTriangle()
-		val stepLimit = 4 * store.triangleCount + 16
 
-		walk@ for (step in 0 until stepLimit) {
+		walk@ for (step in 0 until store.locateStepLimit()) {
 			val base = 3 * triangle
 
 			for (offset in 0 until 3) {
@@ -1449,7 +1485,7 @@ private fun uniqueEdgesOf(triangles: IntArray): LongArray {
 		val end = triangles[if (entry % 3 == 2) entry - 2 else entry + 1]
 
 		if (start != end) {
-			edges.add(packVertexPair(minOf(start, end), maxOf(start, end)))
+			edges.add(packUndirectedPair(start, end))
 		}
 	}
 
