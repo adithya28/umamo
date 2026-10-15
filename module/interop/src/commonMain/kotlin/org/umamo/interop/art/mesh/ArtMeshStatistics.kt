@@ -6,7 +6,7 @@ package org.umamo.interop.art.mesh
  * @property Int    cellSize            The working grid's cell size, pixels.
  * @property Double outlineLevel        How far outside the art the outline was traced, pixels.
  * @property Double outlineSpacing      The outline spacing used, pixels.
- * @property Double interiorSpacing     The interior spacing used, pixels.
+ * @property Double? interiorSpacing    The interior spacing used, pixels, or null when the vertex budget left the interior to refinement.
  * @property Int    outlineRingCount    The number of outline rings (one per island, plus one per hole when holes are kept).
  * @property Int    outlineVertexCount  The outline's vertices.
  * @property Int    refinedChordCount   Outline chords split because they came too close to the art or cut it off.
@@ -23,7 +23,7 @@ public data class ArtMeshStatistics(
 	val cellSize: Int,
 	val outlineLevel: Double,
 	val outlineSpacing: Double,
-	val interiorSpacing: Double,
+	val interiorSpacing: Double?,
 	val outlineRingCount: Int,
 	val outlineVertexCount: Int,
 	val refinedChordCount: Int,

@@ -27,6 +27,12 @@ import kotlin.math.sqrt
  * the art is joined to it by the surface it had rather than meshed around on its own.  With a MINIMUM
  * ANGLE the triangulation is refined toward it in what the vertex budget leaves (see assembleMesh).
  *
+ * Over the VERTEX BUDGET the interior gives way first: its spacing widens while the outline keeps the
+ * silhouette as asked, and only when the outline and pins alone fill the budget is the interior left
+ * to refinement and the outline widened.  A mesh that fits is never coarsened; one that must be keeps
+ * a share of the budget back, so refinement has room to fix what coarsening makes - unless the last
+ * round only fits the whole budget, which then stands rather than fail.
+ *
  * Filling holes meshes the art's silhouette instead.  The outline keeps only the rings nothing else
  * encloses, so no hole ring (and no ring of art inside a hole) ever reaches the triangulation and the
  * mesh is one solid sheet per piece; the outline itself is traced from the art's own field, so every
@@ -38,8 +44,16 @@ import kotlin.math.sqrt
  * is a function of the alpha channel, the settings, the pins, and their surroundings alone.
  */
 
-/** Rounds of widening the spacings to meet the vertex budget before giving up. */
-private const val BUDGET_ROUNDS: Int = 5
+/** Rounds of thinning the interior and widening the outline to meet the vertex budget before giving up. */
+private const val BUDGET_ROUNDS: Int = 8
+
+/**
+ * The share of the vertex budget held back for refinement once a mesh has to be coarsened to fit.  A
+ * coarsened mesh pairs a dense outline with a thinned interior, which makes the very slivers refinement
+ * fixes, so it needs real room: on the corpus a third of the budget halves what a fifth leaves below
+ * the minimum angle, with fewer vertices in all.
+ */
+private const val REFINEMENT_RESERVE_SHARE: Double = 0.30
 
 /**
  * Meshes one layer raster; see [generateArtMesh] over an [AlphaChannel], which is all it reads.
@@ -108,13 +122,18 @@ public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins:
 	}
 
 	var outlineSpacing = settings.outlineSpacing
-	var interiorSpacing = settings.interiorSpacing
+	// Null once the interior is left to refinement.
+	var interiorSpacing: Double? = settings.interiorSpacing
+	var target = settings.vertexBudget
+	var previousInteriorCount = Int.MAX_VALUE
 	var round = 0
 
 	while (true) {
 		val points = placePoints(field, interiorField, settings, denseOutline, denseInner, roundedPins, outlineSpacing, interiorSpacing, tolerance)
+		// The reserve gives way on the last round, so it never turns a mesh that fits into none.
+		val fits = points.vertexCount <= target || (round == BUDGET_ROUNDS && points.vertexCount <= settings.vertexBudget)
 
-		if (points.vertexCount <= settings.vertexBudget) {
+		if (fits) {
 			if (round > 0) {
 				notices.add(ArtMeshNotice.SpacingCoarsened(outlineSpacing, interiorSpacing))
 			}
@@ -131,14 +150,27 @@ public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins:
 			return ArtMeshResult(null, notices, null)
 		}
 
-		// Only the vertices above the floor (every outline ring's minimum, plus the pins) shrink as the
-		// spacing widens: the outline with the spacing and the interior with its square, so the square
-		// root of the reducible overshoot (plus a little) usually lands under the budget in a round or two.
-		val reducible = (points.vertexCount - vertexFloor).toDouble()
-		val reducibleBudget = (settings.vertexBudget - vertexFloor).toDouble()
-		val widening = sqrt(reducible / reducibleBudget) * 1.05
-		outlineSpacing *= widening
-		interiorSpacing *= widening
+		// Coarsening is needed, so keep a share of the budget back for refinement, never past the floor.
+		target = settings.vertexBudget - minOf(ceil(REFINEMENT_RESERVE_SHARE * settings.vertexBudget).toInt(), settings.vertexBudget - vertexFloor)
+		val interiorRoom = target - points.outlineCount
+		val interiorCount = points.interiorCount
+		val currentInteriorSpacing = interiorSpacing
+
+		if (currentInteriorSpacing != null && interiorRoom > 0 && interiorCount in 1 until previousInteriorCount) {
+			// Thin the interior alone: the lattice shrinks with the spacing's square and the inner ring
+			// with the spacing, so the square root of the overshoot (plus a little) lands close.
+			interiorSpacing = currentInteriorSpacing * sqrt(interiorCount.toDouble() / interiorRoom) * 1.05
+			previousInteriorCount = interiorCount
+		} else if (currentInteriorSpacing != null) {
+			// The outline and pins fill the budget themselves (or the interior stopped thinning).
+			interiorSpacing = null
+		} else {
+			// Only the outline above its floor (each ring's minimum, plus the pins) shrinks as it widens,
+			// in proportion to the spacing.
+			val reducible = (points.outlineCount - vertexFloor).toDouble()
+			val reducibleBudget = maxOf(1.0, (target - vertexFloor).toDouble())
+			outlineSpacing *= reducible / reducibleBudget * 1.05
+		}
 	}
 }
 
@@ -151,9 +183,17 @@ public fun generateArtMesh(alpha: AlphaChannel, settings: ArtMeshSettings, pins:
  * @property DoubleArray       pins       The pins.
  */
 private class PlacedPoints(val outline: List<SampledRing>, val innerRings: List<DoubleArray>, val lattice: DoubleArray, val pins: DoubleArray) {
+	/** The outline's and the pins' points: what the interior cannot give way for. */
+	val outlineCount: Int
+		get() = outline.sumOf { ring -> ring.sampleCount } + pins.size / 2
+
+	/** The inner rings' and the lattice's points. */
+	val interiorCount: Int
+		get() = innerRings.sumOf { ring -> ring.size / 2 } + lattice.size / 2
+
 	/** The vertex count the mesh would have (an upper bound; aliasing and unused points only lower it). */
 	val vertexCount: Int
-		get() = outline.sumOf { ring -> ring.sampleCount } + innerRings.sumOf { ring -> ring.size / 2 } + lattice.size / 2 + pins.size / 2
+		get() = outlineCount + interiorCount
 }
 
 /**
@@ -166,7 +206,7 @@ private class PlacedPoints(val outline: List<SampledRing>, val innerRings: List<
  * @param List<DoubleArray> denseInner      The traced inner contours.
  * @param DoubleArray       pins            The pins, Float-rounded.
  * @param Double            outlineSpacing  The outline spacing.
- * @param Double            interiorSpacing The interior spacing.
+ * @param Double?           interiorSpacing The interior spacing, or null to place no interior points.
  * @param Double            tolerance       The corner-finding tolerance.
  * @return PlacedPoints The points.
  */
@@ -178,7 +218,7 @@ private fun placePoints(
 	denseInner: List<DoubleArray>,
 	pins: DoubleArray,
 	outlineSpacing: Double,
-	interiorSpacing: Double,
+	interiorSpacing: Double?,
 	tolerance: Double,
 ): PlacedPoints {
 	val minimumMargin = settings.minimumMargin
@@ -216,6 +256,11 @@ private fun placePoints(
 			ring.refine(coversArt)
 			ring
 		}
+
+	if (interiorSpacing == null) {
+		return PlacedPoints(outline, emptyList(), DoubleArray(0), pins)
+	}
+
 	val innerRings = innerRingPoints(denseInner, interiorField, interiorSpacing, settings.innerMargin, tolerance, pins)
 	val lattice = latticePoints(interiorField, interiorSpacing, settings.innerMargin, pins)
 
@@ -232,7 +277,7 @@ private fun placePoints(
  * @param Int                   cellSize        The working cell size.
  * @param Double                outlineLevel    The outline's level.
  * @param Double                outlineSpacing  The outline spacing used.
- * @param Double                interiorSpacing The interior spacing used.
+ * @param Double?               interiorSpacing The interior spacing used, or null when the interior was left to refinement.
  * @param Int                   pinCount        The number of pins.
  * @return ArtMeshResult The result.
  */
@@ -244,7 +289,7 @@ private fun assemble(
 	cellSize: Int,
 	outlineLevel: Double,
 	outlineSpacing: Double,
-	interiorSpacing: Double,
+	interiorSpacing: Double?,
 	pinCount: Int,
 ): ArtMeshResult {
 	val refinedChordCount = points.outline.sumOf { ring -> ring.refinedChordCount }
