@@ -33,6 +33,10 @@ internal class ConstraintInserter(
 	/** The vertices one traced constraint passes through, start and end included. */
 	private val chain = ArrayList<Int>()
 
+	/** The vertices the last [insert] marked its pieces between, start and end included, as it left them. */
+	val insertedChain: List<Int>
+		get() = chain
+
 	/** The edges a piece crosses, as packed (right, left) vertex pairs ordered from its start. */
 	private val crossings = ArrayList<Long>()
 

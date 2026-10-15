@@ -37,8 +37,8 @@ public const val MINIMUM_ART_MESH_INTERIOR_THINNING_LIMIT: Double = 1.0
  * within [deformationTolerance].  Over the [vertexBudget] the interior thins first, to at most
  * [interiorThinningLimit] times the outline spacing, and past that the outline widens with it.  With
  * [strandRungs], art narrower than [strandWidth] (a hair lock, a strap, a line of ink) is meshed as a
- * strip of rungs, its outline paired straight across it; unless set, that width is where an inner ring
- * stops fitting, twice the inner margin plus half the interior spacing.
+ * strip of rungs, its outline paired straight across it; the presets put that width where an inner
+ * ring stops fitting, twice the inner margin plus half the interior spacing.
  *
  * @property Int     alphaThreshold       The minimum alpha byte counted as art (1..255).
  * @property Double  outlineSpacing       The target distance between outline vertices.
@@ -53,7 +53,7 @@ public const val MINIMUM_ART_MESH_INTERIOR_THINNING_LIMIT: Double = 1.0
  * @property Double  deformationTolerance How far, in art pixels, the new mesh may stray from a rig it replaces before old vertices are kept to hold it.
  * @property Double  interiorThinningLimit Over the budget, the most the interior spacing grows to, in outline spacings, before the outline widens with it (never below the two spacings' own ratio; at least 1).
  * @property Boolean strandRungs          Whether thin strands are meshed as rung strips rather than from their outline alone.
- * @property Double  strandWidth          The art width, in art pixels, below which a stretch of art is a strand.
+ * @property Double  strandWidth          The art width, in art pixels, below which a stretch of art is a strand.  Always given: a value derived from the margins would go stale under copy.
  */
 public data class ArtMeshSettings(
 	val alphaThreshold: Int,
@@ -69,7 +69,7 @@ public data class ArtMeshSettings(
 	val deformationTolerance: Double = DEFAULT_ART_MESH_DEFORMATION_TOLERANCE,
 	val interiorThinningLimit: Double = DEFAULT_ART_MESH_INTERIOR_THINNING_LIMIT,
 	val strandRungs: Boolean = true,
-	val strandWidth: Double = 2.0 * innerMargin + interiorSpacing / 2.0,
+	val strandWidth: Double,
 ) {
 	init {
 		require(alphaThreshold in 1..255) { "alphaThreshold must be in 1..255: $alphaThreshold" }

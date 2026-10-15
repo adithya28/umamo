@@ -29,6 +29,8 @@ import org.umamo.runtime.model.BlendMode
 import org.umamo.runtime.model.Drawable
 import org.umamo.runtime.model.DrawableId
 import org.umamo.runtime.model.DrawableMesh
+import org.umamo.runtime.model.Glue
+import org.umamo.runtime.model.GluePair
 import org.umamo.runtime.model.OrgChild
 import org.umamo.runtime.model.PuppetAtlas
 import org.umamo.runtime.model.PuppetModel
@@ -50,7 +52,8 @@ import kotlin.test.assertTrue
 
 /**
  * Generate Mesh from Art end to end over synthetic art: one undo step over every drawable, twins
- * regenerated together, split pieces kept to their own regions, a run superseded by an edit, skips
+ * regenerated together (apart when pinned at one point through different vertices), split pieces kept
+ * to their own regions, a run superseded by an edit, skips
  * counted, the atlas room rules (in place, clear of the neighbours, packed around, pinned), and the
  * strip's adjustments (a re-mesh from the base, a preset re-seed, the newest of two quick edits).
  */
@@ -94,6 +97,23 @@ class GenerateMeshFlowTest {
 			assertTrue(second.vertexCount > 4, "the twin was regenerated too")
 			assertContentEquals(first.uvs, second.uvs)
 			assertContentEquals(first.indices, second.indices)
+		}
+
+	@Test
+	fun twinsPinnedAtOnePointThroughDifferentVerticesRegenerateApart() =
+		runBlocking {
+			// Each mesh carries the quad's first corner twice, a duplicated seam vertex, and the glue names
+			// one copy on either side: the two share their pin point but not their pinned vertex, so their
+			// guides differ in their candidates and cannot be merged - they are meshed on their own guides.
+			val glue = Glue(drawableA, drawableB, listOf(GluePair(0, 4, 0.5f, 0.5f)))
+			val model = model(listOf(seamQuad(drawableA, tileA), seamQuad(drawableB, tileA, originX = 300f)), unplacedAtlas(listOf(tileA))).copy(glues = listOf(glue))
+			val session = EditorSession(model)
+
+			assertTrue(runGenerateMesh(host(session, rasters(tileA to disc()), this), listOf(drawableA), standard, null))
+
+			assertTrue(vertexCountOf(session.model.value, drawableA) > 5, "the target was regenerated")
+			assertTrue(vertexCountOf(session.model.value, drawableB) > 5, "its tile sharer was regenerated too")
+			assertEquals(1, session.model.value.glues.single().pairs.size, "the glue survives")
 		}
 
 	@Test
@@ -699,6 +719,23 @@ class GenerateMeshFlowTest {
 			geometryGrid = null,
 			atlasTileId = tileId,
 		)
+	}
+
+	/**
+	 * A quad over the disc art whose first corner is a vertex twice, its two triangles each using one
+	 * copy - a duplicated seam vertex, as a split mesh welded back together carries.
+	 *
+	 * @param DrawableId  id      The drawable.
+	 * @param AtlasTileId tileId  The tile.
+	 * @param Float       originX The canvas x the art's left lands on.
+	 * @return Drawable The drawable.
+	 */
+	private fun seamQuad(id: DrawableId, tileId: AtlasTileId, originX: Float = ORIGIN_X): Drawable {
+		val art = floatArrayOf(10f, 10f, 54f, 10f, 54f, 54f, 10f, 54f, 10f, 10f)
+		val canvas = FloatArray(art.size) { component -> art[component] + if (component % 2 == 0) originX else ORIGIN_Y }
+		val uvs = FloatArray(art.size) { component -> art[component] / 64f }
+
+		return quad(id, tileId, 10f, 10f, 54f, 54f, originX).copy(mesh = DrawableMesh.withLocalEqualToCanvas(canvas, uvs, intArrayOf(0, 1, 2, 4, 2, 3)))
 	}
 
 	/**

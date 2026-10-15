@@ -52,7 +52,9 @@ internal class SampledRing(private val dense: DoubleArray) {
 	 * With anchor runs, every anchor is a sample, and between two anchors of one run that follow each
 	 * other there is no other sample - the run's stretch of ring is sampled at its anchors alone, and no
 	 * keypoint inside it counts.  The rest of the ring is sampled as above, between keypoints and the
-	 * runs' ends.
+	 * runs' ends.  A ring that comes out under [minimumPoints] halves its longest gaps until it reaches
+	 * them, the gaps outside the runs first: the anchors stay, since the strand they pair across has
+	 * already been laid out on them.
 	 *
 	 * @param Double          spacing       The target arc distance between samples.
 	 * @param Double          tolerance     The Douglas-Peucker tolerance for finding candidate corners.
@@ -64,13 +66,10 @@ internal class SampledRing(private val dense: DoubleArray) {
 		refinedChordCount = 0
 
 		if (anchorRuns.isNotEmpty()) {
-			sampleAroundAnchors(spacing, tolerance, anchorRuns)
+			val linkedStarts = sampleAroundAnchors(spacing, tolerance, anchorRuns)
+			fillToMinimum(minimumPoints, linkedStarts)
 
-			if (samples.size >= minimumPoints) {
-				return
-			}
-
-			samples.clear()
+			return
 		}
 
 		if (perimeter / spacing < minimumPoints) {
@@ -105,8 +104,9 @@ internal class SampledRing(private val dense: DoubleArray) {
 	 * @param Double          spacing    The target arc distance between samples.
 	 * @param Double          tolerance  The Douglas-Peucker tolerance for finding candidate corners.
 	 * @param List<AnchorRun> anchorRuns The runs.
+	 * @return Set<Double> The arcs of the samples a run's next anchor follows directly, with nothing between.
 	 */
-	private fun sampleAroundAnchors(spacing: Double, tolerance: Double, anchorRuns: List<AnchorRun>) {
+	private fun sampleAroundAnchors(spacing: Double, tolerance: Double, anchorRuns: List<AnchorRun>): Set<Double> {
 		// Each fixed arc, with the run and position it holds there (-1 for a keypoint).
 		val fixed = ArrayList<FixedArc>()
 
@@ -126,6 +126,7 @@ internal class SampledRing(private val dense: DoubleArray) {
 		}
 
 		fixed.sortWith(compareBy<FixedArc> { entry -> entry.arc }.thenBy { entry -> entry.runIndex }.thenBy { entry -> entry.position })
+		val linkedStarts = HashSet<Double>()
 
 		for ((index, entry) in fixed.withIndex()) {
 			val next = fixed[(index + 1) % fixed.size]
@@ -134,6 +135,10 @@ internal class SampledRing(private val dense: DoubleArray) {
 
 			if (linked || length <= 0.0) {
 				samples.add(entry.arc)
+
+				if (linked) {
+					linkedStarts.add(entry.arc)
+				}
 			} else {
 				addUniform(entry.arc, length, maxOf(1, (length / spacing).roundToInt()))
 			}
@@ -151,6 +156,59 @@ internal class SampledRing(private val dense: DoubleArray) {
 				position++
 			}
 		}
+
+		return linkedStarts
+	}
+
+	/**
+	 * Brings the samples up to a minimum by halving the longest gap between consecutive samples until
+	 * there are enough - a gap between a run's linked anchors only when no other gap is left, since a
+	 * sample there faces nothing across the strand.  The earliest of equal gaps goes first.
+	 *
+	 * @param Int         minimumPoints The fewest samples the ring may have.
+	 * @param Set<Double> linkedStarts  The arcs of the samples whose gap runs between linked anchors.
+	 */
+	private fun fillToMinimum(minimumPoints: Int, linkedStarts: Set<Double>) {
+		while (samples.size < minimumPoints) {
+			val gap = longestGap { start -> start !in linkedStarts }.let { free -> if (free >= 0) free else longestGap { true } }
+
+			if (gap < 0) {
+				return
+			}
+
+			val start = samples[gap]
+			val end = if (gap + 1 < samples.size) samples[gap + 1] else samples[0] + perimeter
+			val before = samples.size
+			insertSample(wrapped((start + end) / 2.0))
+
+			// A gap too short for a midpoint of its own cannot be halved; nor can any other, then.
+			if (samples.size == before) {
+				return
+			}
+		}
+	}
+
+	/**
+	 * The longest gap between consecutive samples among those a predicate admits.
+	 *
+	 * @param (Double) -> Boolean admits Whether a gap, by the arc of the sample it starts at, may be chosen.
+	 * @return Int The index of the sample the gap starts at, or -1 when no admitted gap has length.
+	 */
+	private fun longestGap(admits: (Double) -> Boolean): Int {
+		var longest = -1
+		var longestLength = 0.0
+
+		for (gap in samples.indices) {
+			val start = samples[gap]
+			val end = if (gap + 1 < samples.size) samples[gap + 1] else samples[0] + perimeter
+
+			if (end - start > longestLength && admits(start)) {
+				longest = gap
+				longestLength = end - start
+			}
+		}
+
+		return longest
 	}
 
 	/**
@@ -169,7 +227,7 @@ internal class SampledRing(private val dense: DoubleArray) {
 	 * @param Double arc The arc.
 	 * @return Double The wrapped arc.
 	 */
-	private fun wrapped(arc: Double): Double {
+	fun wrapped(arc: Double): Double {
 		val remainder = arc % perimeter
 
 		return if (remainder < 0.0) remainder + perimeter else remainder

@@ -123,6 +123,22 @@ class ArtMesherTest {
 	}
 
 	@Test
+	fun aStrandTooSmallForTheMinimumOutlinePointsKeepsItsRungs() {
+		// The one-pixel strand's ring comes to fewer samples than a raised minimum: the gaps outside the
+		// rungs are halved to meet it, and the rungs stay paired, since the strand was laid out on them.
+		val raster = rasterOf(90, 9) { column, row -> row == 4 && column in 5..84 }
+		val settings = standard.copy(minimumOutlinePoints = 16)
+		val result = generateArtMesh(raster, settings)
+		val mesh = assertValidArtMesh(raster, settings, result)
+		val statistics = result.statistics!!
+
+		assertEquals(1, statistics.strandCount)
+		assertTrue(statistics.rungCount >= 2, "${statistics.rungCount}")
+		assertTrue(statistics.outlineVertexCount >= 16, "${statistics.outlineVertexCount}")
+		assertPairedAcross(mesh, 4.5, 8.0..82.0)
+	}
+
+	@Test
 	fun aNarrowStrandPairsItsOutlineAcrossItWithNothingBetween() {
 		// 10 px tall: narrower than twice the inner margin, so each rung is two vertices across.
 		val raster = rasterOf(200, 30) { column, row -> row in 10 until 20 && column in 10 until 190 }

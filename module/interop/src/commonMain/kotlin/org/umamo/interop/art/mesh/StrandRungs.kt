@@ -17,7 +17,7 @@ import kotlin.math.roundToInt
  *
  * The strands come from the outline's chordal axis: the chords across each limb, their art width (twice
  * the field's depth along the chord), and the runs of chords narrower than the settings' strand width -
- * by default the band where no inner ring fits, twice the inner margin plus half the interior spacing;
+ * at the presets the band where no inner ring fits, twice the inner margin plus half the interior spacing;
  * raised past it, a strand's rungs take the place of the inner ring through it.  A wider stretch too
  * short to hold an inner ring of its own (under one and a half interior spacings, under twice the strand
  * width) between two such runs, or between one and the strand's tip, joins them: a strap that widens a
@@ -504,8 +504,8 @@ private fun rungAt(run: StrandRun, position: Double, outline: List<SampledRing>)
 	val second = chords[after]
 	val ringA = outline[first.ringA]
 	val ringB = outline[first.ringB]
-	val arcA = wrappedArc(first.arcA + fraction * wrappedDelta(first.arcA, second.arcA, ringA.perimeter), ringA.perimeter)
-	val arcB = wrappedArc(first.arcB + fraction * wrappedDelta(first.arcB, second.arcB, ringB.perimeter), ringB.perimeter)
+	val arcA = ringA.wrapped(first.arcA + fraction * wrappedDelta(first.arcA, second.arcA, ringA.perimeter))
+	val arcB = ringB.wrapped(first.arcB + fraction * wrappedDelta(first.arcB, second.arcB, ringB.perimeter))
 
 	return Rung(
 		first.ringA,
@@ -578,19 +578,6 @@ private fun wrappedDelta(from: Double, to: Double, perimeter: Double): Double {
 		delta < -perimeter / 2.0 -> delta + perimeter
 		else -> delta
 	}
-}
-
-/**
- * An arc wrapped into [0, perimeter).
- *
- * @param Double arc       The arc.
- * @param Double perimeter The perimeter.
- * @return Double The wrapped arc.
- */
-private fun wrappedArc(arc: Double, perimeter: Double): Double {
-	val remainder = arc % perimeter
-
-	return if (remainder < 0.0) remainder + perimeter else remainder
 }
 
 /**

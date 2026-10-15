@@ -60,8 +60,9 @@ public sealed interface ArtMeshNotice {
 	public data class OutlineDensified(val chordCount: Int) : ArtMeshNotice
 
 	/**
-	 * Refinement reached the vertex budget before every triangle reached the minimum angle; the mesh is
-	 * valid, only some triangles stay narrower than asked.
+	 * Refinement reached the vertex budget - with a rig to follow, its part of the budget, the rest
+	 * held for the old vertices that keep the rig, used or not - before every triangle reached the
+	 * minimum angle; the mesh is valid, only some triangles stay narrower than asked.
 	 *
 	 * @property Int underTargetTriangleCount The triangles left below the minimum angle.
 	 */

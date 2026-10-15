@@ -81,60 +81,50 @@ public class PiecewiseLinearGuide(
 
 	/**
 	 * Every field's value at a point: the containing guide triangle's interpolation, or past the guide,
-	 * the nearest triangle's linear map carried on.
+	 * the nearest triangle's linear map carried on.  Allocates nothing of its own: a refinement reads
+	 * it for every vertex a trace touches.
 	 *
-	 * @param Double      x    The point's x.
-	 * @param Double      y    The point's y.
-	 * @param DoubleArray into Receives two values per field.
+	 * @param Double      x      The point's x.
+	 * @param Double      y      The point's y.
+	 * @param DoubleArray into   Receives two values per field.
+	 * @param Int         offset Where in [into] the first value goes.
 	 * @return Boolean False when the guide has no triangle with area, so nothing was written.
 	 */
-	internal fun valuesAt(x: Double, y: Double, into: DoubleArray): Boolean {
+	internal fun valuesAt(x: Double, y: Double, into: DoubleArray, offset: Int = 0): Boolean {
 		val location = locator.locate(x, y) ?: return false
 		val first = triangles[3 * location.triangleIndex]
 		val second = triangles[3 * location.triangleIndex + 1]
 		val third = triangles[3 * location.triangleIndex + 2]
-		val weights = DoubleArray(3)
+		val firstWeight: Double
+		val secondWeight: Double
+		val thirdWeight: Double
 
 		if (location.isInside) {
-			weights[0] = location.weightA
-			weights[1] = location.weightB
-			weights[2] = location.weightC
+			firstWeight = location.weightA
+			secondWeight = location.weightB
+			thirdWeight = location.weightC
 		} else {
 			// The nearest triangle's own barycentric coordinates, unclamped: its linear map extended.
-			barycentricOf(x, y, first, second, third, weights)
+			val firstX = points[2 * first].toDouble()
+			val firstY = points[2 * first + 1].toDouble()
+			val secondX = points[2 * second] - firstX
+			val secondY = points[2 * second + 1] - firstY
+			val thirdX = points[2 * third] - firstX
+			val thirdY = points[2 * third + 1] - firstY
+			val pointX = x - firstX
+			val pointY = y - firstY
+			val determinant = secondX * thirdY - secondY * thirdX
+			secondWeight = (pointX * thirdY - pointY * thirdX) / determinant
+			thirdWeight = (secondX * pointY - secondY * pointX) / determinant
+			firstWeight = 1.0 - secondWeight - thirdWeight
 		}
 
 		for ((index, field) in fields.withIndex()) {
-			into[2 * index] = weights[0] * field[2 * first] + weights[1] * field[2 * second] + weights[2] * field[2 * third]
-			into[2 * index + 1] = weights[0] * field[2 * first + 1] + weights[1] * field[2 * second + 1] + weights[2] * field[2 * third + 1]
+			into[offset + 2 * index] = firstWeight * field[2 * first] + secondWeight * field[2 * second] + thirdWeight * field[2 * third]
+			into[offset + 2 * index + 1] = firstWeight * field[2 * first + 1] + secondWeight * field[2 * second + 1] + thirdWeight * field[2 * third + 1]
 		}
 
 		return true
-	}
-
-	/**
-	 * A point's barycentric coordinates in a guide triangle, unclamped.
-	 *
-	 * @param Double      x       The point's x.
-	 * @param Double      y       The point's y.
-	 * @param Int         first   The triangle's first corner.
-	 * @param Int         second  Its second corner.
-	 * @param Int         third   Its third corner.
-	 * @param DoubleArray weights Receives the three weights.
-	 */
-	private fun barycentricOf(x: Double, y: Double, first: Int, second: Int, third: Int, weights: DoubleArray) {
-		val firstX = points[2 * first].toDouble()
-		val firstY = points[2 * first + 1].toDouble()
-		val secondX = points[2 * second] - firstX
-		val secondY = points[2 * second + 1] - firstY
-		val thirdX = points[2 * third] - firstX
-		val thirdY = points[2 * third + 1] - firstY
-		val pointX = x - firstX
-		val pointY = y - firstY
-		val determinant = secondX * thirdY - secondY * thirdX
-		weights[1] = (pointX * thirdY - pointY * thirdX) / determinant
-		weights[2] = (secondX * pointY - secondY * pointX) / determinant
-		weights[0] = 1.0 - weights[1] - weights[2]
 	}
 }
 

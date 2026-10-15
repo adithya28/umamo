@@ -66,11 +66,11 @@ public class RefinementOptions(
  * @property Int     offCenterCount            Of those, the off-centers (the rest are circumcenters).
  * @property Int     segmentSplitCount         Constraint edges split, boundary edges included.
  * @property Int     boundarySplitCount        Of those, boundary edges.
- * @property Int     refusedBoundarySplitCount Split points the boundary split check refused.
+ * @property Int     refusedBoundarySplitCount Boundary edges left unsplit because the boundary split check refused every point offered for them (up to three per edge).
  * @property Int     underTargetTriangleCount  Inside triangles left with an angle below the target.
  * @property Int     unfixableTriangleCount    Of those, the ones refinement gave up on: an angle between two constraints, a triangle across two segments' matching shells, a floor, or one the guide left (refinement does not run after it).  Every one of them when neither stop below fired.
- * @property Boolean stoppedByCap              Whether it stopped at [RefinementOptions.maximumAddedPoints] with work left - or, with no room to add any vertex, left triangles below the target.
- * @property Boolean stoppedByBackstop         Whether it stopped at its operation backstop, which only a defect reaches.
+ * @property Boolean stoppedByCap              Whether angle refinement stopped with work left at the most vertices it could add: [RefinementOptions.maximumAddedPoints], or with a guide that strays, what the guide's share leaves of it - the share is claimed before refinement runs and never handed back, so with a guide the whole cap may still have room - or, with no room to add any vertex, left triangles below the target.
+ * @property Boolean stoppedByBackstop         Whether it, or the guide, stopped at its operation backstop, which only a defect reaches.
  * @property Int     guidePointCount           Of the added vertices, the guide's.
  * @property Double  guideRemainingError       The largest error from the guide any candidate kept (0 without a guide).
  * @property Boolean guideStoppedByCap         Whether the guide's share ran out with a candidate still past the tolerance.

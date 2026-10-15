@@ -9,7 +9,6 @@ import org.umamo.geometry.polyline.outermostRings
 import org.umamo.geometry.triangulation.refine.PiecewiseLinearGuide
 import kotlin.math.ceil
 import kotlin.math.floor
-import kotlin.math.hypot
 import kotlin.math.sqrt
 
 /*
@@ -133,11 +132,6 @@ public fun generateArtMesh(
 	val roundedPins = DoubleArray(pins.size) { component -> pins[component].toFloat().toDouble() }
 	val pinCount = pins.size / 2
 	val vertexFloor = denseOutline.size * settings.minimumOutlinePoints + pinCount
-	// Past this spacing every ring is at its minimum, so widening further changes nothing.
-	val widestUsefulOutlineSpacing = maxOf(settings.outlineSpacing, denseOutline.maxOfOrNull { ring -> closedRingLength(ring) / settings.minimumOutlinePoints } ?: 0.0)
-	// The limit never asks for an interior denser, against the outline, than the settings themselves.
-	val thinningLimit = maxOf(settings.interiorThinningLimit, settings.interiorSpacing / settings.outlineSpacing)
-	val strandPlan = if (settings.strandRungs) planStrands(interiorField, denseOutline.map { ring -> SampledRing(ring) }, settings, cellSize, outlineLevel) else StrandPlan.NONE
 
 	if (vertexFloor > settings.vertexBudget) {
 		notices.add(ArtMeshNotice.OverBudget(vertexFloor, settings.vertexBudget))
@@ -145,6 +139,14 @@ public fun generateArtMesh(
 		return ArtMeshResult(null, notices, null)
 	}
 
+	// The rings are sampled afresh by every attempt; their arcs are measured once.
+	val outline = denseOutline.map { ring -> SampledRing(ring) }
+	// Past this spacing every ring is at its minimum, so widening further changes nothing.
+	val widestUsefulOutlineSpacing = maxOf(settings.outlineSpacing, outline.maxOfOrNull { ring -> ring.perimeter / settings.minimumOutlinePoints } ?: 0.0)
+	// The limit never asks for an interior denser, against the outline, than the settings themselves.
+	val thinningLimit = maxOf(settings.interiorThinningLimit, settings.interiorSpacing / settings.outlineSpacing)
+	// The strands are found once, after the floor has had its say; each attempt places their rungs at its own spacing.
+	val strandPlan = if (settings.strandRungs) planStrands(interiorField, outline, settings, cellSize, outlineLevel) else StrandPlan.NONE
 	var outlineSpacing = settings.outlineSpacing
 	// Null once the interior is left to refinement.
 	var interiorSpacing: Double? = settings.interiorSpacing
@@ -153,7 +155,7 @@ public fun generateArtMesh(
 	var round = 0
 
 	while (true) {
-		val points = placePoints(field, interiorField, settings, denseOutline, denseInner, roundedPins, outlineSpacing, interiorSpacing, tolerance, strandPlan, cellSize)
+		val points = placePoints(field, interiorField, settings, outline, denseInner, roundedPins, outlineSpacing, interiorSpacing, tolerance, strandPlan, cellSize)
 		// The reserve gives way on the last round, so it never turns a mesh that fits into none.
 		val fits = points.vertexCount <= target || (round == BUDGET_ROUNDS && points.vertexCount <= settings.vertexBudget)
 
@@ -219,24 +221,6 @@ public fun generateArtMesh(
 }
 
 /**
- * The length around a closed ring.
- *
- * @param DoubleArray ring The ring's points, x0, y0, ..., the last joined back to the first.
- * @return Double The length.
- */
-private fun closedRingLength(ring: DoubleArray): Double {
-	val count = ring.size / 2
-	var length = 0.0
-
-	for (vertex in 0 until count) {
-		val next = (vertex + 1) % count
-		length += hypot(ring[2 * next] - ring[2 * vertex], ring[2 * next + 1] - ring[2 * vertex + 1])
-	}
-
-	return length
-}
-
-/**
  * Every point one attempt places, before triangulation.
  *
  * @property List<SampledRing>   outline    The outline rings.
@@ -265,7 +249,7 @@ private class PlacedPoints(val outline: List<SampledRing>, val innerRings: List<
  * @param AlphaField        field           The art's field, which every outline chord is checked against.
  * @param AlphaField        interiorField   The field the inner rings and lattice follow (the silhouette's when filling holes).
  * @param ArtMeshSettings   settings        The settings.
- * @param List<DoubleArray> denseOutline    The traced outline contours.
+ * @param List<SampledRing> outline         The outline rings, sampled afresh here.
  * @param List<DoubleArray> denseInner      The traced inner contours.
  * @param DoubleArray       pins            The pins, Float-rounded.
  * @param Double            outlineSpacing  The outline spacing.
@@ -279,7 +263,7 @@ private fun placePoints(
 	field: AlphaField,
 	interiorField: AlphaField,
 	settings: ArtMeshSettings,
-	denseOutline: List<DoubleArray>,
+	outline: List<SampledRing>,
 	denseInner: List<DoubleArray>,
 	pins: DoubleArray,
 	outlineSpacing: Double,
@@ -316,7 +300,6 @@ private fun placePoints(
 				!field.containsOpaquePixelCenter(cap)
 			}
 		}
-	val outline = denseOutline.map { dense -> SampledRing(dense) }
 	// The strands' rungs pair the outline's samples across them, so they are placed first.
 	val strands = placeStrands(strandPlan, outline, outlineSpacing, interiorField, settings, cellSize, pins)
 
