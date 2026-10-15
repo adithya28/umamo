@@ -4,6 +4,7 @@ import org.umamo.format.art.AlphaField
 import org.umamo.geometry.axis.AxisBranch
 import org.umamo.geometry.axis.AxisEnd
 import org.umamo.geometry.axis.chordalAxis
+import org.umamo.geometry.polyline.ringContainsPoint
 import kotlin.math.ceil
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -36,6 +37,12 @@ import kotlin.math.roundToInt
 private const val MINIMUM_RUN_CHORDS: Int = 2
 
 /**
+ * A wider stretch joins the runs around it only over art narrower than this many strand widths, so
+ * chords are measured up to that width and no further.
+ */
+private const val JOINING_WIDTH_FACTOR: Double = 2.0
+
+/**
  * One chord across the outline, read off the chordal axis.
  *
  * @property Int    ringA        The outline ring its side-A end lies on.
@@ -47,7 +54,7 @@ private const val MINIMUM_RUN_CHORDS: Int = 2
  * @property Double middleY      Its midpoint's y.
  * @property Double axisPosition How far along the branch's axis its midpoint lies.
  */
-internal class StrandChord(
+internal data class StrandChord(
 	val ringA: Int,
 	val arcA: Double,
 	val ringB: Int,
@@ -72,7 +79,7 @@ internal class StrandRun(val chords: List<StrandChord>, val trimStart: Boolean, 
 		get() {
 			val open = chords.last().axisPosition - chords.first().axisPosition
 
-			return if (closed) open + hypot(chords.first().middleX - chords.last().middleX, chords.first().middleY - chords.last().middleY) else open
+			return if (closed) open + chords.last().axisStepTo(chords.first()) else open
 		}
 }
 
@@ -111,7 +118,7 @@ internal class StrandPlacement(
 	 * @param Double y The point's y.
 	 * @return Boolean True inside some quad.
 	 */
-	fun contains(x: Double, y: Double): Boolean = quads.any { quad -> quadContains(quad, x, y) }
+	fun contains(x: Double, y: Double): Boolean = quads.any { quad -> ringContainsPoint(quad, x, y) }
 
 	companion object {
 		/**
@@ -137,42 +144,21 @@ internal class StrandPlacement(
  * @return StrandPlan The runs.
  */
 internal fun planStrands(field: AlphaField, outline: List<SampledRing>, settings: ArtMeshSettings, cellSize: Int, outlineLevel: Double): StrandPlan {
-	val step = maxOf(1.0, cellSize.toDouble())
-	val coordinates = ArrayList<Double>()
-	val ringOfPoint = ArrayList<Int>()
-	val arcOfPoint = ArrayList<Double>()
-	val rings = ArrayList<IntArray>()
-
-	for ((ringIndex, ring) in outline.withIndex()) {
-		val count = maxOf(3, ceil(ring.perimeter / step).toInt())
-		val first = ringOfPoint.size
-
-		for (position in 0 until count) {
-			val arc = ring.perimeter * position / count
-			coordinates.add(ring.roundedX(arc))
-			coordinates.add(ring.roundedY(arc))
-			ringOfPoint.add(ringIndex)
-			arcOfPoint.add(arc)
-		}
-
-		rings.add(IntArray(count) { position -> first + position })
-	}
-
-	val points = coordinates.toDoubleArray()
-	val axis = chordalAxis(points, rings)
+	val samples = AxisSamples.of(outline, maxOf(1.0, cellSize.toDouble()))
+	val axis = chordalAxis(samples.points, samples.rings)
 
 	if (!axis.triangulation.classificationConsistent || axis.triangulation.rejectedConstraints.isNotEmpty()) {
 		return StrandPlan.NONE
 	}
 
 	val cutoff = settings.strandWidth
-	// A chord across a strand, or across a stretch wide enough to join one (under twice the cutoff), is no
-	// longer than that width plus the outline's margin on both sides; longer chords are not measured.
-	val longestStrandChord = 2.0 * cutoff + 2.0 * (outlineLevel + 2.0 * cellSize)
+	// A chord across a strand, or across a stretch wide enough to join one, is no longer than that width
+	// plus the outline's margin on both sides; longer chords are not measured.
+	val longestStrandChord = JOINING_WIDTH_FACTOR * cutoff + 2.0 * (outlineLevel + 2.0 * cellSize)
 	val runs = ArrayList<StrandRun>()
 
 	for (branch in axis.branches) {
-		val chords = chordsOf(branch, points, ringOfPoint, arcOfPoint, field, cellSize, longestStrandChord)
+		val chords = chordsOf(branch, samples, field, cellSize, longestStrandChord)
 		runs.addAll(narrowRuns(branch, chords, cutoff, settings.interiorSpacing))
 	}
 
@@ -180,22 +166,62 @@ internal fun planStrands(field: AlphaField, outline: List<SampledRing>, settings
 }
 
 /**
+ * The outline sampled for the chordal axis: every ring about a step apart, each point knowing its ring
+ * and its arc on it.
+ *
+ * @property DoubleArray    points      The points, x0, y0, ...
+ * @property List<IntArray> rings       Each ring's point indices.
+ * @property IntArray       ringOfPoint Per point, its ring.
+ * @property DoubleArray    arcOfPoint  Per point, its arc.
+ */
+private class AxisSamples(val points: DoubleArray, val rings: List<IntArray>, val ringOfPoint: IntArray, val arcOfPoint: DoubleArray) {
+	companion object {
+		/**
+		 * Samples every ring evenly, at least three points each.
+		 *
+		 * @param List<SampledRing> outline The outline rings.
+		 * @param Double            step    The arc distance aimed for between points.
+		 * @return AxisSamples The samples.
+		 */
+		fun of(outline: List<SampledRing>, step: Double): AxisSamples {
+			val coordinates = ArrayList<Double>()
+			val ringOfPoint = ArrayList<Int>()
+			val arcOfPoint = ArrayList<Double>()
+			val rings = ArrayList<IntArray>()
+
+			for ((ringIndex, ring) in outline.withIndex()) {
+				val count = maxOf(3, ceil(ring.perimeter / step).toInt())
+				val first = ringOfPoint.size
+
+				for (position in 0 until count) {
+					val arc = ring.perimeter * position / count
+					coordinates.add(ring.roundedX(arc))
+					coordinates.add(ring.roundedY(arc))
+					ringOfPoint.add(ringIndex)
+					arcOfPoint.add(arc)
+				}
+
+				rings.add(IntArray(count) { position -> first + position })
+			}
+
+			return AxisSamples(coordinates.toDoubleArray(), rings, ringOfPoint.toIntArray(), arcOfPoint.toDoubleArray())
+		}
+	}
+}
+
+/**
  * One branch's chords, each with its ends on the outline and the art's width across it.
  *
- * @param AxisBranch   branch             The branch.
- * @param DoubleArray  points             The axis's points.
- * @param List<Int>    ringOfPoint        Per point, its ring.
- * @param List<Double> arcOfPoint         Per point, its arc.
- * @param AlphaField   field              The field.
- * @param Int          cellSize           The working cell size.
- * @param Double       longestStrandChord Chords longer than this are not measured: no strand is that wide.
+ * @param AxisBranch  branch             The branch.
+ * @param AxisSamples samples            The points the axis was read from.
+ * @param AlphaField  field              The field.
+ * @param Int         cellSize           The working cell size.
+ * @param Double      longestStrandChord Chords longer than this are not measured: no strand is that wide.
  * @return List<StrandChord> The chords.
  */
-private fun chordsOf(branch: AxisBranch, points: DoubleArray, ringOfPoint: List<Int>, arcOfPoint: List<Double>, field: AlphaField, cellSize: Int, longestStrandChord: Double): List<StrandChord> {
+private fun chordsOf(branch: AxisBranch, samples: AxisSamples, field: AlphaField, cellSize: Int, longestStrandChord: Double): List<StrandChord> {
+	val points = samples.points
 	val chords = ArrayList<StrandChord>()
-	var axisPosition = 0.0
-	var previousX = 0.0
-	var previousY = 0.0
 
 	for (chord in 0 until branch.chordCount) {
 		val sideA = branch.sideA[chord]
@@ -204,21 +230,12 @@ private fun chordsOf(branch: AxisBranch, points: DoubleArray, ringOfPoint: List<
 		val startY = points[2 * sideA + 1]
 		val endX = points[2 * sideB]
 		val endY = points[2 * sideB + 1]
-		val middleX = (startX + endX) / 2.0
-		val middleY = (startY + endY) / 2.0
-
-		if (chord > 0) {
-			axisPosition += hypot(middleX - previousX, middleY - previousY)
-		}
-
 		val length = hypot(endX - startX, endY - startY)
 		val width = if (length > longestStrandChord) Double.POSITIVE_INFINITY else -2.0 * minOf(0.0, deepest(field, startX, startY, endX, endY, cellSize).value)
-		chords.add(StrandChord(ringOfPoint[sideA], arcOfPoint[sideA], ringOfPoint[sideB], arcOfPoint[sideB], width, middleX, middleY, axisPosition))
-		previousX = middleX
-		previousY = middleY
+		chords.add(StrandChord(samples.ringOfPoint[sideA], samples.arcOfPoint[sideA], samples.ringOfPoint[sideB], samples.arcOfPoint[sideB], width, (startX + endX) / 2.0, (startY + endY) / 2.0, 0.0))
 	}
 
-	return chords
+	return reindexed(chords)
 }
 
 /**
@@ -243,30 +260,12 @@ private fun narrowRuns(branch: AxisBranch, chords: List<StrandChord>, cutoff: Do
 		return if (chords.size >= MINIMUM_RUN_CHORDS) listOf(StrandRun(chords, trimStart = false, trimEnd = false, closed = true)) else emptyList()
 	}
 
-	// Around a loop, start after a wide chord; the axis positions restart there too.
-	val start = if (loop) (narrow.indexOfFirst { !it } + 1) % chords.size else 0
-	val order = List(chords.size) { offset -> (start + offset) % chords.size }
-	val runs = ArrayList<StrandRun>()
-	var runStart = -1
-
-	for (position in 0..order.size) {
-		val isNarrow = position < order.size && narrow[order[position]]
-
-		if (isNarrow && runStart < 0) {
-			runStart = position
-		} else if (!isNarrow && runStart >= 0) {
-			if (position - runStart >= MINIMUM_RUN_CHORDS) {
-				val runChords = reindexed((runStart until position).map { offset -> chords[order[offset]] })
-				val trimStart = !loop && runStart == 0
-				val trimEnd = !loop && position == order.size
-				runs.add(StrandRun(runChords, trimStart, trimEnd, closed = false))
-			}
-
-			runStart = -1
-		}
+	// Around a loop, a run is read from after a wide chord; its axis positions restart there too.
+	return runsOf(narrow, wanted = true, circular = loop).filter { run -> run.size >= MINIMUM_RUN_CHORDS }.map { run ->
+		val trimStart = !loop && run.first() == 0
+		val trimEnd = !loop && run.last() == chords.size - 1
+		StrandRun(reindexed(run.map { index -> chords[index] }), trimStart, trimEnd, closed = false)
 	}
-
-	return runs
 }
 
 /**
@@ -290,53 +289,35 @@ private fun absorbShortWideStretches(branch: AxisBranch, chords: List<StrandChor
 		return
 	}
 
-	// Read from a narrow chord, so around a loop no stretch is cut in two at the start.
-	val first = if (loop) narrow.indexOfFirst { it } else 0
-	var offset = 0
-
-	while (offset < count) {
-		if (narrow[(first + offset) % count]) {
-			offset++
-
-			continue
-		}
-
-		var end = offset
-
-		while (end < count && !narrow[(first + end) % count]) {
-			end++
-		}
-
-		val stretch = (offset until end).map { position -> (first + position) % count }
-		val before = if (loop || offset > 0) narrow[(first + offset - 1 + count) % count] else branch.startEnd == AxisEnd.Tip
-		val after = if (loop || end < count) narrow[(first + end) % count] else branch.endEnd == AxisEnd.Tip
+	// Two stretches always have a narrow chord between them, so marking one never changes another's
+	// neighbors.
+	for (stretch in runsOf(narrow, wanted = false, circular = loop)) {
+		val before = if (loop || stretch.first() > 0) narrow[(stretch.first() - 1 + count) % count] else branch.startEnd == AxisEnd.Tip
+		val after = if (loop || stretch.last() < count - 1) narrow[(stretch.last() + 1) % count] else branch.endEnd == AxisEnd.Tip
 		val length = stretchLength(chords, stretch)
-		val joinable = stretch.all { member -> chords[member].width.isFinite() && chords[member].width < 2.0 * cutoff }
+		val joinable = stretch.all { member -> chords[member].width.isFinite() && chords[member].width < JOINING_WIDTH_FACTOR * cutoff }
 
 		if (before && after && joinable && length < 1.5 * interiorSpacing) {
 			for (member in stretch) {
 				narrow[member] = true
 			}
 		}
-
-		offset = end
 	}
 }
 
 /**
- * The axis length a stretch of consecutive chords spans, from the chord before it to the chord after.
+ * The axis length a stretch of consecutive chords spans, from its first chord's midpoint to its last's (so a
+ * one-chord stretch spans none).
  *
  * @param List<StrandChord> chords  The branch's chords.
- * @param List<Int>         stretch The stretch's chord indices, consecutive (around a loop, wrapping).
+ * @param IntArray          stretch The stretch's chord indices, consecutive (around a loop, wrapping).
  * @return Double The length.
  */
-private fun stretchLength(chords: List<StrandChord>, stretch: List<Int>): Double {
+private fun stretchLength(chords: List<StrandChord>, stretch: IntArray): Double {
 	var length = 0.0
 
 	for (position in 1 until stretch.size) {
-		val previous = chords[stretch[position - 1]]
-		val current = chords[stretch[position]]
-		length += hypot(current.middleX - previous.middleX, current.middleY - previous.middleY)
+		length += chords[stretch[position - 1]].axisStepTo(chords[stretch[position]])
 	}
 
 	return length
@@ -353,12 +334,20 @@ private fun reindexed(chords: List<StrandChord>): List<StrandChord> {
 
 	return chords.mapIndexed { index, chord ->
 		if (index > 0) {
-			axisPosition += hypot(chord.middleX - chords[index - 1].middleX, chord.middleY - chords[index - 1].middleY)
+			axisPosition += chords[index - 1].axisStepTo(chord)
 		}
 
-		StrandChord(chord.ringA, chord.arcA, chord.ringB, chord.arcB, chord.width, chord.middleX, chord.middleY, axisPosition)
+		chord.copy(axisPosition = axisPosition)
 	}
 }
+
+/**
+ * The axis distance from one chord's midpoint to the next's.
+ *
+ * @param StrandChord next The next chord.
+ * @return Double The distance.
+ */
+private fun StrandChord.axisStepTo(next: StrandChord): Double = hypot(next.middleX - middleX, next.middleY - middleY)
 
 /**
  * Places the strands' rungs at one outline spacing.
@@ -380,44 +369,96 @@ internal fun placeStrands(plan: StrandPlan, outline: List<SampledRing>, spacing:
 	var rungCount = 0
 
 	for (run in plan.runs) {
-		val positions = rungPositions(run, spacing) ?: continue
-		val rungs = positions.map { position -> rungAt(run, position, outline) }
-
-		// A side must keep to one ring for its anchors to be one run.
-		if (rungs.any { rung -> rung.ringA != rungs[0].ringA || rung.ringB != rungs[0].ringB }) {
-			continue
-		}
-
-		val sideA = anchorRunOf(rungs.map { rung -> rung.arcA }, outline[rungs[0].ringA].perimeter, run.closed) ?: continue
-		val sideB = anchorRunOf(rungs.map { rung -> rung.arcB }, outline[rungs[0].ringB].perimeter, run.closed) ?: continue
-		anchorRuns[rungs[0].ringA].add(sideA)
-		anchorRuns[rungs[0].ringB].add(sideB)
+		val placed = placeRun(run, spacing, outline) ?: continue
+		anchorRuns[placed.rungs[0].ringA].add(placed.sideA)
+		anchorRuns[placed.rungs[0].ringB].add(placed.sideB)
 		strandCount++
-		rungCount += rungs.size
-
-		for (rung in rungs) {
-			if (rung.width >= 2.0 * settings.innerMargin) {
-				val center = deepest(field, rung.startX, rung.startY, rung.endX, rung.endY, cellSize)
-				val centerX = center.x.toFloat().toDouble()
-				val centerY = center.y.toFloat().toDouble()
-
-				if (!nearAnyPin(centerX, centerY, pins, spacing / 2.0)) {
-					centers.add(centerX)
-					centers.add(centerY)
-				}
-			}
-		}
-
-		val quadCount = if (run.closed) rungs.size else rungs.size - 1
-
-		for (index in 0 until quadCount) {
-			val first = rungs[index]
-			val second = rungs[(index + 1) % rungs.size]
-			quads.add(doubleArrayOf(first.startX, first.startY, second.startX, second.startY, second.endX, second.endY, first.endX, first.endY))
-		}
+		rungCount += placed.rungs.size
+		addCenters(placed.rungs, field, settings, cellSize, pins, spacing, centers)
+		addQuads(placed.rungs, run.closed, quads)
 	}
 
 	return StrandPlacement(anchorRuns, centers.toDoubleArray(), quads, strandCount, rungCount)
+}
+
+/**
+ * One run's rungs at a spacing and their anchors on either side.
+ *
+ * @property List<Rung> rungs The rungs, in order along the axis.
+ * @property AnchorRun  sideA Side A's anchors.
+ * @property AnchorRun  sideB Side B's anchors.
+ */
+private class PlacedRun(val rungs: List<Rung>, val sideA: AnchorRun, val sideB: AnchorRun)
+
+/**
+ * Places one run's rungs, when the run is long enough for two and each side keeps to one ring and one
+ * direction along it.
+ *
+ * @param StrandRun         run     The run.
+ * @param Double            spacing The spacing.
+ * @param List<SampledRing> outline The outline rings.
+ * @return PlacedRun? The rungs and anchors, or null when the run gets none.
+ */
+private fun placeRun(run: StrandRun, spacing: Double, outline: List<SampledRing>): PlacedRun? {
+	val positions = rungPositions(run, spacing) ?: return null
+	val rungs = positions.map { position -> rungAt(run, position, outline) }
+
+	// A side must keep to one ring for its anchors to be one run.
+	if (rungs.any { rung -> rung.ringA != rungs[0].ringA || rung.ringB != rungs[0].ringB }) {
+		return null
+	}
+
+	val sideA = anchorRunOf(rungs.map { rung -> rung.arcA }, outline[rungs[0].ringA].perimeter, run.closed) ?: return null
+	val sideB = anchorRunOf(rungs.map { rung -> rung.arcB }, outline[rungs[0].ringB].perimeter, run.closed) ?: return null
+
+	return PlacedRun(rungs, sideA, sideB)
+}
+
+/**
+ * Adds a centerline vertex at the field's deepest point on every rung over art at least twice the inner
+ * margin wide, unless a pin is near.
+ *
+ * @param List<Rung>          rungs    The rungs.
+ * @param AlphaField          field    The field the centerline follows.
+ * @param ArtMeshSettings     settings The settings.
+ * @param Int                 cellSize The working cell size.
+ * @param DoubleArray         pins     The pins, Float-rounded.
+ * @param Double              spacing  The outline spacing; a pin within half of it takes the vertex's place.
+ * @param MutableList<Double> centers  Receives the vertices, x0, y0, ..., Float-rounded.
+ */
+private fun addCenters(rungs: List<Rung>, field: AlphaField, settings: ArtMeshSettings, cellSize: Int, pins: DoubleArray, spacing: Double, centers: MutableList<Double>) {
+	for (rung in rungs) {
+		if (rung.width < 2.0 * settings.innerMargin) {
+			continue
+		}
+
+		val center = deepest(field, rung.startX, rung.startY, rung.endX, rung.endY, cellSize)
+		val centerX = center.x.toFloat().toDouble()
+		val centerY = center.y.toFloat().toDouble()
+
+		if (!nearAnyPin(centerX, centerY, pins, spacing / 2.0)) {
+			centers.add(centerX)
+			centers.add(centerY)
+		}
+	}
+}
+
+/**
+ * Adds the strand's region between each two consecutive rungs (and around a loop, the last and the
+ * first) as a quadrilateral.
+ *
+ * @param List<Rung>               rungs  The rungs.
+ * @param Boolean                  closed Whether the run goes all the way around.
+ * @param MutableList<DoubleArray> quads  Receives the quadrilaterals, four corners each.
+ */
+private fun addQuads(rungs: List<Rung>, closed: Boolean, quads: MutableList<DoubleArray>) {
+	val quadCount = if (closed) rungs.size else rungs.size - 1
+
+	for (index in 0 until quadCount) {
+		val first = rungs[index]
+		val second = rungs[(index + 1) % rungs.size]
+		quads.add(doubleArrayOf(first.startX, first.startY, second.startX, second.startY, second.endX, second.endY, first.endX, first.endY))
+	}
 }
 
 /**
@@ -504,8 +545,8 @@ private fun rungAt(run: StrandRun, position: Double, outline: List<SampledRing>)
 	val second = chords[after]
 	val ringA = outline[first.ringA]
 	val ringB = outline[first.ringB]
-	val arcA = ringA.wrapped(first.arcA + fraction * wrappedDelta(first.arcA, second.arcA, ringA.perimeter))
-	val arcB = ringB.wrapped(first.arcB + fraction * wrappedDelta(first.arcB, second.arcB, ringB.perimeter))
+	val arcA = ringA.wrapped(first.arcA + fraction * shortArcDelta(first.arcA, second.arcA, ringA.perimeter))
+	val arcB = ringB.wrapped(first.arcB + fraction * shortArcDelta(first.arcB, second.arcB, ringB.perimeter))
 
 	return Rung(
 		first.ringA,
@@ -529,7 +570,7 @@ private fun rungAt(run: StrandRun, position: Double, outline: List<SampledRing>)
  * @return AnchorRun? The run, or null when the arcs do not step one way along the ring.
  */
 private fun anchorRunOf(arcs: List<Double>, perimeter: Double, closed: Boolean): AnchorRun? {
-	val deltas = (1 until arcs.size).map { index -> wrappedDelta(arcs[index - 1], arcs[index], perimeter) }
+	val deltas = (1 until arcs.size).map { index -> shortArcDelta(arcs[index - 1], arcs[index], perimeter) }
 
 	if (deltas.all { delta -> delta > 0.0 }) {
 		return AnchorRun(unwrapped(arcs, deltas), closed)
@@ -560,24 +601,6 @@ private fun unwrapped(arcs: List<Double>, deltas: List<Double>): DoubleArray {
 	}
 
 	return result
-}
-
-/**
- * The short way from one arc to another around a ring.
- *
- * @param Double from      The first arc.
- * @param Double to        The second.
- * @param Double perimeter The ring's perimeter.
- * @return Double The signed step, within half a perimeter.
- */
-private fun wrappedDelta(from: Double, to: Double, perimeter: Double): Double {
-	val delta = to - from
-
-	return when {
-		delta > perimeter / 2.0 -> delta - perimeter
-		delta < -perimeter / 2.0 -> delta + perimeter
-		else -> delta
-	}
 }
 
 /**
@@ -616,30 +639,4 @@ private fun deepest(field: AlphaField, startX: Double, startY: Double, endX: Dou
 	}
 
 	return best
-}
-
-/**
- * Whether a point lies inside a quadrilateral (even-odd, so a twisted one still counts sensibly).
- *
- * @param DoubleArray quad The four corners, x0, y0, ...
- * @param Double      x    The point's x.
- * @param Double      y    The point's y.
- * @return Boolean True inside.
- */
-private fun quadContains(quad: DoubleArray, x: Double, y: Double): Boolean {
-	var inside = false
-
-	for (corner in 0 until 4) {
-		val next = (corner + 1) % 4
-		val startX = quad[2 * corner]
-		val startY = quad[2 * corner + 1]
-		val endX = quad[2 * next]
-		val endY = quad[2 * next + 1]
-
-		if ((startY > y) != (endY > y) && x < startX + (y - startY) * (endX - startX) / (endY - startY)) {
-			inside = !inside
-		}
-	}
-
-	return inside
 }

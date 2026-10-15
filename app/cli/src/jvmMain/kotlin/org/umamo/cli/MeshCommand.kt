@@ -7,6 +7,7 @@ import org.umamo.format.png.PngCodec
 import org.umamo.geometry.mesh.MeshQuality
 import org.umamo.geometry.mesh.PlanarTriangleMesh
 import org.umamo.geometry.mesh.measureQuality
+import org.umamo.geometry.mesh.smallestAngleBucketCount
 import org.umamo.interop.art.mesh.ArtMeshNotice
 import org.umamo.interop.art.mesh.ArtMeshPreset
 import org.umamo.interop.art.mesh.ArtMeshResult
@@ -24,9 +25,6 @@ import java.util.Locale
 
 /** The report's histogram bucket width, degrees. */
 private const val HISTOGRAM_BUCKET_DEGREES: Double = 5.0
-
-/** The histogram's bucket count: a smallest angle is at most 60 degrees. */
-private const val HISTOGRAM_BUCKETS: Int = 12
 
 /** The options that override one setting each, by name. */
 private val SETTING_OPTIONS =
@@ -99,7 +97,7 @@ internal fun runMesh(arguments: List<String>): Int {
 	var largestVertexCount = 0
 	var smallestAngle = Double.POSITIVE_INFINITY
 	var millisecondsTotal = 0L
-	val histogram = IntArray(HISTOGRAM_BUCKETS)
+	val histogram = IntArray(smallestAngleBucketCount(HISTOGRAM_BUCKET_DEGREES))
 
 	for (layer in layers) {
 		val startNanos = System.nanoTime()

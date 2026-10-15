@@ -1,6 +1,6 @@
 package org.umamo.geometry.triangulation.refine
 
-import org.umamo.geometry.packVertexPair
+import org.umamo.geometry.packUndirectedPair
 import org.umamo.geometry.pairFirst
 import org.umamo.geometry.pairSecond
 import org.umamo.geometry.triangulation.HalfEdgeTriangulation
@@ -46,12 +46,6 @@ private const val SHARP_CORNER_DEGREES: Double = 60.0
 
 /** Two shell points are the same distance from their corner when their squared distances agree this closely. */
 private const val SHELL_DISTANCE_TOLERANCE: Double = 0.001
-
-/** Backstop operations allowed per vertex slot, for refinement and for the guide alike. */
-internal const val BACKSTOP_OPERATIONS_PER_VERTEX: Long = 64L
-
-/** Backstop operations allowed regardless of size. */
-internal const val BACKSTOP_BASE_OPERATIONS: Long = 4096L
 
 /** A vertex added in the interior, not on any segment. */
 private const val NO_SEGMENT: Long = -1L
@@ -107,19 +101,15 @@ internal class QualityRefiner(
 	private var segmentSplitCount = 0
 	private var boundarySplitCount = 0
 	private var refusedBoundarySplitCount = 0
-
-	/** Whether the boundary split check refused a point of the segment being split. */
-	private var splitCheckRefused = false
 	private var stoppedByCap = false
 	private var stoppedByBackstop = false
-	private var operations = 0L
+	private val backstop = OperationBackstop(store)
 
 	/** The most vertices angle refinement may reach: the whole cap, or what the guide leaves it. */
 	private var refinementCap = options.maximumAddedPoints
 
 	/** The triangles below the target before the guide went in, when it did. */
 	private var badBeforeGuide: Set<Long>? = null
-	private val operationLimit = BACKSTOP_OPERATIONS_PER_VERTEX * store.vertexCapacity + BACKSTOP_BASE_OPERATIONS
 	private var guidePointCount = 0
 	private var guideRemainingError = 0.0
 	private var guideStoppedByCap = false
@@ -176,9 +166,7 @@ internal class QualityRefiner(
 				break
 			}
 
-			operations++
-
-			if (operations > operationLimit) {
+			if (!backstop.spend()) {
 				stoppedByBackstop = true
 
 				break
@@ -214,20 +202,7 @@ internal class QualityRefiner(
 	 */
 	private fun underTargetKeys(): Set<Long> {
 		val keys = HashSet<Long>()
-
-		for (triangle in 0 until store.triangleCount) {
-			if (!store.regions[triangle]) {
-				continue
-			}
-
-			val base = 3 * triangle
-			val corners = intArrayOf(store.origin[base], store.origin[base + 1], store.origin[base + 2])
-			measureCorners(corners)
-
-			if (shape.smallestSineSquared < targetSineSquared) {
-				keys.add(packTriangle(corners[0], corners[1], corners[2]))
-			}
-		}
+		store.forEachInsideBelow(targetSineSquared, shape) { first, second, third -> keys.add(packTriangle(first, second, third)) }
 
 		return keys
 	}
@@ -239,23 +214,14 @@ internal class QualityRefiner(
 	 */
 	private fun processTriangle(key: Long) {
 		queuedTriangles.remove(key)
-		val first = triangleFirst(key)
-		val second = triangleSecond(key)
-		val third = triangleThird(key)
-		val halfEdge = store.findHalfEdge(first, second)
+		val triangle = store.triangleOfKey(key)
 
-		if (halfEdge == HalfEdgeTriangulation.NO_HALF_EDGE || store.origin[store.previous(halfEdge)] != third) {
+		if (triangle < 0 || !store.regions[triangle] || key in unfixableTriangles) {
 			return
 		}
 
-		val triangle = halfEdge / 3
-
-		if (!store.regions[triangle] || key in unfixableTriangles) {
-			return
-		}
-
-		val corners = intArrayOf(first, second, third)
-		measureCorners(corners)
+		val corners = intArrayOf(triangleFirst(key), triangleSecond(key), triangleThird(key))
+		shape.measure(store, corners[0], corners[1], corners[2])
 
 		if (shape.smallestSineSquared >= targetSineSquared) {
 			return
@@ -265,14 +231,9 @@ internal class QualityRefiner(
 		val edgeStart = corners[(shape.smallestCorner + 1) % 3]
 		val edgeEnd = corners[(shape.smallestCorner + 2) % 3]
 
-		// An angle between two constraints is the input's; no vertex can widen it.
-		if (isConstrained(edgeEnd, apex) && isConstrained(apex, edgeStart)) {
-			giveUp(key)
-
-			return
-		}
-
-		if (isShellTriangle(edgeStart, edgeEnd)) {
+		// An angle between two constraints is the input's, and a triangle on matching shells only gets
+		// smaller: no vertex can help either.
+		if ((isConstrained(edgeEnd, apex) && isConstrained(apex, edgeStart)) || isShellTriangle(edgeStart, edgeEnd)) {
 			giveUp(key)
 
 			return
@@ -297,7 +258,7 @@ internal class QualityRefiner(
 
 			SteinerInsertion.LOCATED_BLOCKED -> {
 				store.removeLastVertex()
-				requestSplits(key, longArrayOf(segmentKeyOf(steiner.locatedAt)))
+				requestSplits(key, longArrayOf(store.edgeKey(steiner.locatedAt)))
 			}
 
 			else -> {
@@ -317,11 +278,7 @@ internal class QualityRefiner(
 	 * @param Int     at        Where the walk found it.
 	 */
 	private fun insertInterior(key: Long, candidate: Int, onEdge: Boolean, at: Int) {
-		if (onEdge) {
-			steiner.collectCavity(candidate, at / 3, store.twin[at] / 3)
-		} else {
-			steiner.collectCavity(candidate, at, -1)
-		}
+		steiner.collectCavityAt(candidate, onEdge, at)
 
 		if (steiner.nearestCavityDistanceSquared(candidate) < separationSquared) {
 			store.removeLastVertex()
@@ -330,23 +287,11 @@ internal class QualityRefiner(
 			return
 		}
 
-		val encroached = ArrayList<Long>()
-		val candidateX = store.pointX(candidate)
-		val candidateY = store.pointY(candidate)
-
-		for (position in 0 until steiner.cavityConstraints.size) {
-			val halfEdge = steiner.cavityConstraints[position]
-			val start = store.origin[halfEdge]
-			val end = store.destination(halfEdge)
-
-			if (liesInLens(store.pointX(start), store.pointY(start), store.pointX(end), store.pointY(end), candidateX, candidateY, lensCosine)) {
-				encroached.add(segmentKeyOf(halfEdge))
-			}
-		}
+		val encroached = encroachedSegments(candidate)
 
 		if (encroached.isNotEmpty()) {
 			store.removeLastVertex()
-			requestSplits(key, encroached.toLongArray())
+			requestSplits(key, encroached)
 
 			return
 		}
@@ -361,6 +306,31 @@ internal class QualityRefiner(
 
 		afterEachStep?.invoke(store)
 		considerStar(candidate)
+	}
+
+	/**
+	 * The segments on the last cavity's boundary whose lens holds a candidate: the ones it would
+	 * encroach.
+	 *
+	 * @param Int candidate The candidate the cavity was gathered for.
+	 * @return LongArray The segments, as packed (low, high) pairs.
+	 */
+	private fun encroachedSegments(candidate: Int): LongArray {
+		val encroached = ArrayList<Long>()
+		val candidateX = store.pointX(candidate)
+		val candidateY = store.pointY(candidate)
+
+		for (position in 0 until steiner.cavityConstraints.size) {
+			val halfEdge = steiner.cavityConstraints[position]
+			val start = store.origin[halfEdge]
+			val end = store.destination(halfEdge)
+
+			if (liesInLens(store.pointX(start), store.pointY(start), store.pointX(end), store.pointY(end), candidateX, candidateY, lensCosine)) {
+				encroached.add(store.edgeKey(halfEdge))
+			}
+		}
+
+		return encroached.toLongArray()
 	}
 
 	/**
@@ -417,17 +387,7 @@ internal class QualityRefiner(
 		val highX = store.pointX(high)
 		val highY = store.pointY(high)
 		val length = sqrt(squaredDistance(lowX, lowY, highX, highY))
-		val lowIsCorner = low < inputPointCount && sharpCorner[low]
-		val highIsCorner = high < inputPointCount && sharpCorner[high]
-
-		// The split's distance from the low end.
-		val splitDistance =
-			if (lowIsCorner != highIsCorner) {
-				val shell = shellRadius(length)
-				if (lowIsCorner) shell else length - shell
-			} else {
-				length / 2.0
-			}
+		val splitDistance = splitDistanceOf(low, high, length)
 
 		if (minOf(splitDistance, length - splitDistance) < options.minimumSegmentLength) {
 			unsplittableSegments.add(key)
@@ -439,25 +399,54 @@ internal class QualityRefiner(
 		val targetX = lowX + fraction * (highX - lowX)
 		val targetY = lowY + fraction * (highY - lowY)
 		val isBoundary = store.boundaryCount[halfEdge] % 2 == 1
-		val outwardIsLeft = if (isBoundary) !store.regions[halfEdge / 3] else null
-		val check = if (isBoundary) options.boundarySplitCheck else null
-		splitCheckRefused = false
-		val vertex =
-			steiner.splitSegment(low, high, targetX, targetY, outwardIsLeft) { candidate, cutsInside, nearestNeighborDistanceSquared ->
-				approvesSplit(low, high, candidate, cutsInside, nearestNeighborDistanceSquared, check)
-			}
+		val vertex = steiner.splitConstraint(halfEdge, targetX, targetY, separationSquared, options.boundarySplitCheck)
 
 		if (vertex == SteinerInsertion.NO_VERTEX) {
 			unsplittableSegments.add(key)
 
 			// One segment offers up to three points; a split the check turned down counts once.
-			if (splitCheckRefused) {
+			if (steiner.lastSplitRefusedByCheck) {
 				refusedBoundarySplitCount++
 			}
 
 			return
 		}
 
+		recordSegmentSplit(key, low, high, vertex, isBoundary)
+	}
+
+	/**
+	 * Where a segment splits, from its low end: at its middle, or - when exactly one end is a sharp
+	 * corner - on the power-of-two shell around that corner nearest its middle.
+	 *
+	 * @param Int    low    The segment's low end.
+	 * @param Int    high   Its high end.
+	 * @param Double length Its length.
+	 * @return Double The split's distance from the low end.
+	 */
+	private fun splitDistanceOf(low: Int, high: Int, length: Double): Double {
+		val lowIsCorner = low < inputPointCount && sharpCorner[low]
+		val highIsCorner = high < inputPointCount && sharpCorner[high]
+
+		if (lowIsCorner == highIsCorner) {
+			return length / 2.0
+		}
+
+		val shell = shellRadius(length)
+
+		return if (lowIsCorner) shell else length - shell
+	}
+
+	/**
+	 * Counts one segment split and carries the input segment it came from onto both halves.
+	 *
+	 * @param Long    key        The split piece's packed (low, high) pair.
+	 * @param Int     low        The piece's low end.
+	 * @param Int     high       Its high end.
+	 * @param Int     vertex     The split vertex.
+	 * @param Boolean isBoundary Whether the piece bounds the domain.
+	 */
+	private fun recordSegmentSplit(key: Long, low: Int, high: Int, vertex: Int, isBoundary: Boolean) {
 		addedPointCount++
 		segmentSplitCount++
 
@@ -467,40 +456,10 @@ internal class QualityRefiner(
 
 		val origin = pieceOrigin.remove(key) ?: key
 		segmentOfVertex[vertex] = origin
-		pieceOrigin[packVertexPair(low, vertex)] = origin
-		pieceOrigin[packVertexPair(high, vertex)] = origin
+		pieceOrigin[packUndirectedPair(low, vertex)] = origin
+		pieceOrigin[packUndirectedPair(high, vertex)] = origin
 		afterEachStep?.invoke(store)
 		considerStar(vertex)
-	}
-
-	/**
-	 * Whether a segment split's candidate may go in: far enough from every vertex it would join, and
-	 * allowed by the caller's check when it splits a boundary edge.
-	 *
-	 * @param Int                 low                            The segment's low end.
-	 * @param Int                 high                           Its high end.
-	 * @param Int                 candidate                      The appended candidate.
-	 * @param Boolean             cutsInside                     Whether it lies on the boundary's inside.
-	 * @param Double              nearestNeighborDistanceSquared The squared distance to its nearest would-be neighbor.
-	 * @param BoundarySplitCheck? check                          The caller's check, for a boundary edge.
-	 * @return Boolean True to insert it.
-	 */
-	private fun approvesSplit(low: Int, high: Int, candidate: Int, cutsInside: Boolean, nearestNeighborDistanceSquared: Double, check: BoundarySplitCheck?): Boolean {
-		if (nearestNeighborDistanceSquared < separationSquared) {
-			return false
-		}
-
-		if (check == null) {
-			return true
-		}
-
-		val accepted = check.accepts(store.pointX(low), store.pointY(low), store.pointX(high), store.pointY(high), store.pointX(candidate), store.pointY(candidate), cutsInside)
-
-		if (!accepted) {
-			splitCheckRefused = true
-		}
-
-		return accepted
 	}
 
 	/**
@@ -684,11 +643,10 @@ internal class QualityRefiner(
 	 */
 	private fun considerTriangle(triangle: Int) {
 		val base = 3 * triangle
-		val corners = intArrayOf(store.origin[base], store.origin[base + 1], store.origin[base + 2])
-		measureCorners(corners)
+		shape.measure(store, store.origin[base], store.origin[base + 1], store.origin[base + 2])
 
 		if (shape.smallestSineSquared < targetSineSquared) {
-			val key = packTriangle(corners[0], corners[1], corners[2])
+			val key = store.keyOfTriangle(triangle)
 
 			if (key !in unfixableTriangles && queuedTriangles.add(key)) {
 				queue.push(shape.smallestSineSquared, key)
@@ -703,7 +661,7 @@ internal class QualityRefiner(
 	 */
 	private fun requeue(key: Long) {
 		if (queuedTriangles.add(key)) {
-			measureCorners(intArrayOf(triangleFirst(key), triangleSecond(key), triangleThird(key)))
+			shape.measure(store, triangleFirst(key), triangleSecond(key), triangleThird(key))
 			queue.push(shape.smallestSineSquared, key)
 		}
 	}
@@ -715,22 +673,6 @@ internal class QualityRefiner(
 	 */
 	private fun giveUp(key: Long) {
 		unfixableTriangles.add(key)
-	}
-
-	/**
-	 * Measures a triangle given by its corners, in counterclockwise order, into [shape].
-	 *
-	 * @param IntArray corners The three corners.
-	 */
-	private fun measureCorners(corners: IntArray) {
-		shape.measure(
-			store.pointX(corners[0]),
-			store.pointY(corners[0]),
-			store.pointX(corners[1]),
-			store.pointY(corners[1]),
-			store.pointX(corners[2]),
-			store.pointY(corners[2]),
-		)
 	}
 
 	/**
@@ -747,47 +689,14 @@ internal class QualityRefiner(
 	}
 
 	/**
-	 * A half-edge's edge as a packed (low, high) pair.
-	 *
-	 * @param Int halfEdge The half-edge.
-	 * @return Long The key.
-	 */
-	private fun segmentKeyOf(halfEdge: Int): Long {
-		val start = store.origin[halfEdge]
-		val end = store.destination(halfEdge)
-
-		return packVertexPair(minOf(start, end), maxOf(start, end))
-	}
-
-	/**
 	 * Counts what is left below the target and gathers the statistics.
 	 *
 	 * @return RefinementStatistics The run's statistics.
 	 */
 	private fun finish(): RefinementStatistics {
-		var underTargetCount = 0
-		var unfixableCount = 0
-
-		for (triangle in 0 until store.triangleCount) {
-			if (!store.regions[triangle]) {
-				continue
-			}
-
-			val base = 3 * triangle
-			val corners = intArrayOf(store.origin[base], store.origin[base + 1], store.origin[base + 2])
-			measureCorners(corners)
-
-			if (shape.smallestSineSquared < targetSineSquared) {
-				underTargetCount++
-
-				val key = packTriangle(corners[0], corners[1], corners[2])
-				val leftByGuide = badBeforeGuide?.let { before -> key !in before } ?: false
-
-				if (key in unfixableTriangles || leftByGuide) {
-					unfixableCount++
-				}
-			}
-		}
+		val underTarget = underTargetKeys()
+		val before = badBeforeGuide
+		val unfixableCount = underTarget.count { key -> key in unfixableTriangles || (before != null && key !in before) }
 
 		return RefinementStatistics(
 			addedPointCount = addedPointCount,
@@ -796,7 +705,7 @@ internal class QualityRefiner(
 			segmentSplitCount = segmentSplitCount,
 			boundarySplitCount = boundarySplitCount,
 			refusedBoundarySplitCount = refusedBoundarySplitCount,
-			underTargetTriangleCount = underTargetCount,
+			underTargetTriangleCount = underTarget.size,
 			unfixableTriangleCount = unfixableCount,
 			stoppedByCap = stoppedByCap,
 			stoppedByBackstop = stoppedByBackstop,

@@ -1,6 +1,7 @@
 package org.umamo.geometry.triangulation
 
 import org.umamo.geometry.IntStack
+import org.umamo.geometry.packUndirectedPair
 import org.umamo.geometry.packVertexPair
 import org.umamo.geometry.pairFirst
 import org.umamo.geometry.pairSecond
@@ -123,6 +124,14 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, point
 	fun destination(halfEdge: Int): Int = origin[next(halfEdge)]
 
 	/**
+	 * A half-edge's edge as an undirected packed pair, the same key from either half.
+	 *
+	 * @param Int halfEdge The half-edge.
+	 * @return Long The key.
+	 */
+	fun edgeKey(halfEdge: Int): Long = packUndirectedPair(origin[halfEdge], destination(halfEdge))
+
+	/**
 	 * Whether a triangle has the ghost among its corners.
 	 *
 	 * @param Int triangle A triangle index.
@@ -174,6 +183,18 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, point
 	 * @return Double Positive when they turn counterclockwise with y up.
 	 */
 	fun orientAt(x: Double, y: Double, second: Int, third: Int): Double = orient2d(x, y, pointX(second), pointY(second), pointX(third), pointY(third), scratch)
+
+	/**
+	 * The exact orientation of two points and a real vertex (see [orient2d]).
+	 *
+	 * @param Double firstX  The first point's x.
+	 * @param Double firstY  The first point's y.
+	 * @param Double secondX The second point's x.
+	 * @param Double secondY The second point's y.
+	 * @param Int    vertex  The vertex.
+	 * @return Double Positive when the vertex lies left of first -> second, with y up.
+	 */
+	fun orientOf(firstX: Double, firstY: Double, secondX: Double, secondY: Double, vertex: Int): Double = orient2d(firstX, firstY, secondX, secondY, pointX(vertex), pointY(vertex), scratch)
 
 	/**
 	 * The exact incircle test of four real vertices (see [incircle]).
@@ -476,27 +497,38 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, point
 	 * @param Int to   The segment's far end; it needs coordinates, not edges.
 	 * @return Int The first crossed half-edge (origin right of the segment, destination left), -(neighbor + 1) when the segment runs along an edge to that neighbor, or [NO_EXIT] when it leaves through no real triangle.
 	 */
-	fun exitEdgeFrom(from: Int, to: Int): Int {
+	fun exitEdgeFrom(from: Int, to: Int): Int = exitEdgeToward(from, pointX(to), pointY(to))
+
+	/**
+	 * How a straight segment from a vertex toward a point leaves the vertex: along an edge to a
+	 * neighbor lying exactly on the segment ahead (the point itself, when it is a neighbor), or through
+	 * the interior of one real triangle around the vertex.  Neighbors on the segment are ordered exactly
+	 * (see [compareAlongLine]).
+	 *
+	 * @param Int    from The vertex.
+	 * @param Double toX  The segment's far end x.
+	 * @param Double toY  The segment's far end y.
+	 * @return Int The first crossed half-edge (origin right of the segment, destination left), -(neighbor + 1) when the segment runs along an edge to that neighbor, or [NO_EXIT] when it leaves through no real triangle.
+	 */
+	fun exitEdgeToward(from: Int, toX: Double, toY: Double): Int {
+		val fromX = pointX(from)
+		val fromY = pointY(from)
 		val first = vertexHalfEdge[from]
 		var spoke = first
 
 		do {
 			val neighbor = destination(spoke)
 
-			if (neighbor == to) {
-				return -(to + 1)
-			}
-
 			if (neighbor != ghostVertex) {
-				val neighborSide = orient(from, to, neighbor)
+				val neighborSide = orientOf(fromX, fromY, toX, toY, neighbor)
 
-				if (neighborSide == 0.0 && pointsForward(from, to, neighbor)) {
+				if (neighborSide == 0.0 && compareAlongLine(toX - fromX, toY - fromY, fromX, fromY, pointX(neighbor), pointY(neighbor)) > 0) {
 					return -(neighbor + 1)
 				}
 
 				val apex = origin[previous(spoke)]
 
-				if (apex != ghostVertex && neighborSide < 0.0 && orient(from, to, apex) > 0.0) {
+				if (apex != ghostVertex && neighborSide < 0.0 && orientOf(fromX, fromY, toX, toY, apex) > 0.0) {
 					return next(spoke)
 				}
 			}
@@ -508,25 +540,18 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, point
 	}
 
 	/**
-	 * Whether a vertex collinear with a segment lies ahead of its start, toward its end.  Exact: the
-	 * sign of a floating-point difference is always correct.
+	 * The most steps a walk along a straight line takes before it gives up.
 	 *
-	 * @param Int from      The segment's start.
-	 * @param Int to        The segment's end.
-	 * @param Int collinear A vertex on the segment's line.
-	 * @return Boolean True when the vertex lies on the end's side of the start.
+	 * @return Int The step limit.
 	 */
-	fun pointsForward(from: Int, to: Int, collinear: Int): Boolean {
-		val alongX = pointX(to) - pointX(from)
+	fun lineWalkStepLimit(): Int = 3 * triangleCount + 16
 
-		if (alongX != 0.0) {
-			return (pointX(collinear) - pointX(from) > 0.0) == (alongX > 0.0)
-		}
-
-		val alongY = pointY(to) - pointY(from)
-
-		return (pointY(collinear) - pointY(from) > 0.0) == (alongY > 0.0)
-	}
+	/**
+	 * The most steps a visibility walk toward a point takes before it falls back to a scan.
+	 *
+	 * @return Int The step limit.
+	 */
+	fun locateStepLimit(): Int = 4 * triangleCount + 16
 
 	/**
 	 * Every constrained edge once, as (low, high) vertex pairs in ascending order.

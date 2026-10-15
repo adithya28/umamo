@@ -150,7 +150,7 @@ internal class DelaunayInserter(private val triangulation: HalfEdgeTriangulation
 		}
 
 		var entered = HalfEdgeTriangulation.NO_HALF_EDGE
-		val stepLimit = 4 * triangulation.triangleCount + 16
+		val stepLimit = triangulation.locateStepLimit()
 		var steps = 0
 
 		walk@ while (true) {

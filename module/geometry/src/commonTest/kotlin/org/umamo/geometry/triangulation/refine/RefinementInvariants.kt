@@ -5,7 +5,10 @@ import org.umamo.geometry.triangulation.assertConstrainedDelaunayTriangulation
 import org.umamo.geometry.triangulation.classifyRegions
 import kotlin.math.PI
 import kotlin.math.acos
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -133,24 +136,25 @@ internal fun smallestAngleDegrees(points: DoubleArray, triangles: IntArray, tria
 }
 
 /**
- * The summed area of a triangle list.
+ * A star-shaped polygon around the origin: angles in order with jitter, radii in a band.
  *
- * @param DoubleArray points    The points.
- * @param IntArray    triangles Three indices per triangle.
- * @return Double The area.
+ * @param Random random        The source.
+ * @param Int    vertexCount   The number of vertices.
+ * @param Double minimumRadius The smallest vertex radius.
+ * @param Double maximumRadius The largest vertex radius.
+ * @return DoubleArray The polygon's vertices, counterclockwise.
  */
-internal fun areaOf(points: DoubleArray, triangles: IntArray): Double {
-	var doubledArea = 0.0
+internal fun starPolygon(random: Random, vertexCount: Int, minimumRadius: Double, maximumRadius: Double): DoubleArray {
+	val polygon = DoubleArray(2 * vertexCount)
 
-	for (triangle in 0 until triangles.size / 3) {
-		val first = triangles[3 * triangle]
-		val second = triangles[3 * triangle + 1]
-		val third = triangles[3 * triangle + 2]
-		doubledArea += (points[2 * second] - points[2 * first]) * (points[2 * third + 1] - points[2 * first + 1]) -
-			(points[2 * second + 1] - points[2 * first + 1]) * (points[2 * third] - points[2 * first])
+	for (vertex in 0 until vertexCount) {
+		val angle = 2.0 * PI * (vertex + random.nextDouble(-0.3, 0.3)) / vertexCount
+		val radius = random.nextDouble(minimumRadius, maximumRadius)
+		polygon[2 * vertex] = radius * cos(angle)
+		polygon[2 * vertex + 1] = radius * sin(angle)
 	}
 
-	return doubledArea / 2.0
+	return polygon
 }
 
 /**

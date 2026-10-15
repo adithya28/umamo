@@ -2,6 +2,7 @@ package org.umamo.geometry.triangulation.refine
 
 import org.umamo.geometry.packVertexPair
 import org.umamo.geometry.triangulation.HalfEdgeTriangulation
+import org.umamo.geometry.triangulation.areaOf
 import org.umamo.geometry.triangulation.buildConstrained
 import org.umamo.geometry.triangulation.classifyRegions
 import kotlin.test.Test

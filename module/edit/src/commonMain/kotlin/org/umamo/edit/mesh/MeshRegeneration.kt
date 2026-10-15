@@ -233,21 +233,18 @@ fun EditorSession.commitUnchangedGeneration(base: PuppetModel, drawableIds: List
 }
 
 /** A drawable's old mesh made ready for a transfer, or why it cannot be. */
-internal sealed interface SourcePreparation {
+private sealed interface SourcePreparation {
 	/**
-	 * The old mesh, its art frame, and its vertices in art pixels.
+	 * The old mesh and its art frame; its vertices in art pixels, and those some triangle uses, are the
+	 * input's ([RegenerationInput.Ready.oldVertexPoints], [RegenerationInput.Ready.referencedOldVertices]).
 	 *
-	 * @property DrawableMesh      mesh         The old mesh.
-	 * @property FloatArray        artToStored  Maps art-frame UVs to the stored frame.
-	 * @property FloatArray        rasterPoints The old vertices in art pixels, x0, y0, ...
-	 * @property IntArray          referenced   The old vertices some triangle uses, ascending.
-	 * @property RegenerationInput.Ready input  The input this preparation answers with.
+	 * @property DrawableMesh            mesh        The old mesh.
+	 * @property FloatArray              artToStored Maps art-frame UVs to the stored frame.
+	 * @property RegenerationInput.Ready input       The input this preparation answers with.
 	 */
 	class Prepared(
 		val mesh: DrawableMesh,
 		val artToStored: FloatArray,
-		val rasterPoints: FloatArray,
-		val referenced: IntArray,
 		val input: RegenerationInput.Ready,
 	) : SourcePreparation
 
@@ -265,7 +262,7 @@ internal sealed interface SourcePreparation {
  * @param DrawableId drawableId The drawable.
  * @return SourcePreparation The prepared source, or why it is unusable.
  */
-internal fun PuppetModel.prepareSource(drawableId: DrawableId): SourcePreparation {
+private fun PuppetModel.prepareSource(drawableId: DrawableId): SourcePreparation {
 	val drawable = drawables.firstOrNull { candidate -> candidate.id == drawableId } ?: return SourcePreparation.Unusable(RegenerationRefusal.NoMesh)
 	val mesh = drawable.mesh ?: return SourcePreparation.Unusable(RegenerationRefusal.NoMesh)
 	val tileId = drawable.atlasTileId ?: return SourcePreparation.Unusable(RegenerationRefusal.NoTile)
@@ -329,7 +326,7 @@ internal fun PuppetModel.prepareSource(drawableId: DrawableId): SourcePreparatio
 	val pinSurroundings = surroundingsOf(rasterPoints, mesh.indices, pinned)
 	val input = RegenerationInput.Ready(drawableId, tileId, tile.width, tile.height, pinPoints, pinnedOldVertices, carriedOldVertices, pinSurroundings, rasterPoints, referenced)
 
-	return SourcePreparation.Prepared(mesh, artToStored, rasterPoints, referenced, input)
+	return SourcePreparation.Prepared(mesh, artToStored, input)
 }
 
 /**
@@ -483,7 +480,7 @@ private fun keepsPins(generated: PlanarTriangleMesh, input: RegenerationInput.Re
  */
 private fun transfer(source: SourcePreparation.Prepared, generated: PlanarTriangleMesh): MeshRegeneration.Built? {
 	val oldMesh = source.mesh
-	val rasterPoints = source.rasterPoints
+	val rasterPoints = source.input.oldVertexPoints
 	val sharedBase = oldMesh.localPositions === oldMesh.positions
 	val generatedCount = generated.vertexCount
 	val carried = source.input.carriedOldVertices
@@ -519,12 +516,12 @@ private fun transfer(source: SourcePreparation.Prepared, generated: PlanarTriang
 
 	val oldVertexAt = HashMap<Long, Int>()
 
-	for (vertex in source.referenced) {
+	for (vertex in source.input.referencedOldVertices) {
 		oldVertexAt.getOrPut(pointKey(rasterPoints[2 * vertex], rasterPoints[2 * vertex + 1])) { vertex }
 	}
 
 	val locator = TriangleLocator(rasterPoints, oldMesh.indices)
-	val extrapolator = BoundaryExtrapolator(rasterPoints, oldMesh.positions, if (sharedBase) null else oldMesh.localPositions, source.referenced)
+	val extrapolator = BoundaryExtrapolator(rasterPoints, oldMesh.positions, if (sharedBase) null else oldMesh.localPositions, source.input.referencedOldVertices)
 	val weights = DoubleArray(3)
 	val corners = IntArray(3)
 

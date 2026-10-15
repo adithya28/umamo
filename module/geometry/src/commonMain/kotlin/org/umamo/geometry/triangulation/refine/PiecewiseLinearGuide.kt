@@ -95,36 +95,45 @@ public class PiecewiseLinearGuide(
 		val first = triangles[3 * location.triangleIndex]
 		val second = triangles[3 * location.triangleIndex + 1]
 		val third = triangles[3 * location.triangleIndex + 2]
-		val firstWeight: Double
-		val secondWeight: Double
-		val thirdWeight: Double
 
 		if (location.isInside) {
-			firstWeight = location.weightA
-			secondWeight = location.weightB
-			thirdWeight = location.weightC
+			blendFieldsInto(first, second, third, location.weightA, location.weightB, location.weightC, into, offset)
 		} else {
 			// The nearest triangle's own barycentric coordinates, unclamped: its linear map extended.
-			val firstX = points[2 * first].toDouble()
-			val firstY = points[2 * first + 1].toDouble()
-			val secondX = points[2 * second] - firstX
-			val secondY = points[2 * second + 1] - firstY
-			val thirdX = points[2 * third] - firstX
-			val thirdY = points[2 * third + 1] - firstY
-			val pointX = x - firstX
-			val pointY = y - firstY
-			val determinant = secondX * thirdY - secondY * thirdX
-			secondWeight = (pointX * thirdY - pointY * thirdX) / determinant
-			thirdWeight = (secondX * pointY - secondY * pointX) / determinant
-			firstWeight = 1.0 - secondWeight - thirdWeight
-		}
-
-		for ((index, field) in fields.withIndex()) {
-			into[offset + 2 * index] = firstWeight * field[2 * first] + secondWeight * field[2 * second] + thirdWeight * field[2 * third]
-			into[offset + 2 * index + 1] = firstWeight * field[2 * first + 1] + secondWeight * field[2 * second + 1] + thirdWeight * field[2 * third + 1]
+			withBarycentricWeights(
+				points[2 * first].toDouble(),
+				points[2 * first + 1].toDouble(),
+				points[2 * second].toDouble(),
+				points[2 * second + 1].toDouble(),
+				points[2 * third].toDouble(),
+				points[2 * third + 1].toDouble(),
+				x,
+				y,
+			) { firstWeight, secondWeight, thirdWeight ->
+				blendFieldsInto(first, second, third, firstWeight, secondWeight, thirdWeight, into, offset)
+			}
 		}
 
 		return true
+	}
+
+	/**
+	 * Every field's value blended from one guide triangle's corners.
+	 *
+	 * @param Int         first        The first corner.
+	 * @param Int         second       The second corner.
+	 * @param Int         third        The third corner.
+	 * @param Double      firstWeight  The first corner's weight.
+	 * @param Double      secondWeight The second corner's weight.
+	 * @param Double      thirdWeight  The third corner's weight.
+	 * @param DoubleArray into         Receives two values per field.
+	 * @param Int         offset       Where in [into] the first value goes.
+	 */
+	private fun blendFieldsInto(first: Int, second: Int, third: Int, firstWeight: Double, secondWeight: Double, thirdWeight: Double, into: DoubleArray, offset: Int) {
+		for ((index, field) in fields.withIndex()) {
+			into[offset + 2 * index] = blendCorners(firstWeight, secondWeight, thirdWeight, field[2 * first].toDouble(), field[2 * second].toDouble(), field[2 * third].toDouble())
+			into[offset + 2 * index + 1] = blendCorners(firstWeight, secondWeight, thirdWeight, field[2 * first + 1].toDouble(), field[2 * second + 1].toDouble(), field[2 * third + 1].toDouble())
+		}
 	}
 }
 

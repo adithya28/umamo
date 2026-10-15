@@ -1,5 +1,6 @@
 package org.umamo.geometry.triangulation.refine
 
+import org.umamo.geometry.triangulation.areaOf
 import org.umamo.geometry.triangulation.triangulate
 import kotlin.math.PI
 import kotlin.math.cos
@@ -313,28 +314,6 @@ class QualityRefinementTest {
 		}
 
 		return hash
-	}
-
-	/**
-	 * A star-shaped polygon around the origin: angles in order with jitter, radii in a band.
-	 *
-	 * @param Random random        The source.
-	 * @param Int    vertexCount   The number of vertices.
-	 * @param Double minimumRadius The smallest vertex radius.
-	 * @param Double maximumRadius The largest vertex radius.
-	 * @return DoubleArray The polygon's vertices, counterclockwise.
-	 */
-	private fun starPolygon(random: Random, vertexCount: Int, minimumRadius: Double, maximumRadius: Double): DoubleArray {
-		val polygon = DoubleArray(2 * vertexCount)
-
-		for (vertex in 0 until vertexCount) {
-			val angle = 2.0 * PI * (vertex + random.nextDouble(-0.3, 0.3)) / vertexCount
-			val radius = random.nextDouble(minimumRadius, maximumRadius)
-			polygon[2 * vertex] = radius * cos(angle)
-			polygon[2 * vertex + 1] = radius * sin(angle)
-		}
-
-		return polygon
 	}
 
 	/**

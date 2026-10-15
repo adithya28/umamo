@@ -133,6 +133,53 @@ private fun refinementOptionsOf(settings: ArtMeshSettings, layout: MeshLayout, c
 	)
 
 /**
+ * The field's check on an outline chord: it keeps the minimum margin from every art pixel AND cuts no
+ * art pixel off - the cap between it and the traced stretch it replaces must hold none, or even-odd
+ * would erase a speck swallowed there along with its own ring.  With [boundarySplitCheckOf], what
+ * guarantees every art pixel stays enclosed.
+ *
+ * @param AlphaField field         The art's field.
+ * @param Double     minimumMargin The clearance every outline chord keeps.
+ * @return ChordCheck The check.
+ */
+internal fun coversArtCheckOf(field: AlphaField, minimumMargin: Double): ChordCheck =
+	ChordCheck { ring, startArc, endArc, between ->
+		val startX = ring.roundedX(startArc)
+		val startY = ring.roundedY(startArc)
+		val endX = ring.roundedX(endArc)
+		val endY = ring.roundedY(endArc)
+
+		field.segmentClears(startX, startY, endX, endY, minimumMargin) && !field.containsOpaquePixelCenter(capPolygon(ring, startX, startY, endX, endY, between))
+	}
+
+/**
+ * The polygon between a chord and the stretch of traced ring it replaces.
+ *
+ * @param SampledRing ring    The ring.
+ * @param Double      startX  The chord's start x.
+ * @param Double      startY  The chord's start y.
+ * @param Double      endX    The chord's end x.
+ * @param Double      endY    The chord's end y.
+ * @param List<Int>   between The dense vertices the chord skips, in ring order.
+ * @return DoubleArray The polygon, x0, y0, ...: the chord's start, the skipped vertices, its end.
+ */
+private fun capPolygon(ring: SampledRing, startX: Double, startY: Double, endX: Double, endY: Double, between: List<Int>): DoubleArray {
+	val cap = DoubleArray(2 * (between.size + 2))
+	cap[0] = startX
+	cap[1] = startY
+
+	for ((position, vertex) in between.withIndex()) {
+		cap[2 * position + 2] = ring.denseX(vertex)
+		cap[2 * position + 3] = ring.denseY(vertex)
+	}
+
+	cap[cap.size - 2] = endX
+	cap[cap.size - 1] = endY
+
+	return cap
+}
+
+/**
  * The field's check on an outline split: both new chords keep the minimum margin from the art, and a
  * split point inside the chord cuts off no art pixel's center.
  *

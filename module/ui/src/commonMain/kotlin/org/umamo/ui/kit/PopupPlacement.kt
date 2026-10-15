@@ -5,8 +5,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupPositionProvider
 import kotlin.math.max
+
+/** How far a card beside the pointer keeps from it where the pointer's arrow hangs: right of and below the hotspot. */
+internal val POINTER_ARROW_CLEARANCE = 16.dp
 
 /**
  * True while composing inside a popup that already owns the outside-click and Esc dismiss.  Only one
@@ -31,17 +35,10 @@ internal object BelowAnchorPositionProvider : PopupPositionProvider {
 		layoutDirection: LayoutDirection,
 		popupContentSize: IntSize,
 	): IntOffset {
-		val left = anchorBounds.left.coerceIn(0, max(0, windowSize.width - popupContentSize.width))
-		val fitsBelow = anchorBounds.bottom + popupContentSize.height <= windowSize.height
-		val above = anchorBounds.top - popupContentSize.height
-		val top =
-			when {
-				fitsBelow -> anchorBounds.bottom
-				above >= 0 -> above
-				else -> windowSize.height - popupContentSize.height
-			}
+		val left = clampedStart(anchorBounds.left, popupContentSize.width, windowSize.width)
+		val top = flippedStart(anchorBounds.bottom, anchorBounds.top - popupContentSize.height, popupContentSize.height, windowSize.height)
 
-		return IntOffset(left, top.coerceIn(0, max(0, windowSize.height - popupContentSize.height)))
+		return IntOffset(left, clampedStart(top, popupContentSize.height, windowSize.height))
 	}
 }
 
@@ -59,8 +56,8 @@ internal class AtPointPositionProvider(private val localOffset: IntOffset) : Pop
 		layoutDirection: LayoutDirection,
 		popupContentSize: IntSize,
 	): IntOffset {
-		val x = (anchorBounds.left + localOffset.x).coerceIn(0, max(0, windowSize.width - popupContentSize.width))
-		val y = (anchorBounds.top + localOffset.y).coerceIn(0, max(0, windowSize.height - popupContentSize.height))
+		val x = clampedStart(anchorBounds.left + localOffset.x, popupContentSize.width, windowSize.width)
+		val y = clampedStart(anchorBounds.top + localOffset.y, popupContentSize.height, windowSize.height)
 
 		return IntOffset(x, y)
 	}
@@ -132,17 +129,42 @@ internal class CursorClearPositionProvider(
 	 * @param Boolean prefersAfter Whether the card goes after the cursor (right or below) when both sides fit.
 	 * @return Int The card's start coordinate on this axis.
 	 */
-	private fun startClearOfCursor(cursor: Int, extent: Int, windowExtent: Int, prefersAfter: Boolean): Int {
-		val after = cursor + gapAfter
-		val before = cursor - gapBefore - extent
-		val fitsAfter = after + extent <= windowExtent - windowMargin
-		val fitsBefore = before >= windowMargin
-		val preferred = if (prefersAfter) after else before
+	private fun startClearOfCursor(cursor: Int, extent: Int, windowExtent: Int, prefersAfter: Boolean): Int =
+		flippedStart(cursor + gapAfter, cursor - gapBefore - extent, extent, windowExtent, windowMargin, prefersAfter)
+}
 
-		return when {
-			fitsAfter && (prefersAfter || !fitsBefore) -> after
-			fitsBefore -> before
-			else -> preferred.coerceIn(windowMargin, max(windowMargin, windowExtent - windowMargin - extent))
-		}
+/**
+ * A popup's start on one axis, clamped so the whole popup stays inside the window's margin; one larger
+ * than the room starts at the margin.
+ *
+ * @param Int start        The start wanted.
+ * @param Int extent       The popup's size on this axis.
+ * @param Int windowExtent The window's size on this axis.
+ * @param Int margin       The band along the window's edges the popup stays out of.
+ * @return Int The start.
+ */
+internal fun clampedStart(start: Int, extent: Int, windowExtent: Int, margin: Int = 0): Int = start.coerceIn(margin, max(margin, windowExtent - margin - extent))
+
+/**
+ * A popup's start on one axis, on one side of what it sits beside or flipped to the other: the
+ * preferred side when the popup fits there inside the margin, else the other side, else the preferred
+ * side clamped into the window.
+ *
+ * @param Int     after        The start that puts the popup after it (right or below).
+ * @param Int     before       The start that puts the popup before it (left or above).
+ * @param Int     extent       The popup's size on this axis.
+ * @param Int     windowExtent The window's size on this axis.
+ * @param Int     margin       The band along the window's edges the popup stays out of.
+ * @param Boolean prefersAfter Whether the popup goes after when both sides fit.
+ * @return Int The start.
+ */
+internal fun flippedStart(after: Int, before: Int, extent: Int, windowExtent: Int, margin: Int = 0, prefersAfter: Boolean = true): Int {
+	val fitsAfter = after + extent <= windowExtent - margin
+	val fitsBefore = before >= margin
+
+	return when {
+		fitsAfter && (prefersAfter || !fitsBefore) -> after
+		fitsBefore -> before
+		else -> clampedStart(if (prefersAfter) after else before, extent, windowExtent, margin)
 	}
 }

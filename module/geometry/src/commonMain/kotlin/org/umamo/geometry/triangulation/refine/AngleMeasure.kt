@@ -1,5 +1,6 @@
 package org.umamo.geometry.triangulation.refine
 
+import org.umamo.geometry.triangulation.HalfEdgeTriangulation
 import kotlin.math.PI
 import kotlin.math.sqrt
 
@@ -131,6 +132,44 @@ internal class TriangleShape {
 		} else {
 			smallestCorner = 2
 			smallestSineSquared = doubledAreaSquared / (oppositeFirst * oppositeSecond)
+		}
+	}
+
+	/**
+	 * Measures a store triangle given by its corners, in counterclockwise order.
+	 *
+	 * @param HalfEdgeTriangulation store  The store.
+	 * @param Int                   first  The first corner.
+	 * @param Int                   second The second corner.
+	 * @param Int                   third  The third corner.
+	 */
+	fun measure(store: HalfEdgeTriangulation, first: Int, second: Int, third: Int) {
+		measure(store.pointX(first), store.pointY(first), store.pointX(second), store.pointY(second), store.pointX(third), store.pointY(third))
+	}
+}
+
+/**
+ * Runs an action for every inside triangle whose smallest angle lies below a target, in slot order:
+ * the one test refinement, its statistics, and an unrefined count all read.
+ *
+ * @param Double                  targetSineSquared The target angle's squared sine.
+ * @param TriangleShape           shape             Measures each triangle; holds that triangle's shape while the action runs.
+ * @param (Int, Int, Int) -> Unit action            Receives the triangle's corners, counterclockwise.
+ */
+internal inline fun HalfEdgeTriangulation.forEachInsideBelow(targetSineSquared: Double, shape: TriangleShape, action: (first: Int, second: Int, third: Int) -> Unit) {
+	for (triangle in 0 until triangleCount) {
+		if (!regions[triangle]) {
+			continue
+		}
+
+		val base = 3 * triangle
+		val first = origin[base]
+		val second = origin[base + 1]
+		val third = origin[base + 2]
+		shape.measure(this, first, second, third)
+
+		if (shape.smallestSineSquared < targetSineSquared) {
+			action(first, second, third)
 		}
 	}
 }

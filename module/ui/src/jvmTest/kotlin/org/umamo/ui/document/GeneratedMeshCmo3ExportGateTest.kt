@@ -126,64 +126,14 @@ class GeneratedMeshCmo3ExportGateTest {
 			val effectiveThreshold = maxOf(options.settings.alphaThreshold, base.atlas.composition.alphaThreshold)
 			val uncovered = generated.generatedIds.sumOf { drawableId -> uncoveredArtPixels(base, after, drawableId, decode, effectiveThreshold) }
 			assertEquals(0, uncovered, "every opaque art pixel lies under its new mesh")
-			val landings = restLanding(base, after, generated.generatedIds, decode, effectiveThreshold)
 			val newHits = newPaintHits(base, after, decode)
 			assertEquals(0, newHits, "no tile left in place samples a neighbour's paint it did not before")
 			println(
 				"[generate-mesh] ${file.name}: ${generated.generatedIds.size} regenerated, skips ${generated.skips.values.groupingBy { it }.eachCount()}, " +
 					"${generated.packedTileIds.size} tile(s) packed to a new spot, vertices ${vertexTotal(base)} -> ${vertexTotal(after)}",
 			)
-
-			// At its vertices the new mesh shows its art where the old mesh drew it.  Between them the art
-			// follows the new triangles, so where the rest pose bends art inside one of them the two differ by
-			// that bend.
-			val vertexErrors = landings.flatMap { landing -> landing.vertexErrors }.sorted()
-			val pixelErrors = landings.flatMap { landing -> landing.pixelErrors }.sorted()
-			val bentCount = landings.count { landing -> (landing.pixelErrors.maxOrNull() ?: 0.0) > 1.0 }
-			println("[generate-mesh]   rest-pose landing at the new vertices: ${summary(vertexErrors)}")
-			println("[generate-mesh]   rest-pose landing over the art: ${summary(pixelErrors)}; $bentCount drawable(s) move some art more than 1 px")
-
-			for (landing in landings.sortedByDescending { landing -> landing.pixelErrors.maxOrNull() ?: 0.0 }.take(5)) {
-				println(
-					"[generate-mesh]     ${landing.drawableId.raw}, vertices ${landing.oldVertexCount} -> ${landing.newVertexCount}, " +
-						"${String.format(Locale.ROOT, "%.3f", landing.worldScale)} world px per art px: ${summary(landing.pixelErrors.sorted())}; in art px ${summary(landing.artPixelErrors.sorted())}",
-				)
-			}
-
-			val artPixelErrors = landings.flatMap { landing -> landing.artPixelErrors }.sorted()
-			val strayingCount = landings.count { landing -> (landing.artPixelErrors.maxOrNull() ?: 0.0) > 1.0 }
-			println("[generate-mesh]   rest-pose landing over the art in art px: ${summary(artPixelErrors)}; $strayingCount drawable(s) move some art more than 1 art px")
-
-			assertTrue(percentile(vertexErrors, 0.99) <= 0.05, "the new vertices land where the old mesh drew their art (p99 ${percentile(vertexErrors, 0.99)} px)")
-			// Between them the new mesh keeps the old vertices that hold the rig's bends, so the art follows
-			// the old shape within the Deformation Tolerance.  What strays further is a new vertex itself:
-			// where a warp curves inside one large old triangle, a vertex there shows its art where the
-			// warp puts it rather than on that triangle's flat blend - two drawables of this rig.
-			val tolerance = options.settings.deformationTolerance
-			assertTrue(percentile(artPixelErrors, 0.99) <= tolerance, "the art follows the rig's old shape within the tolerance (p99 ${percentile(artPixelErrors, 0.99)} art px)")
-			assertTrue(strayingCount <= 2, "at most the two drawables whose warp curves inside an old triangle move art more than 1 art px: $strayingCount")
-			// Posed, the drawable's own keyforms and blend shapes are held too; a parent deformer bending
-			// differently away from rest is not, which is what the tail measures.
-			val posedNanos = System.nanoTime()
-			val posed = posedLanding(base, after, landings, decode, effectiveThreshold)
-			println(
-				"[generate-mesh]   landing over the art with each of ${base.parameters.size} parameters at its extremes, in art px: n ${posed.total}, " +
-					String.format(Locale.ROOT, "p50 %.3f, p99 %.3f, p999 %.3f, max %.2f; %d ms", posed.percentile(0.5), posed.percentile(0.99), posed.percentile(0.999), posed.max, (System.nanoTime() - posedNanos) / 1_000_000),
-			)
-			assertTrue(posed.percentile(0.99) <= tolerance, "posed, the art follows the rig's old shape within the tolerance (p99 ${posed.percentile(0.99)} art px)")
-			println("[generate-mesh]   split-piece seam: ${seamOverlapPixels(base, after, decode, effectiveThreshold)} art pixel(s) now under two pieces' meshes that were under at most one")
-			val artlessBefore = generated.generatedIds.associateWith { drawableId -> artlessPieces(base, base, drawableId, decode, effectiveThreshold) }
-			val artlessAfter = generated.generatedIds.associateWith { drawableId -> artlessPieces(base, after, drawableId, decode, effectiveThreshold) }
-			val nameById = base.drawables.associate { drawable -> drawable.id to drawable.name }
-			println("[generate-mesh]   pieces covering no art: ${artlessAfter.values.sum()} over ${artlessAfter.count { (_, count) -> count > 0 }} drawable(s) (the old meshes had ${artlessBefore.values.sum()})")
-
-			for ((drawableId, count) in artlessAfter.entries.filter { (_, count) -> count > 0 }.sortedByDescending { (_, count) -> count }.take(8)) {
-				println("[generate-mesh]     '${nameById[drawableId]}' (${drawableId.raw}): $count, old ${artlessBefore[drawableId]}")
-			}
-
-			// A glued vertex off the art is joined to it by the old triangles around it, and one no triangle
-			// used is carried rather than meshed around, so no piece of a new mesh is there for glue alone.
-			assertEquals(0, artlessAfter.values.sum(), "every piece of every new mesh covers art")
+			assertLandings(base, after, generated.generatedIds, decode, effectiveThreshold, options.settings.deformationTolerance)
+			reportSplitPieces(base, after, generated.generatedIds, decode, effectiveThreshold)
 
 			// The export: written for the shape gate and the official editor, read back, and reopened.
 			withTimeout(120_000) {
@@ -193,43 +143,133 @@ class GeneratedMeshCmo3ExportGateTest {
 			}
 			val prepared = prepareCmo3Export(document, exportedModelFor(document, session), sessionAtlasPages.binding.value.textures, "gate", 0L, 0)
 			follower.cancel()
-			println("[generate-mesh]   export report: ${prepared.report.notices.map { notice -> notice::class.simpleName }}")
-			// A changed topology leaves the imported weld by definition, so WeldDivergence is the one notice owed.
-			assertTrue(prepared.report.notices.all { notice -> notice is ExportNotice.WeldDivergence }, "the export carries every regenerated mesh: ${prepared.report.notices}")
-			val exportedBytes = Cmo3.write(prepared.model)
-			val exportFile = File("build/auto-mesh/${file.nameWithoutExtension}GenerateMeshExportTest.cmo3")
-			exportFile.parentFile.mkdirs()
-			exportFile.writeBytes(exportedBytes)
-			println("[generate-mesh]   wrote ${exportFile.absolutePath}")
-			val reopened = assertIs<Cmo3Document>(assertIs<DocumentLoad.Loaded>(loadDocument(exportedBytes, "gate.cmo3", "/art/gate.cmo3")).document)
-
-			for (drawableId in generated.generatedIds) {
-				val mesh = meshOf(after, drawableId)
-				val back = assertNotNull(reopened.puppet.drawables.firstOrNull { candidate -> candidate.id == drawableId }?.mesh, "${drawableId.raw} reopens with a mesh")
-				assertEquals(mesh.vertexCount, back.vertexCount, "${drawableId.raw} keeps its vertex count")
-				assertEquals(mesh.triangleCount, back.triangleCount, "${drawableId.raw} keeps its triangle count")
-				val worstUv = mesh.uvs.indices.maxOf { component -> abs(mesh.uvs[component] - back.uvs[component]) }
-				assertTrue(worstUv <= 1e-4f, "${drawableId.raw} keeps its UVs (off by $worstUv)")
-			}
-
-			assertEquals(after.glues.size, reopened.puppet.glues.size, "every glue reopens")
-
-			for ((written, back) in after.glues.zip(reopened.puppet.glues)) {
-				val subject = "${written.meshA.raw}+${written.meshB.raw}"
-				assertEquals(written.meshA to written.meshB, back.meshA to back.meshB, "glue $subject reopens in its place")
-				assertEquals(written.pairs.map { pair -> pair.indexA to pair.indexB }, back.pairs.map { pair -> pair.indexA to pair.indexB }, "glue $subject binds the regenerated vertices")
-			}
-
-			val identity = prepareCmo3Export(reopened, reopened.puppet, reopened.textures, "gate", 0L, 0)
-			assertTrue(identity.report.isEmpty, "an unedited re-export owes nothing: ${identity.report.notices}")
-			val sourceMainXml = CaffCodec.read(exportedBytes).firstByTag(CaffArchive.TAG_MAIN_XML)!!.content
-			val reemittedMainXml = CaffCodec.read(Cmo3.write(identity.model)).firstByTag(CaffArchive.TAG_MAIN_XML)!!.content
-			assertContentEquals(sourceMainXml, reemittedMainXml, "main.xml survives the reopen byte-identical")
+			assertExportRoundTrip(file, prepared, after, generated.generatedIds)
 
 			session.undo()
 			assertSame(base, session.model.value, "one undo restores the rig")
 			println("[generate-mesh]   ${(System.nanoTime() - startNanos) / 1_000_000} ms in all")
 		}
+
+	/**
+	 * Measures how far the regenerated drawables' art moves, at rest and posed, and asserts it stays
+	 * within the deformation tolerance.
+	 *
+	 * @param PuppetModel      base        The rig before.
+	 * @param PuppetModel      after       The rig after.
+	 * @param List<DrawableId> drawableIds The regenerated drawables.
+	 * @param Function         decode      Decodes a tile's art.
+	 * @param Int              threshold   The alpha that counts as art.
+	 * @param Double           tolerance   The deformation tolerance, art pixels.
+	 */
+	private fun assertLandings(base: PuppetModel, after: PuppetModel, drawableIds: List<DrawableId>, decode: (AtlasTileId) -> DecodedImage?, threshold: Int, tolerance: Double) {
+		val landings = restLanding(base, after, drawableIds, decode, threshold)
+		// At its vertices the new mesh shows its art where the old mesh drew it.  Between them the art
+		// follows the new triangles, so where the rest pose bends art inside one of them the two differ by
+		// that bend.
+		val vertexErrors = landings.flatMap { landing -> landing.vertexErrors }.sorted()
+		val pixelErrors = landings.flatMap { landing -> landing.pixelErrors }.sorted()
+		val bentCount = landings.count { landing -> (landing.pixelErrors.maxOrNull() ?: 0.0) > 1.0 }
+		println("[generate-mesh]   rest-pose landing at the new vertices: ${summary(vertexErrors)}")
+		println("[generate-mesh]   rest-pose landing over the art: ${summary(pixelErrors)}; $bentCount drawable(s) move some art more than 1 px")
+
+		for (landing in landings.sortedByDescending { landing -> landing.pixelErrors.maxOrNull() ?: 0.0 }.take(5)) {
+			println(
+				"[generate-mesh]     ${landing.drawableId.raw}, vertices ${landing.oldVertexCount} -> ${landing.newVertexCount}, " +
+					"${String.format(Locale.ROOT, "%.3f", landing.worldScale)} world px per art px: ${summary(landing.pixelErrors.sorted())}; in art px ${summary(landing.artPixelErrors.sorted())}",
+			)
+		}
+
+		val artPixelErrors = landings.flatMap { landing -> landing.artPixelErrors }.sorted()
+		val strayingCount = landings.count { landing -> (landing.artPixelErrors.maxOrNull() ?: 0.0) > 1.0 }
+		println("[generate-mesh]   rest-pose landing over the art in art px: ${summary(artPixelErrors)}; $strayingCount drawable(s) move some art more than 1 art px")
+
+		assertTrue(percentile(vertexErrors, 0.99) <= 0.05, "the new vertices land where the old mesh drew their art (p99 ${percentile(vertexErrors, 0.99)} px)")
+		// Between them the new mesh keeps the old vertices that hold the rig's bends, so the art follows
+		// the old shape within the Deformation Tolerance.  What strays further is a new vertex itself:
+		// where a warp curves inside one large old triangle, a vertex there shows its art where the
+		// warp puts it rather than on that triangle's flat blend - two drawables of this rig.
+		assertTrue(percentile(artPixelErrors, 0.99) <= tolerance, "the art follows the rig's old shape within the tolerance (p99 ${percentile(artPixelErrors, 0.99)} art px)")
+		assertTrue(strayingCount <= 2, "at most the two drawables whose warp curves inside an old triangle move art more than 1 art px: $strayingCount")
+		// Posed, the drawable's own keyforms and blend shapes are held too; a parent deformer bending
+		// differently away from rest is not, which is what the tail measures.
+		val posedNanos = System.nanoTime()
+		val posed = posedLanding(base, after, landings, decode, threshold)
+		println(
+			"[generate-mesh]   landing over the art with each of ${base.parameters.size} parameters at its extremes, in art px: n ${posed.total}, " +
+				String.format(Locale.ROOT, "p50 %.3f, p99 %.3f, p999 %.3f, max %.2f; %d ms", posed.percentile(0.5), posed.percentile(0.99), posed.percentile(0.999), posed.max, (System.nanoTime() - posedNanos) / 1_000_000),
+		)
+		assertTrue(posed.percentile(0.99) <= tolerance, "posed, the art follows the rig's old shape within the tolerance (p99 ${posed.percentile(0.99)} art px)")
+	}
+
+	/**
+	 * Reports what the regenerated split pieces cover - the seam pixels now under two pieces, and the
+	 * pieces that cover no art - and asserts every new piece covers art.
+	 *
+	 * @param PuppetModel      base        The rig before.
+	 * @param PuppetModel      after       The rig after.
+	 * @param List<DrawableId> drawableIds The regenerated drawables.
+	 * @param Function         decode      Decodes a tile's art.
+	 * @param Int              threshold   The alpha that counts as art.
+	 */
+	private fun reportSplitPieces(base: PuppetModel, after: PuppetModel, drawableIds: List<DrawableId>, decode: (AtlasTileId) -> DecodedImage?, threshold: Int) {
+		println("[generate-mesh]   split-piece seam: ${seamOverlapPixels(base, after, decode, threshold)} art pixel(s) now under two pieces' meshes that were under at most one")
+		val artlessBefore = drawableIds.associateWith { drawableId -> artlessPieces(base, base, drawableId, decode, threshold) }
+		val artlessAfter = drawableIds.associateWith { drawableId -> artlessPieces(base, after, drawableId, decode, threshold) }
+		val nameById = base.drawables.associate { drawable -> drawable.id to drawable.name }
+		println("[generate-mesh]   pieces covering no art: ${artlessAfter.values.sum()} over ${artlessAfter.count { (_, count) -> count > 0 }} drawable(s) (the old meshes had ${artlessBefore.values.sum()})")
+
+		for ((drawableId, count) in artlessAfter.entries.filter { (_, count) -> count > 0 }.sortedByDescending { (_, count) -> count }.take(8)) {
+			println("[generate-mesh]     '${nameById[drawableId]}' (${drawableId.raw}): $count, old ${artlessBefore[drawableId]}")
+		}
+
+		// A glued vertex off the art is joined to it by the old triangles around it, and one no triangle
+		// used is carried rather than meshed around, so no piece of a new mesh is there for glue alone.
+		assertEquals(0, artlessAfter.values.sum(), "every piece of every new mesh covers art")
+	}
+
+	/**
+	 * Writes the export for the shape gate and the official editor, reads it back, and asserts every
+	 * regenerated mesh and glue reopens and an unedited re-export keeps main.xml byte-identical.
+	 *
+	 * @param File                 file        The corpus sample, which names the written file.
+	 * @param PreparedCmo3Export   prepared    The prepared export.
+	 * @param PuppetModel          after       The rig that was exported.
+	 * @param List<DrawableId>     drawableIds The regenerated drawables.
+	 */
+	private fun assertExportRoundTrip(file: File, prepared: PreparedCmo3Export, after: PuppetModel, drawableIds: List<DrawableId>) {
+		println("[generate-mesh]   export report: ${prepared.report.notices.map { notice -> notice::class.simpleName }}")
+		// A changed topology leaves the imported weld by definition, so WeldDivergence is the one notice owed.
+		assertTrue(prepared.report.notices.all { notice -> notice is ExportNotice.WeldDivergence }, "the export carries every regenerated mesh: ${prepared.report.notices}")
+		val exportedBytes = Cmo3.write(prepared.model)
+		val exportFile = File("build/auto-mesh/${file.nameWithoutExtension}GenerateMeshExportTest.cmo3")
+		exportFile.parentFile.mkdirs()
+		exportFile.writeBytes(exportedBytes)
+		println("[generate-mesh]   wrote ${exportFile.absolutePath}")
+		val reopened = assertIs<Cmo3Document>(assertIs<DocumentLoad.Loaded>(loadDocument(exportedBytes, "gate.cmo3", "/art/gate.cmo3")).document)
+
+		for (drawableId in drawableIds) {
+			val mesh = meshOf(after, drawableId)
+			val back = assertNotNull(reopened.puppet.drawables.firstOrNull { candidate -> candidate.id == drawableId }?.mesh, "${drawableId.raw} reopens with a mesh")
+			assertEquals(mesh.vertexCount, back.vertexCount, "${drawableId.raw} keeps its vertex count")
+			assertEquals(mesh.triangleCount, back.triangleCount, "${drawableId.raw} keeps its triangle count")
+			val worstUv = mesh.uvs.indices.maxOf { component -> abs(mesh.uvs[component] - back.uvs[component]) }
+			assertTrue(worstUv <= 1e-4f, "${drawableId.raw} keeps its UVs (off by $worstUv)")
+		}
+
+		assertEquals(after.glues.size, reopened.puppet.glues.size, "every glue reopens")
+
+		for ((written, back) in after.glues.zip(reopened.puppet.glues)) {
+			val subject = "${written.meshA.raw}+${written.meshB.raw}"
+			assertEquals(written.meshA to written.meshB, back.meshA to back.meshB, "glue $subject reopens in its place")
+			assertEquals(written.pairs.map { pair -> pair.indexA to pair.indexB }, back.pairs.map { pair -> pair.indexA to pair.indexB }, "glue $subject binds the regenerated vertices")
+		}
+
+		val identity = prepareCmo3Export(reopened, reopened.puppet, reopened.textures, "gate", 0L, 0)
+		assertTrue(identity.report.isEmpty, "an unedited re-export owes nothing: ${identity.report.notices}")
+		val sourceMainXml = CaffCodec.read(exportedBytes).firstByTag(CaffArchive.TAG_MAIN_XML)!!.content
+		val reemittedMainXml = CaffCodec.read(Cmo3.write(identity.model)).firstByTag(CaffArchive.TAG_MAIN_XML)!!.content
+		assertContentEquals(sourceMainXml, reemittedMainXml, "main.xml survives the reopen byte-identical")
+	}
 
 	/**
 	 * Asserts every glue kept its pairs and their weights.
@@ -283,7 +323,7 @@ class GeneratedMeshCmo3ExportGateTest {
 
 		for (row in 0 until raster.height) {
 			for (column in 0 until raster.width) {
-				val opaque = (raster.rgba[(row * raster.width + column) * 4 + 3].toInt() and 0xFF) >= threshold
+				val opaque = raster.isArt(column, row, threshold)
 				val inRegion = region?.isCovered(column, row) ?: true
 
 				if (opaque && inRegion && !covered[row * raster.width + column]) {
@@ -460,11 +500,12 @@ class GeneratedMeshCmo3ExportGateTest {
 	 */
 	private fun landingSamples(base: PuppetModel, after: PuppetModel, landing: RestLanding, decode: (AtlasTileId) -> DecodedImage?, threshold: Int): LandingSamples? {
 		val drawableId = landing.drawableId
-		val raster = decode(meshTileOf(base, drawableId)) ?: return null
-		val oldMesh = meshOf(base, drawableId)
-		val newMesh = meshOf(after, drawableId)
-		val oldLocator = TriangleLocator(artPointsOf(base, drawableId) ?: return null, oldMesh.indices)
-		val newLocator = TriangleLocator(artPointsOf(after, drawableId) ?: return null, newMesh.indices)
+		val meshes = landingMeshesOf(base, after, drawableId, decode) ?: return null
+		val raster = meshes.raster
+		val oldMesh = meshes.oldMesh
+		val newMesh = meshes.newMesh
+		val oldLocator = meshes.oldLocator
+		val newLocator = meshes.newLocator
 		val oldCorners = ArrayList<Int>()
 		val oldWeights = ArrayList<Double>()
 		val newCorners = ArrayList<Int>()
@@ -472,7 +513,7 @@ class GeneratedMeshCmo3ExportGateTest {
 
 		for (row in 0 until raster.height step POSED_STRIDE) {
 			for (column in 0 until raster.width step POSED_STRIDE) {
-				if ((raster.rgba[(row * raster.width + column) * 4 + 3].toInt() and 0xFF) < threshold) {
+				if (!raster.isArt(column, row, threshold)) {
 					continue
 				}
 
@@ -512,33 +553,34 @@ class GeneratedMeshCmo3ExportGateTest {
 		for (drawableId in drawableIds) {
 			val oldPositions = oldWorld[drawableId] ?: continue
 			val newPositions = newWorld[drawableId] ?: continue
-			val raster = decode(meshTileOf(base, drawableId)) ?: continue
-			val oldMesh = meshOf(base, drawableId)
-			val newMesh = meshOf(after, drawableId)
-			val oldLocator = TriangleLocator(artPointsOf(base, drawableId) ?: continue, oldMesh.indices)
-			val newPoints = artPointsOf(after, drawableId) ?: continue
-			val newLocator = TriangleLocator(newPoints, newMesh.indices)
+			val meshes = landingMeshesOf(base, after, drawableId, decode) ?: continue
+			val raster = meshes.raster
+			val oldMesh = meshes.oldMesh
+			val newMesh = meshes.newMesh
+			val oldLocator = meshes.oldLocator
+			val newPoints = meshes.newPoints
+			val newLocator = meshes.newLocator
 			val vertexErrors = ArrayList<Double>()
 			val pixelErrors = ArrayList<Double>()
 
 			for (vertex in 0 until newMesh.vertexCount) {
-				val oldPoint = blendedWorld(oldLocator, oldMesh.indices, oldPositions, newPoints[2 * vertex].toDouble(), newPoints[2 * vertex + 1].toDouble()) ?: continue
+				val oldPoint = blendedAt(oldLocator, oldMesh.indices, oldPositions, newPoints[2 * vertex].toDouble(), newPoints[2 * vertex + 1].toDouble()) ?: continue
 				vertexErrors.add(hypot(oldPoint.first - newPositions[2 * vertex], oldPoint.second - newPositions[2 * vertex + 1]))
 			}
 
 			for (row in 0 until raster.height step 3) {
 				for (column in 0 until raster.width step 3) {
-					if ((raster.rgba[(row * raster.width + column) * 4 + 3].toInt() and 0xFF) < threshold) {
+					if (!raster.isArt(column, row, threshold)) {
 						continue
 					}
 
-					val oldPoint = blendedWorld(oldLocator, oldMesh.indices, oldPositions, column + 0.5, row + 0.5) ?: continue
-					val newPoint = blendedWorld(newLocator, newMesh.indices, newPositions, column + 0.5, row + 0.5) ?: continue
+					val oldPoint = blendedAt(oldLocator, oldMesh.indices, oldPositions, column + 0.5, row + 0.5) ?: continue
+					val newPoint = blendedAt(newLocator, newMesh.indices, newPositions, column + 0.5, row + 0.5) ?: continue
 					pixelErrors.add(hypot(oldPoint.first - newPoint.first, oldPoint.second - newPoint.second))
 				}
 			}
 
-			landings.add(RestLanding(drawableId, oldMesh.vertexCount, newMesh.vertexCount, vertexErrors, pixelErrors, areaScaleOf(artPointsOf(base, drawableId)!!, oldMesh.indices, oldPositions)))
+			landings.add(RestLanding(drawableId, oldMesh.vertexCount, newMesh.vertexCount, vertexErrors, pixelErrors, areaScaleOf(meshes.oldPoints, oldMesh.indices, oldPositions)))
 		}
 
 		return landings
@@ -568,35 +610,55 @@ class GeneratedMeshCmo3ExportGateTest {
 	private fun meshTileOf(model: PuppetModel, drawableId: DrawableId): AtlasTileId = model.drawables.first { drawable -> drawable.id == drawableId }.atlasTileId!!
 
 	/**
-	 * The world position of an art point inside a mesh: its containing triangle's deformed corners
-	 * blended by its weights.
+	 * One drawable's tile art and its old and new meshes, each laid out in the art's pixels with a
+	 * locator over it.
 	 *
-	 * @param TriangleLocator locator   The mesh's art-pixel locator.
-	 * @param IntArray        indices   The mesh's triangles.
-	 * @param FloatArray      positions The mesh's deformed world positions.
-	 * @param Double          x         The art x.
-	 * @param Double          y         The art y.
-	 * @return Pair<Double, Double>? The world point, or null outside the mesh.
+	 * @property DecodedImage    raster     The tile's art.
+	 * @property DrawableMesh    oldMesh    The mesh before.
+	 * @property DrawableMesh    newMesh    The mesh after.
+	 * @property FloatArray      oldPoints  The old mesh's vertices in art pixels.
+	 * @property TriangleLocator oldLocator Locates art points in the old mesh.
+	 * @property FloatArray      newPoints  The new mesh's vertices in art pixels.
+	 * @property TriangleLocator newLocator Locates art points in the new mesh.
 	 */
-	private fun blendedWorld(locator: TriangleLocator, indices: IntArray, positions: FloatArray, x: Double, y: Double): Pair<Double, Double>? {
-		val location = locator.locate(x, y) ?: return null
+	private class LandingMeshes(
+		val raster: DecodedImage,
+		val oldMesh: DrawableMesh,
+		val newMesh: DrawableMesh,
+		val oldPoints: FloatArray,
+		val oldLocator: TriangleLocator,
+		val newPoints: FloatArray,
+		val newLocator: TriangleLocator,
+	)
 
-		if (!location.isInside) {
-			return null
-		}
+	/**
+	 * A regenerated drawable's art and both its meshes, ready to locate art points in.
+	 *
+	 * @param PuppetModel base       The rig before.
+	 * @param PuppetModel after      The rig after.
+	 * @param DrawableId  drawableId The drawable.
+	 * @param Function    decode     Decodes a tile's art.
+	 * @return LandingMeshes? The meshes, or null without art or an art frame.
+	 */
+	private fun landingMeshesOf(base: PuppetModel, after: PuppetModel, drawableId: DrawableId, decode: (AtlasTileId) -> DecodedImage?): LandingMeshes? {
+		val raster = decode(meshTileOf(base, drawableId)) ?: return null
+		val oldMesh = meshOf(base, drawableId)
+		val newMesh = meshOf(after, drawableId)
+		val oldPoints = artPointsOf(base, drawableId) ?: return null
+		val newPoints = artPointsOf(after, drawableId) ?: return null
 
-		val corners = IntArray(3) { corner -> indices[3 * location.triangleIndex + corner] }
-		val weights = doubleArrayOf(location.weightA, location.weightB, location.weightC)
-		var worldX = 0.0
-		var worldY = 0.0
-
-		for (corner in 0 until 3) {
-			worldX += weights[corner] * positions[2 * corners[corner]]
-			worldY += weights[corner] * positions[2 * corners[corner] + 1]
-		}
-
-		return worldX to worldY
+		return LandingMeshes(raster, oldMesh, newMesh, oldPoints, TriangleLocator(oldPoints, oldMesh.indices), newPoints, TriangleLocator(newPoints, newMesh.indices))
 	}
+
+	/**
+	 * Whether an art pixel is art: its alpha reaches the threshold.
+	 *
+	 * @param Int column    The pixel's column.
+	 * @param Int row       The pixel's row.
+	 * @param Int threshold The alpha that counts as art.
+	 * @return Boolean True for art.
+	 */
+	private fun DecodedImage.isArt(column: Int, row: Int, threshold: Int): Boolean = (rgba[(row * width + column) * 4 + 3].toInt() and 0xFF) >= threshold
 
 	/**
 	 * How many (tile, neighbour) pairs on one page have the tile's sampled region on the neighbour's
@@ -711,7 +773,7 @@ class GeneratedMeshCmo3ExportGateTest {
 
 			scan@ for (row in minimumY..maximumY) {
 				for (column in minimumX..maximumX) {
-					val opaque = (raster.rgba[(row * raster.width + column) * 4 + 3].toInt() and 0xFF) >= threshold
+					val opaque = raster.isArt(column, row, threshold)
 
 					if (opaque && (region?.isCovered(column, row) ?: true) && triangleContains(triangle, column + 0.5, row + 0.5)) {
 						coversArt[piece] = true
@@ -749,7 +811,7 @@ class GeneratedMeshCmo3ExportGateTest {
 
 			for (row in 0 until raster.height) {
 				for (column in 0 until raster.width) {
-					if ((raster.rgba[(row * raster.width + column) * 4 + 3].toInt() and 0xFF) < threshold) {
+					if (!raster.isArt(column, row, threshold)) {
 						continue
 					}
 
