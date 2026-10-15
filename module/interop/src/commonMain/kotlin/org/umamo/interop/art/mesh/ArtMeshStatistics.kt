@@ -18,6 +18,7 @@ package org.umamo.interop.art.mesh
  * @property Int    boundarySplitCount  Of those, the ones that split an outline chord.
  * @property Int    underTargetCount    Triangles left below the minimum angle (0 when there is none).
  * @property Int    unfixableCount      Of those, the ones refinement could not help: an angle the outline itself makes, or one past a floor.
+ * @property Int    guideVertexCount    Of the added vertices, the old ones kept to hold the rig being replaced.
  */
 public data class ArtMeshStatistics(
 	val cellSize: Int,
@@ -35,4 +36,5 @@ public data class ArtMeshStatistics(
 	val boundarySplitCount: Int,
 	val underTargetCount: Int,
 	val unfixableCount: Int,
+	val guideVertexCount: Int,
 )

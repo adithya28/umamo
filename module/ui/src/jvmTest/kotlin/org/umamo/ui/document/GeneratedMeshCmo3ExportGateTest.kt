@@ -13,6 +13,7 @@ import org.umamo.format.cmo3.caff.CaffArchive
 import org.umamo.format.cmo3.caff.CaffCodec
 import org.umamo.geometry.locate.TriangleLocator
 import org.umamo.geometry.predicate.orient2d
+import org.umamo.geometry.triangulation.refine.areaScaleOf
 import org.umamo.interop.ExportNotice
 import org.umamo.interop.art.mesh.ArtMeshPreset
 import org.umamo.render.DecodedImage
@@ -54,17 +55,27 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
+/** The posed landing's sampling stride, in art pixels. */
+private const val POSED_STRIDE: Int = 6
+
+/** A landing histogram's bin width, in art pixels. */
+private const val HISTOGRAM_BIN_WIDTH: Double = 0.005
+
+/** A landing histogram's bins; the last gathers everything past them. */
+private const val HISTOGRAM_BINS: Int = 10000
+
 /**
  * Generate Mesh from Art over a whole real rig, through to the CMO3 the official editor opens: every
  * drawable of the corpus sample with a mesh and art regenerated at Standard in one step.
  *
  * It gates what must hold - nothing refused by the atlas, every skip one the rigger can act on, every
  * glue pair kept, every opaque art pixel under the new meshes, no piece of a new mesh covering no art, every new vertex showing its art at rest
- * where the old mesh drew it, no tile left in place sampling a neighbour's paint it did not sample
- * before, one undo restoring the rig, and an export that reads back with the same meshes and reopens as
- * a byte-identical no-op - and prints what it measures: the counts, how far art between the new vertices
- * moves at rest, and how much art split pieces of one layer now both cover.  The export is written to
- * build/auto-mesh for Cmo3ShapeGateTest and the official editor.
+ * where the old mesh drew it, the art between them following the rig's old shape within the
+ * Deformation Tolerance, no tile left in place sampling a neighbour's paint it did not sample before,
+ * one undo restoring the rig, and an export that reads back with the same meshes and reopens as a
+ * byte-identical no-op - and prints what it measures: the counts, how far art moves at rest and in each
+ * parameter's extremes, and how much art split pieces of one layer now both cover.  The export is
+ * written to build/auto-mesh for Cmo3ShapeGateTest and the official editor.
  *
  * Skips without the corpus sample.
  */
@@ -125,7 +136,7 @@ class GeneratedMeshCmo3ExportGateTest {
 
 			// At its vertices the new mesh shows its art where the old mesh drew it.  Between them the art
 			// follows the new triangles, so where the rest pose bends art inside one of them the two differ by
-			// that bend - the mesh's density against the rig, reported rather than gated.
+			// that bend.
 			val vertexErrors = landings.flatMap { landing -> landing.vertexErrors }.sorted()
 			val pixelErrors = landings.flatMap { landing -> landing.pixelErrors }.sorted()
 			val bentCount = landings.count { landing -> (landing.pixelErrors.maxOrNull() ?: 0.0) > 1.0 }
@@ -133,10 +144,33 @@ class GeneratedMeshCmo3ExportGateTest {
 			println("[generate-mesh]   rest-pose landing over the art: ${summary(pixelErrors)}; $bentCount drawable(s) move some art more than 1 px")
 
 			for (landing in landings.sortedByDescending { landing -> landing.pixelErrors.maxOrNull() ?: 0.0 }.take(5)) {
-				println("[generate-mesh]     ${landing.drawableId.raw}, vertices ${landing.oldVertexCount} -> ${landing.newVertexCount}: ${summary(landing.pixelErrors.sorted())}")
+				println(
+					"[generate-mesh]     ${landing.drawableId.raw}, vertices ${landing.oldVertexCount} -> ${landing.newVertexCount}, " +
+						"${String.format(Locale.ROOT, "%.3f", landing.worldScale)} world px per art px: ${summary(landing.pixelErrors.sorted())}; in art px ${summary(landing.artPixelErrors.sorted())}",
+				)
 			}
 
+			val artPixelErrors = landings.flatMap { landing -> landing.artPixelErrors }.sorted()
+			val strayingCount = landings.count { landing -> (landing.artPixelErrors.maxOrNull() ?: 0.0) > 1.0 }
+			println("[generate-mesh]   rest-pose landing over the art in art px: ${summary(artPixelErrors)}; $strayingCount drawable(s) move some art more than 1 art px")
+
 			assertTrue(percentile(vertexErrors, 0.99) <= 0.05, "the new vertices land where the old mesh drew their art (p99 ${percentile(vertexErrors, 0.99)} px)")
+			// Between them the new mesh keeps the old vertices that hold the rig's bends, so the art follows
+			// the old shape within the Deformation Tolerance.  What strays further is a new vertex itself:
+			// where a warp curves inside one large old triangle, a vertex there shows its art where the
+			// warp puts it rather than on that triangle's flat blend - two drawables of this rig.
+			val tolerance = options.settings.deformationTolerance
+			assertTrue(percentile(artPixelErrors, 0.99) <= tolerance, "the art follows the rig's old shape within the tolerance (p99 ${percentile(artPixelErrors, 0.99)} art px)")
+			assertTrue(strayingCount <= 2, "at most the two drawables whose warp curves inside an old triangle move art more than 1 art px: $strayingCount")
+			// Posed, the drawable's own keyforms and blend shapes are held too; a parent deformer bending
+			// differently away from rest is not, which is what the tail measures.
+			val posedNanos = System.nanoTime()
+			val posed = posedLanding(base, after, landings, decode, effectiveThreshold)
+			println(
+				"[generate-mesh]   landing over the art with each of ${base.parameters.size} parameters at its extremes, in art px: n ${posed.total}, " +
+					String.format(Locale.ROOT, "p50 %.3f, p99 %.3f, p999 %.3f, max %.2f; %d ms", posed.percentile(0.5), posed.percentile(0.99), posed.percentile(0.999), posed.max, (System.nanoTime() - posedNanos) / 1_000_000),
+			)
+			assertTrue(posed.percentile(0.99) <= tolerance, "posed, the art follows the rig's old shape within the tolerance (p99 ${posed.percentile(0.99)} art px)")
 			println("[generate-mesh]   split-piece seam: ${seamOverlapPixels(base, after, decode, effectiveThreshold)} art pixel(s) now under two pieces' meshes that were under at most one")
 			val artlessBefore = generated.generatedIds.associateWith { drawableId -> artlessPieces(base, base, drawableId, decode, effectiveThreshold) }
 			val artlessAfter = generated.generatedIds.associateWith { drawableId -> artlessPieces(base, after, drawableId, decode, effectiveThreshold) }
@@ -285,6 +319,7 @@ class GeneratedMeshCmo3ExportGateTest {
 	 * @property Int          newVertexCount Its vertices after.
 	 * @property List<Double> vertexErrors   Per new vertex inside the old mesh, from where the old mesh drew that art point.
 	 * @property List<Double> pixelErrors    Per sampled opaque art pixel both meshes hold, between the two meshes' drawings of it.
+	 * @property Double       worldScale     The old mesh's world pixels per art pixel at rest (its area scale).
 	 */
 	private class RestLanding(
 		val drawableId: DrawableId,
@@ -292,7 +327,170 @@ class GeneratedMeshCmo3ExportGateTest {
 		val newVertexCount: Int,
 		val vertexErrors: List<Double>,
 		val pixelErrors: List<Double>,
-	)
+		val worldScale: Double,
+	) {
+		/** The pixel errors in art pixels. */
+		val artPixelErrors: List<Double>
+			get() = if (worldScale > 0.0) pixelErrors.map { error -> error / worldScale } else pixelErrors
+	}
+
+	/**
+	 * Distances gathered into 0.005-wide bins up to 50, for more samples than a list holds.
+	 */
+	private class LandingHistogram {
+		private val counts = LongArray(HISTOGRAM_BINS + 1)
+
+		/** The distances added. */
+		var total: Long = 0L
+			private set
+
+		/** The largest distance added. */
+		var max: Double = 0.0
+			private set
+
+		/**
+		 * Adds one distance.
+		 *
+		 * @param Double distance The distance.
+		 */
+		fun add(distance: Double) {
+			counts[(distance / HISTOGRAM_BIN_WIDTH).toInt().coerceIn(0, HISTOGRAM_BINS)]++
+			total++
+			max = maxOf(max, distance)
+		}
+
+		/**
+		 * The bin edge below which a fraction of the distances fall.
+		 *
+		 * @param Double fraction The fraction, 0 to 1.
+		 * @return Double The distance, to the bin width.
+		 */
+		fun percentile(fraction: Double): Double {
+			var seen = 0L
+
+			for (bin in counts.indices) {
+				seen += counts[bin]
+
+				if (seen >= fraction * total) {
+					return (bin + 1) * HISTOGRAM_BIN_WIDTH
+				}
+			}
+
+			return max
+		}
+	}
+
+	/**
+	 * One drawable's sampled art pixels, each located once in the old mesh and the new: its three
+	 * corners and their weights, so any pose's deformed positions blend without locating again.
+	 *
+	 * @property DrawableId  drawableId  The drawable.
+	 * @property Double      worldScale  Its world pixels per art pixel at rest.
+	 * @property IntArray    oldCorners  Three old vertices per sample.
+	 * @property DoubleArray oldWeights  Their weights.
+	 * @property IntArray    newCorners  Three new vertices per sample.
+	 * @property DoubleArray newWeights  Their weights.
+	 */
+	private class LandingSamples(
+		val drawableId: DrawableId,
+		val worldScale: Double,
+		val oldCorners: IntArray,
+		val oldWeights: DoubleArray,
+		val newCorners: IntArray,
+		val newWeights: DoubleArray,
+	) {
+		/** The samples. */
+		val count: Int
+			get() = oldCorners.size / 3
+	}
+
+	/**
+	 * How far art moves with each parameter at its minimum and its maximum, the rest held at default: per
+	 * pose, every opaque art pixel on a 6 px stride both meshes hold, in art pixels at the drawable's rest
+	 * scale.
+	 *
+	 * @param PuppetModel       base      The rig before.
+	 * @param PuppetModel       after     The rig after.
+	 * @param List<RestLanding> landings  The drawables measured at rest.
+	 * @param Function          decode    Decodes a tile's art.
+	 * @param Int               threshold The alpha that counts as art.
+	 * @return LandingHistogram The distances.
+	 */
+	private fun posedLanding(base: PuppetModel, after: PuppetModel, landings: List<RestLanding>, decode: (AtlasTileId) -> DecodedImage?, threshold: Int): LandingHistogram {
+		val samples = landings.mapNotNull { landing -> landingSamples(base, after, landing, decode, threshold) }
+		val histogram = LandingHistogram()
+
+		for (parameter in base.parameters) {
+			for (value in floatArrayOf(parameter.min, parameter.max)) {
+				val pose = mapOf(parameter.id to value)
+				val oldWorld = CpuDeformationEvaluator().evaluate(base, pose).worldPositions
+				val newWorld = CpuDeformationEvaluator().evaluate(after, pose).worldPositions
+
+				for (sample in samples) {
+					val oldPositions = oldWorld[sample.drawableId] ?: continue
+					val newPositions = newWorld[sample.drawableId] ?: continue
+
+					for (point in 0 until sample.count) {
+						var deltaX = 0.0
+						var deltaY = 0.0
+
+						for (corner in 3 * point until 3 * point + 3) {
+							deltaX += sample.oldWeights[corner] * oldPositions[2 * sample.oldCorners[corner]] - sample.newWeights[corner] * newPositions[2 * sample.newCorners[corner]]
+							deltaY += sample.oldWeights[corner] * oldPositions[2 * sample.oldCorners[corner] + 1] - sample.newWeights[corner] * newPositions[2 * sample.newCorners[corner] + 1]
+						}
+
+						histogram.add(hypot(deltaX, deltaY) / sample.worldScale)
+					}
+				}
+			}
+		}
+
+		return histogram
+	}
+
+	/**
+	 * Locates one drawable's opaque art pixels, on a 6 px stride, in its old mesh and its new.
+	 *
+	 * @param PuppetModel base      The rig before.
+	 * @param PuppetModel after     The rig after.
+	 * @param RestLanding landing   The drawable's rest landing, for its scale.
+	 * @param Function    decode    Decodes a tile's art.
+	 * @param Int         threshold The alpha that counts as art.
+	 * @return LandingSamples? The samples, or null without art or an art frame.
+	 */
+	private fun landingSamples(base: PuppetModel, after: PuppetModel, landing: RestLanding, decode: (AtlasTileId) -> DecodedImage?, threshold: Int): LandingSamples? {
+		val drawableId = landing.drawableId
+		val raster = decode(meshTileOf(base, drawableId)) ?: return null
+		val oldMesh = meshOf(base, drawableId)
+		val newMesh = meshOf(after, drawableId)
+		val oldLocator = TriangleLocator(artPointsOf(base, drawableId) ?: return null, oldMesh.indices)
+		val newLocator = TriangleLocator(artPointsOf(after, drawableId) ?: return null, newMesh.indices)
+		val oldCorners = ArrayList<Int>()
+		val oldWeights = ArrayList<Double>()
+		val newCorners = ArrayList<Int>()
+		val newWeights = ArrayList<Double>()
+
+		for (row in 0 until raster.height step POSED_STRIDE) {
+			for (column in 0 until raster.width step POSED_STRIDE) {
+				if ((raster.rgba[(row * raster.width + column) * 4 + 3].toInt() and 0xFF) < threshold) {
+					continue
+				}
+
+				val oldLocation = oldLocator.locate(column + 0.5, row + 0.5)?.takeIf { location -> location.isInside } ?: continue
+				val newLocation = newLocator.locate(column + 0.5, row + 0.5)?.takeIf { location -> location.isInside } ?: continue
+
+				for (corner in 0 until 3) {
+					oldCorners.add(oldMesh.indices[3 * oldLocation.triangleIndex + corner])
+					newCorners.add(newMesh.indices[3 * newLocation.triangleIndex + corner])
+				}
+
+				oldWeights.addAll(listOf(oldLocation.weightA, oldLocation.weightB, oldLocation.weightC))
+				newWeights.addAll(listOf(newLocation.weightA, newLocation.weightB, newLocation.weightC))
+			}
+		}
+
+		return LandingSamples(drawableId, if (landing.worldScale > 0.0) landing.worldScale else 1.0, oldCorners.toIntArray(), oldWeights.toDoubleArray(), newCorners.toIntArray(), newWeights.toDoubleArray())
+	}
 
 	/**
 	 * How far each regenerated drawable's art moves at the default pose: a point's world position blended
@@ -340,7 +538,7 @@ class GeneratedMeshCmo3ExportGateTest {
 				}
 			}
 
-			landings.add(RestLanding(drawableId, oldMesh.vertexCount, newMesh.vertexCount, vertexErrors, pixelErrors))
+			landings.add(RestLanding(drawableId, oldMesh.vertexCount, newMesh.vertexCount, vertexErrors, pixelErrors, areaScaleOf(artPointsOf(base, drawableId)!!, oldMesh.indices, oldPositions)))
 		}
 
 		return landings

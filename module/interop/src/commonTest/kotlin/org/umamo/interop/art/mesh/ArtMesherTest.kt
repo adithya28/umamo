@@ -239,7 +239,8 @@ class ArtMesherTest {
 		val raster = largeDisc()
 		val placed = placedCountOf(generateArtMesh(raster, standard.copy(minimumAngle = 0.0, vertexBudget = 4096)))
 		val outline = placed.first
-		val budget = outline + (placed.second - outline) / 2
+		// Room, past the reserve, for a third of the interior: thinning it alone fits, within its limit.
+		val budget = (outline + (placed.second - outline) / 3) * 10 / 7
 		val settings = standard.copy(vertexBudget = budget)
 		val result = generateArtMesh(raster, settings)
 		assertValidArtMesh(raster, settings, result)
@@ -247,12 +248,14 @@ class ArtMesherTest {
 
 		assertEquals(standard.outlineSpacing, statistics.outlineSpacing, "the outline keeps the spacing asked for")
 		assertTrue(statistics.interiorSpacing!! > standard.interiorSpacing, "the interior thinned")
+		assertTrue(statistics.interiorSpacing!! <= standard.interiorThinningLimit * standard.outlineSpacing, "within its limit")
 		assertTrue(result.notices.contains(ArtMeshNotice.SpacingCoarsened(statistics.outlineSpacing, statistics.interiorSpacing)), "${result.notices}")
 		assertTrue(placedCountOf(result).second <= budget - reserveOf(budget), "a coarsened mesh leaves refinement its share")
 	}
 
 	@Test
-	fun theOutlineWidensOnlyOnceTheInteriorIsGone() {
+	fun pastItsLimitTheInteriorWidensWithTheOutline() {
+		// The outline alone overruns the budget, so thinning the interior alone cannot fit.
 		val raster = largeDisc()
 		val outline = placedCountOf(generateArtMesh(raster, standard.copy(minimumAngle = 0.0, vertexBudget = 4096))).first
 		val settings = standard.copy(vertexBudget = outline - 4)
@@ -260,22 +263,64 @@ class ArtMesherTest {
 		assertValidArtMesh(raster, settings, result)
 		val statistics = result.statistics!!
 
-		assertNull(statistics.interiorSpacing, "the interior was left to refinement")
-		assertEquals(0, statistics.innerVertexCount + statistics.latticeVertexCount)
-		assertTrue(statistics.outlineSpacing > standard.outlineSpacing, "then the outline widened")
-		assertTrue(result.notices.contains(ArtMeshNotice.SpacingCoarsened(statistics.outlineSpacing, null)), "${result.notices}")
+		assertTrue(statistics.outlineSpacing > standard.outlineSpacing, "the outline widened")
+		assertEquals(standard.interiorThinningLimit * statistics.outlineSpacing, statistics.interiorSpacing!!, 1e-9, "with the interior at its limit")
+		assertTrue(result.notices.contains(ArtMeshNotice.SpacingCoarsened(statistics.outlineSpacing, statistics.interiorSpacing)), "${result.notices}")
+	}
+
+	@Test
+	fun aHighLimitKeepsTheOutlineUntilTheInteriorIsGone() {
+		val raster = largeDisc()
+		val outline = placedCountOf(generateArtMesh(raster, standard.copy(minimumAngle = 0.0, vertexBudget = 4096))).first
+		val settings = standard.copy(vertexBudget = outline - 4, interiorThinningLimit = 64.0)
+		val result = generateArtMesh(raster, settings)
+		assertValidArtMesh(raster, settings, result)
+		val statistics = result.statistics!!
+		val limited = generateArtMesh(raster, standard.copy(vertexBudget = outline - 4)).statistics!!
+
+		assertTrue(statistics.outlineSpacing < limited.outlineSpacing, "the outline gave way later: ${statistics.outlineSpacing} against ${limited.outlineSpacing}")
+		assertTrue(statistics.interiorSpacing == null || statistics.interiorSpacing!! > limited.interiorSpacing!!, "and the interior thinned further first")
+	}
+
+	@Test
+	fun aLimitBelowTheSettingsOwnRatioNeverDensifiesTheInterior() {
+		// Interior spacing 8 outline spacings with a limit of 1: the limit is the settings' own ratio.
+		val raster = largeDisc()
+		val sparse = standard.copy(outlineSpacing = 16.0, interiorSpacing = 128.0, interiorThinningLimit = 1.0)
+		val outline = placedCountOf(generateArtMesh(raster, sparse.copy(minimumAngle = 0.0, vertexBudget = 4096))).first
+		val settings = sparse.copy(vertexBudget = outline - 4)
+		val statistics = generateArtMesh(raster, settings).statistics!!
+
+		assertTrue(statistics.interiorSpacing == null || statistics.interiorSpacing!! >= 8.0 * statistics.outlineSpacing - 1e-9, "${statistics.outlineSpacing} / ${statistics.interiorSpacing}")
+	}
+
+	@Test
+	fun aWidenedOutlineStopsWhereEveryRingIsAtItsMinimum() {
+		// 2 px strands every 24 px, its 361 holes kept, and a budget just past the 362 rings' floor: the
+		// reserve leaves the floor itself as the target, which the rings' refined chords never quite meet.
+		val raster = rasterOf(470, 470) { column, row -> column <= 457 && row <= 457 && (column % 24 < 2 || row % 24 < 2) }
+		val floor = 362 * standard.minimumOutlinePoints
+		val settings = standard.copy(vertexBudget = floor + 28)
+		val result = generateArtMesh(raster, settings)
+		assertValidArtMesh(raster, settings, result)
+		val coarsened = result.notices.filterIsInstance<ArtMeshNotice.SpacingCoarsened>().single()
+		// No ring is longer than the raster's own boundary pushed out by the outline's level.
+		val longestRing = 4.0 * (raster.width + 2.0 * (standard.outerMargin + 4.0))
+
+		assertNull(coarsened.interiorSpacing)
+		assertTrue(coarsened.outlineSpacing <= longestRing / standard.minimumOutlinePoints, "the spacing stops where widening changes nothing: ${coarsened.outlineSpacing}")
 	}
 
 	@Test
 	fun theReserveGivesWayRatherThanLoseAMesh() {
-		// A star of forty spikes: however wide the outline spacing, its corners stay keypoints.
+		// A star of forty spikes, whose refined outline stays well above its rings' floor however wide
+		// its spacing: at the smallest budget it meshes under, only the reserve giving way lets it in.
 		val raster = spikyStar()
-		val leanest = placedCountOf(generateArtMesh(raster, standard.copy(minimumAngle = 0.0, outlineSpacing = 512.0, vertexBudget = 4096))).first
-		val settings = standard.copy(vertexBudget = leanest + 2)
+		val budget = (64..1024).first { candidate -> generateArtMesh(raster, standard.copy(vertexBudget = candidate)).mesh != null }
+		val settings = standard.copy(vertexBudget = budget)
 		val result = generateArtMesh(raster, settings)
 		assertValidArtMesh(raster, settings, result)
 
-		assertNull(result.statistics!!.interiorSpacing, "the interior gave way first")
 		assertTrue(placedCountOf(result).second > settings.vertexBudget - reserveOf(settings.vertexBudget), "the outline alone overran the reserve, so the reserve gave way")
 	}
 

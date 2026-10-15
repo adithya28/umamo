@@ -68,6 +68,14 @@ public sealed interface ArtMeshNotice {
 	public data class RefinementBudgetReached(val underTargetTriangleCount: Int) : ArtMeshNotice
 
 	/**
+	 * The vertex budget ran out before the new mesh followed the rig it replaces to within the
+	 * deformation tolerance; the mesh is valid, only some art moves a little more than asked.
+	 *
+	 * @property Double largestError The largest distance left, in art pixels.
+	 */
+	public data class DeformationToleranceUnmet(val largestError: Double) : ArtMeshNotice
+
+	/**
 	 * The mesh failed a final structural check and was withheld rather than risk uncovered art; the
 	 * outline could not be repaired.
 	 *

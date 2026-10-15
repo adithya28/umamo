@@ -4,6 +4,7 @@ import org.umamo.geometry.packVertexPair
 import org.umamo.geometry.pairFirst
 import org.umamo.geometry.pairSecond
 import org.umamo.geometry.triangulation.HalfEdgeTriangulation
+import kotlin.math.floor
 import kotlin.math.sqrt
 
 /*
@@ -22,6 +23,11 @@ import kotlin.math.sqrt
  * segment around a corner splits at the same radii.  A triangle whose small angle lies between two
  * constraints cannot be helped, and neither can one whose short edge joins two shell points the same
  * distance from a shared corner; both are given up on rather than refined forever.
+ *
+ * With a guide, refinement runs within the part of the cap the guide does not claim - all of it when
+ * nothing strays from the guide to begin with - and then the guide goes in (see GuideInsertion) with
+ * nothing after it: what the guide holds stands, and a triangle it leaves below the target counts among
+ * those refinement could not help.
  *
  * Work lists hold vertex pairs and triples, never slots: a slot means nothing after a flip.  A queued
  * triangle that no longer exists is skipped when it comes up.
@@ -103,6 +109,17 @@ internal class QualityRefiner(
 	private var refusedBoundarySplitCount = 0
 	private var stoppedByCap = false
 	private var stoppedByBackstop = false
+	private var operations = 0L
+
+	/** The most vertices angle refinement may reach: the whole cap, or what the guide leaves it. */
+	private var refinementCap = options.maximumAddedPoints
+
+	/** The triangles below the target before the guide went in, when it did. */
+	private var badBeforeGuide: Set<Long>? = null
+	private val operationLimit = BACKSTOP_OPERATIONS_PER_VERTEX * store.vertexCapacity + BACKSTOP_BASE_OPERATIONS
+	private var guidePointCount = 0
+	private var guideRemainingError = 0.0
+	private var guideStoppedByCap = false
 
 	/** Whether the last appended interior candidate is an off-center rather than a circumcenter. */
 	private var candidateIsOffCenter = false
@@ -114,18 +131,40 @@ internal class QualityRefiner(
 	 */
 	fun run(): RefinementStatistics {
 		markSharpCorners()
+		val guide = options.guide
 
+		if (guide == null) {
+			refineRound()
+
+			return finish()
+		}
+
+		// Refinement first, within the part of the cap the guide does not claim, then the guide with
+		// everything left: refining after it would grade down around every vertex and crease it keeps -
+		// the old mesh's own narrow triangles - and its flips would undo what it holds.  The guide claims
+		// its share only when the triangulation strays from it to begin with; one with nothing to hold
+		// (an unrigged mesh's guide is affine) leaves refinement the whole cap.
+		if (GuideInsertion(store, steiner, guide, options.guideTolerance, separationSquared, options.boundarySplitCheck, null).strays()) {
+			refinementCap = options.maximumAddedPoints - floor(options.guidePointShare * options.maximumAddedPoints).toInt()
+		}
+
+		refineRound()
+		badBeforeGuide = underTargetKeys()
+		insertGuide()
+
+		return finish()
+	}
+
+	/** Queues every bad inside triangle and fixes what it can, until nothing is left or a limit stops it. */
+	private fun refineRound() {
 		for (triangle in 0 until store.triangleCount) {
 			if (store.regions[triangle]) {
 				considerTriangle(triangle)
 			}
 		}
 
-		val operationLimit = BACKSTOP_OPERATIONS_PER_VERTEX * store.vertexCapacity + BACKSTOP_BASE_OPERATIONS
-		var operations = 0L
-
 		while (pendingSegments.isNotEmpty() || queue.isNotEmpty()) {
-			if (addedPointCount >= options.maximumAddedPoints) {
+			if (addedPointCount >= refinementCap) {
 				stoppedByCap = true
 
 				break
@@ -145,8 +184,45 @@ internal class QualityRefiner(
 				processTriangle(queue.pop())
 			}
 		}
+	}
 
-		return finish()
+	/**
+	 * Holds the guide where the triangulation strays from it: its vertices, with whatever the cap has
+	 * left, and its creases as constraints.
+	 */
+	private fun insertGuide() {
+		val guide = options.guide ?: return
+		val insertion = GuideInsertion(store, steiner, guide, options.guideTolerance, separationSquared, options.boundarySplitCheck, afterEachStep)
+		insertion.run(options.maximumAddedPoints - addedPointCount)
+		guidePointCount = insertion.insertedCount
+		addedPointCount += insertion.insertedCount
+		guideRemainingError = insertion.largestRemainingError
+		guideStoppedByCap = insertion.stoppedByCap
+	}
+
+	/**
+	 * Every inside triangle below the target, by its packed triple.
+	 *
+	 * @return Set<Long> The triangles.
+	 */
+	private fun underTargetKeys(): Set<Long> {
+		val keys = HashSet<Long>()
+
+		for (triangle in 0 until store.triangleCount) {
+			if (!store.regions[triangle]) {
+				continue
+			}
+
+			val base = 3 * triangle
+			val corners = intArrayOf(store.origin[base], store.origin[base + 1], store.origin[base + 2])
+			measureCorners(corners)
+
+			if (shape.smallestSineSquared < targetSineSquared) {
+				keys.add(packTriangle(corners[0], corners[1], corners[2]))
+			}
+		}
+
+		return keys
 	}
 
 	/**
@@ -691,7 +767,10 @@ internal class QualityRefiner(
 			if (shape.smallestSineSquared < targetSineSquared) {
 				underTargetCount++
 
-				if (packTriangle(corners[0], corners[1], corners[2]) in unfixableTriangles) {
+				val key = packTriangle(corners[0], corners[1], corners[2])
+				val leftByGuide = badBeforeGuide?.let { before -> key !in before } ?: false
+
+				if (key in unfixableTriangles || leftByGuide) {
 					unfixableCount++
 				}
 			}
@@ -708,6 +787,9 @@ internal class QualityRefiner(
 			unfixableTriangleCount = unfixableCount,
 			stoppedByCap = stoppedByCap,
 			stoppedByBackstop = stoppedByBackstop,
+			guidePointCount = guidePointCount,
+			guideRemainingError = guideRemainingError,
+			guideStoppedByCap = guideStoppedByCap,
 		)
 	}
 

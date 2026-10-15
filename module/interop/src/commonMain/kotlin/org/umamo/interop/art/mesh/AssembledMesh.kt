@@ -7,6 +7,7 @@ import org.umamo.geometry.triangulation.ConstraintKind
 import org.umamo.geometry.triangulation.RejectedConstraint
 import org.umamo.geometry.triangulation.Triangulation
 import org.umamo.geometry.triangulation.refine.BoundarySplitCheck
+import org.umamo.geometry.triangulation.refine.PiecewiseLinearGuide
 import org.umamo.geometry.triangulation.refine.RefinedTriangulation
 import org.umamo.geometry.triangulation.refine.RefinementOptions
 import org.umamo.geometry.triangulation.refine.RefinementStatistics
@@ -65,16 +66,26 @@ internal class AssembledMesh(
  * @param AlphaField        field      The field, for the split checks and the final clearance check.
  * @param ArtMeshSettings   settings   The settings: the minimum margin, the minimum angle, and the vertex budget.
  * @param Int               cellSize   The working grid's cell size, which sets refinement's floors.
+ * @param PiecewiseLinearGuide? guide  The mesh being replaced, whose bends refinement keeps first, or null.
  * @return AssembledMesh The mesh or the failure, with what was adjusted.
  */
-internal fun assembleMesh(outline: List<SampledRing>, innerRings: List<DoubleArray>, lattice: DoubleArray, pins: DoubleArray, field: AlphaField, settings: ArtMeshSettings, cellSize: Int): AssembledMesh {
+internal fun assembleMesh(
+	outline: List<SampledRing>,
+	innerRings: List<DoubleArray>,
+	lattice: DoubleArray,
+	pins: DoubleArray,
+	field: AlphaField,
+	settings: ArtMeshSettings,
+	cellSize: Int,
+	guide: PiecewiseLinearGuide? = null,
+): AssembledMesh {
 	var densifiedChordCount = 0
 	var round = 0
 	val splitCheck = boundarySplitCheckOf(field, settings.minimumMargin)
 
 	while (true) {
 		val layout = MeshLayout(outline, innerRings, lattice, pins)
-		val refined = triangulateAndRefine(layout.points, layout.boundaries, layout.segments, refinementOptionsOf(settings, layout, cellSize, splitCheck))
+		val refined = triangulateAndRefine(layout.points, layout.boundaries, layout.segments, refinementOptionsOf(settings, layout, cellSize, splitCheck, guide))
 		val triangulation = refined.triangulation
 		val boundaryRejections = triangulation.rejectedConstraints.filter { rejection -> rejection.kind == ConstraintKind.Boundary }
 
@@ -107,15 +118,18 @@ internal fun assembleMesh(outline: List<SampledRing>, innerRings: List<DoubleArr
  * @param MeshLayout         layout     The round's points.
  * @param Int                cellSize   The working cell size.
  * @param BoundarySplitCheck splitCheck The field's check on outline splits.
- * @return RefinementOptions The options; a zero target or no room adds nothing.
+ * @param PiecewiseLinearGuide? guide  The mesh being replaced, or null.
+ * @return RefinementOptions The options; a zero target, no guide, or no room adds nothing.
  */
-private fun refinementOptionsOf(settings: ArtMeshSettings, layout: MeshLayout, cellSize: Int, splitCheck: BoundarySplitCheck): RefinementOptions =
+private fun refinementOptionsOf(settings: ArtMeshSettings, layout: MeshLayout, cellSize: Int, splitCheck: BoundarySplitCheck, guide: PiecewiseLinearGuide?): RefinementOptions =
 	RefinementOptions(
 		minimumAngleDegrees = settings.minimumAngle,
 		maximumAddedPoints = maxOf(0, settings.vertexBudget - layout.points.size / 2),
 		minimumSeparation = cellSize / 4.0,
 		minimumSegmentLength = cellSize / 2.0,
 		boundarySplitCheck = splitCheck,
+		guide = guide,
+		guideTolerance = settings.deformationTolerance,
 	)
 
 /**
