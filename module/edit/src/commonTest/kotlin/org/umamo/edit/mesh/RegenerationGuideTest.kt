@@ -5,6 +5,7 @@ import org.umamo.edit.mesh.RegenerationFixtures.drawableId
 import org.umamo.edit.mesh.RegenerationFixtures.gridIndices
 import org.umamo.edit.mesh.RegenerationFixtures.gridPoints
 import org.umamo.geometry.triangulation.refine.areaScaleOf
+import org.umamo.runtime.model.DrawableMesh
 import org.umamo.runtime.model.KeyformAxis
 import org.umamo.runtime.model.KeyformCell
 import org.umamo.runtime.model.KeyformGrid
@@ -33,6 +34,7 @@ class RegenerationGuideTest {
 		val baseScale = areaScaleOf(gridPoints, gridIndices, mesh.localPositions)
 
 		assertContentEquals(gridPoints, guide.points, "the guide lies on the art points the transfer reads")
+		assertContentEquals(input.oldVertexPoints, guide.points, "read off the input, prepared once")
 		assertContentEquals(gridIndices, guide.triangles)
 		assertEquals(5, guide.fieldCount, "the world, the base, two keyform cells, and one blend form")
 		assertContentEquals(world, guide.fields[0])
@@ -77,8 +79,11 @@ class RegenerationGuideTest {
 		val model = RegenerationFixtures.model()
 		val input = RegenerationFixtures.readyInput(model)
 		val withoutMesh = model.copy(drawables = model.drawables.map { candidate -> if (candidate.id == drawableId) candidate.copy(mesh = null) else candidate })
+		val otherMesh = DrawableMesh.withLocalEqualToCanvas(floatArrayOf(0f, 0f, 8f, 0f, 0f, 8f), floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f), intArrayOf(0, 1, 2))
+		val withOtherMesh = model.copy(drawables = model.drawables.map { candidate -> if (candidate.id == drawableId) candidate.copy(mesh = otherMesh) else candidate })
 
 		assertNull(withoutMesh.deformationGuideFor(input, null))
+		assertNull(withOtherMesh.deformationGuideFor(input, null), "an input read off another mesh describes nothing here")
 	}
 
 	@Test

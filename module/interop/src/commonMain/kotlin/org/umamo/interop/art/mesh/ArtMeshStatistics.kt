@@ -19,6 +19,9 @@ package org.umamo.interop.art.mesh
  * @property Int    underTargetCount    Triangles left below the minimum angle (0 when there is none).
  * @property Int    unfixableCount      Of those, the ones refinement could not help: an angle the outline itself makes, or one past a floor.
  * @property Int    guideVertexCount    Of the added vertices, the old ones kept to hold the rig being replaced.
+ * @property Int    strandCount         Thin strands meshed as rung strips.
+ * @property Int    rungCount           Their rungs: pairs of outline vertices facing each other across a strand.
+ * @property Int    strandCenterCount   Their centerline vertices, one per rung where the strand is wide enough.
  */
 public data class ArtMeshStatistics(
 	val cellSize: Int,
@@ -37,4 +40,7 @@ public data class ArtMeshStatistics(
 	val underTargetCount: Int,
 	val unfixableCount: Int,
 	val guideVertexCount: Int,
+	val strandCount: Int = 0,
+	val rungCount: Int = 0,
+	val strandCenterCount: Int = 0,
 )

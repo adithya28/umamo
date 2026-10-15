@@ -22,7 +22,8 @@ import kotlin.test.assertTrue
  * tolerance (measured over the two surfaces, not the guide's candidates), a guide vertex on the
  * boundary splits it where the check allows, a crease running out past the boundary splits it where it
  * crosses, a crease with both ends outside the domain is held across it, a crease grazing a boundary
- * corner stays held, and a segment that bounds nothing gives way where a crease cannot split it.
+ * corner stays held, a segment that bounds nothing gives way where a crease cannot split it, and two
+ * creases that cross where neither can split keep the first held rather than trading places forever.
  */
 class GuideInsertionTest {
 	/** The domain: a rectangle around the guide, so every guide vertex lies inside it. */
@@ -237,6 +238,26 @@ class GuideInsertionTest {
 		val below = largestDeviation(guide, result, 0.0..100.0, 0.0..14.875, 0.125)
 		val above = largestDeviation(guide, result, 0.0..100.0, 15.125..20.0, 0.125)
 		assertTrue(maxOf(below, above) <= 0.25 + 1e-6, "$below, $above")
+	}
+
+	@Test
+	fun creasesThatCrossWhereNeitherCanSplitKeepTheFirstHeld() {
+		// A folded guide, two triangles laid over each other, so the crease along y = 10 crosses the one
+		// along x = 50; a domain vertex a hair from the crossing leaves no room to split either there.
+		val points = floatArrayOf(10f, 10f, 90f, 10f, 50f, 28f, 50f, -8f)
+		val triangles = intArrayOf(0, 1, 2, 3, 1, 2)
+		val field = floatArrayOf(10f, 10f, 90f, 10f, 50f, 28f, 50f, -2f)
+		val guide = PiecewiseLinearGuide(points, triangles, listOf(field), doubleArrayOf(areaScaleOf(points, triangles, field)), candidatesOf(points))
+		val withNearVertex = domain + doubleArrayOf(50.0, 10.05)
+		val options = RefinementOptions(0.0, 2000, minimumSeparation = 0.5, minimumSegmentLength = 0.01, guide = guide, guideTolerance = 0.01)
+		val result = refineValidated(withNearVertex, listOf(ringOf(0, 4)), options = options)
+
+		assertFalse(result.statistics.stoppedByBackstop, "${result.statistics}")
+		val constrained = (0 until result.triangulation.constrainedEdges.size / 2).map { edge -> setOf(result.triangulation.constrainedEdges[2 * edge], result.triangulation.constrainedEdges[2 * edge + 1]) }
+		val vertexAt = { x: Float, y: Float -> (0 until result.points.size / 2).first { vertex -> result.points[2 * vertex] == x.toDouble() && result.points[2 * vertex + 1] == y.toDouble() } }
+		val acrossHeld = setOf(vertexAt(10f, 10f), vertexAt(90f, 10f)) in constrained
+		val upHeld = setOf(vertexAt(50f, -8f), vertexAt(50f, 28f)) in constrained
+		assertTrue(acrossHeld != upHeld, "exactly one crease is held, the other goes without: $constrained")
 	}
 
 	@Test

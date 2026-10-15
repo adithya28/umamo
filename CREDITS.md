@@ -98,6 +98,43 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Umamo's exact `orient2d` and `incircle` (`org.umamo.geometry.predicate`) and the expansion arithmetic beneath them are ported from robust-predicates' `orient2d.js`, `incircle.js`, and `util.js`, with Shewchuk's original sign convention kept (robust-predicates negates `orient2d` for a downward y axis).  The triangulator built on them is Umamo's own, written from the published papers.
 
+## Other Algorithm Research Papers
+
+Shewchuk 1997, "Adaptive Precision Floating-Point Arithmetic and Fast Robust Geometric Predicates", Discrete & Computational Geometry Volume 18 Issue 3
+https://people.eecs.berkeley.edu/~jrs/papers/robustr.pdf
+
+Lawson 1977, "Software for C1 surface interpolation"
+
+Sloan 1993, "A fast algorithm for generating constrained Delaunay triangulations", Computers & Structures Volume 47 Issue 3
+
+Felzenszwalb and Huttenlocher 2012, "Distance Transforms of Sampled Functions", Theory of Computing Volume 8 Issue 19
+
+Douglas and Peucker 1973 Cartographica Volume 10 Issue 2
+https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm
+
+Igarashi, Moscovich, and Hughes 2005, "As-Rigid-As-Possible Shape Manipulation"
+https://www-ui.is.s.u-tokyo.ac.jp/~takeo/papers/rigid.pdf
+
+Ruppert 1995, Journal of Algorithms Volume 18 Issue 3
+
+Üngör 2004 and 2009, arXiv cs/0501007
+https://arxiv.org/abs/cs/0501007
+
+Shewchuk 2002, "Delaunay refinement algorithms for triangular mesh generation"
+https://pdf.sciencedirectassets.com/271512/1-s2.0-S0925772114X00040/1-s2.0-S0925772114000388/main.pdf
+
+Miller, Pav, and Walkington 2003
+https://www.researchgate.net/publication/2552561_Fully_Incremental_3D_Delaunay_Refinement_Mesh_Generation
+
+Garland and Heckbert 1995, "Fast Polygonal Approximation of Terrains and Height Fields"
+https://www.cs.cmu.edu/afs/cs/Web/People/garland/scape/scape.pdf
+
+Prasad 1997, "Rectification of the chordal axis transform and a new criterion for shape decomposition"
+https://www.osti.gov/servlets/purl/977914
+
+Igarashi, Matsuoka, and Tanaka 1999, "Teddy: A Sketching Interface for 3D Freeform Design"
+https://www.cs.toronto.edu/~jacobson/seminar/igarashi-et-al-1999.pdf
+
 ## Baseline JPEG Decoder - Independent JPEG Group
 
 - Upstream: Independent JPEG Group's reference JPEG library (libjpeg) - https://www.ijg.org/

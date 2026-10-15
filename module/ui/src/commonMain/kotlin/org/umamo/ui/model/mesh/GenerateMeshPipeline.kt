@@ -343,7 +343,9 @@ private fun guidesOf(base: PuppetModel, inputs: List<RegenerationInput.Ready>): 
 
 /**
  * What makes two drawables twins for a guide: the same tile, the same old mesh (stored UVs and
- * triangles, so the same art-pixel points), and the same pins.
+ * triangles, so the same art-pixel points), and the same pinned old vertices - so the same pins and
+ * the same guide candidates, which is what merging their guides requires.  Two meshes pinned at the
+ * same point through different vertices (a duplicated seam vertex) are not twins.
  *
  * @property RegenerationInput.Ready input   The drawable's input.
  * @property FloatArray?             uvs     Its old mesh's stored UVs.
@@ -353,7 +355,7 @@ private class TwinKey(private val input: RegenerationInput.Ready, private val uv
 	override fun equals(other: Any?): Boolean =
 		other is TwinKey &&
 			input.tileId == other.input.tileId &&
-			input.pinPoints.contentEquals(other.input.pinPoints) &&
+			input.pinnedOldVertices.contentEquals(other.input.pinnedOldVertices) &&
 			uvs.contentEquals(other.uvs) &&
 			indices.contentEquals(other.indices)
 

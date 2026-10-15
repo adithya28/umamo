@@ -41,6 +41,7 @@ private val SETTING_OPTIONS =
 		"--vertex-budget",
 		"--minimum-angle",
 		"--interior-thinning-limit",
+		"--strand-width",
 	)
 
 /**
@@ -53,10 +54,10 @@ private val SETTING_OPTIONS =
  * @return Int The exit code; 1 when the mesher withheld a mesh after a failed structural check.
  */
 internal fun runMesh(arguments: List<String>): Int {
-	val parsed = parseArguments(arguments, knownFlags = setOf("--visible-only", "--preview", "--fill-holes"), knownOptions = setOf("--layer", "--preset", "--scale") + SETTING_OPTIONS)
+	val parsed = parseArguments(arguments, knownFlags = setOf("--visible-only", "--preview", "--fill-holes", "--no-strand-rungs"), knownOptions = setOf("--layer", "--preset", "--scale") + SETTING_OPTIONS)
 
 	if (parsed.positionals.isEmpty() || parsed.positionals.size > 2) {
-		throw CliUsageException("Usage: mesh <file> [<directory>] [--layer=NAME] [--preset=standard|fine|coarse] [--visible-only] [--fill-holes] [--preview] [--scale=N] [setting overrides]")
+		throw CliUsageException("Usage: mesh <file> [<directory>] [--layer=NAME] [--preset=standard|fine|coarse] [--visible-only] [--fill-holes] [--no-strand-rungs] [--preview] [--scale=N] [setting overrides]")
 	}
 
 	val loaded = loadInput(parsed.positionals[0])
@@ -91,7 +92,7 @@ internal fun runMesh(arguments: List<String>): Int {
 	val report = StringBuilder()
 	report.append("# mesh ${loaded.file.name}\n")
 	report.append("# settings $settings\n")
-	report.append(listOf("# order", "name", "raster", "vertices", "triangles", "outline", "refined", "inner", "lattice", "steiner", "minAngle", "under5", "under10", "under20", "unfixable", "milliseconds", "notices").joinToString("\t")).append('\n')
+	report.append(listOf("# order", "name", "raster", "vertices", "triangles", "outline", "refined", "inner", "lattice", "strands", "steiner", "minAngle", "under5", "under10", "under20", "unfixable", "milliseconds", "notices").joinToString("\t")).append('\n')
 	var meshedCount = 0
 	var withheldCount = 0
 	var vertexTotal = 0
@@ -175,6 +176,8 @@ private fun settingsFrom(parsed: CliArguments): ArtMeshSettings {
 			minimumOutlinePoints = parsed.intOption("--minimum-outline-points", base.minimumOutlinePoints),
 			vertexBudget = parsed.intOption("--vertex-budget", base.vertexBudget),
 			fillHoles = "--fill-holes" in parsed.flags,
+			strandRungs = "--no-strand-rungs" !in parsed.flags,
+			strandWidth = parsed.doubleOption("--strand-width", base.strandWidth),
 			minimumAngle = parsed.doubleOption("--minimum-angle", base.minimumAngle),
 			interiorThinningLimit = parsed.doubleOption("--interior-thinning-limit", base.interiorThinningLimit),
 		)
@@ -207,6 +210,7 @@ private fun reportRow(layer: SourceLayer, result: ArtMeshResult, quality: MeshQu
 		statistics?.refinedChordCount?.toString() ?: "-",
 		if (statistics != null) "${statistics.innerRingCount}/${statistics.innerVertexCount}" else "-",
 		statistics?.latticeVertexCount?.toString() ?: "-",
+		if (statistics != null) "${statistics.strandCount}/${statistics.rungCount}/${statistics.strandCenterCount}" else "-",
 		statistics?.steinerVertexCount?.toString() ?: "-",
 		if (quality != null) format(quality.minimumAngleDegrees) else "-",
 		quality?.countBelow(5.0)?.toString() ?: "-",

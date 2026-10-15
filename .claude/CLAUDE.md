@@ -170,8 +170,8 @@ This is where Live2D's own reimport is lossy; doing it well is a competitive fea
                             incircle, the constrained Delaunay triangulation the auto-mesh is built on
                             (boundary rings by even-odd, neutral segments, crossings rejected never
                             forced, no vertex ever added) and, separately, its minimum-angle refinement
-                            (off-centers, Float vertices), resampling / Douglas-Peucker, a point
-                            locator, and the neutral PlanarTriangleMesh.  Knows no pixels, puppets, or
+                            (off-centers, Float vertices), a chordal axis, resampling / Douglas-Peucker,
+                            a point locator, and the neutral PlanarTriangleMesh.  Knows no pixels, puppets, or
                             formats.  Also declares linuxX64() so its tests RUN under Kotlin/Native
                             (iosArm64 only compiles; the predicates assume no FMA).
 :runtime      commonMain  — the pure puppet runtime: the immutable PuppetModel + typed ids, the

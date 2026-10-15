@@ -15,10 +15,11 @@ import org.umamo.interop.art.mesh.MINIMUM_ART_MESH_INTERIOR_THINNING_LIMIT
 
 /*
  * The settings of Generate Mesh from Art as the operation strip shows them: a Preset row, one row per
- * mesher setting, and Fill Holes.  Every row is clamped into what the mesher accepts, so no value typed
- * into the strip can make the settings refuse.  A preset fills in the density rows (spacings, margins,
- * minimum outline points, minimum angle) and leaves the threshold, the budget and its interior thinning
- * limit, Fill Holes, and the deformation tolerance - which is about the rig, not density - as they were.
+ * mesher setting, Fill Holes, and Strand Rungs.  Every row is clamped into what the mesher accepts, so
+ * no value typed into the strip can make the settings refuse.  A preset fills in the density rows
+ * (spacings, margins, minimum outline points, minimum angle, strand width) and leaves the threshold, the
+ * budget and its interior thinning limit, Fill Holes, Strand Rungs, and the deformation tolerance -
+ * which is about the rig, not density - as they were.
  *
  * The values a run used are remembered for the rest of the app session (never saved), and a first run
  * starts from the preset the settings name.
@@ -37,6 +38,8 @@ internal object MeshGenerationParameterKeys {
 	const val MINIMUM_ANGLE = "meshGenerate.minimumAngle"
 	const val VERTEX_BUDGET = "meshGenerate.vertexBudget"
 	const val FILL_HOLES = "meshGenerate.fillHoles"
+	const val STRAND_RUNGS = "meshGenerate.strandRungs"
+	const val STRAND_WIDTH = "meshGenerate.strandWidth"
 	const val DEFORMATION_TOLERANCE = "meshGenerate.deformationTolerance"
 	const val INTERIOR_THINNING_LIMIT = "meshGenerate.interiorThinningLimit"
 
@@ -52,6 +55,12 @@ private const val MAXIMUM_OUTER_MARGIN: Float = 64f
 
 /** The deepest inner margin the strip offers, in art pixels. */
 private const val MAXIMUM_INNER_MARGIN: Float = 256f
+
+/** The narrowest strand width the strip offers, in art pixels. */
+private const val SMALLEST_STRAND_WIDTH: Float = 1f
+
+/** The widest strand width the strip offers, in art pixels. */
+private const val MAXIMUM_STRAND_WIDTH: Float = 256f
 
 /** The smallest minimum margin the mesher accepts, in art pixels. */
 private const val SMALLEST_MINIMUM_MARGIN: Float = 0.5f
@@ -109,6 +118,8 @@ internal fun clampedMeshSettings(settings: ArtMeshSettings, minimumAlphaThreshol
 		settings.minimumOutlinePoints,
 		settings.vertexBudget,
 		settings.fillHoles,
+		settings.strandRungs,
+		settings.strandWidth,
 		settings.minimumAngle,
 		settings.deformationTolerance,
 		settings.interiorThinningLimit,
@@ -129,6 +140,8 @@ internal fun clampedMeshSettings(settings: ArtMeshSettings, minimumAlphaThreshol
  * @param Int     minimumOutlinePoints  The minimum outline points.
  * @param Int     vertexBudget          The vertex budget.
  * @param Boolean fillHoles             Whether holes are filled.
+ * @param Boolean strandRungs           Whether thin strands are meshed as rung strips.
+ * @param Double  strandWidth           The strand width, art pixels.
  * @param Double  minimumAngle          The minimum angle, degrees.
  * @param Double  deformationTolerance  The deformation tolerance, art pixels.
  * @param Double  interiorThinningLimit The interior thinning limit, outline spacings.
@@ -145,6 +158,8 @@ private fun clampedMeshSettingsOf(
 	minimumOutlinePoints: Int,
 	vertexBudget: Int,
 	fillHoles: Boolean,
+	strandRungs: Boolean,
+	strandWidth: Double,
 	minimumAngle: Double,
 	deformationTolerance: Double,
 	interiorThinningLimit: Double,
@@ -162,6 +177,8 @@ private fun clampedMeshSettingsOf(
 		minimumOutlinePoints = minimumPoints,
 		vertexBudget = vertexBudget.coerceIn(maxOf(SMALLEST_VERTEX_BUDGET, minimumPoints), MAXIMUM_VERTEX_BUDGET),
 		fillHoles = fillHoles,
+		strandRungs = strandRungs,
+		strandWidth = finiteOr(strandWidth, SMALLEST_STRAND_WIDTH.toDouble()).coerceIn(SMALLEST_STRAND_WIDTH.toDouble(), MAXIMUM_STRAND_WIDTH.toDouble()),
 		minimumAngle = finiteOr(minimumAngle, 0.0).coerceIn(0.0, MAXIMUM_ART_MESH_MINIMUM_ANGLE),
 		deformationTolerance = finiteOr(deformationTolerance, MINIMUM_ART_MESH_DEFORMATION_TOLERANCE).coerceIn(MINIMUM_ART_MESH_DEFORMATION_TOLERANCE, MAXIMUM_DEFORMATION_TOLERANCE.toDouble()),
 		interiorThinningLimit = finiteOr(interiorThinningLimit, MINIMUM_ART_MESH_INTERIOR_THINNING_LIMIT).coerceIn(MINIMUM_ART_MESH_INTERIOR_THINNING_LIMIT, MAXIMUM_INTERIOR_THINNING_LIMIT.toDouble()),
@@ -221,6 +238,8 @@ internal fun meshGenerationParameters(options: MeshGenerationOptions, minimumAlp
 			ParameterUnit.None,
 		),
 		OperatorParameter.BooleanParameter(MeshGenerationParameterKeys.FILL_HOLES, MeshGenerationParameterKeys.FILL_HOLES, settings.fillHoles),
+		OperatorParameter.BooleanParameter(MeshGenerationParameterKeys.STRAND_RUNGS, MeshGenerationParameterKeys.STRAND_RUNGS, settings.strandRungs),
+		pixelsRow(MeshGenerationParameterKeys.STRAND_WIDTH, settings.strandWidth, SMALLEST_STRAND_WIDTH, MAXIMUM_STRAND_WIDTH),
 		pixelsRow(MeshGenerationParameterKeys.DEFORMATION_TOLERANCE, settings.deformationTolerance, MINIMUM_ART_MESH_DEFORMATION_TOLERANCE.toFloat(), MAXIMUM_DEFORMATION_TOLERANCE, step = 0.1f),
 	)
 }
@@ -259,6 +278,8 @@ internal fun meshGenerationOptionsOf(parameters: List<OperatorParameter>, fallba
 			minimumOutlinePoints = parameters.intValue(MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS, base.minimumOutlinePoints),
 			vertexBudget = parameters.intValue(MeshGenerationParameterKeys.VERTEX_BUDGET, base.vertexBudget),
 			fillHoles = parameters.booleanValue(MeshGenerationParameterKeys.FILL_HOLES, base.fillHoles),
+			strandRungs = parameters.booleanValue(MeshGenerationParameterKeys.STRAND_RUNGS, base.strandRungs),
+			strandWidth = parameters.floatValue(MeshGenerationParameterKeys.STRAND_WIDTH, base.strandWidth.toFloat()).toDouble(),
 			minimumAngle = parameters.floatValue(MeshGenerationParameterKeys.MINIMUM_ANGLE, base.minimumAngle.toFloat()).toDouble(),
 			deformationTolerance = parameters.floatValue(MeshGenerationParameterKeys.DEFORMATION_TOLERANCE, base.deformationTolerance.toFloat()).toDouble(),
 			interiorThinningLimit = parameters.floatValue(MeshGenerationParameterKeys.INTERIOR_THINNING_LIMIT, base.interiorThinningLimit.toFloat()).toDouble(),
@@ -270,9 +291,9 @@ internal fun meshGenerationOptionsOf(parameters: List<OperatorParameter>, fallba
 }
 
 /**
- * The rows re-seeded from a preset: the Preset row shows it and the density rows take its numbers,
- * while the threshold, the budget, the interior thinning limit, Fill Holes, and the deformation
- * tolerance keep what the rows held.
+ * The rows re-seeded from a preset: the Preset row shows it and the density rows (the strand width
+ * among them) take its numbers, while the threshold, the budget, the interior thinning limit, Fill Holes, Strand Rungs, and the
+ * deformation tolerance keep what the rows held.
  *
  * @param List<OperatorParameter> parameters            The rows as they stand.
  * @param ArtMeshPreset           preset                The preset to seed from.
@@ -286,6 +307,7 @@ internal fun reseededMeshGenerationParameters(parameters: List<OperatorParameter
 			alphaThreshold = current.alphaThreshold,
 			vertexBudget = current.vertexBudget,
 			fillHoles = current.fillHoles,
+			strandRungs = current.strandRungs,
 			deformationTolerance = current.deformationTolerance,
 			interiorThinningLimit = current.interiorThinningLimit,
 		)

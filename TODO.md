@@ -22,8 +22,6 @@
 2.) Deformer Gizmos and Editing
 3.) Glue Gizmos and Editing
 
-Don't forgot to credit the other research papers for meshing and so on.
-
 ## VERY IMPORTANT
 * Hire translators for localization.
 * Final pass on keyboard shortcuts.

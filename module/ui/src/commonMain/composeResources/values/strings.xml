@@ -163,7 +163,7 @@
 	<string name="export_reason_channel_demoted_to_static">%1$s is keyed over a narrower span than the object's grid, so it was written as a constant.  MOC3 stores one grid per object.</string>
 	<string name="export_reason_sketch_part_not_runtime_content">A guide-image (sketch) part is not runtime content, so it was left out.</string>
 	<string name="export_reason_hidden_part_omitted_by_option">The part is hidden and the export options omit hidden parts, so its contents were left out.</string>
-	<string name="export_reason_hidden_drawable_omitted_by_option">The drawable is hidden and the export options omit hidden art meshes, so it was left out.</string>
+	<string name="export_reason_hidden_drawable_omitted_by_option">The drawable is hidden and the export options omit hidden drawables, so it was left out.</string>
 	<string name="export_reason_vertex_count_exceeds_index_width">The mesh has %1$d vertices, past the %2$d limit of a 16-bit triangle, so it was left out.</string>
 	<string name="export_reason_no_atlas_page_bound">No atlas page is bound to this drawable, so it was written pointing at page 0.</string>
 	<string name="export_reason_clipping_mask_not_in_export">The clipping mask %1$s is not in this export, so the mesh was written unclipped by it.</string>
@@ -830,7 +830,7 @@
 	<string name="properties_runtime_feature_in_use">%1$s - CURRENTLY IN USE</string>
 	<string name="runtime_feature_warp_quad_transform">New Warp Deformer Method</string>
 	<string name="runtime_feature_reversed_mask">Reversed Mask</string>
-	<string name="runtime_feature_mesh_warp_blend_shapes">Blend Shapes (Art Mesh and Warp Deformer)</string>
+	<string name="runtime_feature_mesh_warp_blend_shapes">Blend Shapes (Drawable and Warp Deformer)</string>
 	<string name="runtime_feature_blend_shape_parameters">Blend Shape Parameters</string>
 	<string name="runtime_feature_multiply_color">Multiply Color</string>
 	<string name="runtime_feature_screen_color">Screen Color</string>
@@ -923,6 +923,8 @@
 	<string name="mesh_options_vertex_budget">Vertex Budget</string>
 	<string name="mesh_options_interior_thinning_limit">Interior Thinning Limit</string>
 	<string name="mesh_options_fill_holes">Fill Holes</string>
+	<string name="mesh_options_strand_rungs">Strand Rungs</string>
+	<string name="mesh_options_strand_width">Strand Width</string>
 	<string name="mesh_options_deformation_tolerance">Deformation Tolerance</string>
 	<string name="import_options_align">Align</string>
 	<string name="import_options_offset_x">Offset X</string>
@@ -1017,7 +1019,7 @@
 	<string name="transform_options_connected_description">Limits the proportional influence to vertices joined to the selection by mesh edges, measuring distance along those edges.</string>
 	<string name="transform_options_slide_factor_description">Where along its edge the vertex landed: 0 is where it started, and 1 is the neighboring vertex.</string>
 	<string name="merge_options_target_description">Where the merged vertices come together: at their center, or on the first or last vertex selected.</string>
-	<string name="mesh_options_preset_description">Fills in the spacings, margins, outline points, and minimum angle from preset values.</string>
+	<string name="mesh_options_preset_description">Fills in the spacings, margins, outline points, minimum angle, and strand width from preset values.</string>
 	<string name="mesh_options_alpha_threshold_description">How opaque a pixel must be, up to 255, to be counted as part of the art.</string>
 	<string name="mesh_options_outline_spacing_description">The distance the mesher aims for between vertices along the outline, in pixels.</string>
 	<string name="mesh_options_interior_spacing_description">The distance the mesher aims for between vertices inside the art, the inner ring and the even grid, in pixels.</string>
@@ -1027,8 +1029,10 @@
 	<string name="mesh_options_minimum_outline_points_description">The fewest vertices one outline ring may have, however small its piece of art.</string>
 	<string name="mesh_options_minimum_angle_description">The smallest angle, in degrees, the mesher brings every triangle up to by adding vertices, within the vertex budget.  Angles the outline itself makes, such as a hair tip's, stay as they are.  0 for none.</string>
 	<string name="mesh_options_vertex_budget_description">The most vertices one mesh should have.  Art that can't fit is meshed again under a higher budget, up to 4096, and then with its holes filled.</string>
-	<string name="mesh_options_interior_thinning_limit_description">When the art needs more vertices than the Vertex Budget, the interior thins first, its spacing growing to at most this many times the outline spacing; past that, the outline thins along with it.  Higher keeps the outline's detail longer, lower keeps the interior even.</string>
+	<string name="mesh_options_interior_thinning_limit_description">When the art needs more vertices than the Vertex Budget it thins the interior first.  The spacing grows to at most this value times the outline spacing.  Past that, the outline thins along with it.  Higher keeps the outline's detail longer and lower keeps the interior even.</string>
 	<string name="mesh_options_fill_holes_description">Meshes over holes in the art as one sheet instead of cutting them out.</string>
+	<string name="mesh_options_strand_rungs_description">Meshes thin art as even strips with a single run down the center instead of outlining the art.</string>
+	<string name="mesh_options_strand_width_description">With Strand Rungs on, art narrower than this, in pixels, is meshed as a strip of rungs.  Each preset sets it where an inner ring stops fitting; raise it to mesh wider straps and locks as strips too, lower it to give more of them an inner ring.</string>
 	<string name="mesh_options_deformation_tolerance_description">How far, in pixels, the new mesh may stray from the shapes the rig gives the old one, at rest and in every keyform.  Where it would stray further, the old vertices that hold those shapes are kept.  Smaller keeps more of them.</string>
 	<!-- Blend modes (Cubism color blend list). -->
 	<string name="blend_mode_normal">Normal</string>
@@ -1119,7 +1123,7 @@
 	<string name="settings_keybindings_unbound">Unbound</string>
 	<string name="settings_keybindings_clear">Clear shortcut</string>
 	<!-- %1$s is the shortcut, %2$s is the command it is already bound to. -->
-	<string name="settings_keybindings_conflict">%1$s is already bound to “%2$s”. Reassign it?</string>
+	<string name="settings_keybindings_conflict">%1$s is already bound to “%2$s”.  Reassign it?</string>
 	<string name="settings_keybindings_reassign">Reassign</string>
 	<!-- Placeholder section (the real editor lands with the pen backend). -->
 	<string name="settings_pen_coming_soon">Pen configuration is coming soon.</string>

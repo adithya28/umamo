@@ -62,6 +62,9 @@ Commands:
                      --visible-only  Skip layers hidden by their own or a folder's eye.
                      --fill-holes    Mesh over holes in the art instead of cutting them
                                      out: one solid sheet per piece (lace, webs).
+                     --no-strand-rungs
+                                     Mesh thin strands from their outline alone, not as
+                                     rung strips paired across them.
                      --preview       Also write NNN-<layer>.png: each mesh drawn over its
                                      art (outline magenta, interior edges blue, triangles
                                      under the minimum angle tinted orange, vertices
@@ -70,7 +73,7 @@ Commands:
                      --alpha-threshold=N, --outline-spacing=N, --interior-spacing=N,
                      --outer-margin=N, --inner-margin=N, --minimum-margin=N,
                      --minimum-outline-points=N, --vertex-budget=N, --minimum-angle=N,
-                     --interior-thinning-limit=N
+                     --interior-thinning-limit=N, --strand-width=N
                                      Override one setting of the preset; distances
                                      are in pixels, the angle in degrees (0 for no
                                      refinement), the thinning limit in outline

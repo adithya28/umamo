@@ -29,7 +29,9 @@ import kotlin.math.sqrt
  * away.  An edge with both ends outside the domain grows its chain both ways from its worst crossing;
  * one whose chain is whole and still strays gains a vertex at its worst crossing.  A boundary edge
  * splits only where the caller's check allows; a constraint with no room for the split gives way when
- * it bounds nothing (an inner segment), and otherwise stops the chain.
+ * it bounds nothing (an inner segment) and holds no other guide edge's crease, and otherwise stops the
+ * chain - two creases that cross where neither can split (a folded guide) keep the first held, the
+ * other goes without.  An operation backstop bounds the run besides.
  *
  * An error is the largest, over the guide's fields, of the distance between the guide's value at a
  * point and the triangulation's interpolation there of the guide's values at its own vertices, divided
@@ -115,6 +117,11 @@ internal class GuideInsertion(
 	/** Per guide vertex, whether inserting it was refused, so it is not tried again. */
 	private val insertionRefused = BooleanArray(guide.points.size / 2)
 
+	/** The chain pieces made constraints, as packed (low, high) pairs, each split piece replaced by its halves. */
+	private val heldPieces = HashSet<Long>()
+	private val operationLimit = BACKSTOP_OPERATIONS_PER_VERTEX * store.vertexCapacity + BACKSTOP_BASE_OPERATIONS
+	private var operations = 0L
+
 	/** What the last obstacle walk met: a constrained half-edge, or a vertex on its line. */
 	private var metHalfEdge = HalfEdgeTriangulation.NO_HALF_EDGE
 	private var metVertex = NO_STORE_VERTEX
@@ -166,6 +173,10 @@ internal class GuideInsertion(
 	var stoppedByCap: Boolean = false
 		private set
 
+	/** Whether the operation backstop stopped insertion, which only a defect reaches. */
+	var stoppedByBackstop: Boolean = false
+		private set
+
 	/**
 	 * Holds the worst candidate in place while it strays past the tolerance and the cap allows.
 	 *
@@ -180,6 +191,14 @@ internal class GuideInsertion(
 			largestRemainingError = error
 
 			if (worst < 0 || error <= tolerance) {
+				return
+			}
+
+			operations++
+
+			if (operations > operationLimit) {
+				stoppedByBackstop = true
+
 				return
 			}
 
@@ -199,7 +218,8 @@ internal class GuideInsertion(
 	}
 
 	/**
-	 * Whether the triangulation strays from the guide past the tolerance anywhere, inserting nothing.
+	 * Whether the triangulation strays from the guide past the tolerance anywhere, inserting nothing;
+	 * [run] may follow on the same insertion, after the store changed.
 	 *
 	 * @return Boolean True when holding the guide would change something.
 	 */
@@ -210,8 +230,14 @@ internal class GuideInsertion(
 		return worst >= 0 && errorOfCandidate(worst) > tolerance
 	}
 
-	/** Measures every vertex candidate where it lies and traces every edge. */
+	/**
+	 * Measures every vertex candidate where it lies and traces every edge, forgetting what an earlier
+	 * scoring found: the store may have changed since.
+	 */
 	private fun scoreEveryCandidate() {
+		vertexTriangle.fill(NO_TRIANGLE)
+		storeVertexOfGuide.fill(UNKNOWN)
+
 		for (candidate in 0 until vertexCandidateCount) {
 			scoreVertex(candidate)
 		}
@@ -353,6 +379,7 @@ internal class GuideInsertion(
 
 			if (inserter.insert(start, finish, false)) {
 				constrainedEdgeCount++
+				holdInsertedChain()
 
 				return true
 			}
@@ -376,13 +403,15 @@ internal class GuideInsertion(
 	}
 
 	/**
-	 * Releases a constraint no boundary ring runs along, so a crease can cross it.
+	 * Releases a constraint no boundary ring runs along and no crease holds, so a crease can cross it.
+	 * A crease never gives way to another: two that cross where neither can split would otherwise
+	 * release each other without end.
 	 *
 	 * @param Int halfEdge The constrained half-edge.
-	 * @return Boolean True when released; false for a boundary.
+	 * @return Boolean True when released; false for a boundary or a held crease.
 	 */
 	private fun releaseIfNeutral(halfEdge: Int): Boolean {
-		if (store.boundaryCount[halfEdge] != 0) {
+		if (store.boundaryCount[halfEdge] != 0 || pieceKeyOf(store.origin[halfEdge], store.destination(halfEdge)) in heldPieces) {
 			return false
 		}
 
@@ -391,6 +420,24 @@ internal class GuideInsertion(
 
 		return true
 	}
+
+	/** Notes every piece the last constraint insertion marked, so none of them gives way to another crease. */
+	private fun holdInsertedChain() {
+		val chain = inserter.insertedChain
+
+		for (position in 0 until chain.size - 1) {
+			heldPieces.add(pieceKeyOf(chain[position], chain[position + 1]))
+		}
+	}
+
+	/**
+	 * A constrained edge as a packed (low, high) pair.
+	 *
+	 * @param Int start One end.
+	 * @param Int end   The other.
+	 * @return Long The key.
+	 */
+	private fun pieceKeyOf(start: Int, end: Int): Long = packVertexPair(minOf(start, end), maxOf(start, end))
 
 	/**
 	 * Extends a chain from its end toward a guide end the domain lacks: along the edge's line through
@@ -673,11 +720,19 @@ internal class GuideInsertion(
 		val isBoundary = store.boundaryCount[halfEdge] % 2 == 1
 		val outwardIsLeft = if (isBoundary) !store.regions[halfEdge / 3] else null
 		val check = if (isBoundary) boundarySplitCheck else null
+		val vertex =
+			steiner.splitSegment(origin, destination, x, y, outwardIsLeft) { candidate, cutsInside, nearestNeighborDistanceSquared ->
+				nearestNeighborDistanceSquared >= separationSquared &&
+					(check == null || check.accepts(store.pointX(origin), store.pointY(origin), store.pointX(destination), store.pointY(destination), store.pointX(candidate), store.pointY(candidate), cutsInside))
+			}
 
-		return steiner.splitSegment(origin, destination, x, y, outwardIsLeft) { candidate, cutsInside, nearestNeighborDistanceSquared ->
-			nearestNeighborDistanceSquared >= separationSquared &&
-				(check == null || check.accepts(store.pointX(origin), store.pointY(origin), store.pointX(destination), store.pointY(destination), store.pointX(candidate), store.pointY(candidate), cutsInside))
+		// A held crease stays held through its halves.
+		if (vertex != SteinerInsertion.NO_VERTEX && heldPieces.remove(pieceKeyOf(origin, destination))) {
+			heldPieces.add(pieceKeyOf(origin, vertex))
+			heldPieces.add(pieceKeyOf(vertex, destination))
 		}
+
+		return vertex
 	}
 
 	/** After a change: measures again every vertex candidate whose triangle went, and traces again every edge that entered one that went. */
@@ -1290,9 +1345,12 @@ internal class GuideInsertion(
 	 */
 	private fun valuesOfVertex(vertex: Int): Int {
 		if (!vertexValuesKnown[vertex]) {
-			val values = DoubleArray(valueCount)
-			guide.valuesAt(store.pointX(vertex), store.pointY(vertex), values)
-			values.copyInto(vertexValues, vertex * valueCount)
+			val offset = vertex * valueCount
+
+			if (!guide.valuesAt(store.pointX(vertex), store.pointY(vertex), vertexValues, offset)) {
+				vertexValues.fill(0.0, offset, offset + valueCount)
+			}
+
 			vertexValuesKnown[vertex] = true
 		}
 

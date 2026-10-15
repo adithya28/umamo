@@ -102,7 +102,11 @@ class ArtMeshCorpusTest {
 				val quality = mesh.measureQuality(HISTOGRAM_BUCKET_DEGREES)
 				val statistics = result.statistics!!
 				val budgetReached = result.notices.any { notice -> notice is ArtMeshNotice.RefinementBudgetReached }
-				assertEquals(statistics.underTargetCount, mesh.measureQuality(1.0).countBelow(settings.minimumAngle), "$context: the reported count matches the mesh")
+				// The refiner decides by sine squared and acos can land a hair away from it, so the count is held to a quarter degree either side.
+				val fineQuality = mesh.measureQuality(QUALITY_CHECK_BUCKET_DEGREES)
+				val fewest = fineQuality.countBelow(settings.minimumAngle - QUALITY_CHECK_BUCKET_DEGREES)
+				val most = fineQuality.countBelow(settings.minimumAngle + QUALITY_CHECK_BUCKET_DEGREES)
+				assertTrue(statistics.underTargetCount in fewest..most, "$context: the reported count ${statistics.underTargetCount} matches the mesh ($fewest to $most below ${settings.minimumAngle} degrees)")
 
 				if (!budgetReached) {
 					assertEquals(statistics.underTargetCount, statistics.unfixableCount, "$context: everything below the minimum angle is beyond refinement")
@@ -164,6 +168,9 @@ class ArtMeshCorpusTest {
 	private companion object {
 		/** The histogram's bucket width, degrees. */
 		const val HISTOGRAM_BUCKET_DEGREES = 5.0
+
+		/** The band, either side of a preset's minimum angle, within which the reported count must land; exact in binary, so the bucket edges are too. */
+		const val QUALITY_CHECK_BUCKET_DEGREES = 0.25
 
 		/** Its bucket count, up to 60 degrees. */
 		const val HISTOGRAM_BUCKETS = 12

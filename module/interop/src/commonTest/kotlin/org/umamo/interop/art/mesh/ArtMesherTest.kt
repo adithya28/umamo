@@ -111,13 +111,176 @@ class ArtMesherTest {
 	}
 
 	@Test
-	fun aOnePixelStrandIsMeshedFromItsOutline() {
+	fun aOnePixelStrandIsMeshedAsRungs() {
 		val raster = rasterOf(90, 9) { column, row -> row == 4 && column in 5..84 }
 		val result = generateArtMesh(raster, standard)
-		assertValidArtMesh(raster, standard, result)
+		val mesh = assertValidArtMesh(raster, standard, result)
 		val statistics = result.statistics!!
-		assertEquals(0, statistics.innerRingCount)
-		assertEquals(0, statistics.latticeVertexCount)
+
+		assertEquals(1, statistics.strandCount)
+		assertEquals(0, statistics.innerRingCount + statistics.latticeVertexCount + statistics.strandCenterCount)
+		assertPairedAcross(mesh, 4.5, 8.0..82.0)
+	}
+
+	@Test
+	fun aStrandTooSmallForTheMinimumOutlinePointsKeepsItsRungs() {
+		// The one-pixel strand's ring comes to fewer samples than a raised minimum: the gaps outside the
+		// rungs are halved to meet it, and the rungs stay paired, since the strand was laid out on them.
+		val raster = rasterOf(90, 9) { column, row -> row == 4 && column in 5..84 }
+		val settings = standard.copy(minimumOutlinePoints = 16)
+		val result = generateArtMesh(raster, settings)
+		val mesh = assertValidArtMesh(raster, settings, result)
+		val statistics = result.statistics!!
+
+		assertEquals(1, statistics.strandCount)
+		assertTrue(statistics.rungCount >= 2, "${statistics.rungCount}")
+		assertTrue(statistics.outlineVertexCount >= 16, "${statistics.outlineVertexCount}")
+		assertPairedAcross(mesh, 4.5, 8.0..82.0)
+	}
+
+	@Test
+	fun aNarrowStrandPairsItsOutlineAcrossItWithNothingBetween() {
+		// 10 px tall: narrower than twice the inner margin, so each rung is two vertices across.
+		val raster = rasterOf(200, 30) { column, row -> row in 10 until 20 && column in 10 until 190 }
+		val result = generateArtMesh(raster, standard)
+		val mesh = assertValidArtMesh(raster, standard, result)
+		val statistics = result.statistics!!
+
+		assertEquals(1, statistics.strandCount)
+		assertTrue(statistics.rungCount >= 5, "${statistics.rungCount}")
+		assertEquals(0, statistics.strandCenterCount + statistics.innerVertexCount + statistics.latticeVertexCount)
+		assertPairedAcross(mesh, 15.0, 30.0..170.0)
+	}
+
+	@Test
+	fun withStrandRungsOffAStrandIsMeshedFromItsOutline() {
+		val raster = rasterOf(200, 50) { column, row -> row in 13 until 37 && column in 10 until 190 }
+		val settings = standard.copy(strandRungs = false)
+		val result = generateArtMesh(raster, settings)
+		val mesh = assertValidArtMesh(raster, settings, result)
+		val statistics = result.statistics!!
+
+		assertEquals(0, statistics.strandCount + statistics.rungCount + statistics.strandCenterCount)
+		assertTrue(verticesWhere(mesh) { x, y -> abs(y - 25.0) < 1.0 && x in 30.0..170.0 }.isEmpty(), "no centerline")
+	}
+
+	@Test
+	fun aWiderStrandWidthMeshesAnInnerRingsStrapAsRungs() {
+		// 34 px tall: past Fine's 26 px strand width, so at the preset an inner ring runs through it.
+		val raster = rasterOf(300, 80) { column, row -> row in 23 until 57 && column in 10 until 290 }
+		val fine = ArtMeshPreset.Fine.settings
+		val widened = fine.copy(strandWidth = 40.0)
+		val presetResult = generateArtMesh(raster, fine)
+		val widenedResult = generateArtMesh(raster, widened)
+		assertValidArtMesh(raster, fine, presetResult)
+		val mesh = assertValidArtMesh(raster, widened, widenedResult)
+		val statistics = widenedResult.statistics!!
+		val innerRingRows = verticesWhere(mesh) { x, y -> x in 50.0..250.0 && (abs(y - 29.0) < 2.0 || abs(y - 51.0) < 2.0) }
+
+		assertEquals(0, presetResult.statistics!!.strandCount)
+		assertTrue(presetResult.statistics!!.innerRingCount >= 1)
+		assertEquals(1, statistics.strandCount)
+		assertTrue(statistics.strandCenterCount >= 3, "${statistics.strandCenterCount}")
+		assertTrue(innerRingRows.isEmpty(), "the rungs take the inner ring's place: $innerRingRows")
+		assertPairedAcross(mesh, 40.0, 50.0..250.0)
+	}
+
+	@Test
+	fun aStrandWideEnoughGetsACenterlineVertexAtEveryRung() {
+		// 24 px tall: past twice the inner margin, still short of an inner ring's band.
+		val raster = rasterOf(200, 50) { column, row -> row in 13 until 37 && column in 10 until 190 }
+		val result = generateArtMesh(raster, standard)
+		val mesh = assertValidArtMesh(raster, standard, result)
+		val statistics = result.statistics!!
+		val centers = verticesWhere(mesh) { x, y -> abs(y - 25.0) < 1.0 && x in 30.0..170.0 }
+
+		assertEquals(1, statistics.strandCount)
+		// The rung at each end crosses the outline's turn around the tip, narrower than the art itself.
+		assertEquals(statistics.rungCount - 2, statistics.strandCenterCount, "a centerline vertex on every rung across the full width")
+		assertEquals(0, statistics.innerVertexCount + statistics.latticeVertexCount)
+		assertPairedAcross(mesh, 25.0, 30.0..170.0)
+		assertTrue(centers.size >= 3, "$centers")
+
+		for ((centerX, _) in centers) {
+			assertTrue(verticesWhere(mesh) { x, y -> y < 13.0 && abs(x - centerX) <= 3.0 }.isNotEmpty(), "the centerline vertex at x $centerX sits on a rung")
+		}
+	}
+
+	@Test
+	fun aStrandWideningBrieflyNearItsEndStaysOneStrip() {
+		// 30 px wide, flaring to 46 px over its last 100 px: past the 40 px band only for its last 40 px
+		// or so, too short for an inner ring there.
+		val raster = flaredBar(flareStart = 150, endWidth = 46.0)
+		val result = generateArtMesh(raster, standard)
+		val mesh = assertValidArtMesh(raster, standard, result)
+		val statistics = result.statistics!!
+
+		assertEquals(1, statistics.strandCount)
+		assertEquals(0, statistics.innerVertexCount + statistics.latticeVertexCount)
+		assertPairedAcross(mesh, 39.5, 30.0..190.0)
+		assertTrue(verticesWhere(mesh) { x, y -> x in 225.0..240.0 && abs(y - 39.5) < 2.0 }.isNotEmpty(), "the strip carries on past the band, its centerline included")
+	}
+
+	@Test
+	fun aLongWideStretchSplitsAStrandInTwo() {
+		// 24 px wide with a 46 px bulge 120 px long in the middle - past the 40 px band but measured, and
+		// long enough for an inner ring of its own - so the bulge is no strand and the narrow parts on
+		// either side are two.
+		val raster =
+			rasterOf(320, 80) { column, row ->
+				val bulge = (minOf(column - 90, 230 - column) / 20.0).coerceIn(0.0, 1.0)
+				column in 10 until 310 && abs(row + 0.5 - 40.0) <= 12.0 + 11.0 * bulge
+			}
+		val result = generateArtMesh(raster, standard)
+		val mesh = assertValidArtMesh(raster, standard, result)
+		val statistics = result.statistics!!
+
+		assertEquals(2, statistics.strandCount)
+		assertTrue(verticesWhere(mesh) { x, y -> x in 130.0..190.0 && abs(y - 39.5) < 2.0 }.isEmpty(), "no centerline through the bulge")
+	}
+
+	@Test
+	fun aThinTailLeavesTheBodyAsARungStripWithNoInnerRingInIt() {
+		// A disc with a 20 px tail: the disc's inner ring reaches into the tail, and is cut back out of it.
+		val raster = rasterOf(340, 180) { column, row -> inDisc(column, row, 90.0, 90.0, 70.0) || (row in 80 until 100 && column in 150 until 330) }
+		val result = generateArtMesh(raster, standard)
+		val mesh = assertValidArtMesh(raster, standard, result)
+		val statistics = result.statistics!!
+
+		assertTrue(statistics.strandCount >= 1)
+		assertTrue(statistics.innerVertexCount > 0 && statistics.latticeVertexCount > 0, "the body keeps its interior")
+		assertPairedAcross(mesh, 89.5, 200.0..310.0)
+
+		for ((x, y) in verticesWhere(mesh) { x, _ -> x in 185.0..320.0 }) {
+			assertTrue(y < 80.0 || y > 99.0 || abs(y - 89.5) <= 1.0, "($x, $y) in the tail is on its outline or its centerline")
+		}
+	}
+
+	@Test
+	fun aCurvedStrandsRungsFaceEachOtherAcrossIt() {
+		val raster = curvedBand()
+		val result = generateArtMesh(raster, standard)
+		val mesh = assertValidArtMesh(raster, standard, result)
+		val outer = verticesWhere(mesh) { x, y -> radiusOf(x, y) > 107.0 }.map { (x, y) -> angleOf(x, y) }.filter { angle -> angle in 0.4..2.2 }
+		val inner = verticesWhere(mesh) { x, y -> radiusOf(x, y) < 93.0 }.map { (x, y) -> angleOf(x, y) }
+
+		assertTrue(result.statistics!!.strandCount >= 1)
+		assertTrue(outer.size >= 4, "$outer")
+
+		for (angle in outer) {
+			assertTrue(inner.any { other -> abs(other - angle) < 0.05 }, "the outer vertex at $angle radians has one facing it inside")
+		}
+	}
+
+	@Test
+	fun aPinOnAStrandKeepsTheCenterlineAway() {
+		val raster = rasterOf(200, 50) { column, row -> row in 13 until 37 && column in 10 until 190 }
+		val pins = doubleArrayOf(100.25, 25.0)
+		val result = generateArtMesh(raster, standard, pins)
+		val mesh = assertValidArtMesh(raster, standard, result, pins)
+		val nearPin = verticesWhere(mesh) { x, y -> abs(y - 25.0) < 1.5 && abs(x - 100.25) < standard.outlineSpacing / 2.0 }
+
+		assertEquals(listOf(100.25 to 25.0), nearPin, "only the pin itself near the pin")
 	}
 
 	@Test
@@ -377,11 +540,12 @@ class ArtMesherTest {
 
 	@Test
 	fun theOutputIsAFunctionOfItsInput() {
-		val raster = noisyBlob()
-		val first = generateArtMesh(raster, standard).mesh!!
-		val second = generateArtMesh(raster, standard).mesh!!
-		assertContentEquals(first.positions, second.positions)
-		assertContentEquals(first.triangles, second.triangles)
+		for (raster in listOf(noisyBlob(), curvedBand())) {
+			val first = generateArtMesh(raster, standard).mesh!!
+			val second = generateArtMesh(raster, standard).mesh!!
+			assertContentEquals(first.positions, second.positions)
+			assertContentEquals(first.triangles, second.triangles)
+		}
 	}
 
 	@Test
@@ -521,15 +685,93 @@ class ArtMesherTest {
 	private fun reserveOf(budget: Int): Int = (budget * 30 + 99) / 100
 
 	/**
-	 * A parabolic taper narrowing to a point, like a hair tip.
+	 * A parabolic taper narrowing to a point, like a lock of hair: 180 px at its base, too short past
+	 * strand width for rungs, so its tip is meshed from the outline and refinement.
 	 *
 	 * @return LayerRaster The raster.
 	 */
 	private fun taperedTip(): LayerRaster =
-		rasterOf(300, 80) { column, row ->
-			val offset = row - 40
-			row in 10 until 70 && offset * offset * 300 <= (300 - column) * 900
+		rasterOf(300, 200) { column, row ->
+			val offset = row - 100
+			row in 10 until 190 && offset * offset * 300 <= (300 - column) * 8100
 		}
+
+	/**
+	 * A bar 30 px wide from x 10 around row 40, flaring evenly from a column to a width at its end at x 250.
+	 *
+	 * @param Int    flareStart The column the flare starts at.
+	 * @param Double endWidth   The width at the end.
+	 * @return LayerRaster The raster.
+	 */
+	private fun flaredBar(flareStart: Int, endWidth: Double): LayerRaster =
+		rasterOf(260, 80) { column, row ->
+			val halfWidth = if (column < flareStart) 15.0 else 15.0 + (endWidth / 2.0 - 15.0) * (column - flareStart) / (250.0 - flareStart)
+			column in 10 until 250 && abs(row + 0.5 - 40.0) <= halfWidth
+		}
+
+	/**
+	 * A band 10 px wide around a quarter and more of a circle of radius 100.
+	 *
+	 * @return LayerRaster The raster.
+	 */
+	private fun curvedBand(): LayerRaster =
+		rasterOf(300, 300) { column, row ->
+			val radius = radiusOf(column + 0.5, row + 0.5)
+			val angle = angleOf(column + 0.5, row + 0.5)
+			radius in 95.0..105.0 && angle in 0.2..2.4
+		}
+
+	/**
+	 * A point's distance from the curved band's center.
+	 *
+	 * @param Double x The point's x.
+	 * @param Double y The point's y.
+	 * @return Double The distance.
+	 */
+	private fun radiusOf(x: Double, y: Double): Double = sqrt((x - 150.0) * (x - 150.0) + (y - 150.0) * (y - 150.0))
+
+	/**
+	 * A point's angle around the curved band's center, radians.
+	 *
+	 * @param Double x The point's x.
+	 * @param Double y The point's y.
+	 * @return Double The angle.
+	 */
+	private fun angleOf(x: Double, y: Double): Double = atan2(y - 150.0, x - 150.0)
+
+	/**
+	 * The mesh's vertices a predicate picks.
+	 *
+	 * @param PlanarTriangleMesh mesh  The mesh.
+	 * @param Function           picks Whether to pick the vertex at (x, y).
+	 * @return List<Pair<Double, Double>> The picked vertices.
+	 */
+	private fun verticesWhere(mesh: PlanarTriangleMesh, picks: (Double, Double) -> Boolean): List<Pair<Double, Double>> =
+		(0 until mesh.vertexCount).map { vertex -> mesh.positions[2 * vertex].toDouble() to mesh.positions[2 * vertex + 1].toDouble() }.filter { (x, y) -> picks(x, y) }
+
+	/**
+	 * Asserts a horizontal strand's outline vertices pair across it: over a stretch of x, every vertex
+	 * above the centerline has one below it within 3 px, and every one below one above - a rung's ends
+	 * are interpolated between chords about a working cell apart, so they can lean by a cell.
+	 *
+	 * @param PlanarTriangleMesh             mesh    The mesh.
+	 * @param Double                         centerY The strand's centerline.
+	 * @param ClosedFloatingPointRange<Double> along  The stretch of x checked.
+	 */
+	private fun assertPairedAcross(mesh: PlanarTriangleMesh, centerY: Double, along: ClosedFloatingPointRange<Double>) {
+		val above = verticesWhere(mesh) { x, y -> y < centerY - 4.0 && x in along }.map { (x, _) -> x }
+		val below = verticesWhere(mesh) { x, y -> y > centerY + 4.0 && x in along }.map { (x, _) -> x }
+
+		assertTrue(above.size >= 2, "$above")
+
+		for (x in above) {
+			assertTrue(below.any { other -> abs(other - x) <= 3.0 }, "the vertex above at x $x has one below it: $below")
+		}
+
+		for (x in below) {
+			assertTrue(above.any { other -> abs(other - x) <= 3.0 }, "the vertex below at x $x has one above it: $above")
+		}
+	}
 
 	/**
 	 * A blob with ragged edges, a hole, and a few specks.

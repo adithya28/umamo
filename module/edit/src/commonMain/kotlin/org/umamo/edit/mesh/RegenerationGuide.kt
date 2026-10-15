@@ -20,18 +20,24 @@ import org.umamo.runtime.model.PuppetModel
  */
 
 /**
- * The guide that keeps a drawable's rig through a regeneration, or null when the drawable cannot be
- * regenerated or its rig gives no field with area.
+ * The guide that keeps a drawable's rig through a regeneration, or null when the drawable has no mesh
+ * the input was read from or its rig gives no field with area.  The input carries the old mesh laid
+ * out in art pixels, so nothing is prepared again here.
  *
- * @param RegenerationInput.Ready input              The input the mesh is generated for.
+ * @param RegenerationInput.Ready input              The input the mesh is generated for, read off this model.
  * @param FloatArray?             restWorldPositions The drawable's world positions in the rest pose, one pair per old vertex, or null when it has none (hidden, or nothing places it).
  * @return PiecewiseLinearGuide? The guide.
  */
 fun PuppetModel.deformationGuideFor(input: RegenerationInput.Ready, restWorldPositions: FloatArray?): PiecewiseLinearGuide? {
-	val source = prepareSource(input.drawableId) as? SourcePreparation.Prepared ?: return null
-	val mesh = source.mesh
 	val drawable = drawables.firstOrNull { candidate -> candidate.id == input.drawableId } ?: return null
-	val points = source.rasterPoints
+	val mesh = drawable.mesh ?: return null
+
+	// A mesh of another size is another model's: the input no longer describes it.
+	if (mesh.positions.size != input.oldVertexPoints.size) {
+		return null
+	}
+
+	val points = input.oldVertexPoints
 	val triangles = mesh.indices
 	val fields = ArrayList<FloatArray>()
 	val scales = ArrayList<Double>()
@@ -63,7 +69,7 @@ fun PuppetModel.deformationGuideFor(input: RegenerationInput.Ready, restWorldPos
 	}
 
 	val pinned = input.pinnedOldVertices.toHashSet()
-	val candidates = source.referenced.filter { vertex -> vertex !in pinned }.toIntArray()
+	val candidates = input.referencedOldVertices.filter { vertex -> vertex !in pinned }.toIntArray()
 
 	return PiecewiseLinearGuide(points, triangles, fields, scales.toDoubleArray(), candidates)
 }

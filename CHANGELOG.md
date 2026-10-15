@@ -9,9 +9,6 @@ Umamo is early alpha.
 ### Added
 * UI: Viewport Overlays has a new Show Overlays toggle and dropdown at the end of the 2D Viewport and UV Editor headers to toggle viewport overlays.  The choices are saved per document.
 * Mesh: Generate Mesh from Art(Shift+M) builds a new mesh from the art's opaque pixels for the selected drawables.
-* Mesh: Generate Mesh from Art refines its triangles toward a Minimum Angle, a new operation strip row the presets fill in, so its meshes have far fewer thin slivers.  Narrow angles the art's own outline makes, such as a hair tip's, are left as they are.
-* Mesh: When art needs more vertices than its Vertex Budget, Generate Mesh from Art now thins the interior before the outline, so the silhouette keeps its detail, and saves part of the budget for evening out the thin triangles that leaves.  A new Interior Thinning Limit row on the operation strip sets how far the interior may thin, in outline spacings, before the outline thins with it, so a dense outline never surrounds an empty interior.
-* Mesh: When Generate Mesh from Art replaces a rigged drawable's mesh, it keeps the old vertices and folds the rig bends the art around, so the art stays where the rig put it at rest and in the drawable's own keyforms and blend shapes.  A new Deformation Tolerance row on the operation strip sets how far, in pixels, it may stray.
 
 ### Changed
 * UI: The 2D Viewport's mode DropdownChip is now pinned instead of collapsing into the more chip.
@@ -19,6 +16,7 @@ Umamo is early alpha.
 ### Fixed
 * Format: MOC3 export now refuses to export an art mesh with more than 65,536 vertices instead of writing wrapped triangle indices.
 * Format: CMO3 export no longer warns that a glue could not be exported when the meshes on both sides of it were remeshed.
+* UI: The tooltip could sometimes block clicking when it overflowed from its default position.
 
 ## 0.4.0 - 2026-10-02
 

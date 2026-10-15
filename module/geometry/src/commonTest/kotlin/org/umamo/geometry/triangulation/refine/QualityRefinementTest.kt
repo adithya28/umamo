@@ -91,12 +91,18 @@ class QualityRefinementTest {
 	@Test
 	fun aCheckThatRefusesEverySplitLeavesTheDomainAsItWas() {
 		val points = doubleArrayOf(0.0, 0.0, 100.0, 0.0, 100.0, 3.0, 0.0, 3.0)
-		val options = optionsOf(30.0, boundarySplitCheck = { _, _, _, _, _, _, _ -> false })
+		val refusedEdges = HashSet<List<Double>>()
+		val options =
+			optionsOf(30.0, boundarySplitCheck = { startX, startY, endX, endY, _, _, _ ->
+				refusedEdges.add(listOf(startX, startY, endX, endY))
+				false
+			})
 		val result = refineValidated(points, listOf(ringOf(0, 4)), options = options)
 
 		assertRefinedMesh(points, result, options)
 		assertEquals(0, result.statistics.boundarySplitCount)
 		assertTrue(result.statistics.refusedBoundarySplitCount > 0, "refinement wanted to split the boundary: ${result.statistics}")
+		assertEquals(refusedEdges.size, result.statistics.refusedBoundarySplitCount, "one refusal per boundary edge, however many points it offered: ${result.statistics}")
 		assertEquals(300.0, areaOf(result.points, result.triangulation.triangles))
 		assertContentEquals(intArrayOf(0, 1, 0, 3, 1, 2, 2, 3), result.triangulation.constrainedEdges, "the boundary is the input's four edges")
 	}

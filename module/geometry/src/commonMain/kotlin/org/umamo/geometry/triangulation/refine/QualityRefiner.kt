@@ -47,11 +47,11 @@ private const val SHARP_CORNER_DEGREES: Double = 60.0
 /** Two shell points are the same distance from their corner when their squared distances agree this closely. */
 private const val SHELL_DISTANCE_TOLERANCE: Double = 0.001
 
-/** Backstop operations allowed per vertex slot. */
-private const val BACKSTOP_OPERATIONS_PER_VERTEX: Long = 64L
+/** Backstop operations allowed per vertex slot, for refinement and for the guide alike. */
+internal const val BACKSTOP_OPERATIONS_PER_VERTEX: Long = 64L
 
 /** Backstop operations allowed regardless of size. */
-private const val BACKSTOP_BASE_OPERATIONS: Long = 4096L
+internal const val BACKSTOP_BASE_OPERATIONS: Long = 4096L
 
 /** A vertex added in the interior, not on any segment. */
 private const val NO_SEGMENT: Long = -1L
@@ -107,6 +107,9 @@ internal class QualityRefiner(
 	private var segmentSplitCount = 0
 	private var boundarySplitCount = 0
 	private var refusedBoundarySplitCount = 0
+
+	/** Whether the boundary split check refused a point of the segment being split. */
+	private var splitCheckRefused = false
 	private var stoppedByCap = false
 	private var stoppedByBackstop = false
 	private var operations = 0L
@@ -143,14 +146,17 @@ internal class QualityRefiner(
 		// everything left: refining after it would grade down around every vertex and crease it keeps -
 		// the old mesh's own narrow triangles - and its flips would undo what it holds.  The guide claims
 		// its share only when the triangulation strays from it to begin with; one with nothing to hold
-		// (an unrigged mesh's guide is affine) leaves refinement the whole cap.
-		if (GuideInsertion(store, steiner, guide, options.guideTolerance, separationSquared, options.boundarySplitCheck, null).strays()) {
+		// (an unrigged mesh's guide is affine) leaves refinement the whole cap.  One insertion answers
+		// both: it scores the guide again when it runs.
+		val insertion = GuideInsertion(store, steiner, guide, options.guideTolerance, separationSquared, options.boundarySplitCheck, afterEachStep)
+
+		if (insertion.strays()) {
 			refinementCap = options.maximumAddedPoints - floor(options.guidePointShare * options.maximumAddedPoints).toInt()
 		}
 
 		refineRound()
 		badBeforeGuide = underTargetKeys()
-		insertGuide()
+		insertGuide(insertion)
 
 		return finish()
 	}
@@ -189,15 +195,16 @@ internal class QualityRefiner(
 	/**
 	 * Holds the guide where the triangulation strays from it: its vertices, with whatever the cap has
 	 * left, and its creases as constraints.
+	 *
+	 * @param GuideInsertion insertion The insertion over this store.
 	 */
-	private fun insertGuide() {
-		val guide = options.guide ?: return
-		val insertion = GuideInsertion(store, steiner, guide, options.guideTolerance, separationSquared, options.boundarySplitCheck, afterEachStep)
+	private fun insertGuide(insertion: GuideInsertion) {
 		insertion.run(options.maximumAddedPoints - addedPointCount)
 		guidePointCount = insertion.insertedCount
 		addedPointCount += insertion.insertedCount
 		guideRemainingError = insertion.largestRemainingError
 		guideStoppedByCap = insertion.stoppedByCap
+		stoppedByBackstop = stoppedByBackstop || insertion.stoppedByBackstop
 	}
 
 	/**
@@ -434,6 +441,7 @@ internal class QualityRefiner(
 		val isBoundary = store.boundaryCount[halfEdge] % 2 == 1
 		val outwardIsLeft = if (isBoundary) !store.regions[halfEdge / 3] else null
 		val check = if (isBoundary) options.boundarySplitCheck else null
+		splitCheckRefused = false
 		val vertex =
 			steiner.splitSegment(low, high, targetX, targetY, outwardIsLeft) { candidate, cutsInside, nearestNeighborDistanceSquared ->
 				approvesSplit(low, high, candidate, cutsInside, nearestNeighborDistanceSquared, check)
@@ -441,6 +449,11 @@ internal class QualityRefiner(
 
 		if (vertex == SteinerInsertion.NO_VERTEX) {
 			unsplittableSegments.add(key)
+
+			// One segment offers up to three points; a split the check turned down counts once.
+			if (splitCheckRefused) {
+				refusedBoundarySplitCount++
+			}
 
 			return
 		}
@@ -484,7 +497,7 @@ internal class QualityRefiner(
 		val accepted = check.accepts(store.pointX(low), store.pointY(low), store.pointX(high), store.pointY(high), store.pointX(candidate), store.pointY(candidate), cutsInside)
 
 		if (!accepted) {
-			refusedBoundarySplitCount++
+			splitCheckRefused = true
 		}
 
 		return accepted

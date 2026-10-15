@@ -15,8 +15,8 @@ import org.umamo.geometry.triangulation.refine.triangulateAndRefine
 
 /*
  * Assembles the mesher's points into one triangulation: the outline rings as BOUNDARY rings (they
- * decide inside from outside), the inner rings as neutral SEGMENTS, the lattice and the pins as free
- * points.  Simplified outline rings can cross one another where two islands or a narrow neck come
+ * decide inside from outside), the inner rings - whole, or the stretches a strand left of them - as
+ * neutral SEGMENTS, the lattice, the strands' centerline vertices, and the pins as free points.  Simplified outline rings can cross one another where two islands or a narrow neck come
  * close; the triangulator then rejects a boundary edge and leaves a ring open, so both chords
  * involved are replaced by the traced points they skipped and the triangulation runs again - traced
  * rings are disjoint, so this ends.  The finished mesh keeps only the vertices its triangles use.
@@ -60,8 +60,8 @@ internal class AssembledMesh(
  * angle, and checks the result.
  *
  * @param List<SampledRing> outline    The outline rings (densified in place when they cross).
- * @param List<DoubleArray> innerRings The inner rings' points.
- * @param DoubleArray       lattice    The lattice points.
+ * @param List<InnerPolyline> innerRings The inner rings' points, closed or open.
+ * @param DoubleArray       lattice    The lattice points and every other free point but the pins.
  * @param DoubleArray       pins       The pins, Float-rounded.
  * @param AlphaField        field      The field, for the split checks and the final clearance check.
  * @param ArtMeshSettings   settings   The settings: the minimum margin, the minimum angle, and the vertex budget.
@@ -71,7 +71,7 @@ internal class AssembledMesh(
  */
 internal fun assembleMesh(
 	outline: List<SampledRing>,
-	innerRings: List<DoubleArray>,
+	innerRings: List<InnerPolyline>,
 	lattice: DoubleArray,
 	pins: DoubleArray,
 	field: AlphaField,
@@ -152,18 +152,18 @@ internal fun boundarySplitCheckOf(field: AlphaField, minimumMargin: Double): Bou
  * point came from.
  *
  * @param List<SampledRing> outline    The outline rings.
- * @param List<DoubleArray> innerRings The inner rings' points.
- * @param DoubleArray       lattice    The lattice points.
+ * @param List<InnerPolyline> innerRings The inner rings' points, closed or open.
+ * @param DoubleArray       lattice    The free points but the pins.
  * @param DoubleArray       pins       The pins.
  */
-private class MeshLayout(outline: List<SampledRing>, innerRings: List<DoubleArray>, lattice: DoubleArray, pins: DoubleArray) {
+private class MeshLayout(outline: List<SampledRing>, innerRings: List<InnerPolyline>, lattice: DoubleArray, pins: DoubleArray) {
 	/** Every point: outline rings, then inner rings, then the lattice, then the pins. */
 	val points: DoubleArray
 
 	/** Each outline ring as indices into [points]. */
 	val boundaries: List<IntArray>
 
-	/** Each inner ring as a closed polyline of indices into [points]. */
+	/** Each inner polyline as indices into [points], a closed one returning to its first point. */
 	val segments: List<IntArray>
 
 	/** The outline ring each point belongs to, or -1. */
@@ -181,7 +181,7 @@ private class MeshLayout(outline: List<SampledRing>, innerRings: List<DoubleArra
 	init {
 		val outlinePoints = outline.map { ring -> ring.points() }
 		outlinePointCount = outlinePoints.sumOf { ring -> ring.size / 2 }
-		val innerPointCount = innerRings.sumOf { ring -> ring.size / 2 }
+		val innerPointCount = innerRings.sumOf { ring -> ring.pointCount }
 		val totalCount = outlinePointCount + innerPointCount + lattice.size / 2 + pins.size / 2
 		points = DoubleArray(2 * totalCount)
 		ringOf = IntArray(totalCount) { -1 }
@@ -204,12 +204,12 @@ private class MeshLayout(outline: List<SampledRing>, innerRings: List<DoubleArra
 			next += count
 		}
 
-		for (ringPoints in innerRings) {
-			val count = ringPoints.size / 2
-			ringPoints.copyInto(points, 2 * next)
+		for (ring in innerRings) {
+			val count = ring.pointCount
+			ring.points.copyInto(points, 2 * next)
 			val start = next
-			// Closed: the polyline returns to its first point.
-			segmentList.add(IntArray(count + 1) { position -> start + position % count })
+			// A closed polyline returns to its first point.
+			segmentList.add(if (ring.closed) IntArray(count + 1) { position -> start + position % count } else IntArray(count) { position -> start + position })
 			next += count
 		}
 

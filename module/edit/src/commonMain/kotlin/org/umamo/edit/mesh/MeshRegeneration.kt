@@ -69,17 +69,20 @@ enum class RegenerationRefusal {
 /** What generating one drawable's mesh needs before any art is meshed, or why it cannot be done. */
 sealed interface RegenerationInput {
 	/**
-	 * Everything the mesher needs: the tile whose raster to mesh (at exactly the tile's size) and the
-	 * points it must keep as vertices.  A plain class: it holds arrays.
+	 * Everything the mesher needs: the tile whose raster to mesh (at exactly the tile's size), the
+	 * points it must keep as vertices, and the old mesh laid out in the same pixels for the guide that
+	 * keeps the rig.  A plain class: it holds arrays.
 	 *
-	 * @property DrawableId  drawableId         The drawable.
-	 * @property AtlasTileId tileId             The tile whose art to mesh.
-	 * @property Int         tileWidth          The tile's width in art pixels.
-	 * @property Int         tileHeight         The tile's height in art pixels.
-	 * @property DoubleArray pinPoints          The pins, x0, y0, ..., in the tile's art pixels.
-	 * @property IntArray    pinnedOldVertices  The old vertex each pin stands for, ascending.
-	 * @property IntArray    carriedOldVertices The glued old vertices no triangle uses, ascending: carried over after the generated vertices, never meshed.
-	 * @property DoubleArray pinSurroundings    The old triangles that use a pin, six coordinates each, in the tile's art pixels: the mesher counts them as art.
+	 * @property DrawableId  drawableId            The drawable.
+	 * @property AtlasTileId tileId                The tile whose art to mesh.
+	 * @property Int         tileWidth             The tile's width in art pixels.
+	 * @property Int         tileHeight            The tile's height in art pixels.
+	 * @property DoubleArray pinPoints             The pins, x0, y0, ..., in the tile's art pixels.
+	 * @property IntArray    pinnedOldVertices     The old vertex each pin stands for, ascending.
+	 * @property IntArray    carriedOldVertices    The glued old vertices no triangle uses, ascending: carried over after the generated vertices, never meshed.
+	 * @property DoubleArray pinSurroundings       The old triangles that use a pin, six coordinates each, in the tile's art pixels: the mesher counts them as art.
+	 * @property FloatArray  oldVertexPoints       Every old vertex in the tile's art pixels, x0, y0, ...: what the pins were read from, and what a guide is laid over.
+	 * @property IntArray    referencedOldVertices The old vertices some triangle uses, ascending.
 	 */
 	class Ready(
 		val drawableId: DrawableId,
@@ -90,6 +93,8 @@ sealed interface RegenerationInput {
 		val pinnedOldVertices: IntArray,
 		val carriedOldVertices: IntArray,
 		val pinSurroundings: DoubleArray,
+		val oldVertexPoints: FloatArray,
+		val referencedOldVertices: IntArray,
 	) : RegenerationInput
 
 	/**
@@ -322,7 +327,7 @@ internal fun PuppetModel.prepareSource(drawableId: DrawableId): SourcePreparatio
 	}
 
 	val pinSurroundings = surroundingsOf(rasterPoints, mesh.indices, pinned)
-	val input = RegenerationInput.Ready(drawableId, tileId, tile.width, tile.height, pinPoints, pinnedOldVertices, carriedOldVertices, pinSurroundings)
+	val input = RegenerationInput.Ready(drawableId, tileId, tile.width, tile.height, pinPoints, pinnedOldVertices, carriedOldVertices, pinSurroundings, rasterPoints, referenced)
 
 	return SourcePreparation.Prepared(mesh, artToStored, rasterPoints, referenced, input)
 }

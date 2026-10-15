@@ -28,7 +28,7 @@
 	<string name="cmd_workspace_reset">ワークスペースをリセット</string>
 
 	<string name="space_viewport2d">2D ビューポート</string>
-	<string name="space_uv">UV エディタ</string>
+	<string name="space_uv">UV エディター</string>
 	<string name="space_outliner">アウトライナー</string>
 	<string name="space_parameters">パラメータ</string>
 	<string name="space_properties">プロパティ</string>
@@ -38,13 +38,13 @@
 	<string name="space_sources">ソース</string>
 
 	<string name="logs_copy">クリップボードにコピー</string>
-	<string name="logs_export">ファイルに書き出し…</string>
+	<string name="logs_export">ファイルにエクスポート…</string>
 	<string name="logs_empty">ログ出力はまだありません</string>
 
 	<string name="area_split_left_right">左右に分割</string>
 	<string name="area_split_top_bottom">上下に分割</string>
 	<string name="area_close">エリアを閉じる</string>
-	<string name="area_change_editor">エディタの種類を変更</string>
+	<string name="area_change_editor">エディターの種類を変更</string>
 
 	<string name="menu_file">ファイル</string>
 	<string name="menu_file_new">新規</string>
@@ -105,67 +105,67 @@
 	<string name="confirm_quit_unsaved">現在のドキュメントには保存していない変更があります。保存せずに終了しますか？</string>
 	<string name="confirm_save_before_replace">現在のドキュメントには保存していない変更があります。先に保存しますか？</string>
 	<string name="confirm_save_before_quit">現在のドキュメントには保存していない変更があります。終了する前に保存しますか？</string>
-	<!-- 書き出し結果の通知（document.exportReport コマンド。見出しは書き出した形式ごと。%1$s は対象メッシュ名）。 -->
-	<string name="export_report_message_cmo3">ファイルは書き出されましたが、以下は CMO3 に引き継げませんでした:</string>
-	<string name="export_report_message_moc3">ファイルは書き出されましたが、以下は MOC3 に引き継げませんでした:</string>
-	<string name="repack_report_message">アトラスは再パックされませんでした。次の画像はパックできません:</string>
-	<string name="repack_report_larger_than_page">描画オブジェクトのメッシュがアトラスページのサイズより大きいです。</string>
+	<!-- エクスポート結果の通知（document.exportReport コマンド。見出しはエクスポートした形式ごと。%1$s は対象メッシュ名）。 -->
+	<string name="export_report_message_cmo3">ファイルはエクスポートされましたが、以下は CMO3 に引き継げませんでした:</string>
+	<string name="export_report_message_moc3">ファイルはエクスポートされましたが、以下は MOC3 に引き継げませんでした:</string>
+	<string name="repack_report_message">アトラスは再パックされませんでした。次のタイルはパックできませんでした:</string>
+	<string name="repack_report_larger_than_page">ドローアブルのメッシュがアトラスページのサイズより大きいです。</string>
 	<string name="repack_report_no_opaque_pixels">原画レイヤーに不透明なピクセルがありません。</string>
 	<string name="repack_report_below_minimum_coverage">原画レイヤーの不透明ピクセルの割合が最小値を下回っています。</string>
 	<string name="repack_report_undecodable">原画レイヤーをデコードできませんでした。</string>
-	<string name="repack_report_degenerate_placement">この描画オブジェクトの現在の配置を逆変換できませんでした。</string>
+	<string name="repack_report_degenerate_placement">このドローアブルの現在の配置を逆変換できませんでした。</string>
 	<string name="repack_report_pinned_off_page">ピン留めされた配置が最大ページサイズに収まりません。</string>
-	<string name="export_weld_divergence">%1$s のベース形状または UV が編集されています。書き出しは編集どおりの値を保持しますが、Cubism Editor 側でそのメッシュやアトラスを編集すると UV マッピングが再導出されて壊れる可能性があります。</string>
-	<string name="export_missing_source_art">このモデルには元となる原画データがありません(MOC3 由来のため、パックされたテクスチャアトラスのみを保持しています)。%1$d 枚のアトラスから代替のソースドキュメントを再構成したので、リグ情報はすべて保持され Umamo でも Cubism Editor でも開けますが、収録されているレイヤーはすべて焼き込み済みアトラスの切り出しであり、このリグの元になった原画ではありません。編集可能な本来のレイヤーを書き出すには、元のレイヤー原画(PSD/CLIP/KRA)をこのドキュメントに取り込んでください。</string>
+	<string name="export_weld_divergence">%1$s のベース形状または UV が編集されています。エクスポートは編集どおりの値を保持しますが、Cubism Editor 側でそのメッシュやアトラスを編集すると UV マッピングが再導出されて壊れる可能性があります。</string>
+	<string name="export_missing_source_art">このモデルには元となる原画データがありません(MOC3 由来のため、パックされたテクスチャアトラスのみを保持しています)。%1$d 枚のアトラスページから代替のソースドキュメントを再構成したので、リグ情報はすべて保持され Umamo でも Cubism Editor でも開けますが、収録されているレイヤーはすべて焼き込み済みアトラスの切り出しであり、このリグの元になった原画ではありません。編集可能な本来のレイヤーをエクスポートするには、元のレイヤー原画(PSD/CLIP/KRA)をこのドキュメントに取り込んでください。</string>
 	<string name="export_shared_atlas_slot_kept">%1$s は別の配置にある双子と同じアトラス領域を共有しており、独自の領域を用意できませんでした（アートがアトラス 1 ページより大きいため）。Cubism Editor のレイヤー表示では最初の双子の配置に表示されますが、アトラス表示とランタイムには影響しません。</string>
-	<string name="export_feature_stripped">%1$s は書き出したバージョンでは利用できないため、次の対象から削除されました: %2$s。ドキュメント側には残っているので、新しいバージョンで書き出せば元に戻ります。</string>
+	<string name="export_feature_stripped">%1$s は対象のランタイムバージョンでは利用できないため、次の対象から削除されました: %2$s。</string>
 	<string name="export_more_subjects">(ほか %1$d 件)</string>
-	<!-- 書き出し通知の対象種別（各行の先頭に [ ] で表示）。 -->
+	<!-- エクスポート通知の対象種別（各行の先頭に [ ] で表示）。 -->
 	<string name="export_category_parameter">パラメータ</string>
 	<string name="export_category_parameter_group">パラメータグループ</string>
 	<string name="export_category_part">パーツ</string>
 	<string name="export_category_deformer">デフォーマ</string>
-	<string name="export_category_drawable">描画オブジェクト</string>
+	<string name="export_category_drawable">ドローアブル</string>
 	<string name="export_category_glue">グルー</string>
 	<string name="export_category_document">ドキュメント</string>
 	<string name="export_category_keyform">キーフォーム</string>
-	<!-- 書き出し通知の理由（ExportNoticeReason の各ケースに対応）。形式名は見出しが示すため理由には含めない。
-	     まず両方の書き出しで共通のもの: -->
-	<string name="export_reason_drawable_has_no_mesh">メッシュのない描画オブジェクトは書き出せません。</string>
-	<!-- MOC3 書き出し。%1$s はチャンネル名（channel_*）、変換の行の %1$d/%2$d は返された座標数と本来の座標数、
+	<!-- エクスポート通知の理由（ExportNoticeReason の各ケースに対応）。形式名は見出しが示すため理由には含めない。
+	     まず両方のエクスポートで共通のもの: -->
+	<string name="export_reason_drawable_has_no_mesh">メッシュのないドローアブルは書き出せません。</string>
+	<!-- MOC3 エクスポート。%1$s はチャンネル名（channel_*）、変換の行の %1$d/%2$d は返された座標数と本来の座標数、
 	     マスクの行の %1$s はマスク元の名前、ID の行の %1$d/%2$s はレコード長（バイト）と実際に書き出した ID。 -->
 	<string name="export_reason_channel_demoted_to_static">%1$s はオブジェクトのグリッドより狭い範囲にしかキーがないため、定数として書き出しました。MOC3 はオブジェクトごとに 1 つのグリッドしか保持できません。</string>
 	<string name="export_reason_sketch_part_not_runtime_content">下絵（スケッチ）パーツはランタイムの内容ではないため、除外しました。</string>
-	<string name="export_reason_hidden_part_omitted_by_option">非表示のパーツを書き出さない設定のため、このパーツの内容を除外しました。</string>
-	<string name="export_reason_hidden_drawable_omitted_by_option">非表示のアートメッシュを書き出さない設定のため、このアートメッシュを除外しました。</string>
-	<string name="export_reason_vertex_count_exceeds_index_width">メッシュの頂点数 %1$d が 16 ビットの三角形インデックスで扱える上限 %2$d を超えるため、このアートメッシュを除外しました。</string>
-	<string name="export_reason_no_atlas_page_bound">この描画オブジェクトにはアトラスページが割り当てられていないため、ページ 0 を指す状態で書き出しました。</string>
-	<string name="export_reason_clipping_mask_not_in_export">クリッピングマスク %1$s はこの書き出しに含まれないため、メッシュはそのマスクなしで書き出しました。</string>
-	<string name="export_reason_offscreen_mask_not_in_export">クリッピングマスクが書き出せなかった描画オブジェクトを指しているため、オフスクリーンから除外しました。</string>
+	<string name="export_reason_hidden_part_omitted_by_option">非表示のパーツをエクスポートしない設定のため、このパーツの内容を除外しました。</string>
+	<string name="export_reason_hidden_drawable_omitted_by_option">非表示のドローアブルをエクスポートしない設定のため、このドローアブルを除外しました。</string>
+	<string name="export_reason_vertex_count_exceeds_index_width">メッシュの頂点数 %1$d が 16 ビットの三角形インデックスで扱える上限 %2$d を超えるため、このドローアブルを除外しました。</string>
+	<string name="export_reason_no_atlas_page_bound">このドローアブルにはアトラスページが割り当てられていないため、ページ 0 を指す状態で書き出しました。</string>
+	<string name="export_reason_clipping_mask_not_in_export">クリッピングマスク %1$s はこのエクスポートに含まれないため、メッシュはそのマスクなしで書き出しました。</string>
+	<string name="export_reason_offscreen_mask_not_in_export">クリッピングマスクが書き出せなかったドローアブルを指しているため、オフスクリーンから除外しました。</string>
 	<string name="export_reason_warp_has_no_lattice">制御点グリッドのないワープデフォーマには書き出せる格子がありません。ファイルが読み込める状態を保つため空の格子を書き出しましたが、このデフォーマに紐づくものはすべて原点に潰れます。</string>
 	<string name="export_reason_rotation_has_no_pivot">基準点グリッドのない回転デフォーマには書き出せる変換がないため、単位変換を代わりに書き出しました。</string>
-	<string name="export_reason_glue_names_unknown_drawable">この書き出しに含まれない描画オブジェクトを指すグルーを除外しました。</string>
+	<string name="export_reason_glue_names_unknown_drawable">このエクスポートに含まれないドローアブルを指すグルーを除外しました。</string>
 	<string name="export_reason_id_truncated">ID が moc の %1$d バイトの ID レコードに収まらないため、「%2$s」に切り詰めて書き出しました。</string>
 	<string name="export_reason_id_truncated_disambiguated">ID が moc の %1$d バイトの ID レコードに収まらず、切り詰めた結果が他のオブジェクトの ID と衝突したため、「%2$s」として書き出しました。</string>
 	<!-- CMO3 の差分反映。編集に対応する要素が元のグラフにない場合。 -->
 	<string name="export_reason_no_matching_source">対応する CMO3 側の要素がないため、この変更は書き出されませんでした。</string>
-	<string name="export_reason_parameter_kind_change">パラメータの種別変更（通常／ブレンドシェイプ）は書き出しに反映されません。</string>
-	<string name="export_reason_deformer_kind_change">デフォーマの種別変更は書き出しに反映されません。</string>
-	<string name="export_reason_deformer_needs_warp_source">CMO3 側がワープデフォーマではないため、ワープ固有の編集（ベジェ分割、格子、キーフォーム）は書き出されませんでした。</string>
+	<string name="export_reason_parameter_kind_change">パラメータの種別変更（通常／ブレンドシェイプ）はエクスポートに反映されません。</string>
+	<string name="export_reason_deformer_kind_change">デフォーマの種別変更はエクスポートに反映されません。</string>
+	<string name="export_reason_deformer_needs_warp_source">CMO3 側がワープデフォーマではないため、ワープ固有の編集（バイリニアモード、格子、キーフォーム）は書き出されませんでした。</string>
 	<string name="export_reason_deformer_needs_rotation_source">CMO3 側が回転デフォーマではないため、回転固有の編集（基準角度、キーフォーム）は書き出されませんでした。</string>
-	<string name="export_reason_texture_rebinding_editor_only">テクスチャの割り当て変更はエディタ内部の状態であり、CMO3 には書き出されません。</string>
+	<string name="export_reason_texture_rebinding_editor_only">テクスチャの割り当て変更はエディター内部の状態であり、CMO3 には書き出されません。</string>
 	<string name="export_reason_base_geometry_vertex_mismatch">ベース形状の頂点数が CMO3 側と一致しないため、書き出されませんでした。</string>
-	<string name="export_reason_no_uvs_to_reconcile">この描画オブジェクトには反映できる UV がないため、書き出されませんでした。</string>
+	<string name="export_reason_no_uvs_to_reconcile">このドローアブルには反映できる UV がないため、書き出されませんでした。</string>
 	<string name="export_reason_deformer_no_part_to_move_to">移動先に対応する CMO3 のパーツがないため、デフォーマの所属は変更されませんでした。</string>
 	<string name="export_reason_static_draw_order_shadowed">固定の描画順がキーフォームトラックに上書きされるため、CMO3 では個別に保持できません。</string>
 	<string name="export_reason_composite_statics_shadowed">合成の固定値がパーツのキーフォームトラックに上書きされるため、CMO3 では個別に保持できません。</string>
-	<string name="export_reason_part_masks_flatten">パーツ単位の合成マスクは、CMO3 では配下の描画オブジェクトに展開されます。</string>
+	<string name="export_reason_part_masks_flatten">パーツ単位の合成マスクは、CMO3 では配下のドローアブルに展開されます。</string>
 	<!-- CMO3 の新規作成。作成先がない場合。 -->
 	<string name="export_reason_no_source_set_to_create_into">CMO3 側に該当する種別の格納先がないため、新規要素は生成されませんでした。</string>
 	<string name="export_reason_created_entity_has_no_source">新しく作成した要素にはまだ CMO3 側の実体がないため、パネルの並び順から除外しました。</string>
 	<string name="export_reason_created_group_not_in_tree">作成したグループが編集中のパラメータツリーに存在しないため、生成されませんでした。</string>
-	<string name="export_reason_created_drawable_no_texture_source">作成した描画オブジェクトに複製元のテクスチャがないため、生成されませんでした。</string>
-	<string name="export_reason_glued_drawable_has_no_source">グルー対象の描画オブジェクトに CMO3 側の実体がないため、グルーは生成されませんでした。</string>
+	<string name="export_reason_created_drawable_no_texture_source">作成したドローアブルに複製元のテクスチャがないため、生成されませんでした。</string>
+	<string name="export_reason_glued_drawable_has_no_source">グルー対象のドローアブルに CMO3 側の実体がないため、グルーは生成されませんでした。</string>
 	<!-- CMO3 のメッシュ構造とグルーの再結合。%1$d はメッシュの頂点数、%2$d はエッジテーブルが扱える上限。 -->
 	<string name="export_reason_vertex_count_exceeds_edge_table">メッシュの頂点数 %1$d が編集用メッシュのエッジテーブルで扱える上限 %2$d を超えるため、エッジテーブルは再構築されませんでした。</string>
 	<string name="export_reason_glued_mesh_no_uid_table">グルー対象のメッシュに編集用メッシュの頂点 ID テーブルがないため、グルーを再結合できませんでした。</string>
@@ -176,8 +176,8 @@
 	<string name="export_reason_axis_parameter_no_source">グリッドの軸パラメータ %1$s に CMO3 側の実体がないため、キーフォームグリッドは書き出されませんでした。</string>
 	<string name="export_reason_blend_shape_parameter_no_source">ブレンドシェイプのパラメータ %1$s に CMO3 側の実体がないため、ブレンドシェイプは書き出されませんでした。</string>
 	<string name="export_reason_physics_names_deleted_parameter">物理演算設定 %1$s は、削除されたこのパラメータを参照したままです。変更せずに書き出したため、Cubism Editor で参照先を変更するか削除してください。</string>
-	<string name="export_reason_sidecar_names_unwritten_parameters">%1$s はこの書き出しに含まれないパラメータ（%2$s）を参照しています。変更せずに書き出したため、ランタイムはそれらの入出力の対象を見つけられません。</string>
-	<string name="export_reason_sidecar_names_unwritten_parts">%1$s はこの書き出しに含まれないパーツ（%2$s）を参照しています。変更せずに書き出したため、ランタイムは切り替えや表示の対象を見つけられません。</string>
+	<string name="export_reason_sidecar_names_unwritten_parameters">%1$s はこのエクスポートに含まれないパラメータ（%2$s）を参照しています。変更せずに書き出したため、ランタイムはそれらの入出力の対象を見つけられません。</string>
+	<string name="export_reason_sidecar_names_unwritten_parts">%1$s はこのエクスポートに含まれないパーツ（%2$s）を参照しています。変更せずに書き出したため、ランタイムは切り替えやフェードの対象を見つけられません。</string>
 	<string name="export_reason_keyforms_without_base_mesh">ベースメッシュのないキーフォームは CMO3 にまとめられません。</string>
 	<string name="export_reason_fractional_draw_order">CMO3 の描画順は整数のため、小数の値は書き出されませんでした。</string>
 	<string name="export_reason_static_glue_intensity_without_keyforms">キーフォームのない固定のグルー強度は、CMO3 に保持する場所がありません。</string>
@@ -195,26 +195,26 @@
 	<string name="export_reason_combined_pair_reordered">組み合わせパラメータ %1$s ・ %2$s が隣り合うように、パラメータの並び順を調整しました。</string>
 	<string name="export_reason_no_canvas_to_reconcile">モデルにキャンバスがないため、キャンバスサイズは書き出されませんでした。</string>
 	<string name="export_reason_no_texture_manager">このドキュメントにはテクスチャマネージャがないため、原画表示モードを書き出せませんでした。</string>
-	<string name="export_reason_no_texture_input_for_display">この描画オブジェクトには選択した表示モード用のテクスチャ入力がないため、元の入力を維持しました。</string>
+	<string name="export_reason_no_texture_input_for_display">このドローアブルには選択した表示モード用のテクスチャ入力がないため、元の入力を維持しました。</string>
 	<string name="export_reason_no_atlas_entry">この原画はどのアトラスページにも配置されていないため、更新する配置情報がありませんでした。</string>
 	<string name="export_reason_atlas_page_not_recomposed">この原画はアトラスページ上で移動しましたが、ページ画像には移動前の位置のまま残っています。再パックすると描き直されます。</string>
 	<string name="export_reason_atlas_tile_metadata">この原画のピクセル、名前、またはサイズが変更されました。アトラス配置では表現できないため、原画を再取り込みしてください。</string>
-	<string name="export_reason_atlas_tile_rebinding">この描画オブジェクトは別の原画に結び付けられました。再パックではなく原画の再取り込みが必要です。</string>
-	<string name="export_reason_source_layer_binding_not_in_export">この原画は %1$s のレイヤー %2$s に結び付けられていますが、ドキュメントにその項目がないため結び付けを書き出せませんでした。CMO3 には単独の平面画像として書き出されています。結び付けを書き出すには、ソースパネルで再リンクしてください。</string>
+	<string name="export_reason_atlas_tile_rebinding">このドローアブルは別の原画に結び付けられました。再パックではなく原画の再取り込みが必要です。</string>
+	<string name="export_reason_source_layer_binding_not_in_export">この原画は %1$s のレイヤー %2$s に結び付けられていますが、ドキュメントにその項目がないため結び付けを書き出せませんでした。CMO3 には単独の平面画像として書き出されています。結び付けをエクスポートするには、ソースパネルで再リンクしてください。</string>
 	<string name="export_reason_fractional_canvas_size">CMO3 のキャンバスサイズは整数ピクセルのため、小数の値は書き出されませんでした。</string>
-	<!-- 書き出しの上書き警告（document.confirm コマンド。%1$d は上書きされる既存ファイル数、
+	<!-- エクスポートの上書き警告（document.confirm コマンド。%1$d は上書きされる既存ファイル数、
 	     %2$s は省略表示のファイル一覧）。 -->
-	<string name="confirm_export_overwrite">書き出しにより既存の %1$d 個のファイルを上書きします: %2$s</string>
-	<!-- 書き出しオプションダイアログ（document.exportOptionsMoc3 コマンド）。キャンバス表示の
+	<string name="confirm_export_overwrite">エクスポートにより既存の %1$d 個のファイルを上書きします: %2$s</string>
+	<!-- エクスポートオプションダイアログ（document.exportOptionsMoc3 コマンド）。キャンバス表示の
 	     %1$s/%2$s は編集中のスケールでのキャンバスの幅と高さ（ユニット単位）。 -->
-	<string name="export_options_title_moc3">MOC3 書き出しオプション</string>
-	<string name="export_options_export">書き出し</string>
+	<string name="export_options_title_moc3">MOC3 エクスポートオプション</string>
+	<string name="export_options_export">エクスポート</string>
 	<string name="export_options_section_content">内容</string>
 	<string name="export_options_section_sidecars">サイドカーファイル</string>
 	<string name="export_options_section_scale">スケール</string>
-	<string name="export_options_hidden_parts">非表示のパーツを書き出す</string>
-	<string name="export_options_hidden_drawables">非表示のアートメッシュを書き出す</string>
-	<string name="export_options_guide_parts">下絵（スケッチ）パーツを書き出す</string>
+	<string name="export_options_hidden_parts">非表示のパーツをエクスポートする</string>
+	<string name="export_options_hidden_drawables">非表示のドローアブルをエクスポートする</string>
+	<string name="export_options_guide_parts">下絵（スケッチ）パーツをエクスポートする</string>
 	<string name="export_options_include_physics">物理演算設定（physics3.json）</string>
 	<string name="export_options_include_userdata">ユーザーデータ（userdata3.json）</string>
 	<string name="export_options_include_displayinfo">表示補助情報（cdi3.json）</string>
@@ -232,15 +232,15 @@
 	<string name="export_options_background_grid">ビューポートのグリッド</string>
 	<string name="export_options_background_color">色</string>
 	<string name="export_options_image_size">%1$d × %2$d px</string>
-	<string name="export_options_image_nothing_visible">表示中のものがありません。</string>
-	<string name="export_options_image_no_viewport">書き出すビューポートがありません。 2Dビューポートを指してからエクスポートしてください。</string>
+	<string name="export_options_image_nothing_visible">キャプチャできるものが何も表示されていません。</string>
+	<string name="export_options_image_no_viewport">キャプチャするビューポートがありません。2D ビューポートを指してからエクスポートしてください。</string>
 	<string name="export_options_image_no_canvas">このドキュメントにはキャンバスがありません。</string>
 	<string name="export_options_image_too_large">%1$d × %2$d px は上限の %3$d px を超えています。</string>
 	<!-- ファイルを開けなかったときの通知（document.openFailed コマンド。%1$s はファイル名）。 -->
-	<string name="dialog_okay">Okay</string>
+	<string name="dialog_okay">OK</string>
 	<string name="open_failed_read">%1$s を読み込めませんでした。</string>
 	<string name="open_failed_unrecognized">%1$s は Umamo が認識できるファイル形式ではありません。</string>
-	<string name="open_failed_not_openable">%1$s はまだエディタで開けないファイル形式です。</string>
+	<string name="open_failed_not_openable">%1$s はまだエディターで開けないファイル形式です。</string>
 	<string name="open_failed_parse">%1$s を開けませんでした。ファイルが破損している可能性があります。</string>
 	<string name="open_failed_missing_manifest">%1$sをインポートできませんでした。model3.json マニフェストが同じフォルダに見つかりません。</string>
 	<string name="open_failed_missing_texture">%1$sをインポートできませんでした。model3.json が参照するテクスチャが見つからないか読み込めません。</string>
@@ -252,14 +252,14 @@
 	<string name="export_image_failed_renderer">ビューポートのレンダラーが画像を描画できませんでした。</string>
 	<string name="export_image_failed_memory">%1$d × %2$d px の画像を作るためのメモリが足りません。倍率を下げてください。</string>
 	<string name="export_failed_unexpected">予期しないエラーで中断しました。詳細はログに記録されています。開いているドキュメントには影響ありません。</string>
-	<string name="alert_export_out_of_memory">%1$s をエクスポートできませんでした。メモリが足りなくなりました。開いているドキュメントには影響ありません。</string>
-	<string name="alert_export_out_of_memory_jar">%1$s をエクスポートできませんでした。Umamo が使えるメモリ (%2$s) が足りなくなりました。開いているドキュメントには影響ありません。このコンピューターのメモリの半分まで使えるようにするには、保存して Umamo を終了し、ターミナルから次のコマンドで起動してください: %3$s</string>
-	<string name="alert_low_memory_jar">Umamo が使えるメモリは最大 %1$s で、大きなモデルのエクスポートでは足りなくなることがあります。jar から起動すると、この上限は Java が決めます。このコンピューターのメモリの半分まで使えるようにするには、Umamo を終了してターミナルから次のコマンドで起動してください: %2$s</string>
+	<string name="alert_export_out_of_memory">%1$s をエクスポートできませんでした。Umamo のメモリが足りなくなりました。開いているドキュメントには影響ありません。</string>
+	<string name="alert_export_out_of_memory_jar">%1$s をエクスポートできませんでした。Umamo が使えるメモリ (%2$s) が足りなくなりました。開いているドキュメントには影響ありません。システムメモリの最大 50% を Umamo に割り当てるには、保存して Umamo を終了し、ターミナルから次のコマンドを実行してください: %3$s</string>
+	<string name="alert_low_memory_jar">Umamo に割り当てられているメモリは最大 %1$s です。大きなファイル、特にエクスポートでは、メモリが足りなくなり Umamo がクラッシュすることがあります。システムメモリの最大 50% を Umamo に割り当てるには、Umamo を終了し、ターミナルから次のコマンドを実行してください: %2$s</string>
 
 	<string name="menu_help">ヘルプ</string>
 	<string name="menu_source_code">ソースコード…</string>
 	<string name="menu_web_site">ホームページ…</string>
-	<string name="menu_documentation">文献集…</string>
+	<string name="menu_documentation">ドキュメンテーション…</string>
 	<string name="menu_credits">クレジット…</string>
 	<string name="menu_quick_setup">クイックセットアップ…</string>
 	<string name="menu_about">Umamoについて…</string>
@@ -304,8 +304,8 @@
 	<string name="cmd_mesh_select_mode_face">面選択モード</string>
 	<string name="cmd_mesh_box_select">ボックス選択</string>
 	<string name="cmd_mesh_circle_select">サークル選択</string>
-	<string name="cmd_mesh_circle_grow">ブラシ半径を拡大</string>
-	<string name="cmd_mesh_circle_shrink">ブラシ半径を縮小</string>
+	<string name="cmd_mesh_circle_grow">サークル半径を拡大</string>
+	<string name="cmd_mesh_circle_shrink">サークル半径を縮小</string>
 	<string name="cmd_uv_mirror_u">UV を左右反転</string>
 	<string name="cmd_uv_mirror_v">UV を上下反転</string>
 
@@ -321,7 +321,7 @@
 	<string name="uv_layer_picker_title">アートワークから検索</string>
 	<string name="uv_layer_picker_row">%1$s · %2$d × %3$d · メッシュ %4$d</string>
 	<string name="uv_layer_picker_no_matches">一致するアートワークがありません</string>
-	<string name="uv_layer_picker_empty">このドキュメントにはソースアートワークがありません</string>
+	<string name="uv_layer_picker_empty">このドキュメントにはソースアートワークがありません。</string>
 	<string name="cmd_document_toggle_source_artwork">原画表示を切り替え</string>
 	<string name="cmd_document_repack_atlas">アトラスを再パック</string>
 	<string name="cmd_uv_page_next">次のテクスチャページ</string>
@@ -442,7 +442,7 @@
 	<string name="outliner_filter_deformers">デフォーマ</string>
 	<string name="sources_reload">アートワークファイルを再読み込み</string>
 	<string name="sources_reload_pending">アートワークファイルがディスク上で変更されています。再読み込みで反映します。</string>
-	<string name="sources_match_automatically">自動で照合：ファイルにレイヤーがなくなったアートを、最も近いレイヤーに再リンクします</string>
+	<string name="sources_match_automatically">自動で照合：ファイルにレイヤーがなくなったアートを、最も近いレイヤーに再リンクします。</string>
 	<string name="sources_file_menu">ファイルの操作</string>
 	<string name="sources_file_menu_replace">アートワークを差し替え…</string>
 	<string name="sources_file_menu_reload">このファイルを再読み込み</string>
@@ -496,7 +496,7 @@
 	<string name="outliner_menu_delete_hierarchy">階層を削除</string>
 
 	<string name="status_parts">パーツ: %1$d</string>
-	<string name="status_drawables">描画オブジェクト: %1$d</string>
+	<string name="status_drawables">ドローアブル: %1$d</string>
 	<string name="status_parameters">パラメータ: %1$d</string>
 	<string name="status_deformers">デフォーマ: %1$d</string>
 	<string name="status_glues">グルー: %1$d</string>
@@ -521,7 +521,7 @@
 	<string name="status_tris">三角形: %1$d</string>
 	<string name="status_tris_selected">三角形: %1$d/%2$d</string>
 
-	<string name="notice_transform_only_drawables">変形できるのは描画オブジェクトのみです。パーツとデフォーマは未対応です。</string>
+	<string name="notice_transform_only_drawables">変形できるのはドローアブルのみです。パーツとデフォーマは未対応です。</string>
 	<string name="notice_transform_deformed">メッシュの変形中は変形操作できません。先にパラメータをすべてリセットしてください。</string>
 	<string name="notice_unknown">この操作は実行できません。</string>
 
@@ -574,23 +574,23 @@
 	<string name="history_mesh_connect">頂点を連結</string>
 	<string name="history_mesh_generate_from_art">アートからメッシュを生成</string>
 	<string name="notice_mesh_generated">アートから %1$d 個のメッシュを生成しました。</string>
-	<string name="notice_mesh_generated_with_skips">アートから %1$d 個のメッシュを生成し、%2$d 個をスキップしました（ログを参照）。</string>
-	<string name="notice_mesh_generated_coarser">アートから %1$d 個のメッシュを生成しました。頂点数の上限に収めるため、%2$d 個は指定より粗く生成しました（ログを参照）。</string>
+	<string name="notice_mesh_generated_with_skips">アートから %1$d 個のメッシュを生成し、%2$d 個をスキップしました。ログを参照してください。</string>
+	<string name="notice_mesh_generated_coarser">アートから %1$d 個のメッシュを生成しました。頂点数の上限に収めるため、%2$d 個は指定より粗く生成しました。ログを参照してください。</string>
 	<string name="notice_mesh_generated_refit">アートから %1$d 個のメッシュを生成しました。%2$d 個は収めるために頂点数の上限を上げるか、穴を埋める必要がありました（ログを参照）。</string>
-	<string name="notice_mesh_pinned_without_room">%1$d 個のメッシュを生成しました。固定されたアートに広がる余地がないため %2$d 個をスキップしました。固定を解除するか、外側の余白を小さくしてください。</string>
+	<string name="notice_mesh_pinned_without_room">%1$d 個のメッシュを生成しました。ピン留めされたアートに広がる余地がないため %2$d 個をスキップしました。ピン留めを解除するか、外側の余白を小さくしてください。</string>
 	<string name="notice_mesh_over_budget">%1$d 個のメッシュを生成しました。穴を埋めても 4096 頂点を超えるため %2$d 個をスキップしました。アルファしきい値を上げるか、輪郭の最小点数を下げてください。</string>
 	<string name="notice_mesh_glued_throughout">%1$d 個のメッシュを生成しました。頂点の大半がグルーで固定されているため %2$d 個をスキップしました。再生成するとグルー先への追従が変わってしまいます。</string>
-	<string name="notice_mesh_none_generated">メッシュは生成されませんでした（ログを参照）。</string>
+	<string name="notice_mesh_none_generated">メッシュは生成されませんでした。ログを参照してください。</string>
 	<string name="notice_mesh_pack_refused">アトラスに大きくなったメッシュの余地がないため、何も生成しませんでした。</string>
 	<string name="notice_mesh_superseded">メッシュの生成中にドキュメントが変更されたため、何も適用しませんでした。</string>
-	<string name="notice_mesh_no_targets">アートからメッシュを生成するには、メッシュのある描画オブジェクトを選択してください。</string>
-	<string name="history_drawable_duplicate">描画オブジェクトを複製</string>
+	<string name="notice_mesh_no_targets">アートからメッシュを生成するには、メッシュのあるドローアブルを選択してください。</string>
+	<string name="history_drawable_duplicate">ドローアブルを複製</string>
 	<string name="notice_merge_needs_vertices">マージには2つ以上の選択頂点が必要です（頂点モード）。</string>
 	<string name="notice_connect_needs_two_vertices">連結にはちょうど2つの選択頂点が必要です（頂点モード）。</string>
 	<string name="notice_connect_refused">連結できません。カットが何も横断しないか、形状が退化しています。</string>
 	<string name="notice_rip_nothing">ここではリップできません。分割できる面の扇がありません。</string>
-	<string name="notice_display_partial_source_artwork">一部の描画オブジェクトには原画がないため、アトラスから表示しています。</string>
-	<string name="notice_display_source_artwork_unavailable">すべての描画オブジェクトには原画がないため、アトラスから表示しています。</string>
+	<string name="notice_display_partial_source_artwork">一部のドローアブルには原画がないため、アトラスから表示しています。</string>
+	<string name="notice_display_source_artwork_unavailable">どのドローアブルにも原画レイヤーがないため、アトラスから表示しています。</string>
 	<string name="notice_atlas_repacked">アトラスを再パックしました。</string>
 	<string name="notice_import_artwork_notes">注記付きでアートワークをインポートしました。ログを参照してください。</string>
 	<string name="notice_import_artwork_added">アートワークを追加しました。</string>
@@ -604,7 +604,7 @@
 	<string name="notice_document_exported_model">%1$s をエクスポートしました。</string>
 	<string name="notice_document_export_busy">エクスポートを実行中です。</string>
 	<string name="notice_document_waiting_for_export">先にエクスポートを完了しています…</string>
-	<string name="notice_document_cmo3_loss">UMA として保存しました。CMO3 の物理演算、ガイド、キーフォームのメモ、ランダムポーズ、モデルステートセット、ユーザーデータなどのエディタ設定はこのファイルには含まれません。このセッションからの CMO3 エクスポートには引き続き含まれますが、ファイルを開き直した後にエクスポートした CMO3 には含まれません。</string>
+	<string name="notice_document_cmo3_loss">UMA として保存しました。CMO3 の物理演算、ガイド、キーフォームのメモ、ランダムポーズ、モデルステートセット、ユーザーデータなどのエディター設定はこのファイルには含まれません。このセッションからの CMO3 エクスポートには引き続き含まれますが、ファイルを開き直した後にエクスポートした CMO3 には含まれません。</string>
 	<string name="notice_document_moc3_loss">UMA として保存しました。MOC3 ファミリーの物理演算、モーション、表情、ユーザーデータ、ポーズはこのファイルには含まれません。</string>
 	<string name="notice_import_artwork_superseded">アートワークの追加中にドキュメントが変更されたため、何も適用されませんでした。</string>
 	<string name="notice_import_no_art_layers">このファイルには追加できるピクセルを持つレイヤーがありません。</string>
@@ -631,13 +631,13 @@
 	<string name="notice_uv_no_editable_geometry">ここでは編集できません。編集中のメッシュは表示中のページやレイヤーにありません。</string>
 	<string name="notice_uv_placement_layer_addressed">人形の UV はアトラスではなく原画を参照しているため、移動できる配置がありません。</string>
 	<string name="notice_uv_placement_no_placed_art">選択範囲にアトラスページへパック済みのアートがないか、原画がありません。</string>
-	<string name="notice_uv_placement_page_view_only">配置を移動するには UV エディタでアトラスページを表示してください。</string>
+	<string name="notice_uv_placement_page_view_only">配置を移動するには UV エディターでアトラスページを表示してください。</string>
 	<string name="notice_uv_placement_not_on_page">選択範囲にこのページへパック済みのアートがありません。</string>
 	<string name="notice_uv_placement_not_derivable">ソースアートからアトラスを再構成できないため、配置を移動できません。</string>
 	<string name="notice_uv_placement_overlap">配置が他のタイルと重なっています。アトラスを再パックすると解消できます。</string>
 	<string name="notice_uv_placement_off_page">配置がページの端を超えています。はみ出した部分は切り取られます。</string>
-	<string name="notice_uv_placement_pinned">選択した画像はピン留めされています。移動するにはピン留めを解除してください。</string>
-	<string name="notice_edit_no_editable_geometry">ここでは編集できません。選択中の描画オブジェクトはすべて親によって非表示です。</string>
+	<string name="notice_uv_placement_pinned">選択したタイルはピン留めされています。トランスフォームするにはピン留めを解除してください。</string>
+	<string name="notice_edit_no_editable_geometry">編集できるものがありません。選択中のドローアブルはすべて親によって非表示です。</string>
 
 	<string name="cmd_mesh_proportional_toggle">プロポーショナル編集の切り替え</string>
 	<string name="cmd_mesh_proportional_falloff_smooth">プロポーショナル減衰: スムーズ</string>
@@ -691,7 +691,7 @@
 	<string name="overlay_grid_subdivisions_description">主グリッドの各マスを分ける補助線の数。</string>
 	<string name="overlay_section_objects_description">選択中・アクティブなドローアブルの視覚的な補助。</string>
 	<string name="overlay_row_selection_tint_description">選択中・アクティブなドローアブルに色を重ねて、アート上で目立たせます。</string>
-	<string name="overlay_row_cull_hidden_description">自分より前面に描かれるアートに隠れたワイヤーを省略し、ポーズでどのメッシュ部分が隠れるかを示します。</string>
+	<string name="overlay_row_cull_hidden_description">他のドローアブルに覆われたワイヤーフレームの部分を非表示にします。</string>
 	<string name="overlay_wireframe_opacity_description">ワイヤーフレーム（UV エディターではアイランド）の不透明度（パーセント）。</string>
 	<string name="cmd_mesh_proportional_connected">プロポーショナル編集の「接続のみ」を切り替え</string>
 	<string name="hud_connected">接続のみ</string>
@@ -732,14 +732,14 @@
 	<string name="properties_warp_grid">格子: %1$d × %2$d</string>
 	<string name="status_multi_selected">%1$d 個選択</string>
 
-	<!-- プロパティパネル（Blender 風のタブ式プロパティエディタ）。機械翻訳の下訳、翻訳者による確認待ち。 -->
-	<string name="properties_no_matches">一致するプロパティがありません</string>
+	<!-- プロパティパネル（Blender 風のタブ式プロパティエディター）。機械翻訳の下訳、翻訳者による確認待ち。 -->
+	<string name="properties_no_matches">一致するプロパティがありません。</string>
 	<string name="properties_tab_document">ドキュメント</string>
 	<string name="properties_tab_object">オブジェクト</string>
 	<string name="properties_tab_data">データ</string>
 	<string name="properties_section_canvas">キャンバス</string>
 	<string name="properties_section_display">表示</string>
-	<string name="properties_field_source_layer_display">原画から表示</string>
+	<string name="properties_field_source_layer_display">原画を表示</string>
 	<string name="properties_section_runtime">ランタイム</string>
 	<string name="properties_section_transform">トランスフォーム</string>
 	<string name="properties_section_relations">リレーション</string>
@@ -758,7 +758,7 @@
 	<string name="properties_runtime_feature_in_use">%1$s — このドキュメントで使用中</string>
 	<string name="runtime_feature_warp_quad_transform">新しいワープデフォーマ方式</string>
 	<string name="runtime_feature_reversed_mask">反転マスク</string>
-	<string name="runtime_feature_mesh_warp_blend_shapes">ブレンドシェイプ（アートメッシュ・ワープデフォーマ）</string>
+	<string name="runtime_feature_mesh_warp_blend_shapes">ブレンドシェイプ（ドローアブル・ワープデフォーマ）</string>
 	<string name="runtime_feature_blend_shape_parameters">ブレンドシェイプパラメータ</string>
 	<string name="runtime_feature_multiply_color">乗算色</string>
 	<string name="runtime_feature_screen_color">スクリーン色</string>
@@ -830,7 +830,7 @@
 	<string name="transform_options_connected">接続のみ</string>
 	<string name="transform_options_slide_factor">係数</string>
 	<!-- The Merge row of the operation settings strip and its choices. -->
-	<string name="merge_options_target">結合位置</string>
+	<string name="merge_options_target">マージ位置</string>
 	<string name="merge_target_center">中心</string>
 	<string name="merge_target_first">最初</string>
 	<string name="merge_target_last">最後</string>
@@ -849,6 +849,8 @@
 	<string name="mesh_options_vertex_budget">頂点数の上限</string>
 	<string name="mesh_options_interior_thinning_limit">内部の間引き上限</string>
 	<string name="mesh_options_fill_holes">穴を埋める</string>
+	<string name="mesh_options_strand_rungs">細部をはしご状に</string>
+	<string name="mesh_options_strand_width">はしご状にする幅</string>
 	<string name="mesh_options_deformation_tolerance">変形の許容差</string>
 	<string name="import_options_align">基準位置</string>
 	<string name="import_options_offset_x">オフセット X</string>
@@ -872,7 +874,7 @@
 	<string name="properties_field_origin_x_description">ワールド軸が交差する位置（キャンバスの左端からのピクセル）。「位置」の値はこの軸を基準に測ります。</string>
 	<string name="properties_field_origin_z_description">ワールド軸が交差する位置（キャンバスの下端から上向きのピクセル）。「位置」の値はこの軸を基準に測ります。</string>
 	<string name="properties_field_source_layer_display_description">パックされたアトラスではなく、元のアートワークのレイヤーから各メッシュを描画します。ドキュメントがレイヤーを保持していないメッシュは、アトラスから描画されます。</string>
-	<string name="properties_field_runtime_target_description">このモデルの対象ランタイム。そのランタイムで再生できない機能の設定は隠されますが、ドキュメントからは何も削除されません。それらの機能が除かれるのは MOC3 の書き出しだけです。</string>
+	<string name="properties_field_runtime_target_description">このモデルの対象ランタイム。そのランタイムで再生できない機能の設定は隠されますが、ドキュメントからは何も削除されません。それらの機能が除かれるのは MOC3 のエクスポートだけです。</string>
 	<string name="properties_field_position_x_description">ビューポートで見えているメッシュの水平方向の中心（ワールド軸からの距離）。すべてのパラメータが初期値のときだけ編集できます。</string>
 	<string name="properties_field_position_z_description">ビューポートで見えているメッシュの垂直方向の中心（ワールド軸から上が正）。すべてのパラメータが初期値のときだけ編集できます。</string>
 	<string name="properties_field_size_x_description">ビューポートで見えているメッシュの幅。変更すると中心を基準に拡大縮小します。すべてのパラメータが初期値のときだけ編集できます。</string>
@@ -880,7 +882,7 @@
 	<string name="properties_field_base_angle_description">デフォーマの基準の回転（度）。各キーフォームが設定する角度は、この値に加算されます。</string>
 	<string name="properties_part_ref_description">この項目が属するパーツ。クリアすると、どのパーツにも属さなくなります。</string>
 	<string name="properties_parent_deformer_description">この項目が付いているデフォーマ。そのデフォーマが動いたり、曲がったり、回転したりすると、この項目も追従します。</string>
-	<string name="properties_field_pinned_description">アトラスページ上のこのアートの位置を固定します。UV エディタで手動で動かすことはできず、「ピン留めしたタイルを維持」がオフでない限り、再パックでもその場に残ります。</string>
+	<string name="properties_field_pinned_description">アトラスページ上のこのアートの位置を固定します。UV エディターで手動で動かすことはできず、「ピン留めしたタイルを維持」がオフでない限り、再パックでもその場に残ります。</string>
 	<string name="properties_field_draw_order_description">このメッシュの重なり順（0〜1000）。値が大きいほど手前に描画され、同じ値ならアウトライナーで上にあるほうが手前になります。「グループ化」か「分離」のパーツの中では、そのパーツの中身の間だけで重なり順が決まります。</string>
 	<string name="properties_field_opacity_description">メッシュの不透明度。0 で透明、1 で完全に不透明です。</string>
 	<string name="properties_field_blend_mode_description">メッシュの色を背後の描画とどう混ぜるか。ペイントソフトのレイヤーの合成モードと同じ考え方です。「レガシー」のモードは「アルファ」の設定を無視します。</string>
@@ -896,7 +898,7 @@
 	<string name="properties_field_quad_transform_description">格子の各セルを2つの三角形としてではなく、4つの角の間でなめらかに変形し、セルの対角線でアートが折れないようにします。新しいワープデフォーマ方式で、古いランタイムでは再生できません。</string>
 	<string name="properties_field_flip_x_description">このデフォーマが動かすすべてのものを、ピボットを中心に左右反転します。</string>
 	<string name="properties_field_flip_y_description">このデフォーマが動かすすべてのものを、ピボットを中心に上下反転します。</string>
-	<string name="properties_field_sketch_description">このパーツを、参考用のラフなどのガイド画像にします。エディタには表示されますが、MOC3 の書き出しではこのパーツと中身がすべて除かれます。</string>
+	<string name="properties_field_sketch_description">このパーツを、参考用のラフなどのガイド画像にします。エディターには表示されますが、MOC3 のエクスポートではこのパーツと中身がすべて除かれます。</string>
 	<string name="properties_field_draw_order_part_description">パーツ全体の重なり順（0〜1000）。値が大きいほど手前に描画されます。グループモードが「グループ化」か「分離」のときだけ使われます。</string>
 	<string name="properties_field_group_mode_description">パーツの中身をモデルの他の部分とどう重ねるか。「パススルー」は各メッシュをそれぞれの描画順で、「グループ化」はパーツ全体をパーツの描画順で重ね、「分離」はさらに独自の不透明度・合成・色・マスクを持つ1枚のレイヤーとして描画します。</string>
 	<string name="properties_field_opacity_part_description">パーツの合成レイヤーの不透明度。0 で透明、1 で完全に不透明です。レイヤー全体に一度だけ掛かるため、パーツ内で重なったメッシュ同士は透けて見えません。</string>
@@ -920,7 +922,7 @@
 	<string name="placement_options_angle_description">アートがページ上で回転した角度（度）。</string>
 	<string name="placement_options_scale_x_description">アート自身の幅方向に拡大縮小した倍率。1 では変化しません。</string>
 	<string name="placement_options_scale_y_description">アート自身の高さ方向に拡大縮小した倍率。1 では変化しません。</string>
-	<string name="import_options_align_description">追加したファイルのキャンバスを、ドキュメントのキャンバスのどこに置くか。「左上」は左上の角同士を合わせ、「中央」は中央に置きます。</string>
+	<string name="import_options_align_description">追加したファイルのキャンバスを、ドキュメントのキャンバスのどこに置くか。「左上」は左上の角同士を合わせ、「中央」は中央に置きます。他の位置も同様です。</string>
 	<string name="import_options_offset_x_description">基準位置で置いた位置から、追加したアートを右へずらす量（ピクセル）。負の値は左です。</string>
 	<string name="import_options_offset_z_description">基準位置で置いた位置から、追加したアートを上へずらす量（ピクセル）。負の値は下です。</string>
 	<string name="import_options_alpha_threshold_description">レイヤーの初期メッシュをアートに合わせるとき、アートとみなすピクセルの不透明度（1〜255）。</string>
@@ -938,19 +940,21 @@
 	<string name="transform_options_proportional_size_description">プロポーショナル編集の影響が選択から届く距離（ピクセル）。</string>
 	<string name="transform_options_connected_description">プロポーショナル編集の影響を、メッシュの辺で選択とつながった頂点に限り、距離を辺に沿って測ります。</string>
 	<string name="transform_options_slide_factor_description">頂点が辺上のどこに移動したか。0 は元の位置、1 は隣の頂点の位置です。</string>
-	<string name="merge_options_target_description">結合した頂点を集める位置。中心、または最初か最後に選択した頂点の位置です。</string>
-	<string name="mesh_options_preset_description">プリセットの値で間隔、余白、輪郭の最小点数、最小角度を設定します。しきい値、頂点数の上限、穴を埋める、変形の許容差はそのままです。</string>
-	<string name="mesh_options_alpha_threshold_description">アートとみなすピクセルの不透明度（最大 255）。該当するピクセルはすべて生成されたメッシュで覆われます。</string>
-	<string name="mesh_options_outline_spacing_description">輪郭に沿った頂点の目標間隔（アートのピクセル単位）。</string>
-	<string name="mesh_options_interior_spacing_description">アート内部の頂点（内側の輪と均等な格子）の目標間隔（アートのピクセル単位）。</string>
-	<string name="mesh_options_outer_margin_description">形が許す範囲で、輪郭をアートの外側にどれだけ離すか（アートのピクセル単位）。</string>
-	<string name="mesh_options_inner_margin_description">内側の輪をアートの縁からどれだけ内側に置くか（アートのピクセル単位）。0 で内側の輪なし。</string>
-	<string name="mesh_options_minimum_margin_description">輪郭がアートのピクセルに近づける最小距離（アートのピクセル単位）。</string>
+	<string name="merge_options_target_description">マージした頂点を集める位置。中心、または最初か最後に選択した頂点の位置です。</string>
+	<string name="mesh_options_preset_description">プリセットの値で間隔、余白、輪郭の最小点数、最小角度、はしご状にする幅を設定します。</string>
+	<string name="mesh_options_alpha_threshold_description">アートの一部とみなすピクセルの不透明度（最大 255）。</string>
+	<string name="mesh_options_outline_spacing_description">輪郭に沿った頂点の目標間隔（ピクセル）。</string>
+	<string name="mesh_options_interior_spacing_description">アート内部の頂点（内側の輪と均等な格子）の目標間隔（ピクセル）。</string>
+	<string name="mesh_options_outer_margin_description">形が許す範囲で、輪郭をアートの外側にどれだけ離すか（ピクセル）。</string>
+	<string name="mesh_options_inner_margin_description">内側の輪をアートの縁からどれだけ内側に置くか（ピクセル）。0 で内側の輪なし。</string>
+	<string name="mesh_options_minimum_margin_description">輪郭がアートのピクセルに近づける最小距離（ピクセル）。</string>
 	<string name="mesh_options_minimum_outline_points_description">アートの断片がどれだけ小さくても、1 つの輪郭が持つ最少の頂点数。</string>
 	<string name="mesh_options_minimum_angle_description">頂点を追加して、すべての三角形の最小の角をこの角度（度）まで広げます（頂点数の上限内）。髪の毛先など、輪郭そのものが作る角度はそのままです。0 で無効。</string>
 	<string name="mesh_options_vertex_budget_description">1 つのメッシュの頂点数の目安。収まらないアートは上限を 4096 まで上げて、それでも収まらなければ穴を埋めて生成し直します。</string>
-	<string name="mesh_options_interior_thinning_limit_description">頂点数の上限を超えるアートでは、まず内部の頂点を間引きます。内部の間隔は輪郭の間隔のこの倍数まで広げ、それ以上は輪郭も一緒に間引きます。大きいほど輪郭の細部を長く保ち、小さいほど内部が均一になります。</string>
-	<string name="mesh_options_fill_holes_description">アートの穴（レース、クモの巣など）を切り抜かず、1 枚のシートとしてメッシュで覆います。</string>
+	<string name="mesh_options_interior_thinning_limit_description">頂点数の上限より多くの頂点が必要なアートでは、まず内部を間引きます。間隔は最大で輪郭の間隔のこの倍数まで広がります。それを超えると、輪郭も一緒に間引きます。大きいほど輪郭の細部を長く保ち、小さいほど内部が均一になります。</string>
+	<string name="mesh_options_fill_holes_description">アートの穴を切り抜かず、1 枚のシートとしてメッシュで覆います。</string>
+	<string name="mesh_options_strand_rungs_description">細いアートを、輪郭をなぞる代わりに、中央に 1 本の列を通した均等な帯としてメッシュにします。</string>
+	<string name="mesh_options_strand_width_description">「細部をはしご状に」がオンのとき、この幅（ピクセル）より細いアートをはしご状の帯にします。各プリセットは内側の輪が収まらなくなる幅に設定します。大きくすると太めのストラップや髪の房も帯になり、小さくすると内側の輪を持つ部分が増えます。</string>
 	<string name="mesh_options_deformation_tolerance_description">新しいメッシュが、リグが元のメッシュに与える形（初期状態と各キーフォーム）からずれてよい距離（ピクセル）。それを超える箇所では、その形を保つ元の頂点を残します。小さいほど多くの頂点が残ります。</string>
 	<!-- ブレンドモード（Cubism のカラーブレンド一覧）。 -->
 	<string name="blend_mode_normal">通常</string>
@@ -1051,9 +1055,9 @@
 	<!-- ビューポート設定：ホイール 1 ノッチあたりのズーム率（%）。 -->
 	<string name="settings_viewport_zoom_step">ズーム刻み (%)</string>
 	<string name="settings_viewport_zoom_step_coarse">粗いズーム刻み (%)</string>
-	<string name="settings_viewport_grid_scale">グリッド間隔（既定）</string>
+	<string name="settings_viewport_grid_scale">グリッド間隔</string>
 	<string name="settings_viewport_grid_subdivisions">グリッド分割数</string>
-	<string name="settings_viewport_uv_grid_scale">UV グリッド間隔（既定）</string>
+	<string name="settings_viewport_uv_grid_scale">UV グリッド間隔</string>
 	<string name="settings_viewport_uv_grid_subdivisions">UV グリッド分割数</string>
 	<!-- ビューポート設定：描画パフォーマンスの切り替え（viewport.rendering.*）。 -->
 	<string name="settings_viewport_supersample">スーパーサンプリング（2 倍精細レンダリング）</string>
@@ -1073,7 +1077,7 @@
 	<string name="settings_colors_role_active">アクティブ</string>
 	<string name="settings_colors_role_offkey">キー外</string>
 	<!-- リレーション選択（スポイト）：クリックで取得する対象を示すカーソル脇のバッジ。 -->
-	<string name="pick_hover_drawable">メッシュ: %1$s</string>
+	<string name="pick_hover_drawable">ドローアブル: %1$s</string>
 	<string name="pick_hover_part">パーツ: %1$s</string>
 	<string name="pick_hover_deformer">デフォーマ: %1$s</string>
 	<string name="space_keyformsheet">キーフォームシート</string>
@@ -1084,7 +1088,7 @@
 	<string name="keyform_sheet_filter_geometry">変形トラック</string>
 	<string name="keyform_sheet_filter_channels">プロパティトラック</string>
 	<string name="keyform_sheet_filter_blend_shapes">ブレンドシェイプトラック</string>
-	<string name="keyform_sheet_no_tracks">このパラメータにはまだ何もキーされていません</string>
+	<string name="keyform_sheet_no_tracks">このパラメータにはまだ何もキーされていません。</string>
 	<string name="owner_kind_drawable">ドローアブル</string>
 	<string name="owner_kind_warp_deformer">ワープデフォーマ</string>
 	<string name="owner_kind_rotation_deformer">回転デフォーマ</string>
@@ -1105,7 +1109,7 @@
 	<string name="cmd_keyform_nudge_right">キーフレームを右へ微調整</string>
 	<string name="cmd_keyform_delete_keys">選択したキーを削除</string>
 	<string name="cmd_keyform_delete">キーフレーム削除</string>
-	<string name="notice_keyform_no_target">キー可能なプロパティを指してください</string>
-	<string name="notice_keyform_no_parameter">キーを打つパラメータを選択してください</string>
+	<string name="notice_keyform_no_target">キーフレームを挿入するには、キー可能なプロパティを指してください。</string>
+	<string name="notice_keyform_no_parameter">キーを打つパラメータを選択してください。</string>
 	<string name="notice_parameter_delete_changed_rest">パラメータを削除しました。%1$d 個のオブジェクトの既定値での見た目が変わりました。</string>
 </resources>
