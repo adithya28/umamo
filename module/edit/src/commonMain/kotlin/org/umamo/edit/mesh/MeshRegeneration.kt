@@ -69,17 +69,20 @@ enum class RegenerationRefusal {
 /** What generating one drawable's mesh needs before any art is meshed, or why it cannot be done. */
 sealed interface RegenerationInput {
 	/**
-	 * Everything the mesher needs: the tile whose raster to mesh (at exactly the tile's size) and the
-	 * points it must keep as vertices.  A plain class: it holds arrays.
+	 * Everything the mesher needs: the tile whose raster to mesh (at exactly the tile's size), the
+	 * points it must keep as vertices, and the old mesh laid out in the same pixels for the guide that
+	 * keeps the rig.  A plain class: it holds arrays.
 	 *
-	 * @property DrawableId  drawableId         The drawable.
-	 * @property AtlasTileId tileId             The tile whose art to mesh.
-	 * @property Int         tileWidth          The tile's width in art pixels.
-	 * @property Int         tileHeight         The tile's height in art pixels.
-	 * @property DoubleArray pinPoints          The pins, x0, y0, ..., in the tile's art pixels.
-	 * @property IntArray    pinnedOldVertices  The old vertex each pin stands for, ascending.
-	 * @property IntArray    carriedOldVertices The glued old vertices no triangle uses, ascending: carried over after the generated vertices, never meshed.
-	 * @property DoubleArray pinSurroundings    The old triangles that use a pin, six coordinates each, in the tile's art pixels: the mesher counts them as art.
+	 * @property DrawableId  drawableId            The drawable.
+	 * @property AtlasTileId tileId                The tile whose art to mesh.
+	 * @property Int         tileWidth             The tile's width in art pixels.
+	 * @property Int         tileHeight            The tile's height in art pixels.
+	 * @property DoubleArray pinPoints             The pins, x0, y0, ..., in the tile's art pixels.
+	 * @property IntArray    pinnedOldVertices     The old vertex each pin stands for, ascending.
+	 * @property IntArray    carriedOldVertices    The glued old vertices no triangle uses, ascending: carried over after the generated vertices, never meshed.
+	 * @property DoubleArray pinSurroundings       The old triangles that use a pin, six coordinates each, in the tile's art pixels: the mesher counts them as art.
+	 * @property FloatArray  oldVertexPoints       Every old vertex in the tile's art pixels, x0, y0, ...: what the pins were read from, and what a guide is laid over.
+	 * @property IntArray    referencedOldVertices The old vertices some triangle uses, ascending.
 	 */
 	class Ready(
 		val drawableId: DrawableId,
@@ -90,6 +93,8 @@ sealed interface RegenerationInput {
 		val pinnedOldVertices: IntArray,
 		val carriedOldVertices: IntArray,
 		val pinSurroundings: DoubleArray,
+		val oldVertexPoints: FloatArray,
+		val referencedOldVertices: IntArray,
 	) : RegenerationInput
 
 	/**
@@ -230,19 +235,16 @@ fun EditorSession.commitUnchangedGeneration(base: PuppetModel, drawableIds: List
 /** A drawable's old mesh made ready for a transfer, or why it cannot be. */
 private sealed interface SourcePreparation {
 	/**
-	 * The old mesh, its art frame, and its vertices in art pixels.
+	 * The old mesh and its art frame; its vertices in art pixels, and those some triangle uses, are the
+	 * input's ([RegenerationInput.Ready.oldVertexPoints], [RegenerationInput.Ready.referencedOldVertices]).
 	 *
-	 * @property DrawableMesh      mesh         The old mesh.
-	 * @property FloatArray        artToStored  Maps art-frame UVs to the stored frame.
-	 * @property FloatArray        rasterPoints The old vertices in art pixels, x0, y0, ...
-	 * @property IntArray          referenced   The old vertices some triangle uses, ascending.
-	 * @property RegenerationInput.Ready input  The input this preparation answers with.
+	 * @property DrawableMesh            mesh        The old mesh.
+	 * @property FloatArray              artToStored Maps art-frame UVs to the stored frame.
+	 * @property RegenerationInput.Ready input       The input this preparation answers with.
 	 */
 	class Prepared(
 		val mesh: DrawableMesh,
 		val artToStored: FloatArray,
-		val rasterPoints: FloatArray,
-		val referenced: IntArray,
 		val input: RegenerationInput.Ready,
 	) : SourcePreparation
 
@@ -322,9 +324,9 @@ private fun PuppetModel.prepareSource(drawableId: DrawableId): SourcePreparation
 	}
 
 	val pinSurroundings = surroundingsOf(rasterPoints, mesh.indices, pinned)
-	val input = RegenerationInput.Ready(drawableId, tileId, tile.width, tile.height, pinPoints, pinnedOldVertices, carriedOldVertices, pinSurroundings)
+	val input = RegenerationInput.Ready(drawableId, tileId, tile.width, tile.height, pinPoints, pinnedOldVertices, carriedOldVertices, pinSurroundings, rasterPoints, referenced)
 
-	return SourcePreparation.Prepared(mesh, artToStored, rasterPoints, referenced, input)
+	return SourcePreparation.Prepared(mesh, artToStored, input)
 }
 
 /**
@@ -478,7 +480,7 @@ private fun keepsPins(generated: PlanarTriangleMesh, input: RegenerationInput.Re
  */
 private fun transfer(source: SourcePreparation.Prepared, generated: PlanarTriangleMesh): MeshRegeneration.Built? {
 	val oldMesh = source.mesh
-	val rasterPoints = source.rasterPoints
+	val rasterPoints = source.input.oldVertexPoints
 	val sharedBase = oldMesh.localPositions === oldMesh.positions
 	val generatedCount = generated.vertexCount
 	val carried = source.input.carriedOldVertices
@@ -514,12 +516,12 @@ private fun transfer(source: SourcePreparation.Prepared, generated: PlanarTriang
 
 	val oldVertexAt = HashMap<Long, Int>()
 
-	for (vertex in source.referenced) {
+	for (vertex in source.input.referencedOldVertices) {
 		oldVertexAt.getOrPut(pointKey(rasterPoints[2 * vertex], rasterPoints[2 * vertex + 1])) { vertex }
 	}
 
 	val locator = TriangleLocator(rasterPoints, oldMesh.indices)
-	val extrapolator = BoundaryExtrapolator(rasterPoints, oldMesh.positions, if (sharedBase) null else oldMesh.localPositions, source.referenced)
+	val extrapolator = BoundaryExtrapolator(rasterPoints, oldMesh.positions, if (sharedBase) null else oldMesh.localPositions, source.input.referencedOldVertices)
 	val weights = DoubleArray(3)
 	val corners = IntArray(3)
 

@@ -52,23 +52,32 @@ Commands:
                                      and layer opacity ignored).
   mesh <file> [<directory>]
                    Run the art mesher over a source artwork document's raster layers.
-                   Prints each layer's vertex and triangle counts, outline and interior
-                   point counts, smallest triangle angle, timing, and notices, and writes
-                   the same table to mesh.txt in a NEW subdirectory named after the input
-                   with a -mesh suffix.
+                   Prints each layer's vertex and triangle counts, outline, interior, and
+                   refinement point counts, smallest triangle angle and counts under 5,
+                   10, and 20 degrees, timing, and notices, then the run's smallest angles
+                   in 5-degree buckets, and writes the same to mesh.txt in a NEW
+                   subdirectory named after the input with a -mesh suffix.
                      --layer=NAME    Mesh only the layer with this exact name.
                      --preset=NAME   standard, fine, or coarse (Default: standard).
                      --visible-only  Skip layers hidden by their own or a folder's eye.
                      --fill-holes    Mesh over holes in the art instead of cutting them
                                      out: one solid sheet per piece (lace, webs).
+                     --no-strand-rungs
+                                     Mesh thin strands from their outline alone, not as
+                                     rung strips paired across them.
                      --preview       Also write NNN-<layer>.png: each mesh drawn over its
-                                     art (outline magenta, interior edges blue).
+                                     art (outline magenta, interior edges blue, triangles
+                                     under the minimum angle tinted orange, vertices
+                                     refinement added green).
                      --scale=N       Magnify previews N times (Default: 1).
                      --alpha-threshold=N, --outline-spacing=N, --interior-spacing=N,
                      --outer-margin=N, --inner-margin=N, --minimum-margin=N,
-                     --minimum-outline-points=N, --vertex-budget=N
+                     --minimum-outline-points=N, --vertex-budget=N, --minimum-angle=N,
+                     --interior-thinning-limit=N, --strand-width=N
                                      Override one setting of the preset; distances
-                                     are in pixels.
+                                     are in pixels, the angle in degrees (0 for no
+                                     refinement), the thinning limit in outline
+                                     spacings.
   convert <in> <out>
                    Direction by input format and output extension:
                      cmo3 -> cmo3  Resave (An unedited main.xml will reemit byte-identical.)

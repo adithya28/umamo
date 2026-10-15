@@ -356,15 +356,29 @@ private fun wordingOf(fit: MeshFit): String {
  */
 private fun wordingOf(notice: ArtMeshNotice): String =
 	when (notice) {
-		is ArtMeshNotice.SpacingCoarsened -> "outline spacing widened to ${tenths(notice.outlineSpacing)} px and interior spacing to ${tenths(notice.interiorSpacing)} px to stay within the vertex budget"
+		is ArtMeshNotice.SpacingCoarsened -> coarseningWording(notice)
 		is ArtMeshNotice.WorkingGridCoarsened -> "the layer is too large for a ${notice.requestedCellSize} px working cell, so a ${notice.cellSize} px cell was used and the outline sits a little further out"
 		is ArtMeshNotice.OutlineDensified -> "${notice.chordCount} outline chord(s) crossed another ring after simplification and were kept at their traced density"
 		is ArtMeshNotice.InnerRingEdgesDropped -> "${notice.edgeCount} inner-ring edge(s) crossed the outline and were left out"
 		is ArtMeshNotice.PinsShareVertex -> "${notice.pinCount} glued vertex pin(s) sit at the same position and share one vertex"
+		is ArtMeshNotice.DeformationToleranceUnmet -> "the vertex budget ran out with the new mesh still up to ${tenths(notice.largestError)} px from the rig's old shape"
+		is ArtMeshNotice.RefinementBudgetReached -> "refinement reached the vertex budget with ${notice.underTargetTriangleCount} triangle(s) still below the minimum angle"
 		is ArtMeshNotice.NothingOpaque -> "nothing in the art reaches the alpha threshold"
 		is ArtMeshNotice.OverBudget -> "the mesh needs ${notice.vertexCount} vertices, past the budget of ${notice.budget}"
 		is ArtMeshNotice.StructureCheckFailed -> "the mesh was withheld: ${notice.reason}"
 	}
+
+/**
+ * The log's words for a mesh coarsened to fit its vertex budget.
+ *
+ * @param ArtMeshNotice.SpacingCoarsened notice The notice.
+ * @return String The words.
+ */
+private fun coarseningWording(notice: ArtMeshNotice.SpacingCoarsened): String {
+	val interior = notice.interiorSpacing?.let { spacing -> "interior spacing ${tenths(spacing)} px" } ?: "no interior points (refinement fills it)"
+
+	return "coarsened to stay within the vertex budget: outline spacing ${tenths(notice.outlineSpacing)} px, $interior"
+}
 
 /**
  * A length rounded to a tenth of a pixel, for the log.

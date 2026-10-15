@@ -16,6 +16,7 @@ Umamo is early alpha.
 ### Fixed
 * Format: MOC3 export now refuses to export an art mesh with more than 65,536 vertices instead of writing wrapped triangle indices.
 * Format: CMO3 export no longer warns that a glue could not be exported when the meshes on both sides of it were remeshed.
+* UI: The tooltip could sometimes block clicking when it overflowed from its default position.
 
 ## 0.4.0 - 2026-10-02
 

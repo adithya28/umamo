@@ -6,6 +6,7 @@ import org.umamo.format.art.SourceLayerKind
 import org.umamo.geometry.mesh.measureQuality
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -13,9 +14,12 @@ import kotlin.test.fail
  * The art mesher over every raster layer of every real layered file in the local corpus (PSD, CLIP,
  * KRA), at every preset and once more at Standard with holes filled, each mesh checked by the same
  * independent oracle the synthetic tests use: orientation, manifold edges, every art pixel covered,
- * every boundary edge clear of the art, and with holes filled one disc per outline ring.  Real
+ * every boundary edge clear of the art, and with holes filled one disc per outline ring.  Every
+ * preset refines toward its minimum angle, so each mesh is also held to refinement's promise: what
+ * stays below the angle is what refinement could not help, unless the vertex budget ran out.  Real
  * art is where the shapes the synthetic tests never imagined live - ragged antialiasing, hair tips,
- * lace, specks of eraser residue - and it reports counts, quality, and timing per sample.
+ * lace, specks of eraser residue - and it reports counts, quality (smallest angles in 5-degree
+ * buckets), the vertices refinement added, and timing per sample.
  *
  * Corpus-gated the way the readers' own tests are: every sample under `test/corpus/{psd,clip,krita}`
  * found by walking up from the working directory, self-skipping with a printed line when none exist.
@@ -59,8 +63,11 @@ class ArtMeshCorpusTest {
 		var nothingOpaqueCount = 0
 		var overBudgetCount = 0
 		var vertexTotal = 0
+		var steinerTotal = 0
+		var unfixableTotal = 0
+		var budgetReachedCount = 0
 		var smallestAngle = Double.POSITIVE_INFINITY
-		var sliverTotal = 0
+		val histogram = IntArray(HISTOGRAM_BUCKETS)
 		val startNanos = System.nanoTime()
 
 		for (layer in art.layers.filter { it.kind == SourceLayerKind.Raster }) {
@@ -92,11 +99,29 @@ class ArtMeshCorpusTest {
 					throw AssertionError("$context: ${failure.message}", failure)
 				}
 
-				val quality = mesh.measureQuality()
+				val quality = mesh.measureQuality(HISTOGRAM_BUCKET_DEGREES)
+				val statistics = result.statistics!!
+				val budgetReached = result.notices.any { notice -> notice is ArtMeshNotice.RefinementBudgetReached }
+				// The refiner decides by sine squared and acos can land a hair away from it, so the count is held to a quarter degree either side.
+				val fineQuality = mesh.measureQuality(QUALITY_CHECK_BUCKET_DEGREES)
+				val fewest = fineQuality.countBelow(settings.minimumAngle - QUALITY_CHECK_BUCKET_DEGREES)
+				val most = fineQuality.countBelow(settings.minimumAngle + QUALITY_CHECK_BUCKET_DEGREES)
+				assertTrue(statistics.underTargetCount in fewest..most, "$context: the reported count ${statistics.underTargetCount} matches the mesh ($fewest to $most below ${settings.minimumAngle} degrees)")
+
+				if (!budgetReached) {
+					assertEquals(statistics.underTargetCount, statistics.unfixableCount, "$context: everything below the minimum angle is beyond refinement")
+				}
+
 				meshedOnce = true
 				vertexTotal += mesh.vertexCount
+				steinerTotal += statistics.steinerVertexCount
+				unfixableTotal += statistics.unfixableCount
+				budgetReachedCount += if (budgetReached) 1 else 0
 				smallestAngle = minOf(smallestAngle, quality.minimumAngleDegrees)
-				sliverTotal += quality.smallestAngleHistogram[0]
+
+				for (bucket in histogram.indices) {
+					histogram[bucket] += quality.smallestAngleHistogram[bucket]
+				}
 			}
 
 			if (meshedOnce) {
@@ -107,9 +132,11 @@ class ArtMeshCorpusTest {
 		val elapsedMilliseconds = (System.nanoTime() - startNanos) / 1_000_000
 		println(
 			"checked ${sample.name}: $meshedCount layers meshed across ${configurations.size} configurations, " +
-				"$nothingOpaqueCount empty, $overBudgetCount over budget, $vertexTotal vertices, " +
-				"smallest angle ${"%.2f".format(smallestAngle)}, $sliverTotal triangles under 10 degrees, $elapsedMilliseconds ms",
+				"$nothingOpaqueCount empty, $overBudgetCount over budget, $vertexTotal vertices ($steinerTotal added by refinement), " +
+				"smallest angle ${"%.2f".format(smallestAngle)}, $unfixableTotal triangles refinement could not help, " +
+				"$budgetReachedCount meshes out of budget for it, $elapsedMilliseconds ms",
 		)
+		println("  smallest angles: " + histogram.indices.joinToString(", ") { bucket -> "[${bucket * 5}, ${(bucket + 1) * 5}) ${histogram[bucket]}" })
 
 		return meshedCount
 	}
@@ -136,5 +163,16 @@ class ArtMeshCorpusTest {
 		}
 
 		return emptyList()
+	}
+
+	private companion object {
+		/** The histogram's bucket width, degrees. */
+		const val HISTOGRAM_BUCKET_DEGREES = 5.0
+
+		/** The band, either side of a preset's minimum angle, within which the reported count must land; exact in binary, so the bucket edges are too. */
+		const val QUALITY_CHECK_BUCKET_DEGREES = 0.25
+
+		/** Its bucket count, up to 60 degrees. */
+		const val HISTOGRAM_BUCKETS = 12
 	}
 }

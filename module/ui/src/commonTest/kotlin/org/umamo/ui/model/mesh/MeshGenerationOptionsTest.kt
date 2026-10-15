@@ -6,19 +6,23 @@ import org.umamo.edit.choiceValue
 import org.umamo.edit.floatValue
 import org.umamo.edit.intValue
 import org.umamo.interop.art.mesh.ArtMeshPreset
+import org.umamo.interop.art.mesh.MAXIMUM_ART_MESH_MINIMUM_ANGLE
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
  * The Generate Mesh from Art rows: options survive the trip through the rows, every row is clamped into
  * what the mesher accepts (the threshold never below the atlas's), a preset re-seeds only the density
- * rows, and the session memory starts from the settings' preset and then follows what landed.
+ * rows, the strand width among them (the budget, its interior thinning limit, Strand Rungs, and the
+ * deformation tolerance stay), and the session memory starts from the settings' preset and then follows
+ * what landed.
  */
 class MeshGenerationOptionsTest {
 	@Test
 	fun optionsSurviveTheRows() {
-		val options = MeshGenerationOptions(ArtMeshPreset.Fine, ArtMeshPreset.Fine.settings.copy(vertexBudget = 2048, fillHoles = true))
+		val options = MeshGenerationOptions(ArtMeshPreset.Fine, ArtMeshPreset.Fine.settings.copy(vertexBudget = 2048, fillHoles = true, minimumAngle = 26.0, interiorThinningLimit = 6.5, deformationTolerance = 1.5, strandRungs = false, strandWidth = 33.5))
 		val rows = meshGenerationParameters(options, minimumAlphaThreshold = 1)
 
 		assertEquals(options, meshGenerationOptionsOf(rows, MeshGenerationOptions.of(ArtMeshPreset.Standard), minimumAlphaThreshold = 1))
@@ -34,6 +38,9 @@ class MeshGenerationOptionsTest {
 				.replaced(MeshGenerationParameterKeys.MINIMUM_MARGIN) { row -> (row as OperatorParameter.FloatParameter).copy(value = 0.1f) }
 				.replaced(MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS) { row -> (row as OperatorParameter.IntParameter).copy(value = 1) }
 				.replaced(MeshGenerationParameterKeys.VERTEX_BUDGET) { row -> (row as OperatorParameter.IntParameter).copy(value = 99999) }
+				.replaced(MeshGenerationParameterKeys.MINIMUM_ANGLE) { row -> (row as OperatorParameter.FloatParameter).copy(value = 90f) }
+				.replaced(MeshGenerationParameterKeys.INTERIOR_THINNING_LIMIT) { row -> (row as OperatorParameter.FloatParameter).copy(value = 0.2f) }
+				.replaced(MeshGenerationParameterKeys.STRAND_WIDTH) { row -> (row as OperatorParameter.FloatParameter).copy(value = 0f) }
 
 		val settings = meshGenerationOptionsOf(rows, MeshGenerationOptions.of(ArtMeshPreset.Standard), minimumAlphaThreshold = 40).settings
 
@@ -43,11 +50,14 @@ class MeshGenerationOptionsTest {
 		assertEquals(0.5, settings.minimumMargin)
 		assertEquals(3, settings.minimumOutlinePoints)
 		assertEquals(MAXIMUM_VERTEX_BUDGET, settings.vertexBudget)
+		assertEquals(MAXIMUM_ART_MESH_MINIMUM_ANGLE, settings.minimumAngle)
+		assertEquals(1.0, settings.interiorThinningLimit)
+		assertEquals(1.0, settings.strandWidth)
 	}
 
 	@Test
 	fun aPresetReseedsOnlyTheDensityRows() {
-		val custom = ArtMeshPreset.Standard.settings.copy(alphaThreshold = 50, vertexBudget = 2048, fillHoles = true, outlineSpacing = 99.0)
+		val custom = ArtMeshPreset.Standard.settings.copy(alphaThreshold = 50, vertexBudget = 2048, fillHoles = true, outlineSpacing = 99.0, minimumAngle = 5.0, interiorThinningLimit = 9.0, deformationTolerance = 2.0, strandRungs = false, strandWidth = 99.0)
 		val rows = meshGenerationParameters(MeshGenerationOptions(ArtMeshPreset.Standard, custom), minimumAlphaThreshold = 1)
 
 		val reseeded = reseededMeshGenerationParameters(rows, ArtMeshPreset.Coarse, minimumAlphaThreshold = 1)
@@ -58,9 +68,14 @@ class MeshGenerationOptionsTest {
 		assertEquals(coarse.interiorSpacing.toFloat(), reseeded.floatValue(MeshGenerationParameterKeys.INTERIOR_SPACING, 0f))
 		assertEquals(coarse.outerMargin.toFloat(), reseeded.floatValue(MeshGenerationParameterKeys.OUTER_MARGIN, 0f))
 		assertEquals(coarse.minimumOutlinePoints, reseeded.intValue(MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS, 0))
+		assertEquals(coarse.minimumAngle.toFloat(), reseeded.floatValue(MeshGenerationParameterKeys.MINIMUM_ANGLE, 0f), "the minimum angle is a density row")
+		assertEquals(coarse.strandWidth.toFloat(), reseeded.floatValue(MeshGenerationParameterKeys.STRAND_WIDTH, 0f), "the strand width is a density row")
 		assertEquals(50, reseeded.intValue(MeshGenerationParameterKeys.ALPHA_THRESHOLD, 0), "the threshold stays")
 		assertEquals(2048, reseeded.intValue(MeshGenerationParameterKeys.VERTEX_BUDGET, 0), "the budget stays")
 		assertTrue(reseeded.booleanValue(MeshGenerationParameterKeys.FILL_HOLES, false), "Fill Holes stays")
+		assertFalse(reseeded.booleanValue(MeshGenerationParameterKeys.STRAND_RUNGS, true), "Strand Rungs stays")
+		assertEquals(9f, reseeded.floatValue(MeshGenerationParameterKeys.INTERIOR_THINNING_LIMIT, 0f), "the budget's thinning limit stays")
+		assertEquals(2f, reseeded.floatValue(MeshGenerationParameterKeys.DEFORMATION_TOLERANCE, 0f), "the deformation tolerance stays")
 	}
 
 	@Test

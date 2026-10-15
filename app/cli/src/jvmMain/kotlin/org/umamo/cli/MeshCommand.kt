@@ -7,6 +7,7 @@ import org.umamo.format.png.PngCodec
 import org.umamo.geometry.mesh.MeshQuality
 import org.umamo.geometry.mesh.PlanarTriangleMesh
 import org.umamo.geometry.mesh.measureQuality
+import org.umamo.geometry.mesh.smallestAngleBucketCount
 import org.umamo.interop.art.mesh.ArtMeshNotice
 import org.umamo.interop.art.mesh.ArtMeshPreset
 import org.umamo.interop.art.mesh.ArtMeshResult
@@ -17,10 +18,13 @@ import java.util.Locale
 
 /*
  * The mesh subcommand: run the art mesher over a source artwork document's layers and show what it
- * made - per-layer counts, triangle quality, and timing on stdout and in mesh.txt, and with --preview
- * a wireframe picture of each mesh over its art.  The mesher's standalone inspection surface, beside
+ * made - per-layer counts, triangle quality, and timing on stdout and in mesh.txt, the run's smallest
+ * angles in 5-degree buckets, and with --preview a wireframe picture of each mesh over its art.  The mesher's standalone inspection surface, beside
  * the editor's own Generate Mesh from Art command (mesh.generateFromArt).
  */
+
+/** The report's histogram bucket width, degrees. */
+private const val HISTOGRAM_BUCKET_DEGREES: Double = 5.0
 
 /** The options that override one setting each, by name. */
 private val SETTING_OPTIONS =
@@ -33,6 +37,9 @@ private val SETTING_OPTIONS =
 		"--minimum-margin",
 		"--minimum-outline-points",
 		"--vertex-budget",
+		"--minimum-angle",
+		"--interior-thinning-limit",
+		"--strand-width",
 	)
 
 /**
@@ -45,10 +52,10 @@ private val SETTING_OPTIONS =
  * @return Int The exit code; 1 when the mesher withheld a mesh after a failed structural check.
  */
 internal fun runMesh(arguments: List<String>): Int {
-	val parsed = parseArguments(arguments, knownFlags = setOf("--visible-only", "--preview", "--fill-holes"), knownOptions = setOf("--layer", "--preset", "--scale") + SETTING_OPTIONS)
+	val parsed = parseArguments(arguments, knownFlags = setOf("--visible-only", "--preview", "--fill-holes", "--no-strand-rungs"), knownOptions = setOf("--layer", "--preset", "--scale") + SETTING_OPTIONS)
 
 	if (parsed.positionals.isEmpty() || parsed.positionals.size > 2) {
-		throw CliUsageException("Usage: mesh <file> [<directory>] [--layer=NAME] [--preset=standard|fine|coarse] [--visible-only] [--fill-holes] [--preview] [--scale=N] [setting overrides]")
+		throw CliUsageException("Usage: mesh <file> [<directory>] [--layer=NAME] [--preset=standard|fine|coarse] [--visible-only] [--fill-holes] [--no-strand-rungs] [--preview] [--scale=N] [setting overrides]")
 	}
 
 	val loaded = loadInput(parsed.positionals[0])
@@ -83,20 +90,21 @@ internal fun runMesh(arguments: List<String>): Int {
 	val report = StringBuilder()
 	report.append("# mesh ${loaded.file.name}\n")
 	report.append("# settings $settings\n")
-	report.append(listOf("# order", "name", "raster", "vertices", "triangles", "outline", "refined", "inner", "lattice", "minAngle", "under10", "milliseconds", "notices").joinToString("\t")).append('\n')
+	report.append(listOf("# order", "name", "raster", "vertices", "triangles", "outline", "refined", "inner", "lattice", "strands", "steiner", "minAngle", "under5", "under10", "under20", "unfixable", "milliseconds", "notices").joinToString("\t")).append('\n')
 	var meshedCount = 0
 	var withheldCount = 0
 	var vertexTotal = 0
 	var largestVertexCount = 0
 	var smallestAngle = Double.POSITIVE_INFINITY
 	var millisecondsTotal = 0L
+	val histogram = IntArray(smallestAngleBucketCount(HISTOGRAM_BUCKET_DEGREES))
 
 	for (layer in layers) {
 		val startNanos = System.nanoTime()
 		val result = generateArtMesh(layer.raster, settings)
 		val milliseconds = (System.nanoTime() - startNanos) / 1_000_000
 		millisecondsTotal += milliseconds
-		val quality = result.mesh?.measureQuality()
+		val quality = result.mesh?.measureQuality(HISTOGRAM_BUCKET_DEGREES)
 		val row = reportRow(layer, result, quality, milliseconds)
 		report.append(row.joinToString("\t")).append('\n')
 		println("L ${row.joinToString(" ")}")
@@ -115,11 +123,18 @@ internal fun runMesh(arguments: List<String>): Int {
 		largestVertexCount = maxOf(largestVertexCount, mesh.vertexCount)
 		smallestAngle = minOf(smallestAngle, quality?.minimumAngleDegrees ?: smallestAngle)
 
+		for (bucket in histogram.indices) {
+			histogram[bucket] += quality?.smallestAngleHistogram?.get(bucket) ?: 0
+		}
+
 		if ("--preview" in parsed.flags) {
-			writePreview(layer, mesh, scale, outputDirectory)
+			writePreview(layer, mesh, settings.minimumAngle, result.statistics?.steinerVertexCount ?: 0, scale, outputDirectory)
 		}
 	}
 
+	val histogramLine = "smallest angles: " + histogram.indices.joinToString(", ") { bucket -> "[${bucket * HISTOGRAM_BUCKET_DEGREES.toInt()}, ${(bucket + 1) * HISTOGRAM_BUCKET_DEGREES.toInt()}) ${histogram[bucket]}" }
+	println(histogramLine)
+	report.append("# ").append(histogramLine).append('\n')
 	val reportFile = File(outputDirectory, "mesh.txt")
 	reportFile.writeText(report.toString())
 	println("Wrote ${reportFile.path}")
@@ -159,6 +174,10 @@ private fun settingsFrom(parsed: CliArguments): ArtMeshSettings {
 			minimumOutlinePoints = parsed.intOption("--minimum-outline-points", base.minimumOutlinePoints),
 			vertexBudget = parsed.intOption("--vertex-budget", base.vertexBudget),
 			fillHoles = "--fill-holes" in parsed.flags,
+			strandRungs = "--no-strand-rungs" !in parsed.flags,
+			strandWidth = parsed.doubleOption("--strand-width", base.strandWidth),
+			minimumAngle = parsed.doubleOption("--minimum-angle", base.minimumAngle),
+			interiorThinningLimit = parsed.doubleOption("--interior-thinning-limit", base.interiorThinningLimit),
 		)
 	} catch (invalid: IllegalArgumentException) {
 		throw CliUsageException(invalid.message ?: "invalid mesh settings")
@@ -189,8 +208,13 @@ private fun reportRow(layer: SourceLayer, result: ArtMeshResult, quality: MeshQu
 		statistics?.refinedChordCount?.toString() ?: "-",
 		if (statistics != null) "${statistics.innerRingCount}/${statistics.innerVertexCount}" else "-",
 		statistics?.latticeVertexCount?.toString() ?: "-",
+		if (statistics != null) "${statistics.strandCount}/${statistics.rungCount}/${statistics.strandCenterCount}" else "-",
+		statistics?.steinerVertexCount?.toString() ?: "-",
 		if (quality != null) format(quality.minimumAngleDegrees) else "-",
-		quality?.smallestAngleHistogram?.get(0)?.toString() ?: "-",
+		quality?.countBelow(5.0)?.toString() ?: "-",
+		quality?.countBelow(10.0)?.toString() ?: "-",
+		quality?.countBelow(20.0)?.toString() ?: "-",
+		statistics?.unfixableCount?.toString() ?: "-",
 		milliseconds.toString(),
 		notices,
 	)
@@ -199,13 +223,15 @@ private fun reportRow(layer: SourceLayer, result: ArtMeshResult, quality: MeshQu
 /**
  * Writes one layer's wireframe preview.
  *
- * @param SourceLayer        layer           The layer.
- * @param PlanarTriangleMesh mesh            Its mesh.
- * @param Int                scale           The magnification.
- * @param File               outputDirectory The directory to write into.
+ * @param SourceLayer        layer              The layer.
+ * @param PlanarTriangleMesh mesh               Its mesh.
+ * @param Double             minimumAngle       The minimum angle asked for; triangles below it are tinted.
+ * @param Int                steinerVertexCount The vertices refinement added, the mesh's last ones.
+ * @param Int                scale              The magnification.
+ * @param File               outputDirectory    The directory to write into.
  */
-private fun writePreview(layer: SourceLayer, mesh: PlanarTriangleMesh, scale: Int, outputDirectory: File) {
-	val picture = renderWireframe(layer.raster, mesh, scale)
+private fun writePreview(layer: SourceLayer, mesh: PlanarTriangleMesh, minimumAngle: Double, steinerVertexCount: Int, scale: Int, outputDirectory: File) {
+	val picture = renderWireframe(layer.raster, mesh, scale, minimumAngle, steinerVertexCount)
 
 	if (picture == null) {
 		System.err.println("Note: '${layer.name}' preview would exceed the preview cap; skipped.")

@@ -4,6 +4,7 @@ import org.umamo.format.art.LayerRaster
 import org.umamo.format.raster.RasterImage
 import org.umamo.geometry.mesh.PlanarTriangleMesh
 import org.umamo.geometry.mesh.forEachEdge
+import org.umamo.geometry.mesh.smallestAngleDegrees
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -11,8 +12,9 @@ import kotlin.math.roundToInt
 
 /*
  * A mesh drawn over the art it was generated from, for a human to judge: the layer on a checkerboard,
- * interior edges in blue, boundary edges (the outline) in magenta, vertices as yellow dots, pins red.
- * The canvas grows past the raster wherever the mesh does, since an outline runs outside the art.
+ * triangles below the minimum angle tinted orange, interior edges in blue, boundary edges (the outline)
+ * in magenta, vertices as yellow dots, the vertices refinement added green, pins red.  The canvas grows
+ * past the raster wherever the mesh does, since an outline runs outside the art.
  */
 
 /** Checkerboard square side, in canvas pixels before scaling. */
@@ -24,12 +26,14 @@ private const val CANVAS_MARGIN = 2
 /**
  * Renders a mesh over its layer raster.
  *
- * @param LayerRaster        raster The layer's pixels.
- * @param PlanarTriangleMesh mesh   The mesh, in the raster's pixels.
- * @param Int                scale  Whole-number magnification (at least 1).
+ * @param LayerRaster        raster             The layer's pixels.
+ * @param PlanarTriangleMesh mesh               The mesh, in the raster's pixels.
+ * @param Int                scale              Whole-number magnification (at least 1).
+ * @param Double             minimumAngle       The minimum angle asked for, degrees; triangles below it are tinted (0 tints none).
+ * @param Int                steinerVertexCount The vertices refinement added, the mesh's last ones.
  * @return RasterImage? The picture, or null when it would exceed the preview cap.
  */
-internal fun renderWireframe(raster: LayerRaster, mesh: PlanarTriangleMesh, scale: Int): RasterImage? {
+internal fun renderWireframe(raster: LayerRaster, mesh: PlanarTriangleMesh, scale: Int, minimumAngle: Double = 0.0, steinerVertexCount: Int = 0): RasterImage? {
 	var minimumX = 0.0
 	var minimumY = 0.0
 	var maximumX = raster.width.toDouble()
@@ -53,6 +57,14 @@ internal fun renderWireframe(raster: LayerRaster, mesh: PlanarTriangleMesh, scal
 
 	val canvas = Canvas(width, height)
 	canvas.paintBackground(raster, originX, originY, scale)
+
+	for (triangle in 0 until mesh.triangleCount) {
+		// A degenerate triangle has no angle (NaN), so it is never tinted - as the report never counts it.
+		if (mesh.smallestAngleDegrees(triangle) < minimumAngle) {
+			canvas.fillTriangle(canvasCornersOf(mesh, triangle, originX, originY, scale), UNDER_TARGET_COLOR, UNDER_TARGET_OPACITY)
+		}
+	}
+
 	mesh.forEachEdge { start, end, isBoundary ->
 		val color = if (isBoundary) BOUNDARY_COLOR else INTERIOR_COLOR
 		canvas.line(
@@ -64,8 +76,11 @@ internal fun renderWireframe(raster: LayerRaster, mesh: PlanarTriangleMesh, scal
 		)
 	}
 
+	val firstSteinerVertex = mesh.vertexCount - steinerVertexCount
+
 	for (vertex in 0 until mesh.vertexCount) {
-		canvas.dot(toCanvas(mesh.positions[2 * vertex], originX, scale), toCanvas(mesh.positions[2 * vertex + 1], originY, scale), 1, VERTEX_COLOR)
+		val color = if (vertex >= firstSteinerVertex) STEINER_COLOR else VERTEX_COLOR
+		canvas.dot(toCanvas(mesh.positions[2 * vertex], originX, scale), toCanvas(mesh.positions[2 * vertex + 1], originY, scale), 1, color)
 	}
 
 	for (vertex in mesh.pinVertices) {
@@ -96,6 +111,37 @@ private val VERTEX_COLOR = intArrayOf(255, 220, 0)
 
 /** Pins. */
 private val PIN_COLOR = intArrayOf(255, 40, 40)
+
+/** The vertices refinement added. */
+private val STEINER_COLOR = intArrayOf(40, 220, 90)
+
+/** Triangles below the minimum angle. */
+private val UNDER_TARGET_COLOR = intArrayOf(255, 140, 0)
+
+/** How strongly a triangle below the minimum angle is tinted. */
+private const val UNDER_TARGET_OPACITY: Double = 0.45
+
+/**
+ * A triangle's corners in canvas pixels.
+ *
+ * @param PlanarTriangleMesh mesh     The mesh.
+ * @param Int                triangle The triangle.
+ * @param Int                originX  The canvas origin's raster x.
+ * @param Int                originY  The canvas origin's raster y.
+ * @param Int                scale    The magnification.
+ * @return DoubleArray x0, y0, x1, y1, x2, y2.
+ */
+private fun canvasCornersOf(mesh: PlanarTriangleMesh, triangle: Int, originX: Int, originY: Int, scale: Int): DoubleArray {
+	val corners = DoubleArray(6)
+
+	for (corner in 0 until 3) {
+		val vertex = mesh.triangles[3 * triangle + corner]
+		corners[2 * corner] = (mesh.positions[2 * vertex] - originX) * scale.toDouble()
+		corners[2 * corner + 1] = (mesh.positions[2 * vertex + 1] - originY) * scale.toDouble()
+	}
+
+	return corners
+}
 
 /**
  * An opaque RGBA canvas with the few drawing operations a preview needs.
@@ -177,6 +223,49 @@ private class Canvas(val width: Int, val height: Int) {
 				y += stepY
 			}
 		}
+	}
+
+	/**
+	 * Tints the pixels whose centers lie inside a triangle, blending a color over what is there.
+	 *
+	 * @param DoubleArray corners The corners in canvas pixels, x0, y0, x1, y1, x2, y2.
+	 * @param IntArray    color   The RGB tint.
+	 * @param Double      opacity How much of the tint replaces the pixel, 0 to 1.
+	 */
+	fun fillTriangle(corners: DoubleArray, color: IntArray, opacity: Double) {
+		val left = maxOf(0, floor(minOf(corners[0], corners[2], corners[4])).toInt())
+		val right = minOf(width - 1, ceil(maxOf(corners[0], corners[2], corners[4])).toInt())
+		val top = maxOf(0, floor(minOf(corners[1], corners[3], corners[5])).toInt())
+		val bottom = minOf(height - 1, ceil(maxOf(corners[1], corners[3], corners[5])).toInt())
+
+		for (y in top..bottom) {
+			for (x in left..right) {
+				if (containsPoint(corners, x + 0.5, y + 0.5)) {
+					val offset = (y * width + x) * 4
+
+					for (channel in 0 until 3) {
+						val existing = rgba[offset + channel].toInt() and 0xFF
+						rgba[offset + channel] = (existing + (color[channel] - existing) * opacity).roundToInt().coerceIn(0, 255).toByte()
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Whether a point lies inside a triangle of either winding, edges included.
+	 *
+	 * @param DoubleArray corners The corners, x0, y0, x1, y1, x2, y2.
+	 * @param Double      x       The point's x.
+	 * @param Double      y       The point's y.
+	 * @return Boolean True inside.
+	 */
+	private fun containsPoint(corners: DoubleArray, x: Double, y: Double): Boolean {
+		val first = (corners[2] - corners[0]) * (y - corners[1]) - (corners[3] - corners[1]) * (x - corners[0])
+		val second = (corners[4] - corners[2]) * (y - corners[3]) - (corners[5] - corners[3]) * (x - corners[2])
+		val third = (corners[0] - corners[4]) * (y - corners[5]) - (corners[1] - corners[5]) * (x - corners[4])
+
+		return (first >= 0.0 && second >= 0.0 && third >= 0.0) || (first <= 0.0 && second <= 0.0 && third <= 0.0)
 	}
 
 	/**

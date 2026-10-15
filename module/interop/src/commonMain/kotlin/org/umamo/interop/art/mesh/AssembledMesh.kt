@@ -6,15 +6,25 @@ import org.umamo.geometry.mesh.forEachEdge
 import org.umamo.geometry.triangulation.ConstraintKind
 import org.umamo.geometry.triangulation.RejectedConstraint
 import org.umamo.geometry.triangulation.Triangulation
-import org.umamo.geometry.triangulation.triangulate
+import org.umamo.geometry.triangulation.refine.BoundarySplitCheck
+import org.umamo.geometry.triangulation.refine.PiecewiseLinearGuide
+import org.umamo.geometry.triangulation.refine.RefinedTriangulation
+import org.umamo.geometry.triangulation.refine.RefinementOptions
+import org.umamo.geometry.triangulation.refine.RefinementStatistics
+import org.umamo.geometry.triangulation.refine.triangulateAndRefine
 
 /*
  * Assembles the mesher's points into one triangulation: the outline rings as BOUNDARY rings (they
- * decide inside from outside), the inner rings as neutral SEGMENTS, the lattice and the pins as free
- * points.  Simplified outline rings can cross one another where two islands or a narrow neck come
+ * decide inside from outside), the inner rings - whole, or the stretches a strand left of them - as
+ * neutral SEGMENTS, the lattice, the strands' centerline vertices, and the pins as free points.  Simplified outline rings can cross one another where two islands or a narrow neck come
  * close; the triangulator then rejects a boundary edge and leaves a ring open, so both chords
  * involved are replaced by the traced points they skipped and the triangulation runs again - traced
  * rings are disjoint, so this ends.  The finished mesh keeps only the vertices its triangles use.
+ *
+ * With a minimum angle the triangulation is refined in the same step, within what the vertex budget
+ * leaves after the placed points.  An outline chord may be split only where both new chords still
+ * clear the art by the minimum margin and, when the split point lies inside the chord, the sliver it
+ * cuts off holds no art pixel - so refinement keeps every guarantee below.
  *
  * The final checks are structural, not per pixel: no boundary edge rejected, inside and outside
  * consistent, every pin a vertex, and every boundary edge of the mesh clear of the art by the minimum
@@ -33,6 +43,7 @@ private const val CHORD_REPAIR_ROUNDS: Int = 6
  * @property Int                 droppedInnerEdgeCount Inner-ring edges left out because they crossed the outline.
  * @property Int                 sharedPinCount        Pins that landed on the same vertex as another pin.
  * @property Int                 outlineVertexCount    The outline's points after any densifying.
+ * @property RefinementStatistics? refinement          What refinement did to the final triangulation, or null when none ran.
  */
 internal class AssembledMesh(
 	val mesh: PlanarTriangleMesh?,
@@ -41,30 +52,45 @@ internal class AssembledMesh(
 	val droppedInnerEdgeCount: Int,
 	val sharedPinCount: Int,
 	val outlineVertexCount: Int,
+	val refinement: RefinementStatistics?,
 )
 
 /**
- * Triangulates the mesher's points, untangling crossing outline rings, and checks the result.
+ * Triangulates the mesher's points, untangling crossing outline rings, refines toward the minimum
+ * angle, and checks the result.
  *
- * @param List<SampledRing>  outline       The outline rings (densified in place when they cross).
- * @param List<DoubleArray>  innerRings    The inner rings' points.
- * @param DoubleArray        lattice       The lattice points.
- * @param DoubleArray        pins          The pins, Float-rounded.
- * @param AlphaField         field         The field, for the final clearance check.
- * @param Double             minimumMargin The clearance every boundary edge must keep from the art.
+ * @param List<SampledRing> outline    The outline rings (densified in place when they cross).
+ * @param List<InnerPolyline> innerRings The inner rings' points, closed or open.
+ * @param DoubleArray       lattice    The lattice points and every other free point but the pins.
+ * @param DoubleArray       pins       The pins, Float-rounded.
+ * @param AlphaField        field      The field, for the split checks and the final clearance check.
+ * @param ArtMeshSettings   settings   The settings: the minimum margin, the minimum angle, and the vertex budget.
+ * @param Int               cellSize   The working grid's cell size, which sets refinement's floors.
+ * @param PiecewiseLinearGuide? guide  The mesh being replaced, whose bends refinement keeps first, or null.
  * @return AssembledMesh The mesh or the failure, with what was adjusted.
  */
-internal fun assembleMesh(outline: List<SampledRing>, innerRings: List<DoubleArray>, lattice: DoubleArray, pins: DoubleArray, field: AlphaField, minimumMargin: Double): AssembledMesh {
+internal fun assembleMesh(
+	outline: List<SampledRing>,
+	innerRings: List<InnerPolyline>,
+	lattice: DoubleArray,
+	pins: DoubleArray,
+	field: AlphaField,
+	settings: ArtMeshSettings,
+	cellSize: Int,
+	guide: PiecewiseLinearGuide? = null,
+): AssembledMesh {
 	var densifiedChordCount = 0
 	var round = 0
+	val splitCheck = boundarySplitCheckOf(field, settings.minimumMargin)
 
 	while (true) {
 		val layout = MeshLayout(outline, innerRings, lattice, pins)
-		val triangulation = triangulate(layout.points, layout.boundaries, layout.segments)
+		val refined = triangulateAndRefine(layout.points, layout.boundaries, layout.segments, refinementOptionsOf(settings, layout, cellSize, splitCheck, guide))
+		val triangulation = refined.triangulation
 		val boundaryRejections = triangulation.rejectedConstraints.filter { rejection -> rejection.kind == ConstraintKind.Boundary }
 
 		if (boundaryRejections.isEmpty() && triangulation.classificationConsistent) {
-			return finish(layout, triangulation, field, minimumMargin, densifiedChordCount)
+			return finish(layout, refined, field, settings.minimumMargin, densifiedChordCount)
 		}
 
 		round++
@@ -78,28 +104,113 @@ internal fun assembleMesh(outline: List<SampledRing>, innerRings: List<DoubleArr
 				ring.densifyAll()
 			}
 		} else {
-			return AssembledMesh(null, "outline rings still cross at full density", densifiedChordCount, 0, 0, layout.outlinePointCount)
+			return AssembledMesh(null, "outline rings still cross at full density", densifiedChordCount, 0, 0, layout.outlinePointCount, null)
 		}
 	}
 }
+
+/**
+ * How one round refines: toward the minimum angle, adding no more vertices than the budget leaves after
+ * the placed points, with floors a quarter and a half of a working cell - finer than the field can
+ * tell apart.
+ *
+ * @param ArtMeshSettings    settings   The settings.
+ * @param MeshLayout         layout     The round's points.
+ * @param Int                cellSize   The working cell size.
+ * @param BoundarySplitCheck splitCheck The field's check on outline splits.
+ * @param PiecewiseLinearGuide? guide  The mesh being replaced, or null.
+ * @return RefinementOptions The options; a zero target, no guide, or no room adds nothing.
+ */
+private fun refinementOptionsOf(settings: ArtMeshSettings, layout: MeshLayout, cellSize: Int, splitCheck: BoundarySplitCheck, guide: PiecewiseLinearGuide?): RefinementOptions =
+	RefinementOptions(
+		minimumAngleDegrees = settings.minimumAngle,
+		maximumAddedPoints = maxOf(0, settings.vertexBudget - layout.points.size / 2),
+		minimumSeparation = cellSize / 4.0,
+		minimumSegmentLength = cellSize / 2.0,
+		boundarySplitCheck = splitCheck,
+		guide = guide,
+		guideTolerance = settings.deformationTolerance,
+	)
+
+/**
+ * The field's check on an outline chord: it keeps the minimum margin from every art pixel AND cuts no
+ * art pixel off - the cap between it and the traced stretch it replaces must hold none, or even-odd
+ * would erase a speck swallowed there along with its own ring.  With [boundarySplitCheckOf], what
+ * guarantees every art pixel stays enclosed.
+ *
+ * @param AlphaField field         The art's field.
+ * @param Double     minimumMargin The clearance every outline chord keeps.
+ * @return ChordCheck The check.
+ */
+internal fun coversArtCheckOf(field: AlphaField, minimumMargin: Double): ChordCheck =
+	ChordCheck { ring, startArc, endArc, between ->
+		val startX = ring.roundedX(startArc)
+		val startY = ring.roundedY(startArc)
+		val endX = ring.roundedX(endArc)
+		val endY = ring.roundedY(endArc)
+
+		field.segmentClears(startX, startY, endX, endY, minimumMargin) && !field.containsOpaquePixelCenter(capPolygon(ring, startX, startY, endX, endY, between))
+	}
+
+/**
+ * The polygon between a chord and the stretch of traced ring it replaces.
+ *
+ * @param SampledRing ring    The ring.
+ * @param Double      startX  The chord's start x.
+ * @param Double      startY  The chord's start y.
+ * @param Double      endX    The chord's end x.
+ * @param Double      endY    The chord's end y.
+ * @param List<Int>   between The dense vertices the chord skips, in ring order.
+ * @return DoubleArray The polygon, x0, y0, ...: the chord's start, the skipped vertices, its end.
+ */
+private fun capPolygon(ring: SampledRing, startX: Double, startY: Double, endX: Double, endY: Double, between: List<Int>): DoubleArray {
+	val cap = DoubleArray(2 * (between.size + 2))
+	cap[0] = startX
+	cap[1] = startY
+
+	for ((position, vertex) in between.withIndex()) {
+		cap[2 * position + 2] = ring.denseX(vertex)
+		cap[2 * position + 3] = ring.denseY(vertex)
+	}
+
+	cap[cap.size - 2] = endX
+	cap[cap.size - 1] = endY
+
+	return cap
+}
+
+/**
+ * The field's check on an outline split: both new chords keep the minimum margin from the art, and a
+ * split point inside the chord cuts off no art pixel's center.
+ *
+ * @param AlphaField field         The art's field.
+ * @param Double     minimumMargin The clearance every outline chord keeps.
+ * @return BoundarySplitCheck The check.
+ */
+internal fun boundarySplitCheckOf(field: AlphaField, minimumMargin: Double): BoundarySplitCheck =
+	BoundarySplitCheck { startX, startY, endX, endY, splitX, splitY, cutsInside ->
+		val chordsClear = field.segmentClears(startX, startY, splitX, splitY, minimumMargin) && field.segmentClears(splitX, splitY, endX, endY, minimumMargin)
+
+		chordsClear && (!cutsInside || !field.containsOpaquePixelCenter(doubleArrayOf(startX, startY, splitX, splitY, endX, endY)))
+	}
 
 /**
  * The flat point list handed to the triangulator, and which outline ring and position each outline
  * point came from.
  *
  * @param List<SampledRing> outline    The outline rings.
- * @param List<DoubleArray> innerRings The inner rings' points.
- * @param DoubleArray       lattice    The lattice points.
+ * @param List<InnerPolyline> innerRings The inner rings' points, closed or open.
+ * @param DoubleArray       lattice    The free points but the pins.
  * @param DoubleArray       pins       The pins.
  */
-private class MeshLayout(outline: List<SampledRing>, innerRings: List<DoubleArray>, lattice: DoubleArray, pins: DoubleArray) {
+private class MeshLayout(outline: List<SampledRing>, innerRings: List<InnerPolyline>, lattice: DoubleArray, pins: DoubleArray) {
 	/** Every point: outline rings, then inner rings, then the lattice, then the pins. */
 	val points: DoubleArray
 
 	/** Each outline ring as indices into [points]. */
 	val boundaries: List<IntArray>
 
-	/** Each inner ring as a closed polyline of indices into [points]. */
+	/** Each inner polyline as indices into [points], a closed one returning to its first point. */
 	val segments: List<IntArray>
 
 	/** The outline ring each point belongs to, or -1. */
@@ -117,7 +228,7 @@ private class MeshLayout(outline: List<SampledRing>, innerRings: List<DoubleArra
 	init {
 		val outlinePoints = outline.map { ring -> ring.points() }
 		outlinePointCount = outlinePoints.sumOf { ring -> ring.size / 2 }
-		val innerPointCount = innerRings.sumOf { ring -> ring.size / 2 }
+		val innerPointCount = innerRings.sumOf { ring -> ring.pointCount }
 		val totalCount = outlinePointCount + innerPointCount + lattice.size / 2 + pins.size / 2
 		points = DoubleArray(2 * totalCount)
 		ringOf = IntArray(totalCount) { -1 }
@@ -140,12 +251,12 @@ private class MeshLayout(outline: List<SampledRing>, innerRings: List<DoubleArra
 			next += count
 		}
 
-		for (ringPoints in innerRings) {
-			val count = ringPoints.size / 2
-			ringPoints.copyInto(points, 2 * next)
+		for (ring in innerRings) {
+			val count = ring.pointCount
+			ring.points.copyInto(points, 2 * next)
 			val start = next
-			// Closed: the polyline returns to its first point.
-			segmentList.add(IntArray(count + 1) { position -> start + position % count })
+			// A closed polyline returns to its first point.
+			segmentList.add(if (ring.closed) IntArray(count + 1) { position -> start + position % count } else IntArray(count) { position -> start + position })
 			next += count
 		}
 
@@ -250,17 +361,20 @@ private fun chordOf(layout: MeshLayout, start: Int, end: Int, outline: List<Samp
 }
 
 /**
- * Compacts the triangulation into a mesh and runs the structural checks.
+ * Compacts the refined triangulation into a mesh and runs the structural checks.
  *
- * @param MeshLayout    layout              The layout.
- * @param Triangulation result              The triangulation.
- * @param AlphaField    field               The field.
- * @param Double        minimumMargin       The clearance boundary edges must keep.
- * @param Int           densifiedChordCount Chords densified on the way.
+ * @param MeshLayout           layout              The layout.
+ * @param RefinedTriangulation refined             The triangulation, over the layout's points and any refinement added.
+ * @param AlphaField           field               The field.
+ * @param Double               minimumMargin       The clearance boundary edges must keep.
+ * @param Int                  densifiedChordCount Chords densified on the way.
  * @return AssembledMesh The mesh, or the failure.
  */
-private fun finish(layout: MeshLayout, result: Triangulation, field: AlphaField, minimumMargin: Double, densifiedChordCount: Int): AssembledMesh {
-	val pointCount = layout.points.size / 2
+private fun finish(layout: MeshLayout, refined: RefinedTriangulation, field: AlphaField, minimumMargin: Double, densifiedChordCount: Int): AssembledMesh {
+	val result = refined.triangulation
+	val points = refined.points
+	val refinement = refined.statistics
+	val pointCount = points.size / 2
 	val droppedInnerEdgeCount = result.rejectedConstraints.count { rejection -> rejection.kind == ConstraintKind.Segment }
 	val used = BooleanArray(pointCount)
 
@@ -282,13 +396,13 @@ private fun finish(layout: MeshLayout, result: Triangulation, field: AlphaField,
 
 	for (point in 0 until pointCount) {
 		if (used[point]) {
-			positions[2 * compacted[point]] = layout.points[2 * point].toFloat()
-			positions[2 * compacted[point] + 1] = layout.points[2 * point + 1].toFloat()
+			positions[2 * compacted[point]] = points[2 * point].toFloat()
+			positions[2 * compacted[point] + 1] = points[2 * point + 1].toFloat()
 		}
 	}
 
 	val triangles = IntArray(result.triangles.size) { entry -> compacted[result.triangles[entry]] }
-	val pinCount = pointCount - layout.firstPin
+	val pinCount = refined.inputPointCount - layout.firstPin
 	val pinVertices = IntArray(pinCount)
 	val pinCanonicals = HashMap<Int, Int>()
 	var sharedPinCount = 0
@@ -297,7 +411,7 @@ private fun finish(layout: MeshLayout, result: Triangulation, field: AlphaField,
 		val canonical = result.canonicalIndex[layout.firstPin + pin]
 
 		if (!used[canonical]) {
-			return AssembledMesh(null, "pin $pin is not a vertex of the mesh", densifiedChordCount, droppedInnerEdgeCount, 0, layout.outlinePointCount)
+			return AssembledMesh(null, "pin $pin is not a vertex of the mesh", densifiedChordCount, droppedInnerEdgeCount, 0, layout.outlinePointCount, refinement)
 		}
 
 		pinVertices[pin] = compacted[canonical]
@@ -312,10 +426,10 @@ private fun finish(layout: MeshLayout, result: Triangulation, field: AlphaField,
 	val clearanceFailure = boundaryClearanceFailure(mesh, field, minimumMargin)
 
 	if (clearanceFailure != null) {
-		return AssembledMesh(null, clearanceFailure, densifiedChordCount, droppedInnerEdgeCount, sharedPinCount, layout.outlinePointCount)
+		return AssembledMesh(null, clearanceFailure, densifiedChordCount, droppedInnerEdgeCount, sharedPinCount, layout.outlinePointCount, refinement)
 	}
 
-	return AssembledMesh(mesh, null, densifiedChordCount, droppedInnerEdgeCount, sharedPinCount, layout.outlinePointCount)
+	return AssembledMesh(mesh, null, densifiedChordCount, droppedInnerEdgeCount, sharedPinCount, layout.outlinePointCount, refinement)
 }
 
 /**

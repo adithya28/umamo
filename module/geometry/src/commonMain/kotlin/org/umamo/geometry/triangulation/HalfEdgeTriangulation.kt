@@ -1,6 +1,7 @@
 package org.umamo.geometry.triangulation
 
 import org.umamo.geometry.IntStack
+import org.umamo.geometry.packUndirectedPair
 import org.umamo.geometry.packVertexPair
 import org.umamo.geometry.pairFirst
 import org.umamo.geometry.pairSecond
@@ -23,15 +24,28 @@ import org.umamo.geometry.predicate.orient2d
  * and the two splits move them with the edges they describe, because those operations move half-edges
  * between slots; every caller that holds a slot across a mutation must re-find its edge.
  *
- * @property DoubleArray coordinates The caller's points, x0, y0, x1, y1, ...
- * @property Int         pointCount  The number of points, and the ghost vertex's index.
+ * Each triangle slot also carries a region flag ([regions]), inside or outside the boundary rings.  It
+ * stays false until a classification is adopted; from then on the splits hand each new triangle the
+ * flag of the triangle it was cut from, and a flip, which only ever crosses an unconstrained edge,
+ * never joins two regions.  That keeps the flags current through refinement without reclassifying.
+ *
+ * The store never grows.  It is sized for [vertexCapacity] vertices up front: the first [pointCount]
+ * are the caller's points, and [appendVertex] fills the reserved slots after them, so the ghost sits
+ * past every slot a vertex can take.
+ *
+ * @property DoubleArray coordinates    The points, x0, y0, x1, y1, ...; room for [vertexCapacity] of them when vertices will be appended.
+ * @property Int         vertexCapacity The number of vertex slots, and the ghost vertex's index.
  */
-internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val pointCount: Int) {
+internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, pointCount: Int, val vertexCapacity: Int = pointCount) {
+	/** The number of vertex slots in use: the caller's points, then every appended vertex. */
+	var pointCount: Int = pointCount
+		private set
+
 	/** The symbolic vertex every ghost triangle shares. */
-	val ghostVertex: Int = pointCount
+	val ghostVertex: Int = vertexCapacity
 
 	/** A sphere over k vertices plus the ghost has exactly 2k - 2 triangles, so this never grows. */
-	private val capacity: Int = 3 * maxOf(2 * pointCount, 4)
+	private val capacity: Int = 3 * maxOf(2 * vertexCapacity, 4)
 
 	/** The vertex each half-edge starts at. */
 	val origin: IntArray = IntArray(capacity)
@@ -46,7 +60,10 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	val boundaryCount: IntArray = IntArray(capacity)
 
 	/** One half-edge leaving each vertex, kept current through every mutation. */
-	val vertexHalfEdge: IntArray = IntArray(pointCount + 1) { NO_HALF_EDGE }
+	val vertexHalfEdge: IntArray = IntArray(vertexCapacity + 1) { NO_HALF_EDGE }
+
+	/** Per triangle slot, whether it lies inside the boundary rings; see the class notes. */
+	val regions: BooleanArray = BooleanArray(capacity / 3)
 
 	/** The predicates' buffers, owned by this run so the adaptive paths never allocate. */
 	private val scratch = PredicateScratch()
@@ -76,6 +93,13 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	fun pointY(vertex: Int): Double = coordinates[2 * vertex + 1]
 
 	/**
+	 * Every vertex slot in use, as coordinates: the caller's points, then the appended vertices.
+	 *
+	 * @return DoubleArray A copy, x0, y0, x1, y1, ...
+	 */
+	fun copyPoints(): DoubleArray = coordinates.copyOf(2 * pointCount)
+
+	/**
 	 * The next half-edge around the same triangle.
 	 *
 	 * @param Int halfEdge A half-edge.
@@ -98,6 +122,14 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	 * @return Int Its destination vertex.
 	 */
 	fun destination(halfEdge: Int): Int = origin[next(halfEdge)]
+
+	/**
+	 * A half-edge's edge as an undirected packed pair, the same key from either half.
+	 *
+	 * @param Int halfEdge The half-edge.
+	 * @return Long The key.
+	 */
+	fun edgeKey(halfEdge: Int): Long = packUndirectedPair(origin[halfEdge], destination(halfEdge))
 
 	/**
 	 * Whether a triangle has the ghost among its corners.
@@ -142,6 +174,29 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	fun orient(first: Int, second: Int, third: Int): Double = orient2d(pointX(first), pointY(first), pointX(second), pointY(second), pointX(third), pointY(third), scratch)
 
 	/**
+	 * The exact orientation of a point and two real vertices (see [orient2d]).
+	 *
+	 * @param Double x      The point's x.
+	 * @param Double y      The point's y.
+	 * @param Int    second The second vertex.
+	 * @param Int    third  The third vertex.
+	 * @return Double Positive when they turn counterclockwise with y up.
+	 */
+	fun orientAt(x: Double, y: Double, second: Int, third: Int): Double = orient2d(x, y, pointX(second), pointY(second), pointX(third), pointY(third), scratch)
+
+	/**
+	 * The exact orientation of two points and a real vertex (see [orient2d]).
+	 *
+	 * @param Double firstX  The first point's x.
+	 * @param Double firstY  The first point's y.
+	 * @param Double secondX The second point's x.
+	 * @param Double secondY The second point's y.
+	 * @param Int    vertex  The vertex.
+	 * @return Double Positive when the vertex lies left of first -> second, with y up.
+	 */
+	fun orientOf(firstX: Double, firstY: Double, secondX: Double, secondY: Double, vertex: Int): Double = orient2d(firstX, firstY, secondX, secondY, pointX(vertex), pointY(vertex), scratch)
+
+	/**
 	 * The exact incircle test of four real vertices (see [incircle]).
 	 *
 	 * @param Int first  The first circle vertex.
@@ -151,6 +206,50 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	 * @return Double Positive when [query] is strictly inside, for a positively oriented circle triple.
 	 */
 	fun inCircle(first: Int, second: Int, third: Int, query: Int): Double = incircle(pointX(first), pointY(first), pointX(second), pointY(second), pointX(third), pointY(third), pointX(query), pointY(query), scratch)
+
+	/**
+	 * Takes the next reserved vertex slot.  The vertex has coordinates but no edges until it is inserted.
+	 *
+	 * @param Double x The vertex's x.
+	 * @param Double y The vertex's y.
+	 * @return Int The new vertex's index.
+	 */
+	fun appendVertex(x: Double, y: Double): Int {
+		check(pointCount < vertexCapacity) { "every one of the $vertexCapacity vertex slots is taken" }
+		val vertex = pointCount
+		coordinates[2 * vertex] = x
+		coordinates[2 * vertex + 1] = y
+		pointCount++
+
+		return vertex
+	}
+
+	/** Gives back the last appended vertex slot; the vertex must never have been inserted. */
+	fun removeLastVertex() {
+		check(pointCount > 0 && vertexHalfEdge[pointCount - 1] == NO_HALF_EDGE) { "only an appended vertex that was never inserted can be removed" }
+		pointCount--
+	}
+
+	/**
+	 * Adopts a classification as the triangles' region flags.
+	 *
+	 * @param BooleanArray inside Per triangle slot, whether it lies inside.
+	 */
+	fun adoptRegions(inside: BooleanArray) {
+		for (triangle in 0 until triangleCount) {
+			regions[triangle] = inside[triangle]
+		}
+	}
+
+	/**
+	 * Sets one triangle's region flag.
+	 *
+	 * @param Int     triangle The triangle slot.
+	 * @param Boolean inside   Whether it lies inside.
+	 */
+	fun setRegion(triangle: Int, inside: Boolean) {
+		regions[triangle] = inside
+	}
 
 	/**
 	 * Builds the first real triangle and the three ghost triangles closing it into a sphere.
@@ -199,6 +298,8 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 
 		val second = createTriangle(vertexB, vertexC, vertex)
 		val third = createTriangle(vertexC, vertexA, vertex)
+		regions[second / 3] = regions[triangle]
+		regions[third / 3] = regions[triangle]
 		moveAttributes(edgeBc, second)
 		moveAttributes(edgeCa, third)
 		// The original slots keep (a, b) and become (b, p) and (p, a).
@@ -223,7 +324,7 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	/**
 	 * Splits the two triangles on an edge around a vertex lying on its open segment: (u, v, x) and
 	 * (v, u, y) become (u, p, x), (p, v, x), (v, p, y), and (p, u, y).  The two halves of the split
-	 * edge inherit its attributes.
+	 * edge inherit its attributes, and each side keeps its region.
 	 *
 	 * @param Int      halfEdge The half-edge u->v the vertex lies on.
 	 * @param Int      vertex   The vertex being inserted.
@@ -244,6 +345,8 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 
 		val besideV = createTriangle(vertex, vertexV, vertexX)
 		val besideU = createTriangle(vertex, vertexU, vertexY)
+		regions[besideV / 3] = regions[halfEdge / 3]
+		regions[besideU / 3] = regions[opposed / 3]
 		moveAttributes(firstNext, besideV + 1)
 		moveAttributes(secondNext, besideU + 1)
 		copyAttributes(halfEdge, besideV)
@@ -274,7 +377,8 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	/**
 	 * Flips an edge: triangles (u, v, x) and (v, u, y) become (x, y, v) and (y, x, u).  The half-edge
 	 * keeps its slot and now runs x->y; the four outer edges move between slots with their attributes,
-	 * and the new diagonal is unconstrained.  The caller guarantees the quad is strictly convex.
+	 * and the new diagonal is unconstrained.  The caller guarantees the quad is strictly convex.  Both
+	 * triangles lie in one region: a region changes only across a boundary edge, which is constrained.
 	 *
 	 * @param Int halfEdge The half-edge u->v to flip.
 	 */
@@ -282,6 +386,7 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 		val firstNext = next(halfEdge)
 		val firstPrevious = previous(halfEdge)
 		val opposed = twin[halfEdge]
+		check(regions[halfEdge / 3] == regions[opposed / 3]) { "the flip of half-edge $halfEdge would join two regions" }
 		val secondNext = next(opposed)
 		val secondPrevious = previous(opposed)
 		val vertexU = origin[halfEdge]
@@ -372,6 +477,83 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	}
 
 	/**
+	 * Sets an edge's attributes on both halves.
+	 *
+	 * @param Int     halfEdge      Either half of the edge.
+	 * @param Boolean isConstrained The constraint flag.
+	 * @param Int     ringCrossings The number of boundary rings running along it; nonzero only for a constraint.
+	 */
+	fun setEdgeAttributes(halfEdge: Int, isConstrained: Boolean, ringCrossings: Int) {
+		setAttributes(halfEdge, isConstrained, ringCrossings)
+		setAttributes(twin[halfEdge], isConstrained, ringCrossings)
+	}
+
+	/**
+	 * How a straight segment leaves a vertex: along an edge to a neighbor (the target, or a neighbor
+	 * lying exactly on the segment ahead), or through the interior of one real triangle around the
+	 * vertex.
+	 *
+	 * @param Int from The vertex.
+	 * @param Int to   The segment's far end; it needs coordinates, not edges.
+	 * @return Int The first crossed half-edge (origin right of the segment, destination left), -(neighbor + 1) when the segment runs along an edge to that neighbor, or [NO_EXIT] when it leaves through no real triangle.
+	 */
+	fun exitEdgeFrom(from: Int, to: Int): Int = exitEdgeToward(from, pointX(to), pointY(to))
+
+	/**
+	 * How a straight segment from a vertex toward a point leaves the vertex: along an edge to a
+	 * neighbor lying exactly on the segment ahead (the point itself, when it is a neighbor), or through
+	 * the interior of one real triangle around the vertex.  Neighbors on the segment are ordered exactly
+	 * (see [compareAlongLine]).
+	 *
+	 * @param Int    from The vertex.
+	 * @param Double toX  The segment's far end x.
+	 * @param Double toY  The segment's far end y.
+	 * @return Int The first crossed half-edge (origin right of the segment, destination left), -(neighbor + 1) when the segment runs along an edge to that neighbor, or [NO_EXIT] when it leaves through no real triangle.
+	 */
+	fun exitEdgeToward(from: Int, toX: Double, toY: Double): Int {
+		val fromX = pointX(from)
+		val fromY = pointY(from)
+		val first = vertexHalfEdge[from]
+		var spoke = first
+
+		do {
+			val neighbor = destination(spoke)
+
+			if (neighbor != ghostVertex) {
+				val neighborSide = orientOf(fromX, fromY, toX, toY, neighbor)
+
+				if (neighborSide == 0.0 && compareAlongLine(toX - fromX, toY - fromY, fromX, fromY, pointX(neighbor), pointY(neighbor)) > 0) {
+					return -(neighbor + 1)
+				}
+
+				val apex = origin[previous(spoke)]
+
+				if (apex != ghostVertex && neighborSide < 0.0 && orientOf(fromX, fromY, toX, toY, apex) > 0.0) {
+					return next(spoke)
+				}
+			}
+
+			spoke = twin[previous(spoke)]
+		} while (spoke != first)
+
+		return NO_EXIT
+	}
+
+	/**
+	 * The most steps a walk along a straight line takes before it gives up.
+	 *
+	 * @return Int The step limit.
+	 */
+	fun lineWalkStepLimit(): Int = 3 * triangleCount + 16
+
+	/**
+	 * The most steps a visibility walk toward a point takes before it falls back to a scan.
+	 *
+	 * @return Int The step limit.
+	 */
+	fun locateStepLimit(): Int = 4 * triangleCount + 16
+
+	/**
 	 * Every constrained edge once, as (low, high) vertex pairs in ascending order.
 	 *
 	 * @return IntArray Two vertex indices per constrained edge.
@@ -432,8 +614,8 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	/**
 	 * Checks every structural invariant, for tests and fuzzing: twins pair up and agree on their ends,
 	 * attributes match across twins (and a boundary edge is always constrained), each triangle has at
-	 * most one ghost corner, real triangles are positively oriented, and the vertex map points at
-	 * half-edges leaving each vertex.
+	 * most one ghost corner, real triangles are positively oriented, a ghost triangle is never inside,
+	 * and the vertex map points at half-edges leaving each vertex.
 	 */
 	fun validate() {
 		check(halfEdgeCount % 3 == 0) { "half-edge count $halfEdgeCount is not a multiple of three" }
@@ -463,10 +645,12 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 
 			if (ghostCorners == 0) {
 				check(orient(origin[base], origin[base + 1], origin[base + 2]) > 0.0) { "real triangle $triangle is not positively oriented" }
+			} else {
+				check(!regions[triangle]) { "ghost triangle $triangle is marked inside" }
 			}
 		}
 
-		for (vertex in 0..pointCount) {
+		for (vertex in 0..ghostVertex) {
 			val halfEdge = vertexHalfEdge[vertex]
 
 			if (halfEdge != NO_HALF_EDGE) {
@@ -485,7 +669,7 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	private fun isIncluded(triangle: Int, selected: BooleanArray?): Boolean = !isGhostTriangle(triangle) && (selected == null || selected[triangle])
 
 	/**
-	 * Appends a triangle with unlinked, unconstrained half-edges.
+	 * Appends a triangle with unlinked, unconstrained half-edges, outside every region.
 	 *
 	 * @param Int first  The first corner.
 	 * @param Int second The second corner.
@@ -505,6 +689,7 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 			setAttributes(base + offset, false, 0)
 		}
 
+		regions[base / 3] = false
 		halfEdgeCount += 3
 
 		return base
@@ -557,5 +742,8 @@ internal class HalfEdgeTriangulation(private val coordinates: DoubleArray, val p
 	companion object {
 		/** The empty slot of [twin] and [vertexHalfEdge]. */
 		const val NO_HALF_EDGE: Int = -1
+
+		/** [exitEdgeFrom]'s result when a segment leaves its vertex through no real triangle; below every -(neighbor + 1). */
+		const val NO_EXIT: Int = Int.MIN_VALUE
 	}
 }

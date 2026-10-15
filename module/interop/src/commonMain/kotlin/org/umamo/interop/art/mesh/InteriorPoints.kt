@@ -134,7 +134,7 @@ private fun hasRoomForSpacing(ring: DoubleArray, spacing: Double): Boolean {
  * @param Double      distance The distance.
  * @return Boolean True when some pin is that close.
  */
-private fun nearAnyPin(x: Double, y: Double, pins: DoubleArray, distance: Double): Boolean {
+internal fun nearAnyPin(x: Double, y: Double, pins: DoubleArray, distance: Double): Boolean {
 	val distanceSquared = distance * distance
 
 	for (pin in 0 until pins.size / 2) {
@@ -148,6 +148,56 @@ private fun nearAnyPin(x: Double, y: Double, pins: DoubleArray, distance: Double
 
 	return false
 }
+
+/**
+ * One inner polyline handed to the triangulation as a neutral segment: a whole inner ring, or what is
+ * left of one where a strand cut it.
+ *
+ * @property DoubleArray points The points, Float-rounded, x0, y0, ...
+ * @property Boolean     closed Whether the last point joins back to the first.
+ */
+internal class InnerPolyline(val points: DoubleArray, val closed: Boolean) {
+	/** The number of points. */
+	val pointCount: Int
+		get() = points.size / 2
+}
+
+/**
+ * Takes the inner rings out of the strands: a ring with no point in a strand stays whole; one that
+ * reaches into a strand loses the points there and is handed over as the open stretches between,
+ * each at least two points long.  A strand's rungs and centerline already span it, so an inner ring's
+ * points inside one would only crowd them.
+ *
+ * @param List<DoubleArray> rings   The inner rings' points.
+ * @param StrandPlacement   strands Where the strands lie.
+ * @return List<InnerPolyline> The polylines.
+ */
+internal fun pruneInsideStrands(rings: List<DoubleArray>, strands: StrandPlacement): List<InnerPolyline> {
+	val polylines = ArrayList<InnerPolyline>()
+
+	for (ring in rings) {
+		val count = ring.size / 2
+		val inside = BooleanArray(count) { point -> strands.contains(ring[2 * point], ring[2 * point + 1]) }
+		val firstInside = inside.indexOfFirst { it }
+
+		if (firstInside < 0) {
+			polylines.add(InnerPolyline(ring, closed = true))
+
+			continue
+		}
+
+		for (stretch in runsOf(inside, wanted = false, circular = true)) {
+			if (stretch.size >= MINIMUM_STRETCH_POINTS) {
+				polylines.add(InnerPolyline(DoubleArray(2 * stretch.size) { component -> ring[2 * stretch[component / 2] + component % 2] }, closed = false))
+			}
+		}
+	}
+
+	return polylines
+}
+
+/** An open stretch of inner ring with fewer points than this holds no edge. */
+private const val MINIMUM_STRETCH_POINTS: Int = 2
 
 /** An inner ring with fewer points than this cannot enclose anything. */
 private const val MINIMUM_INNER_RING_POINTS: Int = 3

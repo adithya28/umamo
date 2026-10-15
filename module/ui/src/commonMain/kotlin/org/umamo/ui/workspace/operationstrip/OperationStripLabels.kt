@@ -116,9 +116,19 @@ internal fun operatorParameterLabel(labelKey: String): String =
 
 		MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS -> stringResource(Res.string.mesh_options_minimum_outline_points)
 
+		MeshGenerationParameterKeys.MINIMUM_ANGLE -> stringResource(Res.string.mesh_options_minimum_angle)
+
 		MeshGenerationParameterKeys.VERTEX_BUDGET -> stringResource(Res.string.mesh_options_vertex_budget)
 
 		MeshGenerationParameterKeys.FILL_HOLES -> stringResource(Res.string.mesh_options_fill_holes)
+
+		MeshGenerationParameterKeys.STRAND_RUNGS -> stringResource(Res.string.mesh_options_strand_rungs)
+
+		MeshGenerationParameterKeys.STRAND_WIDTH -> stringResource(Res.string.mesh_options_strand_width)
+
+		MeshGenerationParameterKeys.DEFORMATION_TOLERANCE -> stringResource(Res.string.mesh_options_deformation_tolerance)
+
+		MeshGenerationParameterKeys.INTERIOR_THINNING_LIMIT -> stringResource(Res.string.mesh_options_interior_thinning_limit)
 
 		else -> choiceLabel(labelKey) ?: labelKey
 	}
@@ -178,8 +188,13 @@ internal fun operatorParameterDescriptionRes(labelKey: String): StringResource? 
 		MeshGenerationParameterKeys.INNER_MARGIN -> Res.string.mesh_options_inner_margin_description
 		MeshGenerationParameterKeys.MINIMUM_MARGIN -> Res.string.mesh_options_minimum_margin_description
 		MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS -> Res.string.mesh_options_minimum_outline_points_description
+		MeshGenerationParameterKeys.MINIMUM_ANGLE -> Res.string.mesh_options_minimum_angle_description
 		MeshGenerationParameterKeys.VERTEX_BUDGET -> Res.string.mesh_options_vertex_budget_description
 		MeshGenerationParameterKeys.FILL_HOLES -> Res.string.mesh_options_fill_holes_description
+		MeshGenerationParameterKeys.STRAND_RUNGS -> Res.string.mesh_options_strand_rungs_description
+		MeshGenerationParameterKeys.STRAND_WIDTH -> Res.string.mesh_options_strand_width_description
+		MeshGenerationParameterKeys.DEFORMATION_TOLERANCE -> Res.string.mesh_options_deformation_tolerance_description
+		MeshGenerationParameterKeys.INTERIOR_THINNING_LIMIT -> Res.string.mesh_options_interior_thinning_limit_description
 		else -> null
 	}
 
