@@ -24,7 +24,8 @@ import kotlin.math.sqrt
  * the art's edge a margin inside it, a hexagonal LATTICE fills the interior, PINS become vertices at
  * their exact positions, and the constrained triangulation of all of it, clipped to the outline, is
  * the mesh.  A pin's SURROUNDINGS (the old triangles around a glued vertex) count as art, so a pin off
- * the art is joined to it by the surface it had rather than meshed around on its own.
+ * the art is joined to it by the surface it had rather than meshed around on its own.  With a MINIMUM
+ * ANGLE the triangulation is refined toward it in what the vertex budget leaves (see assembleMesh).
  *
  * Filling holes meshes the art's silhouette instead.  The outline keeps only the rings nothing else
  * encloses, so no hole ring (and no ring of art inside a hole) ever reaches the triangulation and the
@@ -247,7 +248,8 @@ private fun assemble(
 	pinCount: Int,
 ): ArtMeshResult {
 	val refinedChordCount = points.outline.sumOf { ring -> ring.refinedChordCount }
-	val assembled = assembleMesh(points.outline, points.innerRings, points.lattice, points.pins, field, settings.minimumMargin)
+	val assembled = assembleMesh(points.outline, points.innerRings, points.lattice, points.pins, field, settings, cellSize)
+	val refinement = assembled.refinement
 
 	if (assembled.densifiedChordCount > 0) {
 		notices.add(ArtMeshNotice.OutlineDensified(assembled.densifiedChordCount))
@@ -259,6 +261,10 @@ private fun assemble(
 
 	if (assembled.sharedPinCount > 0) {
 		notices.add(ArtMeshNotice.PinsShareVertex(assembled.sharedPinCount))
+	}
+
+	if (refinement != null && refinement.stoppedByCap) {
+		notices.add(ArtMeshNotice.RefinementBudgetReached(refinement.underTargetTriangleCount))
 	}
 
 	val statistics =
@@ -274,6 +280,10 @@ private fun assemble(
 			innerVertexCount = points.innerRings.sumOf { ring -> ring.size / 2 },
 			latticeVertexCount = points.lattice.size / 2,
 			pinCount = pinCount,
+			steinerVertexCount = refinement?.addedPointCount ?: 0,
+			boundarySplitCount = refinement?.boundarySplitCount ?: 0,
+			underTargetCount = refinement?.underTargetTriangleCount ?: 0,
+			unfixableCount = refinement?.unfixableTriangleCount ?: 0,
 		)
 	val mesh = assembled.mesh
 

@@ -28,6 +28,20 @@ class MeshQualityTest {
 	}
 
 	@Test
+	fun theHistogramTakesAnyBucketWidth() {
+		// Smallest angles of 45 and atan(1 / 3), about 18.43 degrees.
+		val mesh = PlanarTriangleMesh(floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 4f, 0f, 4f, 1f), intArrayOf(0, 1, 2, 1, 3, 4), IntArray(0))
+		val quality = mesh.measureQuality(5.0)
+
+		assertEquals(12, quality.smallestAngleHistogram.size)
+		assertEquals(1, quality.smallestAngleHistogram[3])
+		assertEquals(1, quality.smallestAngleHistogram[9])
+		assertEquals(0, quality.countBelow(15.0))
+		assertEquals(1, quality.countBelow(20.0))
+		assertEquals(2, quality.countBelow(60.0))
+	}
+
+	@Test
 	fun degenerateTrianglesAreCountedApart() {
 		val mesh = PlanarTriangleMesh(floatArrayOf(0f, 0f, 1f, 0f, 2f, 0f, 0f, 1f), intArrayOf(0, 1, 2, 0, 1, 3), IntArray(0))
 		val quality = mesh.measureQuality()

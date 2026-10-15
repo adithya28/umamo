@@ -20,6 +20,7 @@ public enum class ArtMeshPreset(public val key: String, public val settings: Art
 			innerMargin = 8.0,
 			minimumMargin = 2.0,
 			minimumOutlinePoints = 6,
+			minimumAngle = 20.0,
 		),
 	),
 
@@ -34,6 +35,7 @@ public enum class ArtMeshPreset(public val key: String, public val settings: Art
 			innerMargin = 6.0,
 			minimumMargin = 1.5,
 			minimumOutlinePoints = 8,
+			minimumAngle = 24.0,
 		),
 	),
 
@@ -48,6 +50,7 @@ public enum class ArtMeshPreset(public val key: String, public val settings: Art
 			innerMargin = 12.0,
 			minimumMargin = 3.0,
 			minimumOutlinePoints = 4,
+			minimumAngle = 15.0,
 		),
 	),
 	;

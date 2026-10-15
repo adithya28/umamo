@@ -116,6 +116,8 @@ internal fun operatorParameterLabel(labelKey: String): String =
 
 		MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS -> stringResource(Res.string.mesh_options_minimum_outline_points)
 
+		MeshGenerationParameterKeys.MINIMUM_ANGLE -> stringResource(Res.string.mesh_options_minimum_angle)
+
 		MeshGenerationParameterKeys.VERTEX_BUDGET -> stringResource(Res.string.mesh_options_vertex_budget)
 
 		MeshGenerationParameterKeys.FILL_HOLES -> stringResource(Res.string.mesh_options_fill_holes)
@@ -178,6 +180,7 @@ internal fun operatorParameterDescriptionRes(labelKey: String): StringResource? 
 		MeshGenerationParameterKeys.INNER_MARGIN -> Res.string.mesh_options_inner_margin_description
 		MeshGenerationParameterKeys.MINIMUM_MARGIN -> Res.string.mesh_options_minimum_margin_description
 		MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS -> Res.string.mesh_options_minimum_outline_points_description
+		MeshGenerationParameterKeys.MINIMUM_ANGLE -> Res.string.mesh_options_minimum_angle_description
 		MeshGenerationParameterKeys.VERTEX_BUDGET -> Res.string.mesh_options_vertex_budget_description
 		MeshGenerationParameterKeys.FILL_HOLES -> Res.string.mesh_options_fill_holes_description
 		else -> null

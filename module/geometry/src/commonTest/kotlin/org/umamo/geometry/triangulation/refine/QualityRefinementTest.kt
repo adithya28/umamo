@@ -78,6 +78,17 @@ class QualityRefinementTest {
 	}
 
 	@Test
+	fun aZeroCapAddsNothingAndSaysTheTargetWasNotMet() {
+		val points = doubleArrayOf(0.0, 0.0, 100.0, 0.0, 100.0, 3.0, 0.0, 3.0)
+		val result = triangulateAndRefine(points, listOf(ringOf(0, 4)), options = optionsOf(30.0, maximumAddedPoints = 0))
+
+		assertEquals(0, result.statistics.addedPointCount)
+		assertEquals(2, result.statistics.underTargetTriangleCount)
+		assertTrue(result.statistics.stoppedByCap, "no room is a cap reached: ${result.statistics}")
+		assertTrue(!triangulateAndRefine(points, listOf(ringOf(0, 4)), options = optionsOf(0.0, maximumAddedPoints = 0)).statistics.stoppedByCap, "no target, nothing missed")
+	}
+
+	@Test
 	fun aCheckThatRefusesEverySplitLeavesTheDomainAsItWas() {
 		val points = doubleArrayOf(0.0, 0.0, 100.0, 0.0, 100.0, 3.0, 0.0, 3.0)
 		val options = optionsOf(30.0, boundarySplitCheck = { _, _, _, _, _, _, _ -> false })

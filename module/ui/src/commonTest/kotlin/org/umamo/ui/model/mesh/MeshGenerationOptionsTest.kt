@@ -6,6 +6,7 @@ import org.umamo.edit.choiceValue
 import org.umamo.edit.floatValue
 import org.umamo.edit.intValue
 import org.umamo.interop.art.mesh.ArtMeshPreset
+import org.umamo.interop.art.mesh.MAXIMUM_ART_MESH_MINIMUM_ANGLE
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -18,7 +19,7 @@ import kotlin.test.assertTrue
 class MeshGenerationOptionsTest {
 	@Test
 	fun optionsSurviveTheRows() {
-		val options = MeshGenerationOptions(ArtMeshPreset.Fine, ArtMeshPreset.Fine.settings.copy(vertexBudget = 2048, fillHoles = true))
+		val options = MeshGenerationOptions(ArtMeshPreset.Fine, ArtMeshPreset.Fine.settings.copy(vertexBudget = 2048, fillHoles = true, minimumAngle = 26.0))
 		val rows = meshGenerationParameters(options, minimumAlphaThreshold = 1)
 
 		assertEquals(options, meshGenerationOptionsOf(rows, MeshGenerationOptions.of(ArtMeshPreset.Standard), minimumAlphaThreshold = 1))
@@ -34,6 +35,7 @@ class MeshGenerationOptionsTest {
 				.replaced(MeshGenerationParameterKeys.MINIMUM_MARGIN) { row -> (row as OperatorParameter.FloatParameter).copy(value = 0.1f) }
 				.replaced(MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS) { row -> (row as OperatorParameter.IntParameter).copy(value = 1) }
 				.replaced(MeshGenerationParameterKeys.VERTEX_BUDGET) { row -> (row as OperatorParameter.IntParameter).copy(value = 99999) }
+				.replaced(MeshGenerationParameterKeys.MINIMUM_ANGLE) { row -> (row as OperatorParameter.FloatParameter).copy(value = 90f) }
 
 		val settings = meshGenerationOptionsOf(rows, MeshGenerationOptions.of(ArtMeshPreset.Standard), minimumAlphaThreshold = 40).settings
 
@@ -43,11 +45,12 @@ class MeshGenerationOptionsTest {
 		assertEquals(0.5, settings.minimumMargin)
 		assertEquals(3, settings.minimumOutlinePoints)
 		assertEquals(MAXIMUM_VERTEX_BUDGET, settings.vertexBudget)
+		assertEquals(MAXIMUM_ART_MESH_MINIMUM_ANGLE, settings.minimumAngle)
 	}
 
 	@Test
 	fun aPresetReseedsOnlyTheDensityRows() {
-		val custom = ArtMeshPreset.Standard.settings.copy(alphaThreshold = 50, vertexBudget = 2048, fillHoles = true, outlineSpacing = 99.0)
+		val custom = ArtMeshPreset.Standard.settings.copy(alphaThreshold = 50, vertexBudget = 2048, fillHoles = true, outlineSpacing = 99.0, minimumAngle = 5.0)
 		val rows = meshGenerationParameters(MeshGenerationOptions(ArtMeshPreset.Standard, custom), minimumAlphaThreshold = 1)
 
 		val reseeded = reseededMeshGenerationParameters(rows, ArtMeshPreset.Coarse, minimumAlphaThreshold = 1)
@@ -58,6 +61,7 @@ class MeshGenerationOptionsTest {
 		assertEquals(coarse.interiorSpacing.toFloat(), reseeded.floatValue(MeshGenerationParameterKeys.INTERIOR_SPACING, 0f))
 		assertEquals(coarse.outerMargin.toFloat(), reseeded.floatValue(MeshGenerationParameterKeys.OUTER_MARGIN, 0f))
 		assertEquals(coarse.minimumOutlinePoints, reseeded.intValue(MeshGenerationParameterKeys.MINIMUM_OUTLINE_POINTS, 0))
+		assertEquals(coarse.minimumAngle.toFloat(), reseeded.floatValue(MeshGenerationParameterKeys.MINIMUM_ANGLE, 0f), "the minimum angle is a density row")
 		assertEquals(50, reseeded.intValue(MeshGenerationParameterKeys.ALPHA_THRESHOLD, 0), "the threshold stays")
 		assertEquals(2048, reseeded.intValue(MeshGenerationParameterKeys.VERTEX_BUDGET, 0), "the budget stays")
 		assertTrue(reseeded.booleanValue(MeshGenerationParameterKeys.FILL_HOLES, false), "Fill Holes stays")
